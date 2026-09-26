@@ -18,6 +18,7 @@
 | Corrección de violaciones arquitectura CSS en 4 archivos `*-theme.js` | `096e82f` | 2026-09-24 |
 | Actualización de documentación (CHANGELOG, README, BRIEFING, ONBOARDING) | `b2b9038` | 2026-09-24 |
 | Creación de `BACKLOG.md` | `dba2f9e` | 2026-09-24 |
+| **S1 Security: gist-sync.js reemplaza fixedSalt por Web Crypto API PBKDF2 + AES-GCM** | `65f5f90` | 2026-09-26 |
 
 ---
 
@@ -65,7 +66,7 @@
 
 | # | Hallazgo | Archivo(s) | Detalle | Acción sugerida |
 |---|----------|------------|---------|-----------------|
-| S1 | **Contraseña fija en `gist-sync.js`** | `js/gist-sync.js:40,49` | `fixedSalt` hardcodeado para cifrar/descifrar tokens de GitHub Gist. Cualquiera que tenga el código fuente puede descifrar. | Reemplazar por sal aleatoria por key, o usar Web Crypto API con derive key desde contraseña del usuario. |
+| S1 | **Contraseña fija en `gist-sync.js`** | `js/gist-sync.js:40,49` | `fixedSalt` hardcodeado para cifrar/descifrar tokens de GitHub Gist. Cualquiera que tenga el código fuente puede descifrar. | ✅ **RESUELTO** (2026-09-26): Reemplazado por Web Crypto API PBKDF2 (200k iter) + AES-GCM + salt aleatorio por token. El password del usuario ya no se ignora. Old tokens invalidados. Commit: `65f5f90`. |
 | S2 | **`!important` en estilos inline** | `js/inventory-hub.js:1319-1323`, `js/wv-purchase-detail.js:74,335-343`, `js/wv-shop-ui.js:187`, `js/wv-tabs-skin.js:50-59` | Se inyectan estilos CSS con `!important` via `<style>` blocks. Rompen la capa de `theme-polish.css` y la receta visual unificada. | Mover estos estilos a `theme-polish.css` sin `!important` y usar especificidad para ganar. |
 
 ### 🟡 MEDIA prioridad — Arquitectura / Mantenibilidad

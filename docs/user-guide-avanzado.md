@@ -341,9 +341,15 @@ Un sistema opcional para **sincronizar tu configuración en la nube** usando un 
 
 ### ¿Cómo se usa?
 1. Generá un **token de GitHub** con permiso `gist` en https://github.com/settings/tokens
-2. En la Bóveda, clic en **Sincronizar** → pegá el token → **Guardar token**
-3. Usá **Subir configuración** para guardar tus datos en la nube
-4. En otro dispositivo, configurá el mismo token y usá **Sincronizar desde la nube**
+2. En la Bóveda, clic en **Sincronizar** → ingresá el token → creá una **contraseña maestra** (mínimo 8 caracteres) → **Guardar token**
+3. El token se cifra localmente con AES-GCM + PBKDF2 (200k iteraciones) usando tu contraseña maestra. **Esta contraseña NO se almacena ni envía a ningún lado.**
+4. En recargas de página, el token permanece cifrado. Para sincronizar, clic en **Desbloquear token** e ingresá tu contraseña maestra.
+5. Usá **Subir configuración** para guardar tus datos en la nube
+6. En otro dispositivo, configurá el mismo token + contraseña y usá **Sincronizar desde la nube**
+
+### ⚠️ Importante
+- **Sin tu contraseña maestra, el token no puede recuperarse.** No la compartas ni la pierdas.
+- Los tokens creados con versiones anteriores (cifrado obsoleto) deben re-ingresarse.
 
 ### ¿Para qué sirve?
 - Mantener tus configuraciones sincronizadas entre dispositivos

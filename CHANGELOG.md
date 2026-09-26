@@ -46,6 +46,19 @@ y el versionado **SemVer** (https://semver.org/).
   - **Validado por Code Reviewer**: ✅ APROBADO (task-fa0e4c29b938)
   - Commit: `94fb7a9`
 
+- **🔒 S1 Security: gist-sync.js reemplaza fixedSalt por Web Crypto API PBKDF2 + AES-GCM**:
+  - **Bug original**: `encryptToken(token, password)` IGNORABA el parámetro `password` y usaba `fixedSalt = 'gw2-vault-sync-2026'` hardcoded. Cualquiera con acceso al código fuente podía descifrar cualquier token de GitHub almacenado en localStorage en milisegundos.
+  - **Fix**: Migración de CryptoJS (CDN externa) → **Web Crypto API nativo** (built-in browser, cero dependencias externas).
+  - **Cifrado**: AES-GCM (256-bit, authenticated encryption) con clave derivada vía PBKDF2 (200,000 iteraciones, SHA-256) a partir del password del usuario + salt aleatorio de 16 bytes **único por token**.
+  - **Formato almacenado**: `"salt:iv:data"` (todo hex) — cada token tiene su propio salt, impidiendo rainbow table attacks.
+  - **Token no se descifra en init():** El token permanece cifrado en localStorage. Se requiere `unlockToken(password)` bajo demanda (cuando el usuario necesita sincronizar).
+  - **Backward compatibility**: Tokens en formato antiguo (CryptoJS/fixedSalt) son detectados y **inválidados** — el usuario debe reingresar su token + password. Mensaje de error claro.
+  - **UI**: Agregado campo de password `#ghPasswordInput` y sección de desbloqueo `#gistUnlockSection` con botón `#gistUnlockBtn` en el modal de sincronización.
+  - **Documentación**: `js/gist-sync.js` v1.1.0 — documentado el nuevo flujo de cifrado.
+  - **Nota**: CryptoJS CDN sigue activo para `accounts-panel.js` (import/export de cuentas). No se eliminó.
+  - **Code Reviewer**: Validación solicitada con timeout 60s — task timed out (bug de `session_id mismatch` conocido). Procedido con criterio técnico según AGENTS.md timeout rules.
+  - Commit: `65f5f90`
+
 ### Changed
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:

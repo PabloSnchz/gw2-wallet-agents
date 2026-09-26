@@ -1586,7 +1586,7 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 | `js/characters-theme.js` | **v1.0.1** | Tema visual de Personajes — **Solo border-left, elimina hover manual** |
 | `js/accounts-panel.js` | **v2.0.0** | Panel de Cuentas — **Rediseño "Profile Card" premium + tabla zebra** |
 | `js/settings-manager.js` | v1.0.2 | Sistema de Backup/Restaurar |
-| `js/gist-sync.js` | v1.0.0 | Sincronización con GitHub Gist |
+| `js/gist-sync.js` | v1.1.0 | Sincronización con GitHub Gist (AES-GCM + PBKDF2) |
 | `js/welcome-panel.js` | v1.4.0 | Pantalla de Bienvenida |
 | `js/raid-tracker.js` | v1.7.0 | Seguimiento de Raids Semanales |
 | `js/strike-tracker.js` | **v1.0.0** | **Seguimiento de Strike Missions (NUEVO v6.6.2)** |

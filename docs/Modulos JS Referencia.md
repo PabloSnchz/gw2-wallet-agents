@@ -1626,57 +1626,61 @@
 
 ---
 
-## 📄 `js/gist-sync.js` (v1.0.0)
+## 📄 `js/gist-sync.js` (v1.1.0)
 
-**Responsabilidad principal:** Sincronización con GitHub Gist. Permite subir y descargar la configuración de la app desde/ hacia un Gist privado en GitHub, usando un token personal con permisos 'gist'. El token se almacena cifrado en localStorage.
+**Responsabilidad principal:** Sincronización con GitHub Gist. Permite subir y descargar la configuración de la app desde/ hacia un Gist privado en GitHub, usando un token personal con permisos 'gist'. El token se almacena cifrado en localStorage con **AES-GCM + PBKDF2** (Web Crypto API nativa).
 
 **API pública expuesta:** `window.GistSync`
 
 **Métodos principales:**
-- `init()` — Inicializa el módulo
-- `setupToken(token, createGistIfNeeded)` — Configura token de GitHub
+- `init()` — Inicializa el módulo (carga gistId; NO decrypta token)
+- `setupToken(token, password, createGistIfNeeded)` — Configura token con password
+- `unlockToken(password)` — Desbloquea token cifrado bajo demanda
 - `uploadConfig()` — Sube la configuración al Gist
 - `downloadAndSync()` — Descarga y aplica la configuración
-- `getStatus()` — Obtiene estado de sincronización
+- `getStatus()` — Obtiene estado (hasToken, hasEncryptedToken, needsUnlock, hasGist)
 - `clearSync()` — Elimina configuración de sincronización
 - `verifyToken()` — Verifica validez del token
 
 **Dependencias:**
 - `window.SettingsManager.exportData()` — Exporta configuración
 - `window.SettingsManager.importFromData()` — Importa configuración
-- `CryptoJS` — Para cifrado/descifrado del token (requiere `crypto-js` global)
+- `window.crypto.subtle` (Web Crypto API) — Para cifrado/descifrado (built-in, no CDN)
 - `localStorage` — Para persistencia de token y Gist ID
 
 **Datos que consume:**
-- `localStorage:gh_token_encrypted` — Token de GitHub cifrado
+- `localStorage:gh_token_encrypted` — Token cifrado (formato "salt:iv:data" hex)
 - `localStorage:gh_gist_id` — ID del Gist
 - `https://api.github.com/user` — Verifica token
 - `https://api.github.com/gists` — Crea/obtiene/actualiza Gist
 
 **Datos que persiste:**
-- `gh_token_encrypted` — Token de GitHub cifrado
+- `gh_token_encrypted` — Token cifrado (AES-GCM + PBKDF2)
 - `gh_gist_id` — ID del Gist
 
 **Funciones clave:**
 
 | Función | Propósito | Parámetros importantes |
 |---------|-----------|----------------------|
-| `encryptToken(token, password)` | Cifra token de GitHub | `token`, `password` |
-| `decryptToken(encrypted)` | Descifra token de GitHub | `encrypted` |
-| `setupToken(token, createGistIfNeeded)` | Configura token y Gist | `token`, `createGistIfNeeded` |
+| `encryptToken(token, password)` | Cifra token (async) | `token`, `password` (PBKDF2 200k iter) |
+| `decryptToken(encryptedStr, password)` | Descifra token (async) | `encryptedStr`, `password` |
+| `saveToken(token, password)` | Guarda token cifrado (async) | `token`, `password` |
+| `loadToken(password)` | Carga token descifrado (async) | `password` |
+| `unlockToken(password)` | Desbloquea token bajo demanda (async) | `password` |
+| `setupToken(token, password, createGistIfNeeded)` | Configura token + Gist | `token`, `password`, `createGistIfNeeded` |
 | `uploadConfig()` | Sube configuración al Gist | — |
 | `downloadAndSync()` | Descarga y sincroniza | — |
 
 **Bugs o problemas detectados:**
-- ⚠️ `encryptToken` usa una contraseña fija (`gw2-vault-sync-2026`); la seguridad es limitada.
 - ⚠️ `downloadAndSync` usa `confirm()` para confirmar la sobrescritura; podría ser bloqueante.
 - ⚠️ `setupToken` verifica el token antes de guardarlo; si el token es válido pero no tiene permiso 'gist', falla.
+- ✅ **S1 RESUELTO**: `fixedSalt` hardcoded reemplazado por PBKDF2 + AES-GCM + salt aleatorio por token. Web Crypto API (built-in) reemplaza CryptoJS.
 
-**Versión real:** v1.0.0 (2026-03-28)
+**Versión real:** v1.1.0 (2026-09-26)
 
 **Discrepancias con la documentación:**
-- El header dice "El token se almacena cifrado en localStorage." — implementado correctamente.
-- El header dice "Requiere token personal de GitHub con permisos 'gist'." — verificado en `setupToken`.
+- El header dice "El token se almacena cifrado en localStorage." — implementado correctamente (AES-GCM + PBKDF2).
+- El header dice "requiere permisos 'gist'" — verificado en `setupToken`.
 
 ---
 
@@ -1993,7 +1997,7 @@
 - `theme-polish.css` define `.card` pero no todos los módulos la usan correctamente.
 
 ### 7. Problemas de seguridad
-- `gist-sync.js` usa una contraseña fija para cifrar el token de GitHub.
+- `gist-sync.js` — ✅ RESUELTO S1 (2026-09-26): reemplazado `fixedSalt` hardcoded por Web Crypto API PBKDF2 (200k iter) + AES-GCM + salt aleatorio por token. El password del usuario ya no se ignora.
 - `accounts-panel.js` usa `CryptoJS.AES` con la contraseña del usuario, lo cual es seguro, pero no hay validación de fuerza de contraseña.
 - El token de API de GW2 se almacena en localStorage en texto plano (en `gw2_keys`).
 
@@ -2046,7 +2050,7 @@
 | `js/converter-modal.js` | v1.0.0 | 2026-05-04 |
 | `js/accounts-panel.js` | v2.0.0 | 2026-05-03 |
 | `js/settings-manager.js` | v1.0.2 | 2026-03-28 |
-| `js/gist-sync.js` | v1.0.0 | 2026-03-28 |
+| `js/gist-sync.js` | v1.1.0 | 2026-09-26 |
 | `js/welcome-panel.js` | v1.4.0 | 2026-05-04 |
 | `js/raid-tracker.js` | v1.7.0 | 2026-04-23 |
 | `js/strike-tracker.js` | v1.0.0 | 2026-06-03 |
