@@ -8,8 +8,8 @@
 
 | Agente | Tarea | Estado | Última actualización |
 |--------|-------|--------|---------------------|
-| Principal | Merge de Proposición 1 (tracker legendarias) a agents/main | ✅ Completado | 17:57 |
-| Documentador | Documentar Proposición 1 en CHANGELOG.md + SESSION_LOG.md | En ejecución | 17:57 |
+| Principal | S1 Security: fix gist-sync.js (Web Crypto PBKDF2 + AES-GCM) | ✅ Completado | 18:20 |
+| Principal | Merge S1 fix a agents/main (6919631) | ✅ Completado | 18:20 |
 
 ## Tareas completadas hoy
 
@@ -25,14 +25,19 @@
 | 8 | Principal | Implementar tracker legendarias (feature branch) | ✅ Completado | 17:55 |
 | 9 | Principal | Merge a agents/main (commit 34c1e48) | ✅ Completado | 17:57 |
 | 10 | Principal | Actualizar TEAM_STATUS.md | ✅ Completado | 18:00 |
+| 11 | PO | Priorizar S1 Security antes que Mobile | ✅ Respondido | 18:10 |
+| 12 | Code Reviewer | Validar fix S1 Security | ⏱️ Timeout 60s (session_id mismatch bug) | 18:15 |
+| 13 | Principal | Fix S1: gist-sync.js Web Crypto PBKDF2 + AES-GCM | ✅ Completado (65f5f90) | 18:20 |
+| 14 | Principal | Merge S1 fix a agents/main (6919631) | ✅ Completado | 18:20 |
+| 15 | Documentador | Documentar Proposición 1 en CHANGELOG.md + ONBOARDING.md | ✅ Completado (fb7bcf6) | 17:45 |
 
 ## Pendientes para la próxima hora
 
-- Documentador: documentar Proposición 1 en CHANGELOG.md + ONBOARDING.md
-- Proposición 3 (Mobile Fase 1): CSS responsive — pendiente (prioridad PO #3)
+- Documentador: S1 Security (gist-sync.js) — update CHANGELOG.md / docs
+- Proposición 3 (Mobile Fase 1): CSS responsive — próxima prioridad
 - Hallazgo transversal: !important residual en achievements.js:682 + meta.js:625
 - Fase 2 storage.js: pendiente
-- S1: gist-sync.js (contraseña fija): pendiente
+- S2: contraseña fija en gist-sync.js → ✅ **RESUELTO**
 
 ## Alertas
 
@@ -53,5 +58,5 @@
 |------|--------|
 | 🟢 inventory-dashboard.js (glow + overflow + !important + clearTimeout) | ✅ **RESUELTO** (95b4136) |
 | 🔴 Fase 2 storage.js (migrar settings-manager.js) | Pendiente |
-| 🟡 S1: contraseña fija en gist-sync.js | Pendiente |
+| 🔴 S1: contraseña fija en gist-sync.js | ✅ **RESUELTO** (6919631) |
 | 🟡 !important residual: achievements.js:682, meta.js:625 | Documentado (no en scope actual)
