@@ -32,6 +32,7 @@ y el versionado **SemVer** (https://semver.org/).
   - Commit: `c1fcf8d`
 
 ### Changed
+- **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:
   - `theme-polish.css`: Nuevas clases `.wd-kpi-*` (4 KPIs de Wallet Dashboard) y `.id-kpi-*` (4 KPIs de Inventory Dashboard) con `border-left` semántico + `box-shadow` glow
   - `theme-polish.css`: Nuevas clases `.id-badge`, `.id-dd-item`, `.id-dd-opt`, `.id-grid`, `.id-skel` para dropdowns, grids y skeletons de Inventory Dashboard
