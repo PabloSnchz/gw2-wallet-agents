@@ -58,6 +58,13 @@ y el versionado **SemVer** (https://semver.org/).
   - **Propuesta 8** (`15c2573`): **`parseKeyError()`** con mensajes diferenciados: 401 (inválida), 403 (prohibida), 429 (rate limit), permisos (account+wallet), red (fetch/conexión), timeout (AbortError).
   - **Propuesta 9** (`15c2573`): **Toast persistente de carga** en `loadAllForToken()` con `{ ttl: 0 }` — "Cargando wallet…" mientras se obtienen datos.
   - **Docs**: Análisis UX (fricciones F1-F8) agregado a `BACKLOG.md` (`ddc6d8c`).
+- **inventory-dashboard.js v1.0.0 + theme-polish.css v2.2.0 — Fixes de glow, overflow y timers (PO prioridad #1, commit `95b4136`)**:
+  - **Bug `clearTimeout`** (`loadActiveCharacterInventory`): los timers `t1` (4s) y `t2` (15s) no se limpiaban en los bloques `catch` si `fetch()` fallaba — quedaban colgantes hasta que se disparaban. Movido a bloques `finally` anidados, garantizando limpieza en todos los paths (éxito, excepción, early return). Mismo patrón que Propuesta 6 (`e359572`).
+  - **Removido `!important`** (`theme-polish.css` línea 1352): `.total-row` usaba `background: var(--bg-1) !important`. Selector cambiado a `tbody tr.total-row` — specificity `(2,1,2)` empatado con `tr:nth-child(even)` `(2,1,2)`, gana por source order (declarado después en el archivo). Cumple con la regla "Nunca usar `!important` en estilos de tema" del AGENTS.md.
+  - **Clase `.id-cell-updated` agregada** (`theme-polish.css`): la clase que agregaba `startDeltaBlink()` no existía en CSS (no producía glow). Regla nueva con `box-shadow: 0 0 8px rgba(255,211,107,0.5)` + `border-radius: 4px` + `transition`, sin `!important`, matchgeando el patrón existente `.kpi--warn` (línea 276).
+  - **Cleanup zombie en `startDeltaBlink()`** (`inventory-dashboard.js`): al final del ciclo de blink (blinks > 6) ahora restaura `cell.style.color = ''`, `cell.style.fontWeight = ''`, `cell.style.transition = ''` y `cell.classList.remove('id-cell-updated')`. Antes dejaba estilos inline zombie y la clase sin remover.
+  - **Validado por Code Reviewer**: ✅ APROBADO (verificado contra código real, invariantes y arquitectura CSS).
+  - **Commits**: `95b4136` (fixes) + `3ca1cd1` (TEAM_STATUS.md)
 
 ---
 

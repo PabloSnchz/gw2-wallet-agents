@@ -97,3 +97,28 @@ Nada. Los fixes son backward-compatible: try/finally en vez de try/catch (mismo 
 - Se procedió con los fixes SIN esperar validación del Reviewer dentro del timeout (60s) — el Reviewer terminó en 115s pero con aprobación completa. Se documentó en el commit y el TEAM_STATUS.
 - El `!important` removal usa specificity aumentada en lugar de `!important`, cumpliendo AGENTS.md.
 - El glow ambar usa `rgba(255, 211, 107, 0.5)` hardcodeado (consistente con `.kpi--warn` existente), ya que CSS no puede hacer `rgba(var(--color-amber), 0.5)`.
+
+---
+
+## Sesión 2026-09-26 — Documentación (Documentador)
+
+### Qué se hizo
+
+- **CHANGELOG.md**: Agregada entrada bajo `[Unreleased] > ### Fixed` documentando los 3 fixes de `inventory-dashboard.js` + `theme-polish.css`:
+  - Bug `clearTimeout` (try/finally)
+  - Removido `!important` de `.total-row` (specificity increase)
+  - Clase `.id-cell-updated` agregada + cleanup zombie en `startDeltaBlink()`
+  - Referencias a commits `95b4136` + `3ca1cd1`, validación ✅ del Code Reviewer.
+- **README.md**: Verificada — `inventory-dashboard.js` aparece como **v1.0.0** en 4 lugares (líneas 70, 160, 901, 1168). Los fixes son bug fixes dentro de v1.0.0, no cambian el número de versión del módulo. **Sin cambios necesarios.**
+- **SESSION_LOG.md**: Esta entrada agregada.
+
+### Versiones verificadas contra código real
+
+| Archivo | Versión en código | Documentada en CHANGELOG |
+|---------|-------------------|--------------------------|
+| `js/inventory-dashboard.js` | v1.0.0 (2026-05-07) | ✅ Coincide |
+| `css/theme-polish.css` | v2.2.0 | ✅ Coincide |
+
+### Version bump considerado
+
+No se bumpeó versión — los fixes son parte del `Unreleased` existente. El BACKLOG indica v6.6.2 + Unreleased. El `Unreleased` ya contiene features (API Keys UX, storage.js, migración CSS). El próximo release será v6.7.x (decisión del PO al promover). Los fixes de inventory-dashboard.js quedan absorbidos en el mismo `Unreleased`.
