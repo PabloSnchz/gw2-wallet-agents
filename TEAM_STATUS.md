@@ -31,8 +31,9 @@
 
 ## Alertas
 
-- Arquitecto: `execute_shell_command` era enabled → DESHABILITADO
-  (causó aprobaciones accidentales al borrar template files). Solucionado.
+- Arquitecto: `execute_shell_command` reactivado (enabled: true) — solo
+  lectura. MCP mi-repo-boveda read-only. No se configuró driver_policy
+  (QwenPaw no soporta allowlist por comando); se confía en AGENTS.md.
 
 ## Propuestas del PO (PRE_BACKLOG.md)
 
