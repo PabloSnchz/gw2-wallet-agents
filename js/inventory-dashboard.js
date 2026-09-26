@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/inventory-dashboard.js — Dashboard de Inventario Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 1.0.0 (2026-05-07)
@@ -264,28 +264,30 @@
   }
 
   async function loadActiveCharacterInventory(token) {
+    var c1 = new AbortController();
+    var t1 = setTimeout(function() { c1.abort(); }, 4000);
     try {
-      var c1 = new AbortController();
-      var t1 = setTimeout(function() { c1.abort(); }, 4000);
       var charsResp = await fetch('https://api.guildwars2.com/v2/characters?access_token=' + token, { signal: c1.signal });
-      clearTimeout(t1);
       if (!charsResp.ok) return { name: null, bags: [] };
       var chars = await charsResp.json();
       if (!chars || !chars.length) return { name: null, bags: [] };
       var activeChar = chars[0];
+      var c2 = new AbortController();
+      var t2 = setTimeout(function() { c2.abort(); }, 15000);
       try {
-        var c2 = new AbortController();
-        var t2 = setTimeout(function() { c2.abort(); }, 15000);
         var invResp = await fetch('https://api.guildwars2.com/v2/characters/' + encodeURIComponent(activeChar) + '/inventory?access_token=' + token, { signal: c2.signal });
-        clearTimeout(t2);
         if (!invResp.ok) return { name: activeChar, bags: [] };
         var invData = await invResp.json();
         return { name: activeChar, bags: invData.bags || [] };
       } catch(e) {
         return { name: activeChar, bags: [] };
+      } finally {
+        clearTimeout(t2);
       }
     } catch(e) {
       return { name: null, bags: [] };
+    } finally {
+      clearTimeout(t1);
     }
   }
 
