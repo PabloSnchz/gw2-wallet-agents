@@ -1,4 +1,4 @@
-﻿/* ===========================================================================
+/* ===========================================================================
  * js/achievements.js — Logros enfocado en "próximo a completar"
  * Versión: 3.2.0 (2026-04-28)
  *  - Grid único de pendientes (sin completados, sin resumen duplicado)
@@ -49,6 +49,8 @@
     achIdToCat: new Map(),
     qRaw: '', qNorm: '', pct: 0.8, cat: '',
     rewardFilter: '',
+    legendaryCatId: '',
+    showLegendaryTracker: false,
     apDailyHist: 0,
     apPermanent: 0,
     apLegacyDelta: 0,
@@ -277,6 +279,127 @@
     }
   }
 
+  // ----------------------- Tracker de legendarias ---------------------------
+  // Keywords para identificar la categoría "Armas legendarias" en v2/achievements/categories.
+  // La API devuelve el nombre en el lang configurado (es por defecto).
+  var LEGENDARY_CATEGORY_KEYWORDS = ['legendaria', 'legendary', 'arma legendaria', 'legend'];
+
+  function discoverLegendaryCategory(){
+    var cats = state.categories || [];
+    for (var i = 0; i < cats.length; i++){
+      var name = norm(String(cats[i]?.name || ''));
+      if (LEGENDARY_CATEGORY_KEYWORDS.some(function(kw){ return name.indexOf(kw) >= 0; })) {
+        state.legendaryCatId = String(cats[i].id);
+        return;
+      }
+    }
+    // Fallback: ID 148 es "Legendary Weapon Achievements" en GW2 por defecto
+    state.legendaryCatId = '148';
+  }
+
+  function isLegendaryTrackerActive(){
+    return state.cat === state.legendaryCatId && !!state.legendaryCatId;
+  }
+
+  // Extrae los ítems-componente de una meta de logro legendario.
+  // En GW2, las achievements de armas legendarias recompensan ítems que son
+  // componentes de crafteo (Gift of ...). Esta función los filtra y cuenta.
+  function getLegendaryComponents(meta){
+    var rewards = Array.isArray(meta?.rewards) ? meta.rewards : [];
+    var components = [];
+    rewards.forEach(function(r){
+      if (r && r.type === 'Item' && r.id != null) {
+        var cached = _rewardCache[r.id];
+        components.push({
+          id: r.id,
+          name: cached ? cached.name : ('#'+ r.id),
+          icon: cached ? cached.icon : REWARD_FALLBACK['Item'],
+          count: typeof r.count === 'number' ? r.count : 1
+        });
+        if (!cached) loadRewardItemDetail(r.id); // prefetch nombre/icono
+      }
+    });
+    return components;
+  }
+
+  function countTotalComponents(allRows){
+    var total = 0;
+    allRows.forEach(function(x){
+      var comps = getLegendaryComponents(x.meta);
+      comps.forEach(function(c){ total += c.count; });
+    });
+    return total;
+  }
+
+  function injectLegendaryStyles(){
+    if (document.getElementById('ach-legendary-styles')) return;
+    var css = [
+      '.a-card--legendary{position:relative;overflow:visible}',
+      '.a-card--legendary .a-title{color:var(--color-amber);font-weight:700}',
+      '.ach-legendary-components{display:grid;gap:4px;margin-top:6px}',
+      '.ach-legendary-comp{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;background:var(--bg-0);border:1px solid var(--bd-1);border-radius:4px;font-size:0.72rem}',
+      '.ach-legendary-comp img{border-radius:3px;filter:brightness(0.9)}',
+      '.ach-legendary-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(255,211,107,0.15);border:1px solid rgba(255,211,107,0.4);border-radius:999px;font-size:0.7rem;color:var(--color-amber);font-weight:600}',
+      '@media (prefers-color-scheme: light){ .a-card--legendary .a-title{color:#a26a00} }'
+    ].join('');
+    var s = document.createElement('style'); s.id='ach-legendary-styles'; s.textContent=css;
+    document.head.appendChild(s);
+  }
+
+  function cardLegendaryTrackerHTML(meta, r, pr){
+    var iconUrl = meta?.icon || 'assets/icons/155059.png';
+    var icon = iconImg(iconUrl, 28, meta?.name || 'Logro', 'margin-right:8px;border-radius:4px;flex-shrink:0;');
+    var name = esc(meta?.name || ('#' + r.id));
+    var catBadge = categoryBadgeHTML(r.id);
+    var pctTxt = fmtPct(pr.pct);
+    var ratioTxt = pr.cur + '/' + pr.max;
+    var apTot = totalAP(meta);
+    var apGot = earnedAP(r, meta);
+    var wiki = wikiLinkHTML(meta);
+
+    // Componentes (ítems recompensa = componentes de crafteo)
+    var comps = getLegendaryComponents(meta);
+    var compHTML = comps.length ? (
+      '<div class="ach-legendary-components">' +
+        '<span class="ach-legendary-badge">⚠ Componentes</span>' +
+        comps.map(function(c){
+          return '<span class="ach-legendary-comp" title="'+esc(c.name)+'">' +
+            iconImg(c.icon, 18, c.name, 'margin-right:4px') +
+            '<span style="color:var(--tx-3);font-weight:500;">' + esc(c.name) + '</span>' +
+            (c.count > 1 ? (' <span style="color:var(--tx-3);">×'+c.count+'</span>') : '') +
+          '</span>';
+        }).join('') +
+      '</div>'
+    ) : '';
+
+    var apHtml = (apTot > 0)
+      ? '<span class="pill" title="Puntos de logro (ganados / posibles)">'+
+          '<span style="display:inline-flex;align-items:center;gap:6px;">'+
+            iconImg(ICON_AP_18, 18, 'AP', 'border-radius:3px')+
+            'AP: '+fmtInt(apGot)+' / '+fmtInt(apTot)+
+          '</span>'+
+        '</span>'
+      : '';
+
+    return (
+      '<article class="card a-card a-card--legendary" data-id="' + r.id + '" data-pct="' + Math.round(pr.pct * 100) + '">' +
+        '<div class="card__head a-head">' +
+          '<h3 class="card__title a-title">' + icon + name + '</h3>' +
+        '</div>' +
+        (catBadge ? ('<div class="card__desc a-desc">' + catBadge + '</div>') : '') +
+        (compHTML ? compHTML : '') +
+        '<div style="margin-top:auto;">' +
+          '<div class="card__meta a-meta">' +
+            '<span class="cats" style="font-size:0.72rem;">' + ratioTxt + '</span>' +
+            '<span class="a-actions">'+ (apHtml ? apHtml : '') + (wiki ? (' ' + wiki) : '') +'</span>' +
+          '</div>' +
+          '<div class="ach-progline"><span>Progreso</span><span>'+ pctTxt +'</span></div>' +
+          progressBarHTML(pr) +
+        '</div>' +
+      '</article>'
+    );
+  }
+
   // -------------------------- KPI visual de AP ------------------------------
   function injectKpiStyles(){
       if (document.getElementById('ach-kpi-styles')) return;
@@ -348,14 +471,14 @@
       // Insertarlo justo después del <h3>, dentro del panel-head
       h3.insertAdjacentElement('afterend', chip);
   }
-  function renderKpi(apPerm, apDaily, apLegacyDelta){
+  function renderKpi(apPerm, apDaily, apLegacyDelta, compCount){
       ensureKpiHeader();
       if (!el.kpiWrap) return;
       var permFinal = Number(apPerm||0) + Number(apLegacyDelta||0);
       var total = permFinal + Number(apDaily||0);
       var tipPerm = 'Permanente API'+(apLegacyDelta>0?(' + Legado '+fmtInt(apLegacyDelta)):'');
 
-      el.kpiWrap.innerHTML = [
+      var tiles = [
         '<div class="ach-kpi__tile" title="'+esc(tipPerm)+'">',
           '<a class="ach-kpi__icon" href="'+esc(ICON_AP_PAGE)+'" target="_blank" rel="noopener">'+iconImg(ICON_AP_PERM, 20, 'AP')+'</a>',
           '<span class="ach-kpi__lbl">Permanente</span>',
@@ -373,7 +496,20 @@
           '<span class="ach-kpi__lbl">Total</span>',
           '<span class="ach-kpi__num">'+fmtInt(total)+'</span>',
         '</div>'
-      ].join('');
+      ];
+
+      if (compCount > 0) {
+        tiles.push(
+          '<span class="ach-kpi__sep">⚠</span>',
+          '<div class="ach-kpi__tile--pot" title="Componentes de legendarias pendientes (ítems recompensa)">',
+            '<img src="assets/icons/155059.png" width="20" height="20" alt="Componentes" style="margin-right:6px;border-radius:4px">',
+            '<span class="ach-kpi__lbl">Componentes</span>',
+            '<span class="ach-kpi__num" style="color:var(--color-amber)">'+fmtInt(compCount)+'</span>',
+          '</div>'
+        );
+      }
+
+      el.kpiWrap.innerHTML = tiles.join('');
   }
 
   // ------------------------------- Render ----------------------------------
@@ -519,12 +655,23 @@
     });
     rows.sort(function(a,b){ return b.pr.pct - a.pr.pct; });
     rows = rows.slice(0, 60);
-    if (!rows.length) {
-      el.mainGrid.innerHTML = '<p class="muted">No hay logros que coincidan con los filtros.</p>';
+    if (isLegendaryTrackerActive()) {
+      injectLegendaryStyles();
+      if (!rows.length) {
+        el.mainGrid.innerHTML = '<p class="muted">No hay logros legendarios pendientes.</p>';
+      } else {
+        el.mainGrid.innerHTML = rows.map(function(x){ return cardLegendaryTrackerHTML(x.meta, x.r, x.pr); }).join('');
+      }
+      var compCount = countTotalComponents(rows);
+      renderKpi(state.apPermanent, state.apDailyHist, state.apLegacyDelta, compCount);
     } else {
-      el.mainGrid.innerHTML = rows.map(function(x){ return cardMainHTML(x.meta, x.r, x.pr); }).join('');
+      if (!rows.length) {
+        el.mainGrid.innerHTML = '<p class="muted">No hay logros que coincidan con los filtros.</p>';
+      } else {
+        el.mainGrid.innerHTML = rows.map(function(x){ return cardMainHTML(x.meta, x.r, x.pr); }).join('');
+      }
+      renderKpi(state.apPermanent, state.apDailyHist, state.apLegacyDelta);
     }
-    renderKpi(state.apPermanent, state.apDailyHist, state.apLegacyDelta);
     renderPotentialAP();
   }
 
@@ -768,6 +915,9 @@
     });
 
     var html = '<div class="ach-select-option" data-value="">Todas</div>';
+    if (state.legendaryCatId) {
+      html += '<div class="ach-select-option" data-value="' + esc(String(state.legendaryCatId)) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;color:var(--color-amber);font-weight:600;font-size:0.77rem;">⚠ Legendarias</div>';
+    }
     categories.forEach(function(c) {
       var icon = iconImg(c.icon, 16, c.name, 'margin-right:6px;border-radius:3px');
       html += '<div class="ach-select-option" data-value="' + esc(String(c.id)) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;color:var(--tx-3);font-size:0.75rem;">' + icon + esc(c.name || ('#' + c.id)) + '</div>';
@@ -921,6 +1071,7 @@
 
       await ensureCategories();
       if (mySeq !== _loadSeq || tokenAtStart !== getSelectedToken()) return;
+      discoverLegendaryCategory();
       fillCategoryDropdown();
       ensureAside();
 
