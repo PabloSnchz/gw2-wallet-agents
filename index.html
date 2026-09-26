@@ -854,6 +854,25 @@
           </p>
         </div>
 
+        <!-- Campo de password para cifrado local (AES-GCM + PBKDF2) -->
+        <div class="field" style="margin-bottom: 16px;">
+          <label for="ghPasswordInput">Contraseña maestra (para cifrar token)</label>
+          <input type="password" id="ghPasswordInput" placeholder="Mínimo 8 caracteres" autocomplete="off">
+          <p class="muted" style="font-size: 11px; margin-top: 4px;">
+            Se usa para derivar la clave de cifrado (PBKDF2 200k iter). <strong>No se almacena ni envía.</strong>
+          </p>
+        </div>
+
+        <!-- Sección de desbloqueo (se muestra cuando el token está cifrado pero no descifrado) -->
+        <div id="gistUnlockSection" class="field" style="margin-bottom: 16px; display: none;">
+          <label for="ghUnlockPassword">Desbloquear token guardado</label>
+          <input type="password" id="ghUnlockPassword" placeholder="Ingresá tu contraseña maestra" autocomplete="off" style="margin-bottom: 8px;">
+          <button id="gistUnlockBtn" class="btn btn--ghost" style="display: inline-flex; align-items: center; gap: 6px; width: 100%;">
+            <img src="assets/icons/Welcome/156108.png" width="16" height="16" alt="">
+            Desbloquear y sincronizar
+          </button>
+        </div>
+
         <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
           <button id="gistSaveTokenBtn" class="btn btn--accent" style="display: inline-flex; align-items: center; gap: 6px;">
             <img src="assets/icons/Welcome/156108.png" width="16" height="16" alt="">
@@ -1163,11 +1182,17 @@
       
       try {
         var status = await window.GistSync.getStatus();
+        var unlockSection = document.getElementById('gistUnlockSection');
+        if (unlockSection) {
+          unlockSection.style.display = status.needsUnlock ? 'block' : 'none';
+        }
         if (status.hasToken && status.hasGist && status.gistInfo && !status.gistInfo.error) {
           var date = new Date(status.gistInfo.updatedAt);
           statusSpan.innerHTML = '✅ Conectado con GitHub · Última sincronización: ' + date.toLocaleString();
         } else if (status.hasToken) {
           statusSpan.innerHTML = '⚠️ Token configurado, pero sin Gist. Subí tu configuración primero.';
+        } else if (status.needsUnlock) {
+          statusSpan.innerHTML = '🔓 Token cifrado. Ingresá tu contraseña maestra para desbloquear.';
         } else {
           statusSpan.innerHTML = '🔴 No configurado. Ingresá tu token de GitHub para comenzar.';
         }
@@ -1188,28 +1213,66 @@
       });
     }
     
-    // Guardar token
+    // Guardar token (con password para cifrado PBKDF2)
     var saveTokenBtn = document.getElementById('gistSaveTokenBtn');
     if (saveTokenBtn) {
       saveTokenBtn.addEventListener('click', async function() {
         var tokenInput = document.getElementById('ghTokenInput');
+        var passwordInput = document.getElementById('ghPasswordInput');
         var statusDiv = document.getElementById('gistActionStatus');
         var token = tokenInput.value.trim();
+        var password = passwordInput.value.trim();
         
         if (!token) {
           statusDiv.textContent = '⚠️ Ingresá un token de GitHub';
           statusDiv.style.color = '#ffd966';
           return;
         }
+        if (!password || password.length < 8) {
+          statusDiv.textContent = '⚠️ La contraseña maestra debe tener al menos 8 caracteres';
+          statusDiv.style.color = '#ffd966';
+          return;
+        }
         
-        statusDiv.textContent = '🔐 Verificando token...';
+        statusDiv.textContent = '🔐 Verificando token y cifrando...';
         statusDiv.style.color = '#ffd966';
         
         try {
-          var result = await window.GistSync.setupToken(token, true);
-          statusDiv.textContent = '✅ Token configurado correctamente. Gist creado/actualizado.';
+          var result = await window.GistSync.setupToken(token, password, true);
+          statusDiv.textContent = '✅ Token configurado y cifrado correctamente.';
           statusDiv.style.color = '#a7f3d0';
           tokenInput.value = '';
+          passwordInput.value = '';
+          updateGistStatus();
+        } catch (err) {
+          statusDiv.textContent = '❌ Error: ' + err.message;
+          statusDiv.style.color = '#f28b82';
+        }
+      });
+    }
+    
+    // Desbloquear token guardado (con password)
+    var unlockBtn = document.getElementById('gistUnlockBtn');
+    if (unlockBtn) {
+      unlockBtn.addEventListener('click', async function() {
+        var unlockInput = document.getElementById('ghUnlockPassword');
+        var statusDiv = document.getElementById('gistActionStatus');
+        var password = unlockInput.value.trim();
+        
+        if (!password) {
+          statusDiv.textContent = '⚠️ Ingresá tu contraseña maestra';
+          statusDiv.style.color = '#ffd966';
+          return;
+        }
+        
+        statusDiv.textContent = '🔓 Desbloqueando token...';
+        statusDiv.style.color = '#ffd966';
+        
+        try {
+          await window.GistSync.unlockToken(password);
+          statusDiv.textContent = '✅ Token desbloqueado. Ya podés sincronizar.';
+          statusDiv.style.color = '#a7f3d0';
+          unlockInput.value = '';
           updateGistStatus();
         } catch (err) {
           statusDiv.textContent = '❌ Error: ' + err.message;
