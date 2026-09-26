@@ -1348,12 +1348,14 @@ aside.col-side .panel-head img {
 #inventoryDashboardPanel #idTable tbody tr:nth-child(even):hover {
   background: var(--bg-2);
 }
-#inventoryDashboardPanel #idTable tbody tr.total-row {
+#inventoryDashboardPanel #idTable tbody tr.total-row,
+#inventoryDashboardPanel #idTable tbody tr.total-row:hover {
   background: var(--bg-1);
   border-top: 2px solid var(--acc-1);
   font-weight: 700;
 }
-#inventoryDashboardPanel #idTable tbody tr.total-row td {
+#inventoryDashboardPanel #idTable tbody tr.total-row td,
+#inventoryDashboardPanel #idTable tbody tr.total-row:hover td {
   padding-top: 12px;
   padding-bottom: 12px;
 }
@@ -1441,6 +1443,28 @@ aside.col-side .panel-head img {
   to { transform: rotate(360deg); }
 }
 
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* === Propuesta 8: inventory-hub hover rules (sin !important, specificity #inventoryDashboardPanel) === */
+#inventoryDashboardPanel .inv-rarity-chip:hover {
+  background: var(--bg-2);
+  border-color: var(--bd-2);
+}
+#inventoryDashboardPanel .inv-item-card:hover {
+  background: var(--bg-2);
+}
+#inventoryDashboardPanel .inv-section-header:hover {
+  background: var(--bg-2);
+}
+#inventoryDashboardPanel .inv-bank-slot:hover {
+  background: var(--bg-2);
+  border-color: var(--acc-1);
+  transform: scale(1.05);
+}
+
 /* === Propuesta 4: feedback visual en campo (patrón .kpi--ok/.kpi--bad) === */
 .field--ok {
   border-color: var(--color-green);
@@ -1456,3 +1480,39 @@ aside.col-side .panel-head img {
   color: var(--color-red);
 }
 .field--ok + .field-msg { color: var(--color-green); }
+
+/* === S2: wv-purchase-detail.js !important elimination (specificity #wvPDPanel) === */
+#wvPDPanel[hidden] { display: none; }
+#wvPDPanel .wvpd-green { color: var(--color-green); font-weight: 700; }
+#wvPDPanel .wvpd-red { color: var(--color-red); font-weight: 700; }
+#wvPDPanel .wvpd-acc--red { color: var(--color-red); font-weight: 800; }
+#wvPDPanel .wvpd-acc--yellow { color: var(--color-amber); font-weight: 800; }
+#wvPDPanel .wvpd-acc--green { color: var(--color-green); font-weight: 900; }
+#wvPDPanel .wvpd-li__delta--bad { color: var(--color-red); font-weight: 700; }
+#wvPDPanel .wvpd-li__delta--ok { color: var(--color-green); font-weight: 700; }
+
+/* === S2: wv-shop-ui.js !important elimination (specificity #wvShopToolbarHost) === */
+#wvShopToolbarHost .wvpd-iconbtn {
+  background: none; border: none; padding: 0; margin: 0 0 0 auto;
+  width: auto; height: auto; display: inline-flex;
+  align-items: center; justify-content: center; cursor: pointer;
+}
+#wvShopToolbarHost .wvpd-iconbtn img {
+  width: 40px; height: 40px; display: block;
+  border-radius: 8px; box-shadow: none; background: transparent;
+  pointer-events: none;
+}
+
+/* === S2: wv-tabs-skin.js !important elimination (specificity #wvPanel) === */
+#wvPanel .btn--wv-active {
+  background: var(--bg-2);
+  border-color: var(--bd-2);
+  box-shadow: 0 0 0 1px var(--bd-2) inset;
+}
+#wvPanel .wv-tab-pill,
+#wvPanel .tab-pill,
+#wvPanel .pill-tab {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}

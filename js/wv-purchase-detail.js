@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/wv-purchase-detail.js — Vista de Detalle de Compras (Wizard's Vault)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 1.13.1 (2026-04-05) — Estado online basado en last_modified
@@ -71,7 +71,7 @@
     var css = `
       /* ====== Purchase Detail skin ====== */
       #wvPDPanel.panel{ margin-top: 12px; }
-      #wvPDPanel[hidden]{ display:none !important; }
+      #wvPDPanel[hidden]{ display:none; }
       
       /* Animación de entrada */
       #wvPDPanel {
@@ -331,16 +331,8 @@
         opacity: 0.8;
       }
 
-      /* ====== Colores canónicos para PD ====== */
-      .wvpd-green{ color:var(--color-green) !important; font-weight:700; }
-      .wvpd-red{   color:var(--color-red) !important; font-weight:700; }
-      .wvpd-acc--red{ color:var(--color-red) !important; font-weight:800; }
-      .wvpd-acc--yellow{ color:var(--color-amber) !important; font-weight:800; }
-      .wvpd-acc--green{ color:var(--color-green) !important; font-weight:900; }
-
+      /* ====== Colores canónicos movidos a theme-polish.css (S2) ====== */
       /* Delta en Top cuentas */
-      .wvpd-li__delta--bad{ color:var(--color-red) !important; font-weight:700; }
-      .wvpd-li__delta--ok{  color:var(--color-green) !important; font-weight:700; }
       
       /* ====== Badges con hover ====== */
       .badge {
