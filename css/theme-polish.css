@@ -1348,12 +1348,12 @@ aside.col-side .panel-head img {
 #inventoryDashboardPanel #idTable tbody tr:nth-child(even):hover {
   background: var(--bg-2);
 }
-#inventoryDashboardPanel #idTable .total-row {
-  background: var(--bg-1) !important;
+#inventoryDashboardPanel #idTable tbody tr.total-row {
+  background: var(--bg-1);
   border-top: 2px solid var(--acc-1);
   font-weight: 700;
 }
-#inventoryDashboardPanel #idTable .total-row td {
+#inventoryDashboardPanel #idTable tbody tr.total-row td {
   padding-top: 12px;
   padding-bottom: 12px;
 }
@@ -1384,6 +1384,13 @@ aside.col-side .panel-head img {
   width: 100%;
   height: 300px;
   border-radius: 12px;
+}
+
+/* Glow para celdas con delta recién actualizado (inventory dashboard) */
+#inventoryDashboardPanel #idTable .id-cell-updated {
+  box-shadow: 0 0 8px rgba(255, 211, 107, 0.5);
+  border-radius: 4px;
+  transition: box-shadow 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 
 #inventoryDashboardPanel .id-set-btn {

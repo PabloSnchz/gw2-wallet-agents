@@ -468,8 +468,10 @@
       if (blinks > 6) {
         clearInterval(blinkInterval);
         if (cell && cell.isConnected) {
-          cell.style.color = 'var(--color-amber)';
-          cell.style.fontWeight = '700';
+          cell.style.color = '';
+          cell.style.fontWeight = '';
+          cell.style.transition = '';
+          cell.classList.remove('id-cell-updated');
           cell.__blinking = false;
         }
       } else {
