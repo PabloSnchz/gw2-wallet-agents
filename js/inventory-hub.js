@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/inventory-hub.js — Inventario y Personajes (Hub principal)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 1.3.1 (2026-05-03)
@@ -1316,12 +1316,7 @@
       style.id = 'inv-styles';
       style.textContent =
         '.inv-rarity-row{display:flex;gap:8px;overflow-x:auto;padding:4px 0;scrollbar-width:thin;}' +
-        '.inv-rarity-chip:hover{background:var(--bg-2)!important;border-color:var(--bd-2)!important;}' +
         '.inv-items-grid{display:grid;grid-template-columns:repeat(' + CONFIG.ITEMS_PER_ROW + ', 1fr);gap:6px;}' +
-        '.inv-item-card:hover{background:var(--bg-2)!important;}' +
-        '.inv-section-header:hover{background:var(--bg-2)!important;}' +
-        '.inv-bank-slot:hover{background:var(--bg-2)!important;border-color:var(--acc-1)!important;transform:scale(1.05);}' +
-        '@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
         '.inv-rarity-row::-webkit-scrollbar{height:4px;}' +
         '.inv-rarity-row::-webkit-scrollbar-track{background:var(--bg-0);border-radius:2px;}' +
         '.inv-rarity-row::-webkit-scrollbar-thumb{background:var(--bd-1);border-radius:2px;}';

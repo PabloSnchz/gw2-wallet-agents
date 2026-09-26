@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/wv-shop-ui.js — UI de la Tienda de Wizard's Vault
  * v1.0.2 (2026-05-02)
  *
@@ -180,13 +180,7 @@
     if (host.__wired && host.querySelector('.wv-shop-toolbar')) return;
     host.__wired = true;
 
-    // Inyectar estilos del botón PD si no existen
-    if (!document.getElementById('wvpd-hotfix-ui')) {
-      var styleEl = document.createElement('style');
-      styleEl.id = 'wvpd-hotfix-ui';
-      styleEl.textContent = '.wvpd-iconbtn{background:none!important;border:none!important;padding:0!important;margin:0 0 0 auto!important;width:auto!important;height:auto!important;display:inline-flex!important;align-items:center;justify-content:center;cursor:pointer}.wvpd-iconbtn img{width:40px!important;height:40px!important;display:block!important;border-radius:8px!important;box-shadow:none!important;background:transparent!important;pointer-events:none!important}.wvpd-iconbtn:hover img{filter:brightness(1.08)}';
-      document.head.appendChild(styleEl);
-    }
+    // Estilos del .wvpd-iconbtn movidos a theme-polish.css (S2)
 
     var legacyVis = st.legacyFilter || 'show';
     host.innerHTML = [
