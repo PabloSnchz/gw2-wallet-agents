@@ -1576,7 +1576,7 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 | `js/wv-objectives-dashboard.js` | **v1.0.0** | **Dashboard de Objetivos Multi-Cuenta — tabla comparativa, KPIs, countdown semanal** |
 | `js/wv-purchase-detail.js` | **v1.13.1** | Detalle de compras — **Fix estado online (data-token), ícono reloj local** |
 | `js/wv-tabs-skin.js` | v1.0.0 | Re-skin de tabs WV, consistente con rerenders |
-| `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns personalizados, AP potencial |
+| `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns personalizados, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
 | `js/meta.js` | **v3.4.0** | MetaEventos — **Rediseño cards estilo Raids, barra de progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español, limpieza de código (~90 líneas menos)** |
 | `js/sidebar-nav.js` | v1.2 | Router‑friendly + tokenchange + a11y |
 | `js/activities.js` | **v3.19.6** | Actividades — **Glow en íconos de Ecto** |
@@ -2872,6 +2872,13 @@ SIN defer (temas, al final):
   - 3 nuevos endpoints en api-gw2.js v2.13.0: getAccountBank, getAccountMaterials, getAccountLegendaryArmory
   - Sin localStorage adicional — solo caché en memoria con TTL
   - `characters.js` como subvista con botón "Volver al Inventario"
+- **Sep 2026:** **Tracker de componentes de legendarias en achievements.js** (Proposición 1, PO prioridad #2, Code Reviewer ✅):
+  - Integrado como filtro en el dropdown de categorías (no como widget separado)
+  - `discoverLegendaryCategory()` descubre la categoría dinámicamente desde `/v2/achievements/categories` (lang=es), fallback ID 148
+  - Reusa `getAchievementsMeta` + `getItemsMany` (via `loadRewardItemDetail`) — no nuevos endpoints
+  - CSS inyectado dentro del módulo (`injectLegendaryStyles()`) siguiendo patrón existente, sin `!important`
+  - Sin bump de versión: achievements.js sigue en v3.2.0 a pedido del PO
+  - Commit: `94fb7a9`
 
 ## 🎉 Estado actual del proyecto (v6.6.0)
 
@@ -2914,4 +2921,5 @@ SIN defer (temas, al final):
 - ✅ **Strike Tracker v1.0.0**: seguimiento de 15 strikes, grid 3 columnas, navegación integrada con Raids, badge LI sincronizado
 - ✅ **Migración estilos inline → CSS (Fase 1)**: `wallet-dashboard.js` y `inventory-dashboard.js` sin `.style.*`. Clases `.wd-*` y `.id-*` en `theme-polish.css` v2.2.0. Skill `migrar-estilos-inline` documentada.
 - ✅ **`storage.js` v1.0.1**: Centralización de localStorage. 38 reglas de prefijos, modo `copy`, fallback map. Commit `c1fcf8d`.
+- ✅ **Tracker de componentes legendarias en achievements.js (v3.2.0)**: Filtro "⚠ Legendarias" en dropdown de categorías, card view con ítems-componente, KPI de componentes. Proposición 1, PO prioridad #2, Code Reviewer ✅. Commit `94fb7a9`.
 ```

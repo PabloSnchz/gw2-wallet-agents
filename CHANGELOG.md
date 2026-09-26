@@ -31,6 +31,21 @@ y el versionado **SemVer** (https://semver.org/).
   - Idempotente y seguro en múltiples pestañas
   - Commit: `c1fcf8d`
 
+- **Tracker de componentes de legendarias en Logros (achievements.js v3.2.0, Proposición 1, PO prioridad #2, Code Reviewer ✅ aprobado)**:
+  - Filtro "⚠ Legendarias" en el dropdown de categorías de logros (después de "Todas")
+  - `discoverLegendaryCategory()` — descubre dinámicamente la categoría de armas legendarias desde `v2/achievements/categories` (lang=es) con keywords `['legendaria', 'legendary', 'arma legendaria', 'legend']`; fallback ID 148
+  - `isLegendaryTrackerActive()` — retorna `true` cuando la categoría activa coincide con `legendaryCatId`
+  - `cardLegendaryTrackerHTML(meta, r, pr)` — card view mejorada con ítems-componente (iconos, nombres, conteos), título en ámbar, barra de progreso
+  - `renderKpi()` — KPI tile de "Componentes" con contador total (`countTotalComponents`)
+  - `getLegendaryComponents(meta)` / `countTotalComponents(allRows)` — extrae ítems de recompensa (type=Item) usando `_rewardCache` + `loadRewardItemDetail` para nombres/iconos
+  - `injectLegendaryStyles()` — CSS inyectado para `.a-card--legendary`, `.ach-legendary-components`, `.ach-legendary-badge` (sin `!important`, specificity vía `#inventoryDashboardPanel`)
+  - `fillCategoryDropdown()` — opción "Legendarias" (⚠) agregada
+  - `loadAll()` — llama `discoverLegendaryCategory()` después de `ensureCategories()`
+  - APIs reutilizadas (no nuevas): `getAchievementsMeta`, `getItemsMany` (via `loadRewardItemDetail`)
+  - Invariantes verificadas: único canal `gn:tokenchange`, router orquesta, CSS 3 capas (estilos inyectados dentro del módulo como patrón existente de achievements.js)
+  - **Validado por Code Reviewer**: ✅ APROBADO (task-fa0e4c29b938)
+  - Commit: `94fb7a9`
+
 ### Changed
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:

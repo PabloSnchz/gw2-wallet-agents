@@ -13,7 +13,7 @@ Aplicación liviana para Guild Wars 2 que permite consultar:
 - 🪙 Wallet / Divisas de la cuenta
 - 🎭 MetaEventos con horarios, estado y "Hecho hoy"
 - 🪄 Cámara del Brujo Wizard's Vault (Objetivos y Tienda)
-- 🏆 Pantalla de Logros — Nueva vista completa
+- 🏆 Pantalla de Logros — Vista completa + Tracker de componentes legendarios
 - 💱 Conversor Gem ↔ Gold con tabs de Transacciones y Mercado
 - 🏡 Home Nodes — Todos los desbloqueables de Heredad con estado ✅/❌
 - 🕒 Barra de horarios unificada con iconos GW2 (Activities + Meta)
@@ -80,6 +80,27 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 **Regla de oro cumplida:** Ningún `*-theme.js` sobrescribe `border`, `boxShadow`, `borderRadius` ni `transition`. Solo `borderLeft` + `classList.add('card')`.
 
 **Herramienta de apoyo:** Skill `migrar-estilos-inline` con flujo de 5 fases (backup → analyze → CSS → JS → validate).
+
+---
+
+### ⚠ Tracker de componentes de legendarias en Logros (achievements.js v3.2.0, Proposición 1)
+
+**Nuevo filtro en el dropdown de categorías que muestra un tracker de componentes para armas legendarias.**
+
+| Característica | Descripción |
+|----------------|-------------|
+| **Filtro "⚠ Legendarias"** | Opción en el dropdown de categorías (después de "Todas"), activa el tracker |
+| **`discoverLegendaryCategory()`** | Descubre dinámicamente la categoría de armas legendarias desde `v2/achievements/categories` (lang=es) con keywords `['legendaria', 'legendary', 'arma legendaria', 'legend']`. Fallback: ID 148 |
+| **Card view mejorada** | `cardLegendaryTrackerHTML()` — muestra ítems-componente (iconos, nombres, conteos), título en ámbar, barra de progreso |
+| **KPI de Componentes** | `renderKpi()` — contador total de ítems-componente acumulados |
+| **Extracción de componentes** | `getLegendaryComponents(meta)` filtra rewards de tipo `Item`, usa `_rewardCache` + `loadRewardItemDetail` para nombres/iconos. `countTotalComponents()` suma los conteos |
+| **Estilos inyectados** | `injectLegendaryStyles()` — CSS para `.a-card--legendary`, `.ach-legendary-components`, `.ach-legendary-badge` (sin `!important`, specificity vía `#inventoryDashboardPanel`) |
+| **APIs reutilizadas** | No hay endpoints nuevos: `getAchievementsMeta` + `getItemsMany` (via `loadRewardItemDetail`) |
+| **Invariantes** | Único canal `gn:tokenchange`, router orquesta, CSS 3 capas (estilos inyectados dentro del módulo como patrón existente) |
+| **Validación** | Aprobado por Code Reviewer (task-fa0e4c29b938) |
+| **Commit** | `94fb7a9` |
+
+**Armonización visual:** Los componentes se muestran como badges ámbar (`--color-amber`) con barra de progreso, siguiendo la receta visual unificada del proyecto. El tracker está integrado como filtro dentro del dropdown de categorías de logros, reutilizando el pipeline existente — no es un widget separado.
 
 ---
 
@@ -921,6 +942,7 @@ Definí en `index.html` (antes de router.js):
 | `js/meta.js` | **v3.4.0** | MetaEventos. **Rediseño cards estilo Raids, barra progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español** |
 | `js/meta-theme.js` | **v1.4.2** | Tema visual de Meta. **Solo border-left** |
 | `js/wallet-theme.js` | **v1.3.1** | Tema visual de Cartera. **Glow en ícono + glow neutro para divisas sin color** |
+| `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
 | `js/achievements-theme.js` | **v1.1.1** | Tema visual de Logros. **Solo border-left** |
 | `js/app.js` | **v2.7.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
 | `css/theme-polish.css` | **v2.2.0** | **Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons** |

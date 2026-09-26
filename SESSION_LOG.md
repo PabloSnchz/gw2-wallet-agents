@@ -86,3 +86,48 @@
 | Documentador | Timeout | Documentación manual (CHANGELOG actualizado) |
 | PO | Dormido | 5 propuestas pendientes en PRE_BACKLOG.md |
 | Arquitecto | Pendiente | Auditó 95b4136, fix S2 aplicado |
+
+---
+
+## 📋 SESSION LOG — Documentación Tracker Legendario (Proposición 1)
+
+**Fecha:** 2026-09-26
+**Versión:** v6.6.2
+**Branch:** `main` (agents)
+**Remote push:** `agents` (desarrollo)
+
+---
+
+### Resumen de la sesión
+
+El Agente Principal notificó al Documentador que la feature "Tracker de componentes de legendarias" (Proposición 1, PO prioridad #2) había sido implementada y mergeada a `agents/main` (commit `94fb7a9`, merge `34c1e48`). El Documentador actualizó la documentación correspondiente.
+
+### Qué se hizo
+
+1. **Verificación de código**: confirmadas las funciones en `js/achievements.js` v3.2.0 — `discoverLegendaryCategory()`, `isLegendaryTrackerActive()`, `getLegendaryComponents()`, `countTotalComponents()`, `injectLegendaryStyles()`, `cardLegendaryTrackerHTML()`, `renderKpi()`, `fillCategoryDropdown()`. Versión confirmada en header del archivo (línea 2), sin bump a pedido del PO.
+2. **CHANGELOG.md**: agregada entrada bajo `[Unreleased]` > `### Added` con descripción completa del tracker legendario, APIs reutilizadas, invariantes verificadas, validación por Code Reviewer y commit de referencia (`94fb7a9`).
+3. **README.md**: actualizada la lista de features (`- 🏆 Pantalla de Logros — Vista completa + Tracker de componentes legendarios`), agregada sección de novedades bajo "Unreleased" con tabla de características, y agregada fila `achievements.js` en la tabla "Archivos clave (Unreleased)".
+4. **ONBOARDING.md** (docs/):
+   - Actualizada tabla de responsabilidades: `achievements.js` v3.2.0 incluye Tracker de componentes legendarios.
+   - Agregada entrada en "Historial de decisiones" (Sep 2026) documentando la integración como filtro, reutilización de APIs, estilos inyectados, y sin bump de versión.
+   - Agregado status en "Estado actual del proyecto" (✅ Tracker de componentes legendarias en achievements.js v3.2.0 productivo).
+5. **SESSION_LOG.md**: esta entrada.
+
+### Qué se rompió
+
+- **Nada roto**. Solo se modificaron archivos de documentación (`.md`).
+- **`.backup_ux_keys_flow/`**: directorio creado accidentalmente durante una sesión anterior, no relacionado con esta documentación. **Pendiente de borrado** (no afecta docs, no está commiteado).
+
+### Qué quedó pendiente
+
+1. **Promoción a producción**: los commits de Proposición 1 (`94fb7a9`, merge `34c1e48`) deben promoverse a `origin/main` (producción) con OK explícito del usuario.
+2. **Limpieza de `.backup_ux_keys_flow/`**: directorio no deseado en el working tree.
+3. **Fix S2 pendiente**: Code Reviewer validaba el Fix S2 en background (task-828a40ce899d). Confirmar resultado.
+4. **Achievements v3.3.0**: considerar bump de versión en próxima feature significativa (PO decidió no bumpear para la Proposición 1).
+
+### Decisiones del equipo
+
+1. **Integración como filtro, no como widget**: el tracker se integró en el dropdown de categorías existente, reutilizando el pipeline de filtrado de achievements.js.
+2. **Sin bump de versión**: a pedido del PO, `achievements.js` mantiene v3.2.0 (incremento de lógica interna sin cambios de API pública).
+3. **CSS inyectado dentro del módulo**: sigue el patrón existente de `achievements.js` (`injectKpiStyles`, `injectAsideStyles`). Sin `!important`, specificity vía `#inventoryDashboardPanel`.
+4. **Reutilización de APIs**: no se crearon nuevos endpoints. Se reusan `getAchievementsMeta` y `getItemsMany` (via `loadRewardItemDetail`).
