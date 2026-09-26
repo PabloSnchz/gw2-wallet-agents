@@ -1,10 +1,15 @@
-﻿/*!
+/*!
  * js/gist-sync.js — Sincronización con GitHub Gist
- * v1.0.0 (2026-03-28)
+ * v1.1.0 (2026-09-26)
  * 
  * Permite sincronizar la configuración de la app con un Gist privado en GitHub.
  * Requiere token personal de GitHub con permisos 'gist'.
- * El token se almacena cifrado en localStorage.
+ * El token se almacena cifrado en localStorage con AES-GCM + PBKDF2.
+ * 
+ * 🔒 Seguridad: El token se cifra con una clave derivada del password del
+ *    usuario + salt aleatorio (PBKDF2 200k iter). El token NO se descifra
+ *    en init() — se requiere unlockToken(password) bajo demanda.
+ *    Tokens con cifrado obsoleto (CryptoJS/fixedSalt) no son compatibles.
  */
 
 (function(root) {
@@ -27,27 +32,94 @@
   };
   
   // =======================================================================
-  // 1. CRIPTOGRAFÍA (para token)
+  // 1. CRIPTOGRAFÍA (para token) — Web Crypto API (built-in, no CDN)
   // =======================================================================
   
+  var PBKDF2_ITERATIONS = 200000;
+  
   /**
-   * Cifra el token antes de guardarlo
+   * Genera un salt aleatorio de 16 bytes (hex string)
    */
-  function encryptToken(token, password) {
-    // Usamos una contraseña fija + hash del token para cifrado simple
-    // En producción se podría pedir una contraseña al usuario
-    var fixedSalt = 'gw2-vault-sync-2026';
-    var encrypted = CryptoJS.AES.encrypt(token, fixedSalt).toString();
-    return encrypted;
+  function generateSalt() {
+    var bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(function(b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
   }
   
   /**
-   * Descifra el token guardado
+   * Convierte un ArrayBuffer a hex string
    */
-  function decryptToken(encrypted) {
-    var fixedSalt = 'gw2-vault-sync-2026';
-    var decrypted = CryptoJS.AES.decrypt(encrypted, fixedSalt).toString(CryptoJS.enc.Utf8);
-    return decrypted;
+  function buf2hex(buffer) {
+    var bytes = new Uint8Array(buffer);
+    return Array.from(bytes).map(function(b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+  }
+  
+  /**
+   * Convierte un hex string a Uint8Array
+   */
+  function hexToBytes(hex) {
+    var bytes = new Uint8Array(hex.length / 2);
+    for (var i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    return bytes;
+  }
+  
+  /**
+   * Deriva una clave AES-GCM desde el password del usuario + salt aleatorio
+   * usando PBKDF2 (200k iteraciones, SHA-256)
+   */
+  async function deriveKey(password, saltHex) {
+    var enc = new TextEncoder();
+    var saltBytes = hexToBytes(saltHex);
+    var keyMaterial = await crypto.subtle.importKey(
+      'raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    );
+  }
+  
+  /**
+   * Cifra el token antes de guardarlo usando AES-GCM + PBKDF2
+   * Formato almacenado: "salt:iv:data" (todo en hex)
+   */
+  async function encryptToken(token, password) {
+    var salt = generateSalt();
+    var key = await deriveKey(password, salt);
+    var enc = new TextEncoder();
+    var data = enc.encode(token);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv }, key, data
+    );
+    return salt + ':' + buf2hex(iv) + ':' + buf2hex(encrypted);
+  }
+  
+  /**
+   * Descifra el token guardado usando AES-GCM + PBKDF2
+   * Formato esperado: "salt:iv:data" (todo en hex)
+   * Tokens en formato antiguo (CryptoJS) lanzan error — deben re-ingresarse.
+   */
+  async function decryptToken(encryptedStr, password) {
+    var parts = encryptedStr.split(':');
+    if (parts.length !== 3) {
+      // Formato antiguo (CryptoJS con fixedSalt) — no se puede descifrar con seguridad
+      throw new Error('Token con cifrado obsoleto. Por favor, reingresá el token.');
+    }
+    var salt = parts[0];
+    var iv = hexToBytes(parts[1]);
+    var encrypted = hexToBytes(parts[2]);
+    var key = await deriveKey(password, salt);
+    var decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv }, key, encrypted
+    );
+    return new TextDecoder().decode(decrypted);
   }
   
   // =======================================================================
@@ -55,11 +127,11 @@
   // =======================================================================
   
   /**
-   * Guarda el token cifrado en localStorage
+   * Guarda el token cifrado en localStorage (requiere password del usuario)
    */
-  function saveToken(token) {
+  async function saveToken(token, password) {
     try {
-      var encrypted = encryptToken(token);
+      var encrypted = await encryptToken(token, password);
       localStorage.setItem(CONFIG.STORAGE_TOKEN_KEY, encrypted);
       state.token = token;
       console.log(LOG, 'Token guardado correctamente');
@@ -71,19 +143,34 @@
   }
   
   /**
-   * Recupera el token desde localStorage
+   * Recupera el token desde localStorage (requiere password del usuario)
    */
-  function loadToken() {
+  async function loadToken(password) {
     try {
       var encrypted = localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY);
       if (encrypted) {
-        state.token = decryptToken(encrypted);
+        state.token = await decryptToken(encrypted, password);
         return state.token;
       }
     } catch (e) {
       console.warn(LOG, 'Error cargando token:', e);
+      throw e;
     }
     return null;
+  }
+  
+  /**
+   * Desbloquea el token almacenado usando el password del usuario
+   * (token se descifra bajo demanda, NO en init())
+   */
+  async function unlockToken(password) {
+    var encrypted = localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY);
+    if (!encrypted) {
+      throw new Error('No hay token guardado');
+    }
+    var token = await decryptToken(encrypted, password);
+    state.token = token;
+    return true;
   }
   
   /**
@@ -235,26 +322,28 @@
   // =======================================================================
   
   /**
-   * Inicializa el módulo (carga token guardado)
+   * Inicializa el módulo (carga gistId, NO decrypta token — se hace bajo demanda)
    */
   function init() {
-    var savedToken = loadToken();
     var savedGistId = localStorage.getItem(CONFIG.STORAGE_GIST_ID_KEY);
+    var hasEncrypted = !!localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY);
     
-    if (savedToken) {
-      state.token = savedToken;
+    if (hasEncrypted) {
       state.gistId = savedGistId;
-      console.log(LOG, 'Módulo inicializado con token existente');
-    } else {
+      console.log(LOG, 'Módulo inicializado (token en espera de desbloqueo)');
+    } else if (savedGistId) {
+      state.gistId = savedGistId;
       console.log(LOG, 'Módulo inicializado (sin token)');
+    } else {
+      console.log(LOG, 'Módulo inicializado (limpio)');
     }
     state.initialized = true;
   }
   
   /**
-   * Configura el token y opcionalmente crea un Gist
+   * Configura el token y opcionalmente crea un Gist (requiere password)
    */
-  async function setupToken(token, createGistIfNeeded = true) {
+  async function setupToken(token, password, createGistIfNeeded = true) {
     // Verificar token
     state.token = token;
     var isValid = await verifyToken();
@@ -264,8 +353,8 @@
       throw new Error('Token inválido. Verificá que tenga permisos "gist".');
     }
     
-    // Guardar token
-    saveToken(token);
+    // Guardar token cifrado (con password del usuario)
+    await saveToken(token, password);
     
     // Buscar o crear Gist
     if (createGistIfNeeded) {
@@ -377,7 +466,9 @@
    */
   async function getStatus() {
     var hasToken = !!state.token;
+    var hasEncrypted = !!localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY);
     var hasGistId = !!(state.gistId || localStorage.getItem(CONFIG.STORAGE_GIST_ID_KEY));
+    var needsUnlock = hasEncrypted && !hasToken;
     var gistInfo = null;
     
     if (hasToken && hasGistId) {
@@ -396,6 +487,8 @@
     
     return {
       hasToken: hasToken,
+      hasEncryptedToken: hasEncrypted,
+      needsUnlock: needsUnlock,
       hasGist: hasGistId,
       gistInfo: gistInfo,
       tokenConfigured: hasToken
@@ -417,6 +510,7 @@
   var GistSync = {
     init: init,
     setupToken: setupToken,
+    unlockToken: unlockToken,
     uploadConfig: uploadConfig,
     downloadAndSync: downloadAndSync,
     getStatus: getStatus,
@@ -425,7 +519,9 @@
     _debug: function() {
       return {
         hasToken: !!state.token,
+        hasEncryptedToken: !!localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY),
         hasGistId: !!state.gistId,
+        needsUnlock: !!localStorage.getItem(CONFIG.STORAGE_TOKEN_KEY) && !state.token,
         initialized: state.initialized
       };
     }
