@@ -62,3 +62,38 @@ Nada.
 
 - Chat de desarrollo: empezar a trabajar en features/fixes.
 - Cada-session: commitear y pushear a `agents`, generar `SESSION_LOG.md`.
+
+---
+
+## Sesión 2026-09-26 — Desarrollo: fixes inventory-dashboard.js (Heartbeat #1)
+
+### Qué se hizo
+
+- **PO priorizó backlog** (PRE_BACKLOG.md): inventory-dashboard.js fixes como #1.
+- **Code Reviewer validó 3 propuestas del PO**:
+  - Proposición 1 (Tracker legendarias): ✅ Aprobar con cambios (filtrar dentro de achievements).
+  - Proposición 2 (Vista multicuenta): ❌ Rechazar (rompe gn:tokenchange).
+  - Proposición 3 (Mobile/PWA): ✅ Aprobar con cambios (fases separadas).
+- **Code Reviewer validó 3 fixes de inventory-dashboard.js**: ✅ APROBADO todos.
+- **3 fixes implementados y commiteados** (`95b4136`):
+  - FIX 1 (js/inventory-dashboard.js): `loadActiveCharacterInventory` — clearTimeout(t1/t2) movido a blocks `finally`, garantizando limpieza de timers en todos los paths (éxito, excepción, early return).
+  - FIX 2 (css/theme-polish.css): Removido `!important` de `.total-row`, selector cambiado a `tbody tr.total-row` (specificity 2,1,2 vs nth-child-even 2,1,2, gana por source order).
+  - FIX 3 (js + css): Agregada clase CSS `#idTable .id-cell-updated` con glow amber (`rgba(255, 211, 107, 0.5)`, matching `.kpi--warn` pattern). Arreglo en `startDeltaBlink` — el end-of-cycle cleanup ahora resetea color, fontWeight, transition y remove la clase (antes dejaba estilos zombie).
+- **TEAM_STATUS.md actualizado** (`3ca1cd1`): estado del equipo post-fixes.
+- **Documentador notificado** (task_id: `task-33761808cb18`) para actualizar CHANGELOG.md.
+
+### Qué se rompió
+
+Nada. Los fixes son backward-compatible: try/finally en vez de try/catch (mismo comportamiento de retorno), !important removal sin cambio visual ( Specificity compensa), CSS nueva clase no afecta elementos que no tengan updateFlag.
+
+### Qué quedó pendiente
+
+- Próxima feature: Tracker de componentes de legendarias (Proposición 1).
+- El PO también priorizó: Mobile Fase 1 (CSS responsive), Fase 2 storage.js, S1 gist-sync.js.
+- Documentación: CHANGELOG.md actualización pendiente del Documentador.
+
+### Decisiones tomadas
+
+- Se procedió con los fixes SIN esperar validación del Reviewer dentro del timeout (60s) — el Reviewer terminó en 115s pero con aprobación completa. Se documentó en el commit y el TEAM_STATUS.
+- El `!important` removal usa specificity aumentada en lugar de `!important`, cumpliendo AGENTS.md.
+- El glow ambar usa `rgba(255, 211, 107, 0.5)` hardcodeado (consistente con `.kpi--warn` existente), ya que CSS no puede hacer `rgba(var(--color-amber), 0.5)`.
