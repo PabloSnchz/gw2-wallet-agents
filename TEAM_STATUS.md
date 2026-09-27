@@ -2,15 +2,16 @@
 
 > Estado del equipo de agentes. Se actualiza con cada Heartbeat
 > del Principal (cada 30 min).
-> Última actualización: 2026-09-27 18:30 UTC
+> Última actualización: 2026-09-27 18:45 UTC
 
 ## Tareas en curso
 
 | Agente | Tarea | Estado | Última actualización |
 |--------|-------|--------|---------------------|
-| Principal | Mobile Fase 1: CSS responsive + fix selectores corruptos | ✅ Completado (16b9dff, branch feature/mobile-responsive-phase1) | 18:30 |
-| Code-Reviewer | Validar Mobile Fase 1 (PR feature/mobile-responsive-phase1) | ⏱️ En flight (task-03cf82) | 18:30 |
-| PO | Consulta backlog — priorizar siguiente feature | ⏱️ En flight (task-f7db11) | 18:30 |
+| Principal | Mobile Fase 1: CSS responsive + fix selectores corruptos | ✅ Completado (1abd098) | 18:42 |
+| Code-Reviewer | Validar Mobile Fase 1 | ✅ APROBADO CON CAMBIOS (dimensiones → theme-polish.css) | 18:40 |
+| PO | Consulta backlog — priorizar siguiente feature | ✅ 8 propuestas consolidadas | 18:35 |
+| Principal | Developer docs (Idea 8, PO prioridad 🥈) | 🔄 En progreso | 18:45 |
 
 ## Tareas completadas hoy
 
@@ -32,7 +33,10 @@
 | 14 | Principal | Merge S1 fix a agents/main (6919631) | ✅ Completado | 18:20 |
 | 15 | Documentador | Documentar Proposición 1 en CHANGELOG.md + ONBOARDING.md | ✅ Completado (fb7bcf6) | 17:45 |
 | 16 | Principal | Mobile Fase 1: fix selectores corruptos + breakpoints CSS (900/768/480px) | ✅ Completado (16b9dff) | 18:30 |
-| 17 | Principal | Consulta PO + envío Mobile Fase 1 a Reviewer | ⏱️ En flight | 18:30 |
+| 17 | Principal | Mobile Fase 1: fix selectores corruptos + breakpoints CSS (900/768/480px) | ✅ Completado (16b9dff) | 18:30 |
+| 18 | Code-Reviewer | Validar Mobile Fase 1 | ✅ APROBADO CON CAMBIOS | 18:40 |
+| 19 | Principal | Aplicar cambios Reviewer (dimensiones → theme-polish.css) | ✅ Completado (1abd098) | 18:42 |
+| 20 | Principal | Iniciar Developer docs (Idea 8) | 🔄 En progreso | 18:45 |
 
 ## Pendientes para la próxima hora
 
@@ -53,7 +57,7 @@
 |---|-----------|-------------|---------------------|--------|
 | 1 | Tracker de componentes de legendarias | 🔴 Alta | ✅ Aprobar con cambios (filtrar dentro de achievements) | ✅ **IMPLEMENTADA** — merge a main (34c1e48) |
 | 2 | Vista consolidada multicuenta | 🔴 Alta | ❌ Rechazar (rompe gn:tokenchange) | Descartada |
-| 3 | Mobile companion / PWA | 🟡 Media | ✅ Aprobar con cambios (Fase 1: CSS) | Pendiente |
+| 3 | Mobile companion / PWA | 🟡 Media | ✅ Aprobar con cambios (Fase 1: CSS) | ✅ **IMPLEMENTADA** — Mobile Fase 1 (1abd098) |
 | 10 | !important cleanup (S2) — Arquitecto audit | 🟢 Fácil | ✅ Implementado por Arquitecto (6065d8c) | ✅ Mergeado |
 
 ## Bugs del BACKLOG
