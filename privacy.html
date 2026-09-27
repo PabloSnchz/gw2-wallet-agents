@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidad — Bóveda del Gato Negro</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg-0,#0a0c14);color:var(--tx-1,#c8d0e6);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6}
+  :root{
+    --bg-0:#0a0c14;--bg-1:#121620;--bd-1:rgba(255,255,255,.08);--tx-1:#c8d0e6;--tx-2:#9aa8c0;
+    --color-accent:#56a8d8;--color-blue:#56a8d8;--color-green:#6ad992;
+  }
+  .container{max-width:880px;margin:0 auto;padding:32px 20px}
+  h1{font-size:2em;margin-bottom:8px;background:linear-gradient(135deg,var(--color-blue),#7aa9d8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .meta{color:var(--tx-2);font-size:.85rem;margin-bottom:20px}
+  h2{color:var(--color-blue);font-size:1.3em;margin:24px 0 12px}
+  h3{color:var(--tx-1);font-size:1.05em;margin:16px 0 8px}
+  p,li{margin-bottom:12px;color:var(--tx-1);font-size:.95rem}
+  li{margin-bottom:6px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;border:1px solid var(--bd-1);border-radius:6px;overflow:hidden}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--bd-1);font-size:.9rem}
+  th{background:var(--bg-1);color:var(--tx-1)}
+  tr:last-child td{border-bottom:none}
+  .protegido{color:var(--color-green);font-weight:600}
+  .no-protegido{color:#e85d5d;font-weight:600}
+  code{background:#1a1f2d;border:1px solid var(--bd-1);border-radius:3px;padding:2px 6px;font-size:.85em;color:var(--color-blue)}
+  .footer{text-align:center;color:var(--tx-2);font-size:.8rem;margin-top:32px;padding-top:16px;border-top:1px solid var(--bd-1)}
+  a{color:var(--color-blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .key{display:inline-block;background:var(--bg-1);border:1px solid var(--bd-1);border-radius:3px;padding:2px 8px;font-size:.8em;color:var(--tx-1)}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Política de Privacidad</h1>
+  <p class="meta">Bóveda del Gato Negro (gw2-wallet-ligero) · Última actualización: 27 de septiembre de 2026</p>
+
+  <h2>¿Qué es esta app?</h2>
+  <p><strong>gw2-wallet-ligero</strong> es una aplicación web <strong>100% cliente</strong> (sin backend).
+  Tu navegador es el servidor. No existe un servidor central que reciba tus datos.
+  No hay registro de usuarios. No hay base de datos.</p>
+  <p>Todo corre en tu máquina: las peticiones a la API de GW2 se hacen con tu key
+  desde tu navegador, y los resultados se procesan localmente.</p>
+
+  <h2>¿Qué datos se recopilan?</h2>
+  <p><strong>Ningún dato personal, ni de tu cuenta de GW2, ni de tu identidad, sale de tu navegador.</strong></p>
+  <p>La única información que circula fuera de tu máquina es:</p>
+  <ul>
+    <li>Peticiones a la <strong>API de Guild Wars 2</strong> (<code>api.guildwars2.com/v2/</code>) usando tu API key.</li>
+    <li>Peticiones a la <strong>API de GitHub</strong> (<code>api.github.com</code>) si usás Gist Sync (opcional).</li>
+    <li>Eventos anónimos de uso a <strong>Google Analytics</strong> — opcional y configurable.</li>
+  </ul>
+
+  <h3>Google Analytics</h3>
+  <p>La app carga <code>gtag.js</code> para métricas básicas de uso. Podés deshabilitarlo
+  en <strong>⚙️ Configuración → Analytics</strong>. No se envían datos de tu wallet, items, ni API key.
+  Solo eventos como <code>view_module</code>.</p>
+
+  <h2>¿Qué datos se almacenan localmente?</h2>
+  <p>Todo en tu navegador, con el prefijo <code>gn:</code> (storage.js v1.0.1):</p>
+
+  <table>
+    <tr><th>Clave</th><th>Tipo</th><th>Protegido</th></tr>
+    <tr><td><code>gn:apiKeys</code></td><td>JSON (API keys)</td><td class="no-protegido">❌ No — necesario para funcionar</td></tr>
+    <tr><td><code>gn:selectedKey</code></td><td>string (key activa)</td><td class="no-protegido">❌ No</td></tr>
+    <tr><td><code>gn:settings</code></td><td>JSON (preferencias)</td><td class="no-protegido">❌ No</td></tr>
+    <tr><td><code>gn:accountsData</code></td><td>JSON <strong>encriptado</strong></td><td class="protegido">✅ Sí (AES-GCM)</td></tr>
+    <tr><td><code>gn:accountsMeta</code></td><td>JSON (nombre archivo)</td><td class="no-protegido">❌ No</td></tr>
+    <tr><td><code>gn:wvSeason_v&lt;year&gt;</code></td><td>JSON (WV season data)</td><td class="no-protegido">❌ No</td></tr>
+    <tr><td><code>gn:github:token</code></td><td>string (GitHub token)</td><td class="no-protegido">❌ No</td></tr>
+    <tr><td><code>gn:github:gist_id</code></td><td>string (Gist ID)</td><td class="no-protegido">❌ No</td></tr>
+  </table>
+
+  <h3>API Keys de GW2</h3>
+  <p>Se guardan en <code>localStorage</code> sin encriptar, pero <strong>nunca se envían a nuestro servidor</strong>.
+  Solo se usan para las peticiones a la API de GW2 directamente desde tu navegador.</p>
+
+  <h3>Sincronización con Gist (opcional)</h3>
+  <ol>
+    <li>La app <strong>encripta</strong> tus datos usando <strong>Web Crypto API</strong> (PBKDF2 + AES-GCM).</li>
+    <li>La clave de encriptación se deriva de una <strong>contraseña que vos elegís</strong> (nunca se guarda).</li>
+    <li>El Gist resultante es un JSON opaco — GitHub no puede leerlo.</li>
+    <li>Para restaurar, necesitás el Gist ID + tu contraseña.</li>
+  </ol>
+  <p><strong>Importante:</strong> Perder la contraseña = perder el acceso a tus datos encriptados.</p>
+
+  <h2>Tus derechos</h2>
+  <ul>
+    <li><strong>Exportar</strong> toda tu data local: ⚙️ Configuración → Exportar JSON.</li>
+    <li><strong>Importar</strong> datos previamente exportados.</li>
+    <li><strong>Borrar</strong> todo en cualquier momento: abrí Dev Tools → <code>localStorage.clear()</code>.</li>
+  </ul>
+
+  <h2>Terceros</h2>
+  <table>
+    <tr><th>Servicio</th><th>Motivo</th><th>Datos enviados</th></tr>
+    <tr><td>Guild Wars 2 API</td><td>Wallet, logros, inventario, etc.</td><td>API key (scope limitado)</td></tr>
+    <tr><td>GitHub API</td><td>Opcional: sync con Gist</td><td>Token de GitHub (scope: gist)</td></tr>
+    <tr><td>Google Analytics</td><td>Métricas anónimas</td><td>Event names (view_module, export, etc.)</td></tr>
+  </table>
+
+  <div class="footer">
+    ¿Preguntas? Abrí un <a href="https://github.com/PabloSnchz/gw2-wallet-ligero/issues">issue</a>
+    o contactanos en <a href="https://discord.gg/ZGNsfsqyKe">Discord</a>.
+  </div>
+
+</div>
+</body>
+</html>

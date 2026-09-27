@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/welcome-panel.js — Pantalla de Bienvenida
  * v1.4.0 (2026-05-04)
  * 
@@ -324,6 +324,13 @@
           </div>
 
         </div>
+
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="privacy.html" target="_blank" rel="noopener"
+               style="color: var(--tx-2); font-size: 0.75rem; text-decoration: none; opacity: 0.6; transition: opacity 0.2s;">
+              Política de Privacidad
+            </a>
+          </div>
       </div>
     `;
 
