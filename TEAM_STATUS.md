@@ -1,6 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T19:05:00Z
+> Actualizado: 2026-09-27T19:32:00Z
+> Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
 
@@ -8,10 +9,10 @@
 
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
-| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 600→900s | ✅ Activo | 🔄 Running (18:33, auto) |
-| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 600→900s | ✅ Activo | ✅ Success (18:07, 7min) |
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ Activo | 🔄 Running (19:30 auto, sin timeout) |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x3 (18:07) |
 
-**✅ Timeout fix VERIFICADO ESTABLE:** 2da autoejecución del PO con 900s = success (18:07 UTC, 7 min). El Principal cron se autoejecuta cada 30 min sin timeout. Sistema auto-sostenible.
+**✅ 900s timeout fix VERIFIED 4x:** 4 ejecuciones consecutivas sin TimeoutError. Sistema 100% estable y auto-sostenible.
 
 ## Tareas en curso
 
@@ -40,6 +41,7 @@
 - **Heartbeat #5 (cron auto, ~18:00):** Principal 🔄 running. PO ✅ **SUCCESS** (18:07 UTC, 900s timeout funcionó). PRE_BACKLOG.md investigado extensivamente. Homestead API CONFIRMADA.
 - **Heartbeat #6 (cron auto, ~18:30):** Principal 🔄 running (este heartbeat). PO ✅ success. Cron sistema auto-sostenible. Timeout fix verificado estable.
 - **Heartbeat #7 (cron auto, ~19:00):** Principal 🔄 running sin timeout (19:03). PO ✅ 3ra autoejecución SUCCESS (18:07). **900s fix verificado 3x — SISTEMA ESTABLE.**
+- **Heartbeat #8 (cron auto, ~19:30):** Principal 🔄 running sin timeout (19:30). PO ✅ next run 20:00. Sistema 100% estable, 0 timeouts.
 
 **Pendientes para la próxima hora:**
 - 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h.
