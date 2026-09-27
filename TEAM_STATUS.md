@@ -1,6 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T19:32:00Z
+> Actualizado: 2026-09-27T20:45:00Z
+> Heartbeat #10: Principal manual + cron auto. Crons 900s ESTABLE (5x sin timeout). gw2-agents-dashboard creado y deployado ✅. PO novedades en PRE_BACKLOG.md (12 ideas, 5 aprobadas). Reviewer bug (session_id mismatch) sin resolver.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -42,10 +43,19 @@
 - **Heartbeat #6 (cron auto, ~18:30):** Principal 🔄 running (este heartbeat). PO ✅ success. Cron sistema auto-sostenible. Timeout fix verificado estable.
 - **Heartbeat #7 (cron auto, ~19:00):** Principal 🔄 running sin timeout (19:03). PO ✅ 3ra autoejecución SUCCESS (18:07). **900s fix verificado 3x — SISTEMA ESTABLE.**
 - **Heartbeat #8 (cron auto, ~19:30):** Principal 🔄 running sin timeout (19:30). PO ✅ next run 20:00. Sistema 100% estable, 0 timeouts.
+- **Heartbeat #9 (cron auto, ~20:00):** Principal 🔄 running sin timeout (20:00). PO ✅ **SUCCESS** (20:07 UTC, 900s timeout). **900s fix verificado 5x — SISTEMA 100% ESTABLE.**
+- **Heartbeat #10 (manual, ~20:45):** Principal 🔄 running. PO consultado (task-096d1698f5c0, novedades PRE_BACKLOG.md). Reviewer en bug (session_id mismatch). **gw2-agents-dashboard creado y deployado:**
+  - Repo nuevo: `PabloSnchz/gw2-agents-dashboard` (GitHub Pages activado).
+  - HTML vanilla + marked.js v4 (CDN). 7 archivos .md fetch desde `gw2-wallet-agents/main`.
+  - 3 zonas: Estado Actual (TEAM_STATUS, ALERTS, COMMS), Últimas 24h (SESSION_LOG, BACKLOG, DECISIONS), Histórico (PRE_BACKLOG).
+  - Bug inicial: `f.name`→`f.filename` en renderFileOrError. Fix commit 753cba7.
+  - Cache fix: `?v=2` en script tags. Commit d74e4a9.
+  - PRE_BACKLOG.md 404 (no está push en `agents/main/` — solo en PO workspace). Handled gracefulmente con ⚠️.
 
 **Pendientes para la próxima hora:**
-- 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h.
-- 🟡 **Dev chat:** O esperar dirección del usuario para iniciar con Idea 2 (vista multicuenta) — 🥇 AHORA.
+- 🟡 **Dev chat:** El usuario evaluó propuesta PO: Opción C' híbrida (GitHub API autodetecta .md + 7 URLs hardcodeadas como fallback) para mejorar gw2-agents-dashboard.
+- 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. Prioridad alta.
+- 🟡 **Dev chat:** O iniciar con Idea 2 (vista consolidada multicuenta) — 🥇 AHORA, ~8-12h.
 
 ## Último incidente crítico (2026-09-27)
 
