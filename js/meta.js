@@ -28,15 +28,15 @@
   };
 
   // --------- Constantes / Estado ----------
-  const LS_FAVS   = 'gw2_meta_favs';
+  const LS_FAVS   = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.META_FAVS : 'gn:meta:favs';
   const SOON_MIN  = 20;
 
 
 
-  const LS_META_COMPACT = 'gw2_meta_compact';
+  const LS_META_COMPACT = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.META_COMPACT : 'gn:meta:compact';
 
   const BODY = document.body;
-  const COMPACT_DEFAULT = (localStorage.getItem(LS_META_COMPACT) ?? 'off') === 'on';
+  const COMPACT_DEFAULT = (Storage.get(LS_META_COMPACT) ?? 'off') === 'on';
 
   
   // --------- Normalización de expansiones/temporadas ----------
@@ -204,11 +204,11 @@
 
   // --------- Persistencia de fijados ----------
   function loadFavs(){
-    try{ favs = new Set(JSON.parse(localStorage.getItem(LS_FAVS)) ?? []); }
+    try{ favs = new Set(Storage.get(LS_FAVS) || []); }
     catch{ favs = new Set(); }
   }
   function saveFavs(){
-    try{ localStorage.setItem(LS_FAVS, JSON.stringify([...favs])); }catch{}
+    try{ Storage.set(LS_FAVS, [...favs]); }catch{}
   }
 
   // --------- Hecho HOY (SOLO API - v3.3.1) ----------
@@ -860,7 +860,7 @@ ${foot ? '<div style="padding:0 16px 8px 16px;margin-top:0!important;border-top:
       const nowOn = BODY.getAttribute('data-meta-compact')!=='on';
       setCompact(nowOn);
       btnCompact.textContent = nowOn ? 'Vista detallada' : 'Vista compacta';
-      localStorage.setItem(LS_META_COMPACT, nowOn ? 'on' : 'off');
+      Storage.set(LS_META_COMPACT, nowOn ? 'on' : 'off');
       render();
     });
 

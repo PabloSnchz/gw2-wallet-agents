@@ -36,13 +36,13 @@
   // ── Prefijo único ──────────────────────────────────────────
   const PREFIX = 'gn:';
 
-  // ── Catálogo de claves estáticas (para export/import) ──────
+  // ── Catálogo de claves estáticas (exportado como STORAGE_KEYS) ─
   const STATIC_KEYS = [
     'gn:account:keys', 'gn:account:selected', 'gn:account:last_file', 'gn:account:favs',
     'gn:activities:home:nodes', 'gn:activities:toggles', 'gn:activities:stones',
     'gn:global:welcome_seen', 'gn:theme',
     'gn:wallet:compact', 'gn:wallet:state', 'gn:wallet:sort', 'gn:wallet:currencies',
-    'gn:wallet:pins', 'gn:wallet:snapshots',
+    'gn:wallet:pins', 'gn:wallet:snapshots', 'gn:wallet:dashboard:selected_currencies', 'gn:wallet:dashboard:sort',
     'gn:wv:season:index', 'gn:wv:season', 'gn:wv:shop:view', 'gn:wv:shop:legacy_filter',
     'gn:wv:last_tab', 'gn:wv:purchase:icon_url', 'gn:wv:purchase:open',
     'gn:inventory:selected_items', 'gn:inventory:active_set', 'gn:inventory:sort',
@@ -50,6 +50,51 @@
     'gn:meta:compact', 'gn:meta:hecho_hoy', 'gn:meta:favs',
     'gn:raids:strike:view', 'gn:converter:state', 'gn:github:token', 'gn:github:gist_id',
   ];
+
+  // ── STORAGE_KEYS: constantes nombradas para reemplazar strings hardcodeadas ──
+  // USO: Storage.STORAGE_KEYS.WALLET_COMPACT en lugar de 'walletCompact'
+  // Todas usan prefijo gn: consistente.
+  var STORAGE_KEYS = {
+    ACCOUNT_KEYS:          'gn:account:keys',
+    ACCOUNT_SELECTED:      'gn:account:selected',
+    ACCOUNT_LAST_FILE:     'gn:account:last_file',
+    ACCOUNT_FAVS:          'gn:account:favs',
+    ACTIVITIES_HOME_NODES: 'gn:activities:home:nodes',
+    ACTIVITIES_TOGGLES:    'gn:activities:toggles',
+    ACTIVITIES_STONES:     'gn:activities:stones',
+    GLOBAL_WELCOME_SEEN:   'gn:global:welcome_seen',
+    THEME:                 'gn:theme',
+    WALLET_COMPACT:        'gn:wallet:compact',
+    WALLET_STATE:          'gn:wallet:state',
+    WALLET_SORT:           'gn:wallet:sort',
+    WALLET_CURRENCIES:     'gn:wallet:currencies',
+    WALLET_PINS:           'gn:wallet:pins',
+    WALLET_SNAPSHOTS:      'gn:wallet:snapshots',
+    WALLET_DASHBOARD_CURR: 'gn:wallet:dashboard:selected_currencies',
+    WALLET_DASHBOARD_SORT: 'gn:wallet:dashboard:sort',
+    WV_SEASON_INDEX:       'gn:wv:season:index',
+    WV_SHOP_VIEW:          'gn:wv:shop:view',
+    WV_SHOP_LEGACY_FILTER: 'gn:wv:shop:legacy_filter',
+    WV_LAST_TAB:           'gn:wv:last_tab',
+    WV_PURCHASE_ICON_URL:  'gn:wv:purchase:icon_url',
+    WV_PURCHASE_OPEN:      'gn:wv:purchase:open',
+    INVENTORY_SELECTED:    'gn:inventory:selected_items',
+    INVENTORY_ACTIVE_SET:  'gn:inventory:active_set',
+    INVENTORY_SORT:        'gn:inventory:sort',
+    INVENTORY_ACTIVE_TIERS:'gn:inventory:active_tiers',
+    INVENTORY_HIDE_ZERO:   'gn:inventory:hide_zero',
+    META_COMPACT:          'gn:meta:compact',
+    META_HECHO_HOY:        'gn:meta:hecho_hoy',
+    META_FAVS:             'gn:meta:favs',
+    RAIDS_STRIKE_VIEW:     'gn:raids:strike:view',
+    CONVERTER_STATE:       'gn:converter:state',
+    GITHUB_TOKEN:          'gn:github:token',
+    GITHUB_GIST_ID:        'gn:github:gist_id',
+    CHARACTERS_ASSIGNMENTS:    'gn:characters:assignments:',
+    CHARACTERS_LOCATION_HISTORY: 'gn:characters:location_history:',
+    PSNA_CACHE:            'gn:activities:psna:',
+    ACHIEVEMENTS_CACHE:    'gn:achievements:cache:',
+  };
 
   // ── Namespaces conocidos (para importAll) ──────────────────
   const KNOWN_NAMESPACES = [
@@ -85,6 +130,7 @@
     { from: 'characters:',             to: 'gn:characters:' },
     { from: 'gn_meta_hecho_hoy:',      to: 'gn:meta:hecho_hoy:' },
     { from: 'gn_meta_favs:',           to: 'gn:meta:favs:' },
+    { from: 'gw2_meta_favs',           to: 'gn:meta:favs' },
     { from: 'gn_activities_stones_',   to: 'gn:activities:stones:' },
     { from: 'gn_wallet_state',         to: 'gn:wallet:state' },
     { from: 'gn_wallet_sort',          to: 'gn:wallet:sort' },
@@ -95,7 +141,11 @@
     { from: 'gn_inv_hide_zero',        to: 'gn:inventory:hide_zero' },
     { from: 'gn_accounts_last_file',   to: 'gn:accounts:last_file' },
     { from: 'gn_wv_last_tab',           to: 'gn:wv:last_tab' },
+    { from: 'gn_wv_legacy_filter_v1', to: 'gn:wv:shop:legacy_filter' },
+    { from: 'gw2_wv_lasttab_v1', to: 'gn:wv:last_tab' },
     { from: 'gn_converter_state',      to: 'gn:converter:state' },
+    { from: 'wallet_dashboard_selected_currencies', to: 'gn:wallet:dashboard:selected_currencies' },
+    { from: 'wallet_dashboard_sort',                 to: 'gn:wallet:dashboard:sort' },
     { from: 'gn_theme',                to: 'gn:theme' },
   ];
 
@@ -108,7 +158,7 @@
     'gn:wallet:currencies':    'gw2_currencies_cache_v1',
     'gn:meta:compact':         'gw2_meta_compact',
     'gn:wv:shop:view':         'gw2_wv_view_v1',
-    'gn:wv:shop:legacy_filter': 'gw2_wv_legacy_filter_v1',
+    'gn:wv:shop:legacy_filter': ['gw2_wv_legacy_filter_v1', 'gn_wv_legacy_filter_v1'],
     'gn:wv:season:index':      'wv:season:index',
     'gn:global:welcome_seen':  'gn_welcome_seen',
     'gn:theme':                'gn_theme',
@@ -128,9 +178,13 @@
     'gn:github:token':             'gh_token_encrypted',
     'gn:github:gist_id':           'gh_gist_id',
     'gn:raids:strike:view':        'raid_strike_view',
+    'gn:wallet:dashboard:selected_currencies': 'wallet_dashboard_selected_currencies',
+    'gn:wallet:dashboard:sort':              'wallet_dashboard_sort',
     'gn:wv:purchase:icon_url':     'wvpd_icon_url',
     'gn:wv:purchase:open':         'wvpd_open',
-    'gn:wv:last_tab':              'gn_wv_last_tab',
+    'gn:wv:last_tab':              ['gn_wv_last_tab', 'gw2_wv_lasttab_v1'],
+    'gn:meta:favs':                'gw2_meta_favs',
+    'gn:meta:hecho_hoy':           'gn_meta_hecho_hoy:',
   };
 
   // ── Utilidades internas ────────────────────────────────────
@@ -152,35 +206,38 @@
   }
 
   // ── API pública ────────────────────────────────────────────
+  var STORAGE_KEYS_PUBLIC = STORAGE_KEYS;
+
   const Storage = {
 
     PREFIX: PREFIX,
     DEBUG: DEBUG,
     MIGRATION_MODE: MIGRATION_MODE,
+    STORAGE_KEYS: STORAGE_KEYS_PUBLIC,
 
     get: function (key, fallback) {
       var raw = safe(function () { return localStorage.getItem(key); }, null, 'get');
       if (raw !== null) {
         try { return JSON.parse(raw); } catch (_) { return raw; }
       }
-      var oldKey = FALLBACK_MAP[key];
-      if (oldKey) {
-        var oldRaw = safe(function () { return localStorage.getItem(oldKey); }, null, 'getFallback');
-        if (oldRaw !== null) {
-          try { return JSON.parse(oldRaw); } catch (_) { return oldRaw; }
+      var oldKeys = Array.isArray(oldKey) ? oldKey : [oldKey];
+        for (var i = 0; i < oldKeys.length; i++) {
+          var oldRaw = safe(function () { return localStorage.getItem(oldKeys[i]); }, null, 'getFallback');
+          if (oldRaw !== null) {
+            try { return JSON.parse(oldRaw); } catch (_) { return oldRaw; }
+          }
         }
-      }
       return fallback !== undefined ? fallback : null;
     },
 
     getRaw: function (key, fallback) {
       var raw = safe(function () { return localStorage.getItem(key); }, null, 'getRaw');
       if (raw !== null) return raw;
-      var oldKey = FALLBACK_MAP[key];
-      if (oldKey) {
-        var oldRaw = safe(function () { return localStorage.getItem(oldKey); }, null, 'getRawFallback');
-        if (oldRaw !== null) return oldRaw;
-      }
+      var oldKeys = Array.isArray(oldKey) ? oldKey : [oldKey];
+        for (var i = 0; i < oldKeys.length; i++) {
+          var oldRaw = safe(function () { return localStorage.getItem(oldKeys[i]); }, null, 'getRawFallback');
+          if (oldRaw !== null) return oldRaw;
+        }
       return fallback !== undefined ? fallback : null;
     },
 
@@ -196,7 +253,12 @@
     has: function (key) {
       if (safe(function () { return localStorage.getItem(key) !== null; }, false, 'has')) return true;
       var oldKey = FALLBACK_MAP[key];
-      if (oldKey) return safe(function () { return localStorage.getItem(oldKey) !== null; }, false, 'hasFallback');
+        if (oldKey) {
+          var oldKeys = Array.isArray(oldKey) ? oldKey : [oldKey];
+          for (var i = 0; i < oldKeys.length; i++) {
+            if (safe(function () { return localStorage.getItem(oldKeys[i]) !== null; }, false, 'hasFallback')) return true;
+          }
+        }
       return false;
     },
 
@@ -228,7 +290,8 @@
         var prefix = 'gn:' + ns;
         Storage.list(prefix).forEach(function (k) { keysToDelete.push(k); });
         // legacyMap se deriva de FALLBACK_MAP para evitar duplicación.
-        var legacy = FALLBACK_MAP['gn:' + ns] ? [FALLBACK_MAP['gn:' + ns]] : [];
+        var _lk = FALLBACK_MAP['gn:' + ns];
+        var legacy = _lk ? (Array.isArray(_lk) ? _lk : [_lk]) : [];
         legacy.forEach(function (k) { if (Storage.has(k)) keysToDelete.push(k); });
       });
       var unique = [], seen = {};

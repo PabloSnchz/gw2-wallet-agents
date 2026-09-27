@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * Router y Vistas (WV Objetivos + Tienda unificada)
  * v2.17.0 (2026-06-03) — Soporte Strike Tracker + F5 fix + skeleton ampliado
  *
@@ -190,8 +190,8 @@
     var _objFetchSeq = 0;
     var _shopInFlight = null;
 
-    var LS_WV_SHOP_VIEW='gw2_wv_view_v1',
-        LS_WV_LAST_TAB='gw2_wv_lasttab_v1', LS_WV_LEGACY_VIS='gw2_wv_legacy_filter_v1';
+    var LS_WV_SHOP_VIEW=Storage.STORAGE_KEYS.WV_SHOP_VIEW,
+        LS_WV_LAST_TAB=Storage.STORAGE_KEYS.WV_LAST_TAB, LS_WV_LEGACY_VIS=Storage.STORAGE_KEYS.WV_SHOP_LEGACY_FILTER;
 
     var lastSS = null;
 
@@ -252,12 +252,12 @@
       __marksTimers.set(fp, t);
     }
 
-    function saveView(v){ try{ localStorage.setItem(LS_WV_SHOP_VIEW,v); }catch(_){ } }
-    function loadView(){ try{ return localStorage.getItem(LS_WV_SHOP_VIEW)||'cards'; }catch(_){ return 'cards'; } }
-    function saveLastTab(t){ try{ localStorage.setItem(LS_WV_LAST_TAB,t); }catch(_){ } }
-    function loadLastTab(){ try{ return localStorage.getItem(LS_WV_LAST_TAB)||'daily'; }catch(_){ return 'daily'; } }
-    function saveLegacyFilter(v){ try{ localStorage.setItem(LS_WV_LEGACY_VIS,v); }catch(_){ } }
-    function loadLegacyFilter(){ try{ return localStorage.getItem(LS_WV_LEGACY_VIS)||'show'; }catch(_){ return 'show'; } }
+    function saveView(v){ try{ Storage.set(LS_WV_SHOP_VIEW,v); }catch(_){ } }
+    function loadView(){ try{ return Storage.get(LS_WV_SHOP_VIEW)||'cards'; }catch(_){ return 'cards'; } }
+    function saveLastTab(t){ try{ Storage.set(LS_WV_LAST_TAB,t); }catch(_){ } }
+    function loadLastTab(){ try{ return Storage.get(LS_WV_LAST_TAB)||'daily'; }catch(_){ return 'daily'; } }
+    function saveLegacyFilter(v){ try{ Storage.set(LS_WV_LEGACY_VIS,v); }catch(_){ } }
+    function loadLegacyFilter(){ try{ return Storage.get(LS_WV_LEGACY_VIS)||'show'; }catch(_){ return 'show'; } }
 
     function setWVSeasonHeader(season){
       if (!season) return;
@@ -554,7 +554,7 @@
             return;
           }
           try {
-            var keys = JSON.parse(localStorage.getItem('gw2_keys') || '[]');
+            var keys = Storage.get('gn:account:keys') || [];
             var year = state.shop.season.year;
             var seq = state.shop.season.seq;
             var count = 0;
@@ -595,7 +595,7 @@
             var seq = state.shop.season.seq;
             var sourcePins = window.WVSeasonStore.getPinned(year, seq, sourceFp) || {};
 
-            var keys = JSON.parse(localStorage.getItem('gw2_keys') || '[]');
+            var keys = Storage.get('gn:account:keys') || [];
             var count = 0;
             for (var k = 0; k < keys.length; k++) {
               var destFp = keys[k].value ? keys[k].value.slice(0, 4) + '…' + keys[k].value.slice(-4) : 'anon';
@@ -1831,7 +1831,7 @@
     window.addEventListener('hashchange', route);
     document.addEventListener('visibilitychange', function(){ if (WV && typeof WV.onVisibilityChange==='function') WV.onVisibilityChange(document.hidden); });
 
-    var firstVisit = !localStorage.getItem('gn_welcome_seen');
+    var firstVisit = !Storage.get(Storage.STORAGE_KEYS.GLOBAL_WELCOME_SEEN);
     var hasKey = !!getSelectedToken();
     
     if (!hasKey || firstVisit) {
@@ -1839,7 +1839,7 @@
       if (currentHash === '#/cards' || currentHash === '#/' || currentHash === '') {
         location.hash = '#/welcome';
         if (firstVisit) {
-          localStorage.setItem('gn_welcome_seen', 'true');
+          Storage.set(Storage.STORAGE_KEYS.GLOBAL_WELCOME_SEEN, 'true');
         }
       }
     }

@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/wallet-dashboard.js — Dashboard de Cartera Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 2.5.0 (2026-04-08)
@@ -58,8 +58,8 @@
 
   var _refreshInFlight = null;
 
-  var STORAGE_KEY = 'wallet_dashboard_selected_currencies';
-  var SORT_STORAGE_KEY = 'wallet_dashboard_sort';
+  var STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_CURR : 'gn:wallet:dashboard:selected_currencies';
+  var SORT_STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_SORT : 'gn:wallet:dashboard:sort';
   
   var DEFAULT_CURRENCY_NAMES = ['Gema', 'Moneda', 'Laurel', 'Reconocimiento Astral', 'Karma', 'Esquirla espiritual'];
     // Iconos por tipo de cuenta (mismos que accounts-panel.js)
@@ -89,11 +89,10 @@
   // ------------------------------ Persistencia ------------------------------
   function loadSelectedCurrencies() {
     try {
-      var stored = localStorage.getItem(STORAGE_KEY);
+      var stored = Storage.get(STORAGE_KEY);
       if (stored) {
-        var parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length) {
-          state.selectedCurrencies = parsed;
+        if (Array.isArray(stored) && stored.length) {
+          state.selectedCurrencies = stored;
           return;
         }
       }
@@ -103,27 +102,26 @@
 
   function saveSelectedCurrencies() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.selectedCurrencies));
+      Storage.set(STORAGE_KEY, state.selectedCurrencies);
     } catch(e) { console.warn(LOG, 'Error saving selected currencies', e); }
   }
 
   function loadSortPreference() {
     try {
-      var stored = localStorage.getItem(SORT_STORAGE_KEY);
+      var stored = Storage.get(SORT_STORAGE_KEY);
       if (stored) {
-        var parsed = JSON.parse(stored);
-        state.sortColumn = parsed.column;
-        state.sortDirection = parsed.direction;
+        state.sortColumn = stored.column;
+        state.sortDirection = stored.direction;
       }
     } catch(e) { console.warn(LOG, 'Error loading sort preference', e); }
   }
 
   function saveSortPreference() {
     try {
-      localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({
+      Storage.set(SORT_STORAGE_KEY, {
         column: state.sortColumn,
         direction: state.sortDirection
-      }));
+      });
     } catch(e) { console.warn(LOG, 'Error saving sort preference', e); }
   }
 
@@ -155,7 +153,8 @@
 
   function loadKeys() {
     try {
-      var list = JSON.parse(localStorage.getItem('gw2_keys') || '[]');
+      var AK = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.ACCOUNT_KEYS : 'gn:account:keys';
+      var list = Storage.get(AK) || [];
       return Array.isArray(list) ? list : [];
     } catch(_) { return []; }
   }

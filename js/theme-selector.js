@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/theme-selector.js — Selector de Temas
  * Versión: 1.1.0
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
@@ -14,7 +14,7 @@
   'use strict';
 
   var LOGT = '[ThemeSelector]';
-  var LS_THEME = 'gn_theme';
+  var LS_THEME = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.THEME : 'gn:theme';
   var DEFAULT_THEME = 'boveda';
 
   var THEMES = [
@@ -48,11 +48,11 @@
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function (m) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]; }); }
 
   function getSavedTheme() {
-    try { return localStorage.getItem(LS_THEME) || DEFAULT_THEME; } catch (_) { return DEFAULT_THEME; }
+    try { return Storage.get(LS_THEME) || DEFAULT_THEME; } catch (_) { return DEFAULT_THEME; }
   }
 
   function setSavedTheme(theme) {
-    try { localStorage.setItem(LS_THEME, theme); } catch (_) {}
+    try { Storage.set(LS_THEME, theme); } catch (_) {}
   }
 
   function applyTheme(theme) {
