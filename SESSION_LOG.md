@@ -143,3 +143,26 @@ El Agente Principal notificó al Documentador que la feature "Tracker de compone
 - **TAREA 3 grid**: abierta https://pablosnchz.github.io/gw2-wallet-agents/. main.css v2.7.0 (agents deploy) trae grids correctos (.wallet-card-grid minmax 280px, .wv-card-grid 260px, .meta-grid 320px) y SIN selectores corruptos (accountIconImg id correcto). Sin API key no se renderizan cards â†’ validado vÃ­a CSS+markup+browser headless. El "grid roto" previo era inventory-dashboard KPI cards (resuelto 95b4136). No es problema de agents.
 - **TAREA 4 regla**: agregada secciÃ³n "VerificaciÃ³n obligatoria antes de aplicar cambios" a los 5 AGENTS.md (default, Code-Reviewer, documenter, product-owner, architect). UTF-8 OK.
 - **TAREA 5 docs**: `qwenpaw cron list` -> [] (0 crons, default + product-owner). Heartbeats (Principal 30min, PO 2h) NO corren â†’ docs actualizados manualmente. TEAM_STATUS.md timestamp inconsistente (19:30 UTC vs 15:01 UTC real). PRE_BACKLOG (workspace PO) actualizado 2026-09-26 (3 ideas consolidadas). SESSION_LOG estaba desactualizado â†’ actualizado en esta entrada.
+
+
+## 2026-09-27 -- Actualización de rol del Arquitecto + UI en español
+
+- **Contexto:** Pablo requería que el Arquitecto dejara de auditar código técnicamente y pasara a pensar/delegar/traducir; el Code Reviewer hace la auditoría directa (recibida del Arquitecto vía `submit_to_agent`), y el Arquitecto traduce el diagnóstico en tareas para el Principal.
+
+- **Archivos actualizados (config del agente -- NO pertenecen al repo git):**
+  1. `architect/AGENTS.md` -- sección "Herramientas" reemplazada; agregada "ὐ4 Rol actualizado" (pensar/delegar/traducir); el Arquitecto ya delegaba al Reviewer directamente.
+  2. `architect/SOUL.md` -- agregada sección "Rol de coordinación y delegación"; corregida línea "via Principal" → "directamente (con `submit_to_agent`)".
+  3. `architect/KNOWLEDG.md` -- corregido flujo: Pablo → Arquitecto → Reviewer (submit_to_agent) → Arquitecto (check_agent_task) → Pablo → Principal → Documentador/PO.
+  4. `architect/MEMORY.md` -- lección "[2026-09-27] Rol actualizado"; mantra: "No auditás código vos. Le pedís al Code Reviewer que lo haga."
+  5. `code-reviewer/AGENTS.md` -- NOTA del Arquitecto ampliada: "Podés recibir tareas de auditoría del Arquitecto via `submit_to_agent`. Reportá con `check_agent_task`." + flujo corregido.
+
+- **agent.json (5 agentes) -- UI en español:**
+  - `default`: `"language": "zh"` → `"es"` (nota: default tenía `zh`, no `en`).
+  - `code-reviewer`, `documenter`, `product-owner`, `architect`: `"language": "en"` → `"es"`.
+  - Canales voice/sip (`en-US`, `zh-CN`) sin cambios (TTS defaults, no UI).
+  - Estos agent.json viven en `C:\Users\psanc\.qwenpaw\workspaces\{agent}\` (config del agente, NO en el repo git). No se commit. Puede requerir recargar/reiniciar QwenPaw para que las notificaciones de Inbox aproven en español.
+
+- **agent.json del Arquitecto:** verificado → `submit_to_agent` y `check_agent_task` con `enabled: true`. No se modificó.
+
+- **Commit/push a agents:** solo este `SESSION_LOG.md` (este archivo) va al repo git. Los archivos de config del agente no forman parte de `gw2-wallet-agents`.
+- **Verificación:** `findstr` confirma: "via Principal" ausente en SOUL/KNOW2G/code-reviewer; "delega la auditoría al Principal" ausente en code-reviewer; 5 agent.json con `"language": "es"`.
