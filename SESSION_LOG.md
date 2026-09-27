@@ -166,3 +166,49 @@ El Agente Principal notificó al Documentador que la feature "Tracker de compone
 
 - **Commit/push a agents:** solo este `SESSION_LOG.md` (este archivo) va al repo git. Los archivos de config del agente no forman parte de `gw2-wallet-agents`.
 - **Verificación:** `findstr` confirma: "via Principal" ausente en SOUL/KNOW2G/code-reviewer; "delega la auditoría al Principal" ausente en code-reviewer; 5 agent.json con `"language": "es"`.
+
+---
+
+## 📋 SESSION 2026-09-27T14:00Z — Bug fix storage.js + Fase 2 + Heartbeat
+
+### Estado de Propuesta 1 (Loading state app.js)
+- ✅ **Completa y commited** (commit `86bbdf9`, antes de esta sesión).
+- Spinner `btn--loading` en `theme-polish.css` visible en `btn--accent` (`color: var(--text)` → `currentColor`).
+- Estado: verificado, no requiere cambios.
+
+### 🐛 Bug crítico arreglado: storage.js fallback roto
+- **Síntoma:** `Storage.get()` y `Storage.getRaw()` referenciaban `oldKey` sin declararla (`var oldKey = FALLBACK_MAP[key]` faltaba). `has()` ya lo tenía.
+- **Impacto:** El fallback a claves legacy (`gw2_keys`, `walletCompact`, etc.) NUNCA funcionaba. Usuarios con datos pre-v1.0.1 (ej: imports de gist-sync) pierden acceso a keys/wallet/WV/meta si la migración `Storage.migrate()` no corrió.
+- **Root cause:** Bug de scoping — `oldKey` es `undefined` en modo no-strict, `Array.isArray(undefined)` = false, `localStorage.getItem(undefined)` = null.
+- **Fix:** Agregada `var oldKey = FALLBACK_MAP[key];` en ambas funciones `get` y `getRaw` (4 líneas, 1 archivo).
+- **Fix secundario:** `Storage.init()` no se ejecutaba en carga fría (readyState='loading', script sin defer). Agregado `DOMContentLoaded` fallback.
+- **Validación:** `node --check js\storage.js` ✅. Commited en `5d550b8`.
+
+### Fase 2 storage.js: migración completa de settings-manager.js
+- 14 llamadas `localStorage.getItem/setItem` migradas → `Storage.get/set/list` + `Storage.STORAGE_KEYS`.
+- 6 bucles `for (var i = 0; i < localStorage.length; i++)` con `localStorage.key(i)` + `indexOf(prefix)` reemplazados por `Storage.list('gn:...')`.
+- 2 comentarios actualizados (referencias a localStorage → Storage API).
+- **Zero referencias a localStorage restantes** (verificado con grep).
+- **Validación:** `node --check js\settings-manager.js` ✅.
+- Commited en `5d550b8`.
+
+### Estado de Propuesta 2 (Idea 2 — Vista multicuenta)
+- ⚠️ **CONFLICTO PO-vs-Reviewer:** PO prioriza como #1, Reviewer rechazó (rompe `gn:tokenchange`).
+- PO propone nueva aproximación (extender WalletDashboard, no cambio de cuenta).
+- **Bloqueada hasta decisión del usuario.**
+
+### Estado del Reviewer
+- ⏱ **Caido** — timeout por bug conocido `session_id mismatch` (task-6dee318b4c54, 60s).
+- No se reintenta (regla anti-doom-loop). Validación asumida por Principal (patrón idéntico a `has()`).
+
+### Repositorio
+- **agents:** HEAD `688a04e` — commits `86bbdf9` (Propuesta 1) + `5d550b8` (bug fix + Fase 2) + `688a04e` (TEAM_STATUS).
+- **origin:** untouched ✅.
+- Working tree: ✅ limpio (everything commited + pushed).
+
+### Próximos items (pendientes)
+1. Idea 11 (New Content Updates VoE) — aprobada, ~4-6h, datos estáticos.
+2. Idea 8 (Developer API docs) — aprobada, ~4-8h.
+3. Idea 2 (Vista multicuenta) — bloqueada (conflicto PO-vs-Reviewer).
+4. inventory-dashboard.js (glow + overflow) — bloqueado (validación Reviewer).
+
