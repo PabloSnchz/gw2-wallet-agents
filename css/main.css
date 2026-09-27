@@ -1242,7 +1242,6 @@ select option:disabled{ color:var(--tx-3) }
   position:relative!important; top:auto!important;
   left:auto!important; right:auto!important; transform:none!important;
 }
-#accountIconImg{ width:40px; height:40px }
 #sideAccountPanel .panel-head__title{ display:flex; align-items:center; gap:8px }
 #accountIconImg{ display:block; margin-top:6px }
 #sideNavPanel .panel-head__title{ display:flex; align-items:center; gap:8px }

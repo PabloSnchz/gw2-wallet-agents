@@ -127,6 +127,7 @@ select:disabled { opacity:.55; cursor:not-allowed; }
 
 .icon-img { width:18px; height:18px; object-fit:contain; border-radius:3px; }
 .icon-img.contrast { filter: drop-shadow(0 0 1px rgba(0,0,0,.4)); }
+#sideAccountPanel .icon-img { width:40px; height:40px }
 
 /* =========================== TOOLTIPS / TOASTS =========================== */
 .toasts { display:grid; gap:10px; position:fixed; right:14px; bottom:16px; z-index:60; }
