@@ -1,7 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T12:54:00Z
-> Heartbeat ejecutado: task-838665263c09 (Documentador) ✅ completado | task-921a1ca39a33 (PO) 🔄 en progreso
+> Actualizado: 2026-09-27T13:00:00Z
+> Heartbeat ejecutado: task-838665263c09 (Documentador) ✅ completado | task-921a1ca39a33 (PO) ✅ completado
 
 ## Crons configurados
 
@@ -18,7 +18,7 @@
   - T3 (grid): ✅ **RESUELTA** — causa raíz: `@media(max-width:480px)` sin cerrar en main.css. Fix aplicado (commit d1e7c14). Las reglas de grid (.meta-grid, .wallet-card-grid) estaban anidadas en el media query no cerrado, aplicándose solo en pantallas ≤480px. En desktop, grids colapsaban a 1 columna en Cartera, Meta & Eventos y WV Shop. Braces verificados: 591/591 balanceados.
   - T4 (regla de verificación): ✅ Completada — agregada a los 5 AGENTS.md.
   - T5 (crons/documentación): ✅ Completada — crons creados, TEAM_STATUS.md actualizado, BACKLOG.md creado.
-- **product-owner:** task-921a1ca39a33 en progreso — investigando PRE_BACKLOG.md y mejoras de UX.
+- **product-owner:** task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado con 4 ideas nuevas.
 - **code-reviewer:** Sin tareas pendientes.
 - **documenter:** task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190), push a agents.
 
@@ -27,7 +27,12 @@
 - Cache-busting: actualizadas referencias `?v=` en `index.html` de agents. Commit 794bafa pusheado.
 - Regla de verificación obligatoria agregada a los 5 AGENTS.md.
 - Crons Heartbeat Principal y Heartbeat PO creados y verificados activos.
-- TEAM_STATUS.md creado con timestamp correcto.
+- TEAM_STATUS.md creado con timestamp correcto (commit 4012b09).
+- BACKLOG.md creado con 4 items técnicos pendientes + histórico.
+- **Heartbeat ejecutado (manual):** 
+  - Documentador task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190).
+  - PO task-921a1ca39a33 ⏱ timed out (120s).
+  - PO task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado.
 
 ## Pendientes para la próxima hora
 
@@ -51,8 +56,15 @@
 
 ## Estado de propuestas del PO
 
-- **task-921a1ca39a33 (en progreso):** El PO está investigando PRE_BACKLOG.md (no existía) y buscando mejoras de UX en Reddit/Wiki/gw2treasures. Resultado pendiente.
-- PRE_BACKLOG.md: pendiente de crear por parte del PO.
+- **task-e27e5d658589 ✅ completada.** El PO investigó GW2 Wiki, gw2treasures y Reddit.
+- PRE_BACKLOG.md ya existía con 8 ideas. Ampliado con 4 ideas nuevas (total: 12).
+- **Discrepancia clave resuelta:** Idea 7 (Homestead tracker) fue POSPUESTA por el Principal (creía que la API no existía). El PO confirmó que `/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/homestead/decorations/categories` EXISTEN. **Revalidada de POSPUESTA a DEPOIS.**
+- **Prioridad final del PO (top 5):**
+  1. 🥇 Vista consolidada multicuenta (Idea 2) — ~8-12h — YA aprobada por Principal
+  2. 🥈 New content updates VoE (Idea 11) — ~4-6h — NUEVA, necesita validación Reviewer
+  3. 🥉 Developer API docs (Idea 8) — ~4-8h — YA aprobada por Principal
+  4. 🥉 API key privacy docs (Idea 4) — ~2h — YA aprobada por Principal
+  5. 🥄 Homestead tracker (Idea 7) — ~15-20h — REVALIDADA, necesita validación Reviewer
 
 ## BACKLOG.md
 
