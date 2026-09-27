@@ -212,3 +212,18 @@ El Agente Principal notificó al Documentador que la feature "Tracker de compone
 3. Idea 2 (Vista multicuenta) — bloqueada (conflicto PO-vs-Reviewer).
 4. inventory-dashboard.js (glow + overflow) — bloqueado (validación Reviewer).
 
+## 2026-09-27 — Heartbeat PO (product-owner agent)
+
+- **Heartbeat completado** (investigación → PRE_BACKLOG.md → reporte al Principal).
+- **TAREA 1 pre-backlog (DONE)**: web_fetch gw2treasures.com (homepage, homestead, developer, achievement) + web_search Reddit/GW2 Wiki API/GuildJen + inspección código (api-gw2.js, activities.js, activities-theme.js).
+- **TAREA 2 hallazgo clave (DONE)**: CONFIRMADA API Homestead existe.
+  - GW2 Wiki: `/v2/account/homestead/decorations`, `/v2/account/homestead/glyphs`, `/v2/homestead/decorations/categories`, `/v2/account/home/cats`
+  - gw2treasures.com tiene sección Homestead completa funcionando
+  - La Bóveda solo tracking Home Instance (activities.js), NOT Homestead. Home Instance ≠ Homestead (sistema de Janthir Wilds).
+  - La objeción del Principal ("NO hay API endpoint") fue FALSA → Idea 7 REVALIDADA (POSPUESTA → PRÓXIMA).
+- **TAREA 3 pre-backlog update (DONE)**: PRE_BACKLOG.md actualizado con heartbeat 2026-09-27, Idea 7 REVALIDADA, Ideas 9-11 agregadas, prioridad final corregida.
+- **TAREA 4 reporte al Principal**: Enviado resumen de prioridades (3 ideas consolidadas). Primer envío timed out (300s — bug conocido inter-agent). Reenviado mensaje condensado (task-2f5fd4956642, timeout 180s).
+- **Qué se rompió**: Nada. Solo lectura de archivos + actualización de PRE_BACKLOG.md (workspace PO).
+- **Pendiente**: Respuesta del Principal sobre prioridades (Homestead tracker, New Content Integration VoE, New Items feed).
+- **Bug inter-agente (reportado)**: 2 envíos a Principal timed out (300s + 180s). Known bug `session_id mismatch` (ver SESSION_LOG 2026-09-26). No se reintenta (protocolo AGENTS.md). Contenido del reporte está en el sistema; las sesiones muestran `status: idle` + `last_finished_at`.
+
