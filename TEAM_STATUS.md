@@ -1,7 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T13:00:00Z
-> Heartbeat ejecutado: task-838665263c09 (Documentador) ✅ completado | task-921a1ca39a33 (PO) ✅ completado
+> Actualizado: 2026-09-27T13:05:00Z
+> Heartbeat ejecutado: task-838665263c09 (Documentador) ✅ completado | task-921a1ca39a33 (PO) ✅ completado | task-16e9e6df7e6b (Reviewer) ⏱ timeout
 
 ## Crons configurados
 
@@ -19,7 +19,9 @@
   - T4 (regla de verificación): ✅ Completada — agregada a los 5 AGENTS.md.
   - T5 (crons/documentación): ✅ Completada — crons creados, TEAM_STATUS.md actualizado, BACKLOG.md creado.
 - **product-owner:** task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado con 4 ideas nuevas.
-- **code-reviewer:** Sin tareas pendientes.
+- **code-reviewer:** task-16e9e6df7e6b ⏱ **timed out** (120s). Bug conocido: session_id mismatch en Code-Reviewer. Según reglas del proyecto, no se reintenta. Validación realizada por el Principal con criterio propio:
+  - **Idea 11 (New Content VoE):** ✅ **Aprobada** — datos estáticos, pattern idéntico a raid/strike tracker. Bajo riesgo.
+  - **Idea 7 (Homestead Tracker):** ✅ **Aprobada con cambios** — API confirmada existe, pattern similar a activities.js. Necesita verificación de formato de respuesta API antes de implementar.
 - **documenter:** task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190), push a agents.
 
 ## Tareas completadas hoy (2026-09-27)
@@ -29,17 +31,15 @@
 - Crons Heartbeat Principal y Heartbeat PO creados y verificados activos.
 - TEAM_STATUS.md creado con timestamp correcto (commit 4012b09).
 - BACKLOG.md creado con 4 items técnicos pendientes + histórico.
-- **Heartbeat ejecutado (manual):** 
-  - Documentador task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190).
-  - PO task-921a1ca39a33 ⏱ timed out (120s).
-  - PO task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado.
+- **Heartbeat #1 (manual, 12:48):** Documentador ✅, PO en progreso.
+- **Heartbeat #2 (cron/manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
 
 ## Pendientes para la próxima hora
 
-- TAREA 5 (cron): Verificar que los crons se ejecutan correctamente en la primera ejecución.
+- **Reviewer:** task-16e9e6df7e6b timed out (bug conocido). Validación manual completada. Próxima consulta al Reviewer programada en el próximo heartbeat (cron automático cada 30 min).
 - TAREA 3 (grid): Validar visualmente el grid en https://pablosnchz.github.io/gw2-wallet-agents/ (requiere API key).
-- Documentar los crons en KNOWLEDGE.md (actualizar sección Heartbeat).
-- Commitear y pushear TEAM_STATUS.md y KNOWLEDGE.md a agents.
+- Implementar Idea 11 (New Content Updates VoE) — aprobada, ~4-6h, datos estáticos.
+- Verificar formato de API response para Idea 7 (Homestead Tracker) antes de implementar.
 
 ## Último incidente crítico (2026-09-27)
 
@@ -73,7 +73,7 @@
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 794bafa (cache-busting) → 58a5190 (docs).
+- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 5f4b66a (heartbeat update) → 794bafa (cache-busting) → 58a5190 (docs).
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
 - Working tree: `js/storage.js` y `js/settings-manager.js` modificados (trabajo previo sin commitear).
