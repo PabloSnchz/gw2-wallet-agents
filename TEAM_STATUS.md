@@ -1,7 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T17:36:00Z
-> Heartbeat #5: Crons funcionando. Timeout fix 900s aplicado. Principal autoejecución en curso (17:30). PO timed out en autoejecución (17:02, fixeado). Sin tasks nuevas. Reviewer pending (bug). PO tiene 12 ideas consolidadas pero sin novedades nuevas desde última consulta.
+> Actualizado: 2026-09-27T18:10:00Z
+> Heartbeat #6: PO autoejecución ✅ SUCCESS (900s timeout fix funcionó). Homestead API CONFIRMADA. 12+ ideas en PRE_BACKLOG. Reviewer ⏱ (bug, validación manual). Principal cron running (este heartbeat).
 
 ## Crons configurados
 
@@ -35,8 +35,8 @@
 - BACKLOG.md creado con 4 items técnicos pendientes + histórico.
 - **Heartbeat #1 (manual, 12:48):** Documentador ✅, PO en progreso.
 - **Heartbeat #2 (manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
-- **Heartbeat #3 (cron auto, ~14:30):** Principal ⏱ TimeoutError. PO 🔄 autoejecución stuck. **Fix aplicado:** timeouts a 900s.
 - **Heartbeat #4 (cron auto, ~17:30):** Principal 🔄 autoejecución en curso. PO ⏱ timed out en autoejecución (17:02, fixeado a 900s). Timeout fix verificado: ambos crons ahora 900s.
+- **Heartbeat #5 (cron auto, ~18:00):** Principal 🔄 running (este heartbeat). PO ✅ **SUCCESS** (18:07 UTC, 900s timeout funcionó). PRE_BACKLOG.md investigado extensivamente. Homestead API CONFIRMADA.
 
 **Pendientes para la próxima hora:**
 - Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. **Prioridad según PO: 🥈 PRÓXIMA.**
