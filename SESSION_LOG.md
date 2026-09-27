@@ -131,3 +131,15 @@ El Agente Principal notificó al Documentador que la feature "Tracker de compone
 2. **Sin bump de versión**: a pedido del PO, `achievements.js` mantiene v3.2.0 (incremento de lógica interna sin cambios de API pública).
 3. **CSS inyectado dentro del módulo**: sigue el patrón existente de `achievements.js` (`injectKpiStyles`, `injectAsideStyles`). Sin `!important`, specificity vía `#inventoryDashboardPanel`.
 4. **Reutilización de APIs**: no se crearon nuevos endpoints. Se reusan `getAchievementsMeta` y `getItemsMany` (via `loadRewardItemDetail`).
+
+## 2026-09-27 â€” DiagnÃ³stico + cache-busting (v6.6.2-agents)
+
+- **Repos**: `agents` (dev) estÃ¡ 30 commits adelante de `origin` (prod v6.6.1, frozen). `origin` sin pushes no autorizados. main local = agents/main.
+- **TAREA 1 cache-busting (DONE)**: auditorÃ­a header-vs-?v en index.html â†’ 4 mismatches arreglados + commit 794bafa + push a agents/main.
+  - main.css 2.6.0->2.7.0, theme-polish.css 2.1.0->2.2.0, activities.js 3.19.3->3.19.6, gist-sync.js 1.0.0->1.1.0.
+  - wv-purchase-detail.js 1.13.1 = header 1.13.1 (OK, untouched).
+  - Code-Reviewer task timed out (60s; known session_id mismatch bug). Applied per AGENTS timeout rule (trivial version bump, risk=0).
+- **TAREA 2 selectors corruptos**: `var(--acc-1)ountIconImg` SOLO en prod_main.css (2 lÃ­neas, snapshot deploy origin). NO en css/main.css (agents) â†’ `#accountIconImg` correcto. CorrupciÃ³n del build/minificador de GitHub Pages (origin). No afecta agents. origin untouched.
+- **TAREA 3 grid**: abierta https://pablosnchz.github.io/gw2-wallet-agents/. main.css v2.7.0 (agents deploy) trae grids correctos (.wallet-card-grid minmax 280px, .wv-card-grid 260px, .meta-grid 320px) y SIN selectores corruptos (accountIconImg id correcto). Sin API key no se renderizan cards â†’ validado vÃ­a CSS+markup+browser headless. El "grid roto" previo era inventory-dashboard KPI cards (resuelto 95b4136). No es problema de agents.
+- **TAREA 4 regla**: agregada secciÃ³n "VerificaciÃ³n obligatoria antes de aplicar cambios" a los 5 AGENTS.md (default, Code-Reviewer, documenter, product-owner, architect). UTF-8 OK.
+- **TAREA 5 docs**: `qwenpaw cron list` -> [] (0 crons, default + product-owner). Heartbeats (Principal 30min, PO 2h) NO corren â†’ docs actualizados manualmente. TEAM_STATUS.md timestamp inconsistente (19:30 UTC vs 15:01 UTC real). PRE_BACKLOG (workspace PO) actualizado 2026-09-26 (3 ideas consolidadas). SESSION_LOG estaba desactualizado â†’ actualizado en esta entrada.
