@@ -115,6 +115,16 @@
         { id: "ura", name: "Ura, la Aulladora de Vapores", nameEn: "Ura, the Steamshrieker", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/ura_guardian.png" }
       ]
     },
+    {
+      id: 9,
+      name: "Nexo de Eternidad",
+      nameEn: "Nexus of Eternity",
+      expansion: "Visions of Eternity",
+      icon: "assets/icons/raids/wing9.png",
+      encounters: [
+        { id: "vloxx", name: "Vloxx", nameEn: "Vloxx", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/vloxx.png" }
+      ]
+    },
   ];
 
   // Datos de recompensas por encuentro
@@ -1401,6 +1411,7 @@
       if (wing.expansion === 'Heart of Thorns') expClass = 'raid-expansion--hot';
       else if (wing.expansion === 'Path of Fire') expClass = 'raid-expansion--pof';
       else if (wing.expansion === 'Janthir Wilds') expClass = 'raid-expansion--janthir';
+      else if (wing.expansion === 'Visions of Eternity') expClass = 'raid-expansion--voe';
       else expClass = 'raid-expansion--core';
       
       html += `

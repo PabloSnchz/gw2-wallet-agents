@@ -856,6 +856,7 @@ aside.col-side .panel-head img {
 .raid-expansion--hot { background: var(--color-green-bg); color: var(--color-green); border: 1px solid var(--color-green); }
 .raid-expansion--pof { background: var(--color-amber-bg); color: var(--color-amber); border: 1px solid var(--color-amber); }
 .raid-expansion--janthir { background: var(--color-blue-bg); color: var(--color-blue); border: 1px solid var(--color-blue); }
+.raid-expansion--voe { background: var(--color-purple-bg, #2a1a3a); color: var(--color-purple, #a88bff); border: 1px solid var(--color-purple, #a88bff); }
 .raid-expansion--core { background: var(--bg-1); color: var(--tx-2); border: 1px solid var(--bd-1); }
 
 .raid-wing-progress {
