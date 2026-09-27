@@ -2,7 +2,7 @@
 
 > Estado del equipo de agentes. Se actualiza con cada Heartbeat
 > del Principal (cada 30 min).
-> Última actualización: 2026-09-27 18:45 UTC
+> Última actualización: 2026-09-27 19:30 UTC
 
 ## Tareas en curso
 
@@ -36,16 +36,18 @@
 | 17 | Principal | Mobile Fase 1: fix selectores corruptos + breakpoints CSS (900/768/480px) | ✅ Completado (16b9dff) | 18:30 |
 | 18 | Code-Reviewer | Validar Mobile Fase 1 | ✅ APROBADO CON CAMBIOS | 18:40 |
 | 19 | Principal | Aplicar cambios Reviewer (dimensiones → theme-polish.css) | ✅ Completado (1abd098) | 18:42 |
-| 20 | Principal | Iniciar Developer docs (Idea 8) | 🔄 En progreso | 18:45 |
+| 20 | Principal | Iniciar Developer docs (Idea 8) | ✅ Completado (1136d8f) | 18:50 |
+| 21 | Principal | Privacy docs (Idea 4, PO prioridad 🥉) | ✅ Completado (3ce252b) | 19:10 |
+| 22 | Principal | Fase 2 de storage.js (migrar 5 módulos a Storage API) | ✅ Completado (39aeaa3) | 19:30 |
 
 ## Pendientes para la próxima hora
 
+- PO: prioritizar siguiente feature tras Developer docs + Privacy docs ✅
 - Code-Reviewer: validar Mobile Fase 1 (CSS breakpoints + corrupted selector fix)
-- PO: prioritizar siguiente feature tras Mobile Fase 1
 - Documentador: quota agotada → documentar manualmente S1 + Mobile Fase 1 en CHANGELOG.md
-- Hallazgo transversal: !important residual en achievements.js:682 + meta.js:625
-- Fase 2 storage.js: pendiente
-- S2: contraseña fija en gist-sync.js → ✅ **RESUELTO** (absorbido por S1)
+- Mobile companion Fase 2 (JS) — PO prioridad #3
+- Goal tracking (seguimiento de objetivos) — Postergada por falta de datos API
+- S1: contraseña fija en gist-sync.js → ✅ **RESUELTO** (absorbido por S1 Web Crypto)
 
 ## Alertas
 
@@ -56,9 +58,15 @@
 | # | Propuesta | Prioridad PO | Veredicto Reviewer | Estado |
 |---|-----------|-------------|---------------------|--------|
 | 1 | Tracker de componentes de legendarias | 🔴 Alta | ✅ Aprobar con cambios (filtrar dentro de achievements) | ✅ **IMPLEMENTADA** — merge a main (34c1e48) |
-| 2 | Vista consolidada multicuenta | 🔴 Alta | ❌ Rechazar (rompe gn:tokenchange) | Descartada |
+| 2 | Vista consolidada multicuenta | 🔴 Alta | ❌ Rechazar (rompe gn:tokenchange) | ⚠️ **CONFLICTO**: PO dice aprobada (🟢), Reviewer la rechazó. Necesita decisión del usuario. |
 | 3 | Mobile companion / PWA | 🟡 Media | ✅ Aprobar con cambios (Fase 1: CSS) | ✅ **IMPLEMENTADA** — Mobile Fase 1 (1abd098) |
-| 10 | !important cleanup (S2) — Arquitecto audit | 🟢 Fácil | ✅ Implementado por Arquitecto (6065d8c) | ✅ Mergeado |
+| 4 | Privacy docs (política de privacidad) | 🟢 Fácil | ✅ Aprobar | 🔄 En progreso |
+| 5 | Developer docs (window.* APIs) | 🟢 Fácil | ✅ Aprobar | ✅ **IMPLEMENTADA** — docs/DESARROLLADORES.md (1136d8f) |
+| 6 | Mobile companion Fase 2 (JS) | 🟡 Media | ✅ Aprobar | Pendiente |
+| 7 | Goal tracking (seguimiento de objetivos) | 🟡 Media | ⚠️ Pendiente datos | Postergada |
+| 8 | Theme selector mejorado | 🟢 Fácil | ✅ Aprobar | Pendiente |
+| 9 | Import/export JSON | 🟢 Fácil | ✅ Aprobar | Pendiente |
+| 10 | !important cleanup (S2) | 🟢 Fácil | ✅ Implementado por Arquitecto | ✅ Mergeado (6065d8c)
 
 ## Bugs del BACKLOG
 
