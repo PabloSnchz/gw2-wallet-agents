@@ -61,3 +61,17 @@
 - Heartbeat #10 documentado en TEAM_STATUS.md, COMMS_LOG.md y ALERTS_LOG.md por el Principal (commit a5ad5fb).
 - Documentador no modifica estos archivos (son responsabilidad del Principal). Verificación ✅.
 - No se agregan entradas al CHANGELOG para sessions de status sin code changes.
+
+## [2026-09-27T22:15Z] Parser Fix Verification en Browser Real
+
+### Qué se hizo
+- **Resuelto conflicto git en TEAM_STATUS.md**: Rebase de `c8e5d27` sobre `9247f0b` con conflicto en TEAM_STATUS.md. Fusionadas versiones del Documentador (gw2-agents-dashboard deployado, Opción C') y Principal (PO query 11 ideas, parser fix). Consolidadas 2 entradas de `product-owner` en 1 → 4 agentes totales.
+- **COMMS_LOG.md**: Mantenidas 2 comunicaciones activas (Reviewer timeout + PO Homestead question). Ambas siguen pendientes por el bug del Reviewer. Commit: `c8e5d27`.
+- **Parser fix (line-by-line)**: Commit `a00a792` en gw2-agents-dashboard. Reemplazado regex lookahead por `split('\n')` + `line.match()`. Más robusto, evita falsos positivos en sub-bullets.
+- **Verificado en browser real**: ✅ Dashboard muestra 4 agentes (incluyendo documenter) y 2 comunicaciones.
+- **Cache-busting `?v=3`**: confirmado funcionando. BACKLOG.md issue era cache, ya resuelto.
+- **Limpieza**: Removidos archivos de debug (test-parser.html, js/test-parser.js).
+
+### Qué quedó pendiente
+- Cron del Documentador sigue actualizando SESSION_LOG.md y TEAM_STATUS.md.
+- gw2-agents-dashboard fase 4 (polish CSS) pendiente.
