@@ -1,78 +1,53 @@
-# TEAM_STATUS.md
+# TEAM_STATUS.md — Estado del equipo
 
-> Estado del equipo de agentes. Se actualiza con cada Heartbeat
-> del Principal (cada 30 min).
-> Última actualización: 2026-09-27 19:30 UTC
+> Actualizado: 2026-09-27T12:48:00Z
+
+## Crons configurados
+
+| Cron ID | Nombre | Agente | Schedule | Estado |
+|---------|--------|--------|----------|--------|
+| 13dc22e6 | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | ✅ Activo |
+| c3f30dc2 | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | ✅ Activo |
 
 ## Tareas en curso
 
-| Agente | Tarea | Estado | Última actualización |
-|--------|-------|--------|---------------------|
-| Principal | Mobile Fase 1: CSS responsive + fix selectores corruptos | ✅ Completado (1abd098) | 18:42 |
-| Code-Reviewer | Validar Mobile Fase 1 | ✅ APROBADO CON CAMBIOS (dimensiones → theme-polish.css) | 18:40 |
-| PO | Consulta backlog — priorizar siguiente feature | ✅ 8 propuestas consolidadas | 18:35 |
-| Principal | Developer docs (Idea 8, PO prioridad 🥈) | 🔄 En progreso | 18:45 |
+- **default (Principal):** Ejecutando diagnóstico de las 5 tareas en `agents`.
+  - T1 (cache-busting): ✅ Completada — commit 794bafa pusheado a agents.
+  - T2 (selectores corruptos): ✅ Diagnosticada — pertenecen a `prod_main.css` (origin snapshot). No se modifican sin autorización.
+  - T3 (grid): ✅ Diagnosticada — grid OK en `main.css v2.7.0`. Validación visual pendiente (requiere API key).
+  - T4 (regla de verificación): ✅ Completada — agregada a los 5 AGENTS.md.
+  - T5 (documentación/crons): 🔄 En progreso — configurando crons y TEAM_STATUS.md.
+- **product-owner:** Heartbeat PO configurado. Próxima ejecución: próximos 2h.
+- **code-reviewer:** Sin tareas pendientes.
+- **documenter:** task-838665263c09 (CHANGELOG/SESSION_LOG) en background (bg). Estado: running.
 
-## Tareas completadas hoy
+## Tareas completadas hoy (2026-09-27)
 
-| # | Agente | Tarea | Resultado | Hora |
-|---|--------|-------|-----------|------|
-| 1 | Principal | Heartbeat #1: verificar tareas + consultar PO | ✅ Completado | 17:00 |
-| 2 | PO | Priorización backlog (6 propuestas) | ✅ Respondido | 17:15 |
-| 3 | Code Reviewer | Validar 3 propuestas del PO | ✅ Completado | 17:10 |
-| 4 | Code Reviewer | Validar 3 fixes inventory-dashboard.js | ✅ APROBADO | 17:30 |
-| 5 | Principal | Fix clearTimeout / !important / id-cell-updated (inventory-dashboard) | ✅ Completado | 17:35 |
-| 6 | Documentador | Documentar fixes inventory-dashboard | ✅ Completado | 17:38 |
-| 7 | Code Reviewer | Validar implementación tracker legendarias | ✅ APROBADO | 17:50 |
-| 8 | Principal | Implementar tracker legendarias (feature branch) | ✅ Completado | 17:55 |
-| 9 | Principal | Merge a agents/main (commit 34c1e48) | ✅ Completado | 17:57 |
-| 10 | Principal | Actualizar TEAM_STATUS.md | ✅ Completado | 18:00 |
-| 11 | PO | Priorizar S1 Security antes que Mobile | ✅ Respondido | 18:10 |
-| 12 | Code Reviewer | Validar fix S1 Security | ⏱️ Timeout 60s (session_id mismatch bug) | 18:15 |
-| 13 | Principal | Fix S1: gist-sync.js Web Crypto PBKDF2 + AES-GCM | ✅ Completado (65f5f90) | 18:20 |
-| 14 | Principal | Merge S1 fix a agents/main (6919631) | ✅ Completado | 18:20 |
-| 15 | Documentador | Documentar Proposición 1 en CHANGELOG.md + ONBOARDING.md | ✅ Completado (fb7bcf6) | 17:45 |
-| 16 | Principal | Mobile Fase 1: fix selectores corruptos + breakpoints CSS (900/768/480px) | ✅ Completado (16b9dff) | 18:30 |
-| 17 | Principal | Mobile Fase 1: fix selectores corruptos + breakpoints CSS (900/768/480px) | ✅ Completado (16b9dff) | 18:30 |
-| 18 | Code-Reviewer | Validar Mobile Fase 1 | ✅ APROBADO CON CAMBIOS | 18:40 |
-| 19 | Principal | Aplicar cambios Reviewer (dimensiones → theme-polish.css) | ✅ Completado (1abd098) | 18:42 |
-| 20 | Principal | Iniciar Developer docs (Idea 8) | ✅ Completado (1136d8f) | 18:50 |
-| 21 | Principal | Privacy docs (Idea 4, PO prioridad 🥉) | ✅ Completado (3ce252b) | 19:10 |
-| 22 | Principal | Fase 2 de storage.js (migrar 5 módulos a Storage API) | ✅ Completado (39aeaa3) | 19:30 |
+- Cache-busting: actualizadas referencias `?v=` en `index.html` de agents. Commit 794bafa pusheado.
+- Regla de verificación obligatoria agregada a los 5 AGENTS.md.
+- Crons Heartbeat Principal y Heartbeat PO creados y verificados activos.
+- TEAM_STATUS.md creado con timestamp correcto.
 
 ## Pendientes para la próxima hora
 
-- PO: prioritizar siguiente feature tras Developer docs + Privacy docs ✅
-- Code-Reviewer: validar Mobile Fase 1 (CSS breakpoints + corrupted selector fix)
-- Documentador: quota agotada → documentar manualmente S1 + Mobile Fase 1 en CHANGELOG.md
-- Mobile companion Fase 2 (JS) — PO prioridad #3
-- Goal tracking (seguimiento de objetivos) — Postergada por falta de datos API
-- S1: contraseña fija en gist-sync.js → ✅ **RESUELTO** (absorbido por S1 Web Crypto)
+- TAREA 5 (cron): Verificar que los crons se ejecutan correctamente en la primera ejecución.
+- TAREA 3 (grid): Validar visualmente el grid en https://pablosnchz.github.io/gw2-wallet-agents/ (requiere API key).
+- Documentar los crons en KNOWLEDGE.md (actualizar sección Heartbeat).
+- Commitear y pushear TEAM_STATUS.md y KNOWLEDGE.md a agents.
 
 ## Alertas
 
-- (vacío)
+- **origin (producción) está CONGELADO.** Los selectores corruptos (`var(--acc-1)ountIconImg)`) y el grid roto son del deploy de origin. Solo Pablo decide cuándo promover agents → origin.
+- El Documentador no tiene tareas pendientes de documentación del día (task-838665263c09 sigue en background).
+- `prod_main.css` y `prod_index.html` son snapshots de origin; no se modifican.
 
-## Propuestas del PO (PRE_BACKLOG.md)
+## Estado de propuestas del PO
 
-| # | Propuesta | Prioridad PO | Veredicto Reviewer | Estado |
-|---|-----------|-------------|---------------------|--------|
-| 1 | Tracker de componentes de legendarias | 🔴 Alta | ✅ Aprobar con cambios (filtrar dentro de achievements) | ✅ **IMPLEMENTADA** — merge a main (34c1e48) |
-| 2 | Vista consolidada multicuenta | 🔴 Alta | ❌ Rechazar (rompe gn:tokenchange) | ⚠️ **CONFLICTO**: PO dice aprobada (🟢), Reviewer la rechazó. Necesita decisión del usuario. |
-| 3 | Mobile companion / PWA | 🟡 Media | ✅ Aprobar con cambios (Fase 1: CSS) | ✅ **IMPLEMENTADA** — Mobile Fase 1 (1abd098) |
-| 4 | Privacy docs (política de privacidad) | 🟢 Fácil | ✅ Aprobar | 🔄 En progreso |
-| 5 | Developer docs (window.* APIs) | 🟢 Fácil | ✅ Aprobar | ✅ **IMPLEMENTADA** — docs/DESARROLLADORES.md (1136d8f) |
-| 6 | Mobile companion Fase 2 (JS) | 🟡 Media | ✅ Aprobar | Pendiente |
-| 7 | Goal tracking (seguimiento de objetivos) | 🟡 Media | ⚠️ Pendiente datos | Postergada |
-| 8 | Theme selector mejorado | 🟢 Fácil | ✅ Aprobar | Pendiente |
-| 9 | Import/export JSON | 🟢 Fácil | ✅ Aprobar | Pendiente |
-| 10 | !important cleanup (S2) | 🟢 Fácil | ✅ Implementado por Arquitecto | ✅ Mergeado (6065d8c)
+- PRE_BACKLOG.md: pendiente de auditoría completa por parte del Documentador.
+- El PO no ha enviado propuestas consolidadas en esta sesión.
 
-## Bugs del BACKLOG
+## Estado del repositorio
 
-| Item | Estado |
-|------|--------|
-| 🟢 inventory-dashboard.js (glow + overflow + !important + clearTimeout) | ✅ **RESUELTO** (95b4136) |
-| 🔴 Fase 2 storage.js (migrar settings-manager.js) | Pendiente |
-| 🔴 S1: contraseña fija en gist-sync.js | ✅ **RESUELTO** (6919631) |
-| 🟡 !important residual: achievements.js:682, meta.js:625 | Documentado (no en scope actual)
+- **agents:** `main` actualizado. Último commit: 58a5190 (docs: cache-busting v6.6.2-agents).
+- **origin:** Congelado en v6.6.1. **NO modificado.**
+- Diferencia: 30 commits adelantan agents sobre origin.
