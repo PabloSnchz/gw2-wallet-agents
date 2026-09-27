@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/settings-manager.js — Gestión de Exportación/Importación de configuración
  * v1.0.2 (2026-03-28)
  * 
@@ -27,12 +27,12 @@
   
   /**
    * Exporta todas las API Keys
-   * Nota: Las claves se almacenan en localStorage como 'gw2_keys' y 'gw2_selected_key_v1'
+   * Nota: Las claves se almacenan via Storage API (STORAGE_KEYS.ACCOUNT_KEYS / ACCOUNT_SELECTED)
    */
   function exportApiKeys() {
     try {
-      var keys = JSON.parse(localStorage.getItem('gw2_keys') || '[]');
-      var selected = localStorage.getItem('gw2_selected_key_v1');
+      var keys = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_KEYS) || [];
+      var selected = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_SELECTED);
       console.log(LOG, 'API Keys exportadas:', keys.length);
       return { list: keys, selected: selected };
     } catch (e) {
@@ -49,20 +49,13 @@
       // Obtener índice de temporadas
       var seasonIndex = null;
       try {
-        seasonIndex = JSON.parse(localStorage.getItem('wv:season:index'));
+        seasonIndex = Storage.get(Storage.STORAGE_KEYS.WV_SEASON_INDEX);
       } catch(e) {}
       
       // Recopilar todas las temporadas existentes
       var seasons = {};
-      var prefix = 'wv:season:';
-      for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        if (key && key.indexOf(prefix) === 0 && key !== 'wv:season:index') {
-          try {
-            seasons[key.replace(prefix, '')] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-      }
+      var seasonKeys = Storage.list('gn:wv:season:');
+      seasonKeys.forEach(function (sKey) { var sid = sKey.replace('gn:wv:season:', ''); var sData = Storage.get(sKey); if (sData !== null) seasons[sid] = sData; });
       
       return { seasonIndex: seasonIndex, seasons: seasons };
     } catch (e) {
@@ -76,27 +69,14 @@
    */
   function exportWalletData() {
     try {
-      var compact = localStorage.getItem('walletCompact') === 'true';
+      var compact = Storage.get(Storage.STORAGE_KEYS.WALLET_COMPACT) === true;
       
       // Recopilar pins por API key
       var pins = {};
       var snapshots = {};
       
-      for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        if (key && key.indexOf('walletPins:') === 0) {
-          var keyId = key.replace('walletPins:', '');
-          try {
-            pins[keyId] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-        if (key && key.indexOf('walletSnapshot:') === 0) {
-          var snapshotKey = key.replace('walletSnapshot:', '');
-          try {
-            snapshots[snapshotKey] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-      }
+      Storage.list('gn:wallet:pins:').forEach(function (pKey) { var keyId = pKey.replace('gn:wallet:pins:', ''); pins[keyId] = Storage.get(pKey); });
+      Storage.list('gn:wallet:snapshots:').forEach(function (sKey) { var snapshotKey = sKey.replace('gn:wallet:snapshots:', ''); snapshots[snapshotKey] = Storage.get(sKey); });
       
       return { compact: compact, pins: pins, snapshots: snapshots };
     } catch (e) {
@@ -110,10 +90,10 @@
    */
   function exportActivitiesData() {
     try {
-      var toggles = localStorage.getItem('gn_activities_toggles');
+      var toggles = Storage.get(Storage.STORAGE_KEYS.ACTIVITIES_TOGGLES);
       var homeNodesMarked = {};
       try {
-        homeNodesMarked = JSON.parse(localStorage.getItem('gn_home_nodes_marked') || '{}');
+        homeNodesMarked = Storage.get(Storage.STORAGE_KEYS.ACTIVITIES_HOME_NODES) || {};
       } catch(e) {}
       
       return { toggles: toggles, homeNodesMarked: homeNodesMarked };
@@ -131,21 +111,8 @@
       var assignments = {};
       var locationHistory = {};
       
-      for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        if (key && key.indexOf('characters:assignments:') === 0) {
-          var keyId = key.replace('characters:assignments:', '');
-          try {
-            assignments[keyId] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-        if (key && key.indexOf('characters:location_history:') === 0) {
-          var histKey = key.replace('characters:location_history:', '');
-          try {
-            locationHistory[histKey] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-      }
+      Storage.list('gn:characters:assignments:').forEach(function (aKey) { var keyId = aKey.replace('gn:characters:assignments:', ''); assignments[keyId] = Storage.get(aKey); });
+      Storage.list('gn:characters:location_history:').forEach(function (hKey) { var histKey = hKey.replace('gn:characters:location_history:', ''); locationHistory[histKey] = Storage.get(hKey); });
       
       return { assignments: assignments, locationHistory: locationHistory };
     } catch (e) {
@@ -162,21 +129,8 @@
       var hechoHoy = {};
       var favoritos = {};
       
-      for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        if (key && key.indexOf('gn_meta_hecho_hoy:') === 0) {
-          var keyId = key.replace('gn_meta_hecho_hoy:', '');
-          try {
-            hechoHoy[keyId] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-        if (key && key.indexOf('gn_meta_favs:') === 0) {
-          var favKey = key.replace('gn_meta_favs:', '');
-          try {
-            favoritos[favKey] = JSON.parse(localStorage.getItem(key));
-          } catch(e) {}
-        }
-      }
+      Storage.list('gn:meta:hecho_hoy:').forEach(function (hKey) { var keyId = hKey.replace('gn:meta:hecho_hoy:', ''); hechoHoy[keyId] = Storage.get(hKey); });
+      Storage.list('gn:meta:favs:').forEach(function (fKey) { var favKey = fKey.replace('gn:meta:favs:', ''); favoritos[favKey] = Storage.get(fKey); });
       
       return { hechoHoy: hechoHoy, favoritos: favoritos };
     } catch (e) {
@@ -190,7 +144,7 @@
    */
   function exportGlobalData() {
     try {
-      var welcomeSeen = localStorage.getItem('gn_welcome_seen') === 'true';
+      var welcomeSeen = Storage.get(Storage.STORAGE_KEYS.GLOBAL_WELCOME_SEEN) === true;
       return { welcomeSeen: welcomeSeen };
     } catch (e) {
       console.warn(LOG, 'Error exportando Global data:', e);
@@ -278,20 +232,20 @@
   
   /**
    * Importa API Keys
-   * Nota: Las claves se almacenan en localStorage como 'gw2_keys' y 'gw2_selected_key_v1'
+   * Nota: Las claves se almacenan via Storage API (STORAGE_KEYS.ACCOUNT_KEYS / ACCOUNT_SELECTED)
    */
   function importApiKeys(apiKeysData) {
     if (!apiKeysData) return;
     
     // Guardar lista de keys
     if (apiKeysData.list !== undefined && Array.isArray(apiKeysData.list)) {
-      localStorage.setItem('gw2_keys', JSON.stringify(apiKeysData.list));
+      Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, apiKeysData.list);
       console.log(LOG, 'API Keys importadas:', apiKeysData.list.length);
     }
     
     // Guardar clave seleccionada
     if (apiKeysData.selected !== undefined && apiKeysData.selected !== null) {
-      localStorage.setItem('gw2_selected_key_v1', apiKeysData.selected);
+      Storage.set(Storage.STORAGE_KEYS.ACCOUNT_SELECTED, apiKeysData.selected);
       console.log(LOG, 'Key seleccionada importada:', apiKeysData.selected);
     }
   }
@@ -303,13 +257,13 @@
     if (!wvData) return;
     
     if (wvData.seasonIndex !== undefined && wvData.seasonIndex !== null) {
-      localStorage.setItem('wv:season:index', JSON.stringify(wvData.seasonIndex));
+      Storage.set(Storage.STORAGE_KEYS.WV_SEASON_INDEX, wvData.seasonIndex);
     }
     
     if (wvData.seasons && typeof wvData.seasons === 'object') {
       for (var seasonId in wvData.seasons) {
         if (wvData.seasons.hasOwnProperty(seasonId)) {
-          localStorage.setItem('wv:season:' + seasonId, JSON.stringify(wvData.seasons[seasonId]));
+          Storage.set('gn:wv:season:' + seasonId, wvData.seasons[seasonId]);
         }
       }
     }
@@ -322,13 +276,13 @@
     if (!walletData) return;
     
     if (walletData.compact !== undefined) {
-      localStorage.setItem('walletCompact', walletData.compact ? 'true' : 'false');
+      Storage.set(Storage.STORAGE_KEYS.WALLET_COMPACT, walletData.compact);
     }
     
     if (walletData.pins && typeof walletData.pins === 'object') {
       for (var keyId in walletData.pins) {
         if (walletData.pins.hasOwnProperty(keyId)) {
-          localStorage.setItem('walletPins:' + keyId, JSON.stringify(walletData.pins[keyId]));
+          Storage.set('gn:wallet:pins:' + keyId, walletData.pins[keyId]);
         }
       }
     }
@@ -336,7 +290,7 @@
     if (walletData.snapshots && typeof walletData.snapshots === 'object') {
       for (var snapshotKey in walletData.snapshots) {
         if (walletData.snapshots.hasOwnProperty(snapshotKey)) {
-          localStorage.setItem('walletSnapshot:' + snapshotKey, JSON.stringify(walletData.snapshots[snapshotKey]));
+          Storage.set('gn:wallet:snapshots:' + snapshotKey, walletData.snapshots[snapshotKey]);
         }
       }
     }
@@ -349,11 +303,11 @@
     if (!activitiesData) return;
     
     if (activitiesData.toggles !== undefined && activitiesData.toggles !== null) {
-      localStorage.setItem('gn_activities_toggles', activitiesData.toggles);
+      Storage.set(Storage.STORAGE_KEYS.ACTIVITIES_TOGGLES, activitiesData.toggles);
     }
     
     if (activitiesData.homeNodesMarked !== undefined) {
-      localStorage.setItem('gn_home_nodes_marked', JSON.stringify(activitiesData.homeNodesMarked));
+      Storage.set(Storage.STORAGE_KEYS.ACTIVITIES_HOME_NODES, activitiesData.homeNodesMarked);
     }
   }
   
@@ -366,7 +320,7 @@
     if (charactersData.assignments && typeof charactersData.assignments === 'object') {
       for (var keyId in charactersData.assignments) {
         if (charactersData.assignments.hasOwnProperty(keyId)) {
-          localStorage.setItem('characters:assignments:' + keyId, JSON.stringify(charactersData.assignments[keyId]));
+          Storage.set('gn:characters:assignments:' + keyId, charactersData.assignments[keyId]);
         }
       }
     }
@@ -374,7 +328,7 @@
     if (charactersData.locationHistory && typeof charactersData.locationHistory === 'object') {
       for (var histKey in charactersData.locationHistory) {
         if (charactersData.locationHistory.hasOwnProperty(histKey)) {
-          localStorage.setItem('characters:location_history:' + histKey, JSON.stringify(charactersData.locationHistory[histKey]));
+          Storage.set('gn:characters:location_history:' + histKey, charactersData.locationHistory[histKey]);
         }
       }
     }
@@ -389,7 +343,7 @@
     if (metaData.hechoHoy && typeof metaData.hechoHoy === 'object') {
       for (var keyId in metaData.hechoHoy) {
         if (metaData.hechoHoy.hasOwnProperty(keyId)) {
-          localStorage.setItem('gn_meta_hecho_hoy:' + keyId, JSON.stringify(metaData.hechoHoy[keyId]));
+          Storage.set('gn:meta:hecho_hoy:' + keyId, metaData.hechoHoy[keyId]);
         }
       }
     }
@@ -397,7 +351,7 @@
     if (metaData.favoritos && typeof metaData.favoritos === 'object') {
       for (var favKey in metaData.favoritos) {
         if (metaData.favoritos.hasOwnProperty(favKey)) {
-          localStorage.setItem('gn_meta_favs:' + favKey, JSON.stringify(metaData.favoritos[favKey]));
+          Storage.set('gn:meta:favs:' + favKey, metaData.favoritos[favKey]);
         }
       }
     }
@@ -410,7 +364,7 @@
     if (!globalData) return;
     
     if (globalData.welcomeSeen !== undefined) {
-      localStorage.setItem('gn_welcome_seen', globalData.welcomeSeen ? 'true' : 'false');
+      Storage.set(Storage.STORAGE_KEYS.GLOBAL_WELCOME_SEEN, globalData.welcomeSeen);
     }
   }
   

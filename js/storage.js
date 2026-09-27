@@ -220,6 +220,7 @@
       if (raw !== null) {
         try { return JSON.parse(raw); } catch (_) { return raw; }
       }
+      var oldKey = FALLBACK_MAP[key];
       var oldKeys = Array.isArray(oldKey) ? oldKey : [oldKey];
         for (var i = 0; i < oldKeys.length; i++) {
           var oldRaw = safe(function () { return localStorage.getItem(oldKeys[i]); }, null, 'getFallback');
@@ -233,6 +234,7 @@
     getRaw: function (key, fallback) {
       var raw = safe(function () { return localStorage.getItem(key); }, null, 'getRaw');
       if (raw !== null) return raw;
+      var oldKey = FALLBACK_MAP[key];
       var oldKeys = Array.isArray(oldKey) ? oldKey : [oldKey];
         for (var i = 0; i < oldKeys.length; i++) {
           var oldRaw = safe(function () { return localStorage.getItem(oldKeys[i]); }, null, 'getRawFallback');
@@ -382,5 +384,9 @@
   };
 
   window.Storage = Storage;
-  if (document.readyState !== 'loading') Storage.init();
+  if (document.readyState !== 'loading') {
+    Storage.init();
+  } else {
+    document.addEventListener('DOMContentLoaded', Storage.init);
+  }
 })();
