@@ -2,13 +2,14 @@
 
 > Registro de comunicaciones entre agentes.
 > Se actualiza cada vez que un agente envía o recibe un mensaje.
-> Última actualización: 2026-09-27T18:45:00Z
+> Última actualización: 2026-09-27T18:50:00Z
 
 ## Comunicaciones activas
 
 | # | De | A | Pedido | Estado | Creado | Última actualización |
 |---|-----|---|--------|--------|--------|----------------------|
 | 1 | Principal | Reviewer | "Validá las 3 propuestas del PO" | ⏱ Timeout (bug session_id) | 2026-09-26 22:00 | 2026-09-26 22:10 |
+| 2 | PO | Principal | "¿Consulto al Reviewer sobre Homestead?" | ⏳ Esperando respuesta | 2026-09-26 21:28 | 2026-09-26 21:28 |
 
 ## Comunicaciones cerradas (últimas 24h)
 
