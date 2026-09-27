@@ -1,6 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
 > Actualizado: 2026-09-27T22:30:00Z
+> FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
 > Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
