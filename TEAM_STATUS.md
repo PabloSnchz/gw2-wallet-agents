@@ -15,7 +15,7 @@
 - **default (Principal):** Heartbeat ejecutado. Crons configurados y activos.
   - T1 (cache-busting): ✅ Completada — commit 794bafa pusheado a agents.
   - T2 (selectores corruptos): ✅ Diagnosticada — pertenecen a `prod_main.css` (origin snapshot). No se modifican sin autorización.
-  - T3 (grid): ✅ Diagnosticada — grid OK en `main.css v2.7.0`. Validación visual pendiente (requiere API key).
+  - T3 (grid): ✅ **RESUELTA** — causa raíz: `@media(max-width:480px)` sin cerrar en main.css. Fix aplicado (commit d1e7c14). Las reglas de grid (.meta-grid, .wallet-card-grid) estaban anidadas en el media query no cerrado, aplicándose solo en pantallas ≤480px. En desktop, grids colapsaban a 1 columna en Cartera, Meta & Eventos y WV Shop. Braces verificados: 591/591 balanceados.
   - T4 (regla de verificación): ✅ Completada — agregada a los 5 AGENTS.md.
   - T5 (crons/documentación): ✅ Completada — crons creados, TEAM_STATUS.md actualizado, BACKLOG.md creado.
 - **product-owner:** task-921a1ca39a33 en progreso — investigando PRE_BACKLOG.md y mejoras de UX.
@@ -36,11 +36,18 @@
 - Documentar los crons en KNOWLEDGE.md (actualizar sección Heartbeat).
 - Commitear y pushear TEAM_STATUS.md y KNOWLEDGE.md a agents.
 
-## Alertas
+## Último incidente crítico (2026-09-27)
 
-- **origin (producción) está CONGELADO.** Los selectores corruptos (`var(--acc-1)ountIconImg)`) y el grid roto son del deploy de origin. Solo Pablo decide cuándo promover agents → origin.
-- El Documentador no tiene tareas pendientes de documentación del día (task-838665263c09 sigue en background).
-- `prod_main.css` y `prod_index.html` son snapshots de origin; no se modifican.
+**Grid roto en agents — 3 módulos afectados:**
+- Cartera: grid colapsaba a 1 columna (debería ser 3+).
+- Meta & Eventos: no renderizaba grids.
+- WV Shop: grid colapsaba a 1 columna.
+
+**Causa raíz:** El `@media (max-width:480px)` agregado por Mobile Fase 1 (commit 16b9dff) nunca fue cerrado con `}`. Esto hizo que todas las reglas CSS posteriores (`.meta-grid`, `.wallet-card-grid`, `.wv-card-grid`, `.wv-obj-grid`) cayeran dentro del media query no cerrado, aplicándose solo en pantallas ≤480px. En desktop (>480px), las reglas de grid no aplicaban.
+
+**Fix:** Agregar `}` faltante después de `.overlay-inner{ padding:6px 8px }` (línea 307). Braces verificados: 591/591 balanceados. Commit: `d1e7c14 fix(css): cerrar @media(max-width:480px) roto`.
+
+**Selectores corruptos:** CONFIRMADO — están SOLO en `prod_main.css` (snapshot de origin deploy), NO en los CSS reales de agents (`css/main.css`, `css/theme-polish.css`). 0 selectores corruptos en agents.
 
 ## Estado de propuestas del PO
 
@@ -54,7 +61,7 @@
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Último commit: 58a5190 (docs: cache-busting v6.6.2-agents). TEAM_STATUS.md pusheado en commit 4012b09.
+- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 794bafa (cache-busting) → 58a5190 (docs).
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
 - Working tree: `js/storage.js` y `js/settings-manager.js` modificados (trabajo previo sin commitear).
