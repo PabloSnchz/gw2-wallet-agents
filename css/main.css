@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    Bóveda del Gato Negro — Main CSS v2.7.0
    Layout + estructura + tipografía
    Todos los colores usan variables CSS (definidas en css/themes/*.css)
@@ -261,7 +261,50 @@ select:focus, input:focus{
   .container.layout{ grid-template-columns:1fr }
   .filters{ grid-template-columns:1fr 1fr }
   .field-inline{ grid-column:1 / -1 }
+
+  /* Overlay: tabs scrollables en pantallas medianas */
+  .overlay-tabs{
+    overflow-x:auto; padding-bottom:4px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .overlay-tabs::-webkit-scrollbar{ height:3px }
+  .overlay-tabs::-webkit-scrollbar-track{ background:transparent }
+  .overlay-tabs::-webkit-scrollbar-thumb{ background:var(--bd-1); border-radius:2px }
+
+  /* Brand logo más chico */
+  .brand-logo{ width:48px; height:48px }
+
+  /* KPI cards: min-width reducido */
+  #wdKPIs{ grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)) }
 }
+
+@media (max-width:768px){
+  .overlay-inner{
+    padding:8px 12px; min-height:60px; gap:12px
+  }
+  .overlay-tabs .overlay-tab{
+    padding:4px 8px; font-size:13px
+  }
+  .brand-logo{ width:40px; height:40px }
+
+  /* Meta cards: min-height reducido */
+  .m-card{ min-height:100px }
+
+  /* Tabla wallet: padding reducido */
+  #walletDashboardPanel .wvpd td,
+  #walletDashboardPanel .wvpd th{
+    padding:7px 10px; font-size:12px
+  }
+}
+
+@media (max-width:480px){
+  body{ font-size:13px }
+  .overlay-tabs .overlay-tab{ padding:3px 6px; font-size:12px }
+  .m-card{ min-height:90px }
+  #wdKPIs{ grid-template-columns:1fr }
+  #walletDashboardPanel .wvpd td,
+  #walletDashboardPanel .wvpd th{ padding:5px 8px; font-size:11px }
+  .overlay-inner{ padding:6px 8px }
 
 /* ============ META (tarjetas) ============ */
 .meta-topbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px }
@@ -1199,9 +1242,9 @@ select option:disabled{ color:var(--tx-3) }
   position:relative!important; top:auto!important;
   left:auto!important; right:auto!important; transform:none!important;
 }
-var(--acc-1)ountIconImg{ width:40px!important; height:40px!important }
+#accountIconImg{ width:40px; height:40px }
 #sideAccountPanel .panel-head__title{ display:flex; align-items:center; gap:8px }
-var(--acc-1)ountIconImg{ display:block; margin-top:6px }
+#accountIconImg{ display:block; margin-top:6px }
 #sideNavPanel .panel-head__title{ display:flex; align-items:center; gap:8px }
 #sideNavPanel .side-head-icon{ display:inline-flex; align-items:center; line-height:1 }
 #sideNavPanel .side-head-icon .icon-img{ display:block; margin-top:4px }
