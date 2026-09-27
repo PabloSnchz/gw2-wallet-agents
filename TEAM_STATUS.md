@@ -1,14 +1,16 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T14:01:00Z
-> Heartbeat #3: Sin tasks nuevas. Doc ✅ (task-838665263c09) | PO ✅ (task-e27e5d658589) | Review ⏱ (task-16e9e6df7e6b, bug conocido)
+> Actualizado: 2026-09-27T17:33:00Z
+> Heartbeat #4: Crons autoejecutándose. Principal ⏱ timeout (error) → fix aplicado (900s). PO 🔄 autoejecución (timeout 600s vencido) → fix aplicado (900s). Sin tasks manuales pendientes.
 
 ## Crons configurados
 
-| Cron ID | Nombre | Agente | Schedule | Estado |
-|---------|--------|--------|----------|--------|
-| 13dc22e6 | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | ✅ Activo |
-| c3f30dc2 | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | ✅ Activo |
+| Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
+|---------|--------|--------|----------|---------|--------|------------------|
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 600→900s | ✅ Activo | ⏱ TimeoutError en autoejecución 16:10 UTC |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 600→900s | ✅ Activo | 🔄 Running stuck en 17:02 UTC |
+
+**⚠️ Incidente:** Los crons se autoejecutan correctamente, pero el timeout era insuficiente. El Principal timed out con `TimeoutError`. El PO se quedó stuck. **Fix:** timeout aumentado a 900s en ambos crons.
 
 ## Tareas en curso
 
@@ -32,7 +34,8 @@
 - TEAM_STATUS.md creado con timestamp correcto (commit 4012b09).
 - BACKLOG.md creado con 4 items técnicos pendientes + histórico.
 - **Heartbeat #1 (manual, 12:48):** Documentador ✅, PO en progreso.
-- **Heartbeat #2 (cron/manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
+- **Heartbeat #2 (manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
+- **Heartbeat #3 (cron auto, ~14:30):** Principal ⏱ TimeoutError. PO 🔄 autoejecución stuck. **Fix aplicado:** timeouts a 900s.
 
 **Pendientes para la próxima hora:**
 - Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. **Prioridad según PO: 🥈 PRÓXIMA.**
@@ -70,7 +73,7 @@
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 5f4b66a (heartbeat update) → 794bafa (cache-busting) → 58a5190 (docs).
+- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 5f4b66a (heartbeat update) → e3b67f0 (heartbeat #3) → 794bafa (cache-busting) → 58a5190 (docs).
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
 - Working tree: `js/storage.js` y `js/settings-manager.js` modificados (trabajo previo sin commitear).
