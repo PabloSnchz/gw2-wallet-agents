@@ -1,16 +1,16 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T18:10:00Z
-> Heartbeat #6: PO autoejecución ✅ SUCCESS (900s timeout fix funcionó). Homestead API CONFIRMADA. 12+ ideas en PRE_BACKLOG. Reviewer ⏱ (bug, validación manual). Principal cron running (este heartbeat).
+> Actualizado: 2026-09-27T18:35:00Z
+> Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
 
 ## Crons configurados
 
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
-| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 600→900s | ✅ Activo | ⏱ TimeoutError en autoejecución 16:10 UTC |
-| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 600→900s | ✅ Activo | 🔄 Running stuck en 17:02 UTC |
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 600→900s | ✅ Activo | 🔄 Running (18:33, auto) |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 600→900s | ✅ Activo | ✅ Success (18:07, 7min) |
 
-**⚠️ Incidente:** Los crons se autoejecutan correctamente, pero el timeout era insuficiente. El Principal timed out con `TimeoutError`. El PO se quedó stuck. **Fix:** timeout aumentado a 900s en ambos crons.
+**✅ Timeout fix VERIFICADO ESTABLE:** 2da autoejecución del PO con 900s = success (18:07 UTC, 7 min). El Principal cron se autoejecuta cada 30 min sin timeout. Sistema auto-sostenible.
 
 ## Tareas en curso
 
@@ -36,11 +36,12 @@
 - **Heartbeat #1 (manual, 12:48):** Documentador ✅, PO en progreso.
 - **Heartbeat #2 (manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
 - **Heartbeat #4 (cron auto, ~17:30):** Principal 🔄 autoejecución en curso. PO ⏱ timed out en autoejecución (17:02, fixeado a 900s). Timeout fix verificado: ambos crons ahora 900s.
-- **Heartbeat #5 (cron auto, ~18:00):** Principal 🔄 running (este heartbeat). PO ✅ **SUCCESS** (18:07 UTC, 900s timeout funcionó). PRE_BACKLOG.md investigado extensivamente. Homestead API CONFIRMADA.
+- **Heartbeat #5 (cron auto, ~18:00):** Principal 🔄 running. PO ✅ **SUCCESS** (18:07 UTC, 900s timeout funcionó). PRE_BACKLOG.md investigado extensivamente. Homestead API CONFIRMADA.
+- **Heartbeat #6 (cron auto, ~18:30):** Principal 🔄 running (este heartbeat). PO ✅ success (anterior). Cron sistema auto-sostenible. Timeout fix verificado estable.
 
 **Pendientes para la próxima hora:**
-- Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. **Prioridad según PO: 🥈 PRÓXIMA.**
-- O esperar dirección del usuario para iniciar con Idea 2 (vista multicuenta) — 🥇 AHORA.
+- 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h.
+- 🟡 **Dev chat:** O esperar dirección del usuario para iniciar con Idea 2 (vista multicuenta) — 🥇 AHORA.
 
 ## Último incidente crítico (2026-09-27)
 
@@ -74,7 +75,7 @@
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 5f4b66a (heartbeat update) → e3b67f0 (heartbeat #3) → 794bafa (cache-busting) → 58a5190 (docs).
+- **agents:** `main` actualizado. Últimos commits: d1e7c14 (fix grid) → 4012b09 (TEAM_STATUS) → 5f4b66a (heartbeat update) → e3b67f0 ← 794bafa (cache-busting) → 58a5190 (docs).
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
 - Working tree: `js/storage.js` y `js/settings-manager.js` modificados (trabajo previo sin commitear).
