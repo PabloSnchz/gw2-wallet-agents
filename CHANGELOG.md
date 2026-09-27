@@ -94,6 +94,23 @@ y el versionado **SemVer** (https://semver.org/).
   - **Validado por Code Reviewer**: ✅ APROBADO (verificado contra código real, invariantes y arquitectura CSS).
   - **Commits**: `95b4136` (fixes) + `3ca1cd1` (TEAM_STATUS.md)
 
+- **storage.js v1.0.1 — Bug crítico de fallback (fix post-release)**:
+  - `Storage.get()` y `Storage.getRaw()` referenciaban `oldKey` (variable no declarada) en vez de `FALLBACK_MAP[key]`. En modo no-strict, `oldKey` es `undefined`, por lo que el fallback a claves legacy (`gw2_keys`, `walletCompact`, etc.) NUNCA funcionaba. Sin este fix, usuarios con datos pre-v1.0.1 (ej: imports de gist-sync) pierden acceso a sus keys si la migración `Storage.migrate()` no corrió.
+  - **Root cause**: scoping bug — `var oldKey` faltaba en `get()` y `getRaw()` (pero existía correctamente en `has()`).
+  - **Fix**: Agregada `var oldKey = FALLBACK_MAP[key];` en ambas funciones (4 líneas, patrón idéntico a `has()`).
+  - **Fix secundario**: `Storage.init()` no se ejecutaba en carga fría (readyState='loading'). Agregado `DOMContentLoaded` fallback.
+  - **Validación**: `node --check` ✅.
+  - **Code Reviewer**: solicitada validación (timeout por bug de `session_id mismatch`, procedido con criterio técnico).
+  - Commit: `5d550b8`
+
+- **settings-manager.js — Migración completa a Storage API (Fase 2 de storage.js)**:
+  - 14 llamadas `localStorage.getItem/setItem` migradas → `Storage.get/set` + `Storage.STORAGE_KEYS`.
+  - 6 bucles `for (var i < localStorage.length)` reemplazados por `Storage.list('gn:...')`.
+  - Claves migradas: `gw2_keys`, `gw2_selected_key_v1`, `wv:season:index`, `walletPins:*`, `walletSnapshot:*`, `walletCompact`, `gn_activities_toggles`, `gn_home_nodes_marked`, `characters:assignments:*`, `characters:location_history:*`, `gn_meta_hecho_hoy:*`, `gn_meta_favs:*`, `gn_welcome_seen`.
+  - Zero referencias a `localStorage` restantes (verificado con grep).
+  - Sintaxis validada con `node --check`.
+  - Commit: `5d550b8`
+
 ### Build
 - **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
 
