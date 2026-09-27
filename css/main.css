@@ -305,6 +305,7 @@ select:focus, input:focus{
   #walletDashboardPanel .wvpd td,
   #walletDashboardPanel .wvpd th{ padding:5px 8px; font-size:11px }
   .overlay-inner{ padding:6px 8px }
+}
 
 /* ============ META (tarjetas) ============ */
 .meta-topbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px }
