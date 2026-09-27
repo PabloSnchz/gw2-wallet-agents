@@ -19,6 +19,7 @@
 | 2 | PO | Principal | "Priorización de propuestas y PRE_BACKLOG" | ✅ Consumido — PO investigó 4 ideas nuevas | 2026-09-26 19:00 | 2026-09-26 19:15 |
 | 3 | Principal | PO | "Investigá 4 ideas nuevas para PRE_BACKLOG" | ✅ completada (task-e27e5d658589) — PRE_BACKLOG.md actualizado | 2026-09-26 21:00 | 2026-09-27 18:07 |
 | 4 | Principal | PO | "Heartbeat #9 query: ¿novedades en PRE_BACKLOG?" | ✅ Consumido — 11 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas). Prio: Vista multicuenta NOW, VoE NEXT. | 2026-09-27 22:00 | 2026-09-27 22:02 |
+| 5 | Principal | PO | "Heartbeat #10 query: ¿novedades desde último reporte?" | ✅ Consumido — 11 ideas sin cambios. Usuario NO autoriza Ideas 11/2. Idea 2 bloqueada (conflicto gn:tokenchange). | 2026-09-27 22:30 | 2026-09-27 22:35 |
 
 ## Estados posibles
 

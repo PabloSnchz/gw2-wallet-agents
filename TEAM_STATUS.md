@@ -1,7 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T22:15:00Z
-> Heartbeat #10 (manual): Principal + cron auto. Crons 900s ESTABLE (5x sin timeout). gw2-agents-dashboard creado y deployado ✅. PO consultado (Heartbeat #9 query: 11 ideas consolidadas, prio Vista multicuenta NOW / VoE NEXT). Reviewer bug persiste (session_id mismatch). Origin INTACTADO.
+> Actualizado: 2026-09-27T22:30:00Z
+> Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -51,6 +51,7 @@
 - **Heartbeat #9 (manual, ~22:00):** Documentador ✅ (task-838665263c09 404=completed). PO ✅ (task-88d0642bb3b2: 11 ideas consolidadas, 4 🟢 4 🟡 3 pospuestas). Reviewer ⏱ timeout (bug conocido) → validación manual ✅. Origin INTACTADO. Sin nuevas propuestas para Reviewer. **Parser fix (line-by-line) aplicado en gw2-agents-dashboard.**
 
 **Pendientes para la próxima hora:**
+- 🟡 **Bloqueado:** Idea 2 (vista multicuenta) — conflito PO-vs-Reviewer sobre `gn:tokenchange`. Necesita decisión de usuario.
 - 🟡 **Dev chat:** gw2-agents-dashboard: verificar parser en browser real (4 agentes, 2 comms). Cache-busting `?v=3` aplicado.
 - 🟡 **Dev chat:** Opción C' híbrida (GitHub API autodetecta .md + 7 URLs fallback) — evaluación pendiente del PO.
 - 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. Prioridad alta.
