@@ -94,6 +94,9 @@ y el versionado **SemVer** (https://semver.org/).
   - **Validado por Code Reviewer**: ✅ APROBADO (verificado contra código real, invariantes y arquitectura CSS).
   - **Commits**: `95b4136` (fixes) + `3ca1cd1` (TEAM_STATUS.md)
 
+### Build
+- **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
+
 ---
 
 ## [6.7.1] - 2026-06-XX
