@@ -1,5 +1,46 @@
 # Session Log
 
+## [2026-09-28T00:30Z] Heartbeat Principal #13
+
+### Qué se hizo
+- **Heartbeat #13 ejecutado** (manual, ~00:30 UTC). Verificado estado del ecosistema multi-agente.
+- **Tareas pendientes verificadas:**
+  - task-16e9e6df7e6b (Reviewer): 404 expired (bug session_id)
+  - task-838665263c09 (Documentador): 404 expired (completada previamente)
+  - task-b7ab432cda1a (PO): ✅ Completada — prioridad #2 = Idea 11 VoE confirmada
+  - task-581ac98a9f0a (PO): ⏱ **FAILED** (timeout 600s) — 6to timeout, demasiado complejo
+- **Idea 2 (multicuenta) IMPLEMENTADA ✅** — commit 07e4c64 push a agents.
+  - `js/api-gw2.js`: +27 líneas — `getCharacterCount()` (fetch /v2/characters, cache TTL.ACCOUNT, inflight dedup)
+  - `js/wallet-dashboard.js`: +266 líneas, -12 — v2.6.0: columnas summary (Personajes, Logros AP, Raids), KPIs resumen multicuenta, dropdown selector, sorting por campos, persistencia con `Storage.set('gn:wallet:dashboard:selected_summaries')`
+  - `node --check` ✅ en ambos archivos
+  - CSS 3 capas compliant: inline `borderLeft:3px solid rgba()`, sin `!important`, sin border/boxShadow/borderRadius/transition override
+  - No cambia `gn:tokenchange` event binding (extensión del refresh existente)
+- **Logs actualizados:** TEAM_STATUS.md, COMMS_LOG.md, ALERTS_LOG.md — commit 16de2a1 push a agents ✅
+- **Comms cerradas:** Comm #8 (Reviewer timeout, dashboard redesign) y Comm #9 (PO Homestead question) movidas a "cerradas" con resoluciones.
+- **Cron 13dc22e6:** Paused (`enabled: false`). Heartbeat manual. No loop detectado.
+
+### Verificación
+- `node --check js/api-gw2.js`: ✅ OK
+- `node --check js/wallet-dashboard.js`: ✅ OK
+- `git push agents main`: ✅ exitoso (07e4c64, 16de2a1)
+- CSS audit: `wd-kpi-card` heredado de `theme-polish.css` + `main.css`, `borderLeft` inline para colores semánticos, cero `!important` ✅
+- `getCharacterCount()`: usa patrones existentes (`getCache`, `putCache`, `inflightOnce`, `fetchWithRetry`, `withToken`) ✅
+
+### Qué se rompió
+- PO task-581ac98a9f0a timeout (600s). Demasiado complejo para una sola query. Sin impacto en código.
+
+### Qué quedó pendiente
+- 🟡 **Reviewer validación:** Comm #1 enviada al Reviewer (commit 07e4c64). Bug session_id mismatch causará timeout. Validación manual por Principal ✅ aplicada (CSS 3 capas, sin !important, no toca gn:tokenchange).
+- 🟡 **Reviewer bug:** 6to timeout reportado. Persistirá hasta fix del framework.
+- 🟡 **Idea 11 (VoE):** Implementada (57008ae). Restante: Wages of Stars + achievements Leyspring.
+- 🟡 **BACKLOG.md items:** inventory-dashboard.js glow/overflow, clearTimeout bug, gist-sync.js S1 — pendientes.
+- 🟡 **PO timeout pattern:** Investigar por qué submit_to_agent al PO timed out a pesar de modelo activo (3ra vez).
+
+### Decisiones
+- Idea 2 commited como una sola unidad (api-gw2.js + wallet-dashboard.js) — cohesión funcional.
+- Cron Principal pausado; heartbeats manuales bajo demanda.
+- Logs documentados manualmente por Principal (Documentador timeout).
+
 ## [2026-09-27T23:40Z] Heartbeat Principal #11
 
 ### Qué se hizo
