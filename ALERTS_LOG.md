@@ -8,9 +8,13 @@
 
 ## Alertas activas
 
-| # | Severidad | Descripción | Agente | Estado | Creado |
-|---|-----------|-------------|--------|--------|--------|
-| 1 | 🟡 Media | Code Reviewer: bug de session_id mismatch. No puede fetchear de GitHub. timed out 6 veces (120s, 600s, 600s, 60s, 60s, 600s). Último: PO Heartbeat #13 query (idea priorities update). Validación manual por Principal ✅. | Code-Reviewer | ⏳ Sin resolver | 2026-09-26 |
+| # | Severidad | Descripción | Agente | Estado | Creado | Última actualización |
+|---|-----------|-------------|--------|--------|--------|---------------------|
+| 1 | 🔴 Alta | Code Reviewer: bug de session_id mismatch. 11th consecutive timeout (120s/600s/600s, 60s ×8, 600s). Último: Heartbeat #16 — Homestead tracker proposal (task-d279c1a845e4, timed out a 60s). Validación manual por Principal ✅ (proceeding by merit). | Code-Reviewer | ⏳ Sin resolver (platform-level) | 2026-09-26 | 2026-09-29 04:01 UTC |
+| 2 | 🟡 Media | Documentador: 7th consecutive timeout (platform bug). task-0c858087dfb7 (600s), task-838665263c09 (timeout). Logs mantenidos por Principal. No fallback (per no-fallback rule). Escalado a Pablo. | Documenter | ⏳ Sin resolver (platform-level) | 2026-09-27 | 2026-09-29 04:01 UTC |
+| 3 | 🟡 Media | inventory-dashboard.js: glow usa box-shadow inline (violación CSS 3-capas capa 2), clearTimeout no cancela durante abort pipeline. Requiere Reviewer validation (down — proceeding by merit). | Principal | ⚠️ Proceeding by merit | 2026-09-28 | 2026-09-29 04:01 UTC |
+| 4 | 🟢 Baja | HEARTBEAT.md re-injection (platform bug). Banner aplicado como mitigación. | Plataforma | ⏳ Sin resolver (platform-level) | 2026-09-28 | 2026-09-29 04:01 UTC |
+| 5 | 🟢 Baja | CRON PO timeout (6th consecutive, platform bug). PRE_BACKLOG.md última actualización 2026-09-28 23:02 UTC. Cron activo, proceeding by merit. | product-owner | ⚠️ Proceeding by merit | 2026-09-26 | 2026-09-29 04:01 UTC |
 
 ## Alertas cerradas (últimas 7 días)
 
