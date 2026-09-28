@@ -111,6 +111,29 @@ explicito de Pablo.
 **Archivos afectados:** AGENTS.md de los 5 agentes (workspaces de
 QwenPaw). Esta entrada en DECISIONS_LOG.md (repo `agents`).
 
+### [2026-09-28] Aprobada construcción de Armería Legendaria
+
+**Contexto:** El Legendary Tracker vivía mal ubicado en Logros (achievements.js).
+El filtro "⚠ Legendarias" en el dropdown de Categoría tenía un bug funcional, pero
+se decidió NO arreglarlo porque ese código va a ser eliminado cuando el módulo nuevo
+esté listo. Se decidió construir módulo nuevo js/legendary-tracker.js con ruta
+#/account/legendary-armory.
+
+**Regla aplicada:** REGLA de código a construir vs deprecar — antes de diagnosticar
+o arreglar el bug del filtro, se preguntó si el código seguiría existiendo en 3 meses.
+Respuesta: NO (mudanza a legendary-tracker.js). Por lo tanto, NO diagnosticar ni arreglar.
+
+**Alcance:** Catálogo de armas, armaduras, abalorios y espalderes legendarios. Dos
+modos (Catálogo / Mi progreso). Precios TP, badges Lista/Comprable, sugerencias por
+precursor.
+
+**Quién decidió:** Pablo (con input del Arquitecto).
+
+**Impacto:** Al terminar el módulo nuevo, se elimina TODO el código del Legendary
+Tracker de achievements.js (no solo el filtro).
+
+**Estado:** Construcción iniciada en agents. Estado: implementación pendiente.
+
 ## Reglas
 
 - El Principal es el responsable de actualizar este archivo.

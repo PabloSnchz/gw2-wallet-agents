@@ -19,6 +19,7 @@
 | 1 | 🔴 Alta | Grid roto en 3 módulos (Cartera, Meta & Eventos, WV Shop) por @media(max-width:480px) sin cerrar en main.css | Principal | Fix: `}` faltante agregado (commit d1e7c14) | 2026-09-27 |
 | 2 | 🟢 Baja | Timeout de crons insuficiente (600s). PO cron stuck en 17:02 UTC | Principal | Timeout aumentado a 900s en ambos crons. Verificado. | 2026-09-27 |
 | 3 | 🟢 Baja | TEAM_STATUS.md timestamp inconsistente | Principal | Actualizado con timestamp UTC correcto. | 2026-09-27 |
+| 4 | 🟢 Baja | Bug: filtro ⚠ Legendarias en dropdown de Categoría del panel de Logros no funciona al seleccionarlo. Estado: deprecado — código del Legendary Tracker será eliminado de achievements.js cuando legendary-tracker.js esté funcional. No reintentar diagnóstico. | Principal | Deprecado — bug de código a eliminar (ver REGLA de código a construir vs deprecar) | 2026-09-28 |
 
 ## Severidades
 
