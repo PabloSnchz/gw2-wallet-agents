@@ -84,29 +84,18 @@ La idea pasa de POSPUESTA a DEPOIS (prioridad 🥄).
 
 ### [2026-09-28] Regla de oro: promocion a origin requiere test manual confirmado
 
-**Contexto:** El Arquitecto corrigio el enfoque sobre promocion a
-`origin`. La regla anterior ("solo se promueve con aprobacion del
-usuario") era insuficiente. Generaba casos donde un agente
-proponia promover algo a `origin` asumiendo que estaba funcionando
-porque era `main` de `agents`.
-
-**Decision:** NUEVA regla de oro (registro permanente):
-- NUNCA proponer promover `agents` -> `origin` sin que Pablo haya
-  hecho un test manual confirmado que funciona.
-- NUNCA asumir que algo esta funcionando porque esta en
-  `agents/main`.
-- Siempre preguntar primero: "¿Queres promover esto a origin?"
-  con la pregunta explicita de Pablo.
-- La promocion a `origin` requiere: (1) test manual confirmado por
-  Pablo que funciona en browser real, (2) OK explicito de Pablo.
-- Si un agente propone promover algo -> Pablo lo corrige en el spot.
+**Contexto:** La regla anterior ("solo se promueve con aprobacion del
+usuario") era insuficiente. Permitía que
+un agente propusiera promover algo a `origin` asumiendo que funcionaba
+porque era `main` de `agents`. El enfoque se reforzó: el equipo NUNCA
+propone promover. `origin` es dominio exclusivo de Pablo.
 
 **Quien decreto:** Pablo (Arquitecto -> todo el equipo).
 
 **Impacto:** Todos los agentes (Principal, Reviewer, Documentador, PO,
 Arquitecto) tienen actualizado su AGENTS.md con esta regla. Ningun
-agente propone promocion a `origin` sin test manual confirmado + OK
-explicito de Pablo.
+agente promueve `origin` sin OK explicito de Pablo (viola la regla). Pablo
+decide que promover; el equipo colabora solo cuando Pablo lo pide.
 
 **Archivos afectados:** AGENTS.md de los 5 agentes (workspaces de
 QwenPaw). Esta entrada en DECISIONS_LOG.md (repo `agents`).
@@ -133,6 +122,27 @@ precursor.
 Tracker de achievements.js (no solo el filtro).
 
 **Estado:** Construcción iniciada en agents. Estado: implementación pendiente.
+
+### [2026-09-28] Reforzamiento de la regla de oro sobre `origin`
+
+**Contexto:** La regla de promoción a origin se reforzó: el equipo
+NUNCA propone promover. Pablo decide cuándo y qué promover. El rol del
+equipo termina en `agents`; `origin` (gw2-wallet-ligero) es dominio
+exclusivo de Pablo.
+
+**Decision:** Regla de oro reforzada (registro permanente):
+- El equipo **NUNCA propone** promover a `origin`. Pablo decide.
+- `origin` (gw2-wallet-ligero) es dominio exclusivo de Pablo.
+- El universo del equipo es `agents` (gw2-wallet-agents).
+- Si un agente propone promover → violación de regla; Pablo lo corrige.
+- Si Pablo pide promover algo → el equipo colabora (solo con OK explícito).
+
+**Impacto:** Actualizados los 5 AGENTS.md + KNOWLEDGE.md del Arquitecto
+(workspaces QwenPaw) con la regla reforzada. Ningún agente propone
+promover a `origin`. `origin` intacto.
+
+**Archivos afectados:** 5 AGENTS.md (workspaces QwenPaw) + KNOWLEDGE.md
+del Arquitecto + DECISIONS_LOG.md (repo `agents`).
 
 ## Reglas
 
