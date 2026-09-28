@@ -8,6 +8,20 @@
 
 (none)
 
+### Formato de la tabla
+
+| # | De | A | Pedido | Estado | Task ID | Creado | Actualizado |
+
+Regla del Task ID:
+- Si la comunicación se originó con submit_to_agent → usar el task_id nativo
+  que devuelve la tool (ej: task-0241c613a2e4).
+- Si se originó con chat_with_agent → usar comms-NNN (ID secuencial manual).
+  NOTA: QwenPaw NO expone un ID de sesión nativo para chat_with_agent;
+  el ID es manual secuencial. Si en el futuro QwenPaw empieza a exponer un
+  session_id en la respuesta de chat_with_agent, anotarlo como fallback
+  adicional al comms-NNN en la columna Task ID.
+- El ID se asigna al crear la comunicación y nunca se modifica.
+
 ## Comunicaciones cerradas (últimas 24h)
 
 | # | De | A | Pedido | Resultado | Creado | Cerrado |
@@ -34,13 +48,28 @@
 
 ## Reglas de actualización
 
-El Principal es el responsable de actualizar este archivo:
+Cada agente es responsable de actualizar las comunicaciones donde participa
+(como emisor o destinatario).
 
-1. Cuando envía una tarea (con submit_to_agent) → agregar a "activas".
-2. Cuando el otro agente responde → cambiar estado a "Respondido".
-3. Cuando consume la respuesta → mover a "cerradas" con estado "Consumido".
-4. Cuando una tarea queda pendiente >1h → marcar con Timeout y alertar.
-5. Cada 30 min (con el Heartbeat) → revisar y actualizar.
+Al enviar (submit_to_agent o chat_with_agent):
+- Agregar a "activas" con estado "Esperando" + Task ID.
+
+Al recibir respuesta:
+- Cambiar estado a "Respondido" (si sos el emisor) o "Consumido" (si procesaste la respuesta).
+
+Al procesar completamente:
+- Mover a "cerradas (últimas 24h)" con resultado.
+
+Si una comunicación queda pendiente >1h sin movimiento:
+- Cualquiera de las partes puede marcarla con estado "Timeout" y aplicar reintento.
+
+Si después de 3 reintentos no hay respuesta:
+- Marcar como "Fallido" y escalar al Principal.
+
+El Principal, en su Heartbeat cada 30 min:
+- Revisar comunicaciones con más de 2h sin actualización → Notificar al usuario.
+- Revisar comunicaciones con estado "Respondido" pero no "Consumido" → Notificar al destinatario original.
+- Revisar comunicaciones "Fallidas" → Notificar al usuario.
 
 ## Alertas automáticas
 

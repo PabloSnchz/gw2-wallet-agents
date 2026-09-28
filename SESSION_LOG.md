@@ -318,3 +318,31 @@
   decision de Pablo).
 - Implementacion de Armeria Legendaria (Item 6): pendiente construccion en chat
   de Desarrollo.
+
+## [ADMIN SESSION 2026-09-28] - Configuracion de mecanismo de seguimiento activo
+
+### Que se hizo
+- **Item 1 (MCP mi-repo-boveda)**: Agregado path gw2-wallet-agents a los agent.json
+  de code-reviewer, documenter, product-owner, architect. El agente default ya lo tenia.
+  El MCP @modelcontextprotocol/server-filesystem NO soporta per-path permissions
+  (access_summary.default_effect=allow, overrides_count=0) — todos tienen Lectura +
+  Escritura; la restriccion se acuerda via AGENTS.md permissions notes.
+- **Item 2 (chat_with_agent + comms-NNN)**: NOTA agregada en COMMS_LOG.md sobre
+  session_id: QwenPaw NO expone session_id nativo para chat_with_agent; comms-NNN
+  manual. Si en el futuro lo expone, anotarlo como fallback.
+- **Item 3 (Arquitecto acceso agents)**: Agregado path gw2-wallet-agents al MCP del
+  Arquitecto. Aclaracion en AGENTS.md: read-only sobre agents, no cambia rol.
+- **Item 4 (GitHub MCP)**: Descartado. Paths locales para agents. GitHub MCP solo push/pull.
+
+### Decisiones sin consultar
+- Se aplico Lectura + Escritura para todos los agentes en agent.json (el MCP no distingue
+  per-path), y la restriccion se document en AGENTS.md segun instruccion.
+- Se anoto el session_id rule como futuro fallback (no breaking change).
+
+### Que se rompio
+- Nada.
+
+### Que quedo pendiente
+- El MCP mi-repo-boveda no soporta permisos read/write por path; la restriccion es
+  via AGENTS.md (regla de honor).
+- Pendiente: Pablo evaluar si amplia allowed_directories del Arquitecto para otros paths.
