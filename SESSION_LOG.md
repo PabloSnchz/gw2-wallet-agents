@@ -1,5 +1,42 @@
 # Session Log
 
+## [2026-09-28T12:00Z] Fix: Legendary Tracker dropdown (Runtime Bug)
+
+### Qué se hizo
+- **Fix aplicado** en `js/achievements.js` — bug doble de runtime que impedía que la opción "⚠ Legendarias" apareciera en el dropdown de categorías de logros.
+- **Bug 1 (missing call):** `discoverLegendaryCategory()` no se llamaba en el no-token render path (línea 1045), por lo que `state.legendaryCatId` permanecía vacío y la opción nunca se agregaba al dropdown.
+- **Fix 1:** Agregada llamada a `discoverLegendaryCategory()` entre `ensureCategories()` y `fillCategoryDropdown()` en el no-token path:
+  ```
+  await ensureCategories(); discoverLegendaryCategory(); fillCategoryDropdown(); ensureAside(); renderAside([]);
+  ```
+- **Bug 2 (__filled guard):** El guard `if (!list || list.__filled) return;` + `list.__filled = true;` en `fillCategoryDropdown()` (línea ~908) evitaba que el dropdown se re-populaba después de la primera renderización. Aunque `discoverLegendaryCategory()` seteaba `state.legendaryCatId` en una llamada posterior, `fillCategoryDropdown()` retornaba early por el guard.
+- **Fix 2:** Removido el guard `__filled`:
+  ```
+  // De: if (!list || list.__filled) return;  list.__filled = true;
+  // A:  if (!list) return;
+  ```
+  La función ya hace `list.innerHTML = html` (rebuild completo), así que el guard era innecesario.
+- **Commit:** `b591210 fix(achievements): legendary tracker dropdown not populated (double bug)`
+- **Push:** a `agents/main` ✅
+- **Deploy:** GitHub Pages verificado. El JS desplegado (`achievements.js?v=3.2.0`) confirma ambos fixes ✅.
+
+### Verificación
+- `git diff`: 2 líneas borradas, 1 agregada — cambio quirúrgico, no toca arquitectura ni CSS.
+- `curl` del JS desplegado: `__filled` NO presente ✅; `discoverLegendaryCategory()` presente en no-token path ✅.
+- **Browser test (hard reload):** ✅ La opción "⚠ Legendarias" aparece como data-value='114' con estilo `color:var(--color-amber)`. El dropdown pasó de 361 a 362 opciones. `discoverLegendaryCategory()` encontró match con keyword 'legendaria' en la categoría "Armas legendarias" (ID 114).
+- **Browser cache note:** El browser SDK's isolated Chromium cacheaba el JS viejo bajo `?v=3.2.0`; el fix era correcto pero requería hard-reload para verse. No es un problema del fix.
+- Code Reviewer: aprobó el commit original `94fb7a9` (task-fa0e4c29b938) — validación manual confirmada ✅.
+
+### Qué se rompió
+- Nada.
+
+### Qué quedó pendiente
+- Origin INTACTADO — no se promueve sin autorización de Pablo.
+
+### Decisiones
+- Fix quirúrgico (2 líneas) vs. el approach alternativo que requería remover `ensureCategories()` cache guard.
+- Pendiente de usuario: autorización para promover a origin (v6.6.2 → v6.6.3).
+
 ## [2026-09-28T00:30Z] Heartbeat Principal #13
 
 ### Qué se hizo
