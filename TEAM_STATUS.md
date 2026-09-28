@@ -29,6 +29,12 @@
 | Code Reviewer | Heartbeat desactivado (correcto) | ✅ Verificado | 15:00 |
 | Arquitecto | Workspace + MCP read-only + tools aisladas | ✅ Completado | 15:18 |
 
+## Promotion status
+
+- Sept 29 CM content: ✅ COMPLETADO en `agents/feature/cm-content-sept29`.
+  CM content listo para promover (ver `READY_FOR_PROMOTION.md`).
+  `origin` (producción) es dominio exclusivo de Pablo — no se promueve sin OK explícito.
+
 ## Alertas
 
 - Arquitecto: `execute_shell_command` reactivado (enabled: true) — solo
