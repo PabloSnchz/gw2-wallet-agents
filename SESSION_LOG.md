@@ -61,8 +61,7 @@
 
 1. **Phase 2C** (componentes de recetas): deuda técnica progresiva. Prioridad #2 en el BACKLOG. Se retoma cuando Phase 2A+2B están funcionando y visibles para Pablo.
 2. **Integración con `legendary-tracker.js`**: consumir `window.LegendaryCatalog` en Catálogo (render) y Mi progreso (progreso de cuenta).
-3. **Promoción a `origin`** (producción): requiere OK explícito de Pablo + test manual.
-4. **Documentador**: actualizar CHANGELOG.md + README.md (submit_to_agent enviado en background).
+3. **Documentador**: actualizar CHANGELOG.md + README.md (submit_to_agent enviado en background).
 
 ---
 
