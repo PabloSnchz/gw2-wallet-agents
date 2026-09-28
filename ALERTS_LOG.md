@@ -3,8 +3,8 @@
 > Registro de alertas del ecosistema.
 > Se actualiza cuando hay errores, timeouts, o bugs que afectan
 > al funcionamiento del equipo.
-> Última actualización: 2026-09-28T00:30:00Z
-> Nota: sin nuevas alertas 🔴. Reviewer bug persiste (6to timeout reportado). PO task-581ac98a9f0a timeout 600s (demasiado complejo). Idea 2 (multicuenta) implementada ✅ commit 07e4c64. Cron 13dc22e6 PAUSED (enabled: false).
+> Última actualización: 2026-09-28T14:30:00Z
+> Nota: sin nuevas alertas 🔴. Reviewer bug persiste (6to timeout reportado). PO task-581ac98a9f0a timeout 600s (demasiado complejo). Idea 2 (multicuenta) implementada ✅ commit 07e4c64. Cron 13dc22e6 REACTIVADO (enabled: true). Heartbeat #14 manual ejecutado.
 
 ## Alertas activas
 

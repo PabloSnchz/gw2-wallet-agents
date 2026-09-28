@@ -2,7 +2,7 @@
 
 > Registro de comunicaciones entre agentes.
 > Se actualiza cada vez que un agente envía o recibe un mensaje.
-> Última actualización: 2026-09-28T00:37:00Z
+> Última actualización: 2026-09-28T14:30:00Z
 
 ## Comunicaciones activas
 

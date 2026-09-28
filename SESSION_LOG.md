@@ -1,5 +1,25 @@
 # Session Log
 
+## [2026-09-28T14:30Z] Heartbeat #14 — Cron reactivado + incidente resuelto
+
+### Qué se hizo
+- Heartbeat #14 ejecutado (manual, 2026-09-28T14:30 UTC).
+- Incidente resuelto: Cron 13dc22e6 pausado el 27/09 para fijar share_session loop; reactivado con qwenpaw cron resume (enabled: true).
+- HEARTBEAT.md banner actualizado: CRON ACTIVO, acciones 7-8 documentadas. Banner preservado por bug de platform re-injection.
+- AGENTS.md actualizado: Regla de crons/heartbeats agregada a Principal + PO. Typo incidentas incidentes en PO AGENTS.md corregido.
+- TEAM_STATUS.md, COMMS_LOG.md, ALERTS_LOG.md: actualizados con estado post-reactivacion. Origin INTACTADO.
+
+### Qué se rompió
+- Nada.
+
+### Qué quedó pendiente
+- Bug de platform re-injection (HEARTBEAT.md como prompt cada turn): solo plataforma puede fijar.
+- Reviewer/Documentador/PO timeouts persisten (session_id mismatch).
+
+### Decisiones
+- Banner preservado a pesar de cron activo: previene el loop de re-injection.
+- Regla de crons/heartbeats agregada a AGENTS.md (Principal + PO).
+
 ## [2026-09-28T14:30Z] Armería Legendaria — Skeleton Phase 1
 
 ### Diagnóstico

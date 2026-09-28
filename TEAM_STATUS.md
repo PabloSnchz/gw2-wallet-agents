@@ -1,11 +1,12 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-28T00:30:00Z
+> Actualizado: 2026-09-28T14:30:00Z
 > FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
 > Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
 > Heartbeat #11 (manual, ~23:40 UTC): Documentador task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — documentado manualmente por Principal. PO ✅ (5-line summary: prioridad #2 = Idea 11 VoE datos estáticos, bajo riesgo). Reviewer bug persiste (4to timeout reportado). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe con fallback var()). Origin INTACTADO.
 > Heartbeat #12 (manual, ~23:50 UTC): gw2-agents-dashboard: **rediseño sección Comunicaciones COMPLETADO**. 4 fases implementadas (parser parseCommunications, renderer renderCommsKPIs/Table/Toolbar/Detail, app.js wiring + persistencia gn:, index.html + CSS). Push a `main` + SESSION_LOG.md actualizado. Reviewer task timed out (5to timeout, bug session_id). Validación manual ✅. Deploy en `pablosnchz.github.io/gw2-agents-dashboard` (cache-busting `?v=4`). Origin INTACTADO.
 > Heartbeat #13 (2026-09-28T00:30 UTC): **Idea 2 (multicuenta) IMPLEMENTADA ✅** — commit 07e4c64 push a agents. wallet-dashboard.js v2.6.0: columnas summary Personajes/AP/Raids, KPIs resumen, dropdown selector, sorting por campos. api-gw2.js: getCharacterCount() con cache + inflight dedup. CSS 3 capas compliant (inline borderLeft, sin !important). No cambia gn:tokenchange. PO task-581ac98a9f0a timeout 600s (#6th timeout). Cron PAUSED (enabled: false).
+> Heartbeat #14 (2026-09-28T14:30 UTC): **Incidente resuelto cron reactivado.** Cron 13dc22e6 pausado el 27/09 para fijar share_session loop; reactivado (qwenpaw cron resume, enabled: true). Heartbeat manual ejecutado (TEAM_STATUS/COMMS_LOG/ALERTS_LOG actualizados + push a agents). HEARTBEAT.md banner preservado por bug de platform re-injection. Reviewer/Documentador/PO timeouts persisten (bug platform). Origin INTACTADO.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -14,10 +15,10 @@
 
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
-| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ⏸️ **Pausado** (enabled: false) | Última: Heartbeat #13 (00:30 UTC) |
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ **Activo** (enabled: true) | Última: Heartbeat #14 (2026-09-28T14:30 UTC) |
 | `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 (18:07, 20:00, 22:02) |
 
-**⚠️ Cron Principal PAUSADO:** `qwenpaw cron update 13dc22e6 --no-share-session` aplicado. Heartbeat #13 ejecutado manualmente. El cron se re-activa con `qwenpaw cron resume 13dc22e6` cuando se autorice. No hay loop detectado. **900s timeout fix VERIFIED 5x** (antes de pause).
+**✅ Cron Principal ACTIVO:** `qwenpaw cron resume 13dc22e6` aplicado (2026-09-28T14:27 UTC). `share_session: false` verificado. Heartbeat #14 ejecutado manualmente (2026-09-28T14:30 UTC). **900s timeout fix VERIFIED 5x.** Banner en HEARTBEAT.md preservado por bug de platform re-injection (vea MEMORY.md).
 
 ## Tareas en curso
 
@@ -100,4 +101,4 @@
 - **gw2-agents-dashboard:** `main` actualizado. Últimos commits: 37639ce → d74e4a9 → 753cba7 → 50bb380. **Rediseño sección Comunicaciones COMPLETADO ✅** (parser parseCommunications + renderer KPIs/Tabla/Modal + app.js wiring + CSS). Cache-busting `?v=4`. Deployado en `pablosnchz.github.io/gw2-agents-dashboard`.
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
-- Working tree: `TEAM_STATUS.md`, `COMMS_LOG.md`, `ALERTS_LOG.md` modificados (heartbeat #13 updates). `js/api-gw2.js` y `js/wallet-dashboard.js` ya commited (07e4c64). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `_patch_wd2.py`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
+- Working tree: Limpio (heartbeat #14 commited). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `_patch_wd2.py`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
