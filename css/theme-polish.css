@@ -1516,3 +1516,157 @@ aside.col-side .panel-head img {
   border: none;
   box-shadow: none;
 }
+
+/* ==========================================================================
+   Legendary Tracker — UI polish (capa 2: bordes neutros, glow, hover)
+   Color semántico (borderLeft púrpura) se aplica vía legendary-tracker-theme.js
+   ========================================================================== */
+
+.lt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.lt-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg-0);
+  border: 1px solid var(--bd-1);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.lt-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--tx-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.lt-mode-btn:hover {
+  color: var(--tx-1);
+}
+.lt-mode-btn.active {
+  border-color: var(--acc-1);
+  color: var(--acc-1);
+  box-shadow: 0 0 8px rgba(90, 110, 154, 0.12);
+}
+
+.lt-filter-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.lt-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--bd-1);
+  background: var(--bg-1);
+  color: var(--tx-2);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.lt-filter-btn:hover {
+  border-color: var(--bd-2);
+  background: var(--bg-2);
+}
+.lt-filter-btn.active {
+  border-color: var(--acc-1);
+  background: var(--bg-0);
+  color: var(--acc-1);
+}
+
+.lt-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.lt-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lt-progress-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.lt-progress-stat {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--bd-1);
+}
+.lt-progress-stat .lt-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--tx-1);
+}
+.lt-progress-stat .lt-stat-label {
+  font-size: 0.65rem;
+  color: var(--tx-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lt-skeleton-shimmer {
+  background: linear-gradient(90deg, var(--bg-1) 25%, var(--bg-2) 50%, var(--bg-1) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border-radius: 8px;
+}
+
+.lt-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.lt-modal-badge--tradeable {
+  background: rgba(151, 78, 255, 0.1);
+  color: #974EFF;
+  border: 1px solid rgba(151, 78, 255, 0.3);
+}
+.lt-modal-badge--bound {
+  background: var(--bg-0);
+  color: var(--tx-3);
+  border: 1px solid var(--bd-1);
+}
+
+.lt-modal-field-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.lt-modal-field-value {
+  font-size: 0.8rem;
+  color: var(--tx-2);
+  font-weight: 500;
+}

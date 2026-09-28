@@ -252,9 +252,7 @@
     var displayName = item.nameEs || item.name;
 
     return '<div class="card lt-item-card" data-id="' + item.id + '" data-type="' + esc(item.type) + '" ' +
-      'style="position:relative;cursor:pointer;padding:10px;border-radius:12px;' +
-      'border-left:3px solid #974EFF;' +
-      'animation-delay:' + (idx * 0.02) + 's">' +
+      'style="position:relative;cursor:pointer;padding:10px;">' +
       statusOverlay +
       '<div style="display:flex;align-items:center;gap:8px;">' +
         '<div style="width:40px;height:40px;border-radius:6px;background:var(--bg-1);display:flex;' +
@@ -319,11 +317,11 @@
   // =======================================================================
   function renderSkeleton() {
     var skelCard = function () {
-      return '<div class="lt-skeleton-card card" style="padding:10px;border-radius:12px;">' +
+      return '<div class="lt-skeleton-shimmer card" style="padding:10px;">' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
-          '<div style="width:40px;height:40px;border-radius:6px;background:linear-gradient(90deg,var(--bg-1) 25%,var(--bg-2) 50%,var(--bg-1) 75%);background-size:200% 100%;animation:ltShimmer 1.5s infinite;"></div>' +
+          '<div style="width:40px;height:40px;border-radius:6px;background:linear-gradient(90deg,var(--bg-1) 25%,var(--bg-2) 50%,var(--bg-1) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;"></div>' +
           '<div style="flex:1;">' +
-            '<div style="height:12px;background:var(--bg-1);border-radius:4px;margin-bottom:4px;width:70%;animation:ltShimmer 1.5s infinite;"></div>' +
+            '<div style="height:12px;background:var(--bg-1);border-radius:4px;margin-bottom:4px;width:70%;animation:shimmer 1.2s infinite;"></div>' +
             '<div style="height:10px;background:var(--bg-2);border-radius:4px;width:40%;"></div>' +
           '</div>' +
         '</div>' +
@@ -331,41 +329,21 @@
       '</div>';
     };
 
-    var buttons = Array(10).fill(0).map(function () {
-      return '<div style="width:70px;height:26px;background:var(--bg-1);border-radius:20px;"></div>';
-    }).join('');
-
-    return '<div class="lt-filter-bar" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">' +
-      '<div style="display:flex;gap:4px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Tipo:</span>' + buttons.substring(0, buttons.length / 2) + '</div>' +
+    return '<div class="lt-filter-bar">' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Tipo:</span>' +
+      Array(5).fill(0).map(function () {
+        return '<span class="lt-skeleton-shimmer" style="width:70px;height:26px;border-radius:20px;"></span>';
+      }).join('') + '</div>' +
     '</div>' +
-    '<div class="lt-catalog-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
+    '<div class="lt-catalog-grid">' +
       Array(15).fill(0).map(skelCard).join('') +
     '</div>';
-  }
-
-  // =======================================================================
-  // INYECTAR ESTILOS DINÁMICOS (skeleton animation)
-  // =======================================================================
-  function injectSkeletonStyles() {
-    if (document.getElementById('lt-skeleton-styles')) return;
-    var css = '@keyframes ltShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}';
-    var s = document.createElement('style');
-    s.id = 'lt-skeleton-styles';
-    s.textContent = css;
-    document.head.appendChild(s);
   }
 
   // =======================================================================
   // REGISTRO
   // =======================================================================
   if (root.LegendaryTracker && typeof root.LegendaryTracker.registerRender === 'function') {
-    root.LegendaryTracker.registerRender({
-      filterBar: renderFilterBar,
-      catalogGrid: renderCatalogGrid,
-      skeleton: renderSkeleton,
-      progress: renderProgress
-    });
-    injectSkeletonStyles();
     console.info(LOG, 'render functions registered');
   } else {
     // Retry en próximo tick (el módulo principal puede no estar listo)
@@ -377,7 +355,6 @@
           skeleton: renderSkeleton,
           progress: renderProgress
         });
-        injectSkeletonStyles();
         console.info(LOG, 'render functions registered (retry)');
       } else {
         console.warn(LOG, 'LegendaryTracker no disponible, render functions no registradas');
