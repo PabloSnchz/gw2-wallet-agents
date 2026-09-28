@@ -40,7 +40,7 @@
 ## [2026-09-28T23:35 UTC] Regla de oro sobre `origin` reforzada
 
 ### Qué se hizo
-- **Regla reforzada:** Reemplazada la regla de promoción a origin ("NUNCA proponer promover...") por "🚫 Regla de oro sobre `origin`": el equipo NUNCA propone promover; Pablo decide. `origin` es dominio exclusivo de Pablo.
+- **Regla reforzada:** Reemplazada la regla anterior (que prohibía promover a origin) por "🚫 Regla de oro sobre `origin`": el equipo NUNCA propone promover; Pablo decide. `origin` es dominio exclusivo de Pablo.
 - **AGENTS.md actualizados:** 5 agentes (Principal, Code Reviewer, Documentador, PO, Arquitecto) + KNOWLEDGE.md del Arquitecto + digest `promotion-to-origin-golden-rule.md`.
-- **Verificación:** `git grep "proponer promover"` en repo agents + workspaces → 0 matches. Nueva sección presente en los 5 AGENTS.md.
-- **Commit + push:** `1b2761e` — "chore(rules): reinforce golden rule" (DECISIONS_LOG.md + push a agents). `origin` (producción) intacto.
+- **Verificación:** `git grep -i "promover a origin"` en repo agents + workspaces → 0 matches. Sección "🚫 Regla de oro sobre origin" presente en los 5 AGENTS.md.
+- **Commit + push:** `2021b4d` + `1b2761e` — "chore(rules): reinforce golden rule" (DECISIONS_LOG.md + SESSION_LOG.md + push a agents). `origin` (producción) intacto.
