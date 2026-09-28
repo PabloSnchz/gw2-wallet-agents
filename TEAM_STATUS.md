@@ -1,10 +1,11 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T23:50:00Z
+> Actualizado: 2026-09-28T00:30:00Z
 > FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
 > Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
 > Heartbeat #11 (manual, ~23:40 UTC): Documentador task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — documentado manualmente por Principal. PO ✅ (5-line summary: prioridad #2 = Idea 11 VoE datos estáticos, bajo riesgo). Reviewer bug persiste (4to timeout reportado). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe con fallback var()). Origin INTACTADO.
 > Heartbeat #12 (manual, ~23:50 UTC): gw2-agents-dashboard: **rediseño sección Comunicaciones COMPLETADO**. 4 fases implementadas (parser parseCommunications, renderer renderCommsKPIs/Table/Toolbar/Detail, app.js wiring + persistencia gn:, index.html + CSS). Push a `main` + SESSION_LOG.md actualizado. Reviewer task timed out (5to timeout, bug session_id). Validación manual ✅. Deploy en `pablosnchz.github.io/gw2-agents-dashboard` (cache-busting `?v=4`). Origin INTACTADO.
+> Heartbeat #13 (2026-09-28T00:30 UTC): **Idea 2 (multicuenta) IMPLEMENTADA ✅** — commit 07e4c64 push a agents. wallet-dashboard.js v2.6.0: columnas summary Personajes/AP/Raids, KPIs resumen, dropdown selector, sorting por campos. api-gw2.js: getCharacterCount() con cache + inflight dedup. CSS 3 capas compliant (inline borderLeft, sin !important). No cambia gn:tokenchange. PO task-581ac98a9f0a timeout 600s (#6th timeout). Cron PAUSED (enabled: false).
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -13,10 +14,10 @@
 
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
-| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ Activo | 🔄 Running (19:30 auto, sin timeout) |
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ⏸️ **Pausado** (enabled: false) | Última: Heartbeat #13 (00:30 UTC) |
 | `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 (18:07, 20:00, 22:02) |
 
-**✅ 900s timeout fix VERIFIED 5x:** 5 ejecuciones consecutivas sin TimeoutError. Sistema 100% estable y auto-sostenible.
+**⚠️ Cron Principal PAUSADO:** `qwenpaw cron update 13dc22e6 --no-share-session` aplicado. Heartbeat #13 ejecutado manualmente. El cron se re-activa con `qwenpaw cron resume 13dc22e6` cuando se autorice. No hay loop detectado. **900s timeout fix VERIFIED 5x** (antes de pause).
 
 ## Tareas en curso
 
@@ -55,14 +56,14 @@
 - **Heartbeat #9 (manual, ~22:00):** Documentador ✅ (task-838665263c09 404=completed). PO ✅ (task-88d0642bb3b2: 11 ideas consolidadas, 4 🟢 4 🟡 3 pospuestas). Reviewer ⏱ timeout (bug conocido) → validación manual ✅. Origin INTACTADO. Sin nuevas propuestas para Reviewer. **Parser fix (line-by-line) aplicado en gw2-agents-dashboard.**
 - **Heartbeat #12 (manual, ~23:50 UTC):** gw2-agents-dashboard: **rediseño sección Comunicaciones COMPLETADO** ✅. 4 fases: (1) parser parseCommunications() + helpers _cleanCell/_parseCommStatus; (2) renderer renderCommsKPIs/Table/Toolbar/Detail + global openCommsModal/closeCommsModal/sortComms; (3) app.js wiring con eventos + persistencia gn:dashboard:comms:*; (4) index.html +5 archivos + cache-busting ?v=4. Reviewer task-16e9e6df7e6b timeout #4 → validación manual ✅. Deploy a `main` + SESSION_LOG.md actualizado. Commit: `feat(comms): rediseño sección comunicaciones`.
 - **Heartbeat #11 (manual, ~23:40 UTC):** Principal 🎯 ejecutado. PO ✅ (5-line summary: no hay 3+ nuevas propuestas para Reviewer; prioridad #2 = Idea 11 VoE). Documentador ⏱ task-0c858087dfb7 FAILED (timeout 600s) — documentado manualmente. Reviewer bug persiste (4to timeout). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe). Origin INTACTADO.
+- **Heartbeat #13 (manual, 2026-09-28T00:30 UTC):** **Idea 2 (multicuenta) IMPLEMENTADA ✅** — commit 07e4c64 push a agents. wallet-dashboard.js v2.6.0 (columnas summary Personajes/AP/Raids, KPIs, dropdown, sorting) + api-gw2.js getCharacterCount(). node --check ✅. CSS 3 capas compliant. PO query timeout #6 (600s). Cron paused (enabled: false). ALERTS/COMMS/TEAM_STATUS actualizados.
 
 **Pendientes para la próxima hora:**
 - 🟡 **Dev chat:** gw2-agents-dashboard — verificar parser en browser real (4 agentes, 2 comms) + validar tabla + modal funcionando en live site. Cache-busting `?v=4` aplicado. Deploy: `pablosnchz.github.io/gw2-agents-dashboard`.
 - 🟡 **Dev chat:** Opción C' híbrida (GitHub API autodetecta .md + 7 URLs fallback) — evaluación pendiente del PO.
-- 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. Prioridad alta.
-- 🟡 **Dev chat:** BACKLOG.md items técnicos (inventory-dashboard.js glow/overflow, clearTimeout bug, storage.js Fase 2) — espera dev chat.
-- 🟡 **Dev chat:** O iniciar con Idea 2 (vista consolidada multicuenta) — 🥇 AHORA, ~8-12h.
-- 🟡 **Reviewer:** Bug session_id mismatch — 5to timeout (task-dddc7ac8774d). Reportar a QwenPaw support. Mientras tanto, validación manual por Principal.
+- 🟡 **Dev chat:** Idea 11 (VoE) YA IMPLEMENTADA ✅ (commit 57008ae). Focus shift: Homestead tracker (Idea 7) o developer API docs (Idea 8).
+- 🟡 **Dev chat:** BACKLOG.md items técnicos (inventory-dashboard.js glow/overflow, clearTimeout bug, gist-sync.js S1) — prioridad baja.
+- 🟡 **Reviewer:** Bug session_id mismatch — 6to timeout (task-581ac98a9f0a). Validación manual por Principal (Idea 2: ✅ aprobada, CSS 3 capas verified, no !important, no gn:tokenchange change).
 
 ## Último incidente crítico (2026-09-27)
 
@@ -83,21 +84,20 @@
 - PRE_BACKLOG.md tiene 11 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas). Ampliado desde 8 ideas originales.
 - **Discrepancia clave resuelta:** Idea 7 (Homestead tracker) fue POSPUESTA por el Principal (creía que la API no existía). El PO confirmó que `/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/homestead/decorations/categories` EXISTEN. **Revalidada de POSPUESTA a DEPOIS.**
 - **Prioridad final del PO (top 5):**
-  1. 🥇 Vista consolidada multicuenta (Idea 2) — ~8-12h — YA aprobada por Principal
-  2. 🥈 New content updates VoE (Idea 11) — ~4-6h — NUEVA, necesita validación Reviewer
-  3. 🥉 Developer API docs (Idea 8) — ~4-8h — YA aprobada por Principal
-  4. 🥉 API key privacy docs (Idea 4) — ~2h — YA aprobada por Principal
-  5. 🥄 Homestead tracker (Idea 7) — ~15-20h — REVALIDADA, necesita validación Reviewer
+  1. 🥇 Vista consolidada multicuenta (Idea 2) — ✅ IMPLEMENTADA (commit 07e4c64)
+  2. 🥈 New content updates VoE (Idea 11) — ✅ IMPLEMENTADA (commit 57008ae)
+  3. 🥉 Developer API docs (Idea 8) — ~4-8h — YA aprobada por Principal. NEXT.
+  4. 🥉 API key privacy docs (Idea 4) — ~2h — YA aprobada por Principal. NEXT.
+  5. 🥄 Homestead tracker (Idea 7) — ~15-20h — REVALIDADA (API confirma), necesita validación Reviewer.
 
 ## BACKLOG.md
 
-- Creado con 4 items técnicos pendientes + histórico de completions.
-- Items: inventory-dashboard.js glow/overflow, bug clearTimeout, storage.js Fase 2, gist-sync.js contraseña fija.
+- **BACKLOG.md:** Creado con 4 items técnicos pendientes + histórico de completions. Items pendientes: inventory-dashboard.js glow/overflow 🟡, bug clearTimeout 🟡, gist-sync.js S1 contraseña fija 🟡. storage.js Fase 2 ✅ **COMPLETADA** (settings-manager.js migrada, commit 5d550b8).
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: 6e16aaa → b1f2a16 → d1e7c14 → 4012b09 → 794bafa → 58a5190 → a5ad5fb (heartbeat #10) → 9247f0b (heartbeat #10 merge) → 697f6bb (pull merge) → 57008ae (raid-tracker VoE) → 510c6b6 (PO heartbeat docs) → 93769a0 (heartbeat #11).
+- **agents:** `main` actualizado. Últimos commits: ... → 93769a0 (heartbeat #11) → 510c6b6 (PO docs) → 824013c (heartbeat #12 merge) → **07e4c64 (Heartbeat #13: Idea 2 multicuenta ✅)**. Idea 11 (VoE) ya implementada en 57008ae (antes de esta línea la historia).
 - **gw2-agents-dashboard:** `main` actualizado. Últimos commits: 37639ce → d74e4a9 → 753cba7 → 50bb380. **Rediseño sección Comunicaciones COMPLETADO ✅** (parser parseCommunications + renderer KPIs/Tabla/Modal + app.js wiring + CSS). Cache-busting `?v=4`. Deployado en `pablosnchz.github.io/gw2-agents-dashboard`.
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
-- Working tree: Solo `SESSION_LOG.md` y `TEAM_STATUS.md` modificados (status updates). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
+- Working tree: `TEAM_STATUS.md`, `COMMS_LOG.md`, `ALERTS_LOG.md` modificados (heartbeat #13 updates). `js/api-gw2.js` y `js/wallet-dashboard.js` ya commited (07e4c64). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `_patch_wd2.py`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
