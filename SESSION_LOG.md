@@ -285,3 +285,36 @@
 - **Homestead tracker validation**: pendiente de Code Reviewer (Reviewer agent caído con bug session_id mismatch). Principal lo revalidará manualmente.
 - **VoE content integration**: Principal ya implementó Nexus of Eternity wing (Idea 11). Restante: legendary tracker Wages of Stars + achievements Leyspring Hollows/Nexus of Eternity.
 - **New Items Awareness Feed (Idea 10)**: DEPOIS — pendiente priorización.
+
+## [ADMIN SESSION 2026-09-28] - Aplicacion de reglas del ecosistema
+
+### Que se hizo
+- **Item 1 (verificacion promocion)**: Verificado textualmente que la regla
+  "NUNCA proponer promover agents -> origin..." esta presente en los 5 AGENTS.md. OK
+- **Item 2 (codigo a construir vs deprecar)**: Nueva regla agregada en AGENTS.md de:
+  Principal, Code Reviewer, Arquitecto, Documentador, PO. OK
+- **Item 3 (separacion conceptual de modulos)**: Nueva regla agregada en AGENTS.md de:
+  Principal, PO. Criterio agregado al PRE_BACKLOG.md (workspace PO). OK
+- **Item 4 (auditorias acotadas y verificables)**: Nueva regla agregada en AGENTS.md de:
+  Principal, Code Reviewer, Arquitecto. OK
+- **Item 5 (bug filtro Legendarias)**: Entrada #4 agregada a ALERTS_LOG.md (estado:
+  deprecado, no reintentar diagnostico). OK
+- **Item 6 (Armeria Legendaria)**: Entrada agregada a DECISIONS_LOG.md (construccion
+  aprobada en agents, ruta #/account/legendary-armory). OK
+- **Item 7 (accesos Arquitecto)**: Verificado. El MCP mi-repo-boveda del Arquitecto
+  tiene permitidos: gw2-wallet-ligero, workspaces\architect, gw2-agents-dashboard.
+  NO incluye gw2-wallet-agents. Recomendacion: agregar el path si se requiere
+  auditoria del repo de desarrollo. No urgente.
+- **Item 8 (commit + push)**: Commit 7a32631 + push a agents. origin intacto. OK
+- **Verificacion final**: script Python confirma todas las reglas en los agentes
+  correctos. OK
+
+### Que se rompio
+- Nada. Solo escritura de archivos .md y AGENTS.md (workspaces) +
+  ALERTS_LOG.md, DECISIONS_LOG.md, SESSION_LOG.md (repo agents).
+
+### Que quedo pendiente
+- Item 7: Ampliar MCP del Arquitecto para incluir gw2-wallet-agents (pendiente
+  decision de Pablo).
+- Implementacion de Armeria Legendaria (Item 6): pendiente construccion en chat
+  de Desarrollo.
