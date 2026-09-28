@@ -8,7 +8,7 @@
 
 | # | De | A | Pedido | Estado | Creado | Última actualización |
 |---|-----|---|--------|--------|--------|----------------------|
-| 1 | Principal | Reviewer | "Validar commit 07e4c64: Idea 2 wallet-dashboard multi-account summary columns (js/api-gw2.js +27l, js/wallet-dashboard.js +266l)" | ⏱ Timeout esperado (bug session_id) | 2026-09-28 00:25 | 2026-09-28 00:25 |
+| 1 | Principal | Reviewer | "Validar commit 07e4c64: Idea 2 wallet-dashboard multi-account summary columns" (task-0241c613a2e4, 90s timeout) | ⏱ Timeout esperado (bug session_id) | 2026-09-28 00:35 | 2026-09-28 00:35 |
 
 ## Comunicaciones cerradas (últimas 24h)
 
