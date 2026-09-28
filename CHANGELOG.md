@@ -10,6 +10,14 @@ y el versionado **SemVer** (https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **fix(achievements): Legendary Tracker dropdown — opción "⚠ Legendarias" no aparecía (`b591210`)**:
+  - **Bug doble de runtime** (no deploy, el JS v3.2.0 estaba en producción pero con lógica rota):
+    - **Bug 1 — `discoverLegendaryCategory()` faltante en no-token path**: en el path de render sin key, `discoverLegendaryCategory()` no se llamaba antes de `fillCategoryDropdown()`, por lo que `state.legendaryCatId` permanecía vacío y la opción "⚠ Legendarias" nunca se agregaba al dropdown. Fix: insertada llamada `discoverLegendaryCategory()` entre `ensureCategories()` y `fillCategoryDropdown()` (línea 1045).
+    - **Bug 2 — Guard `__filled` bloqueaba re-populación**: `fillCategoryDropdown()` tenía `if (!list || list.__filled) return;` + `list.__filled = true;`, lo que evitaba que el dropdown se rebuilde tras la primera renderización. Aunque `discoverLegendaryCategory()` seteaba `state.legendaryCatId` en llamadas posteriores, `fillCategoryDropdown()` retornaba early. Fix: removido el guard `__filled` (la función ya hace `list.innerHTML = html` rebuild completo).
+  - **Verificado en browser**: opción "⚠ Legendarias" aparece con `data-value='114'` y estilo `color:var(--color-amber)`. Dropdown pasó de 361 → 362 opciones. `discoverLegendaryCategory()` encontró keyword match ('legendaria' en "Armas legendarias", ID 114) — funciona dinámicamente, no depende del fallback '148'.
+  - **Cambio quirúrgico**: 2 líneas borradas, 1 agregada. No toca CSS ni arquitectura. Code Reviewer ✅ (task-fa0e4c29b938, commit original `94fb7a9`).
+
 ### Added
 - **Mejoras de UX en flujo de API Keys (9 propuestas del PO Pablo)**:
   - Propuesta 1: Loading state en botón "Guardar" (`.btn--loading` + spinner CSS)
@@ -58,6 +66,18 @@ y el versionado **SemVer** (https://semver.org/).
   - **Nota**: CryptoJS CDN sigue activo para `accounts-panel.js` (import/export de cuentas). No se eliminó.
   - **Code Reviewer**: Validación solicitada con timeout 60s — task timed out (bug de `session_id mismatch` conocido). Procedido con criterio técnico según AGENTS.md timeout rules.
   - Commit: `65f5f90`
+
+- **Vista multicuenta en Wallet Dashboard (wallet-dashboard.js v2.6.0, Idea 2 PO prioridad #1)**:
+  - Columnas summary: Personajes (char count), Logros AP (account AP), Raids (% encounters completed)
+  - loadAccountSummary() per-cuenta: getCharacterCount() + getAccountInfo() + getAccountRaids() con cache + inflight dedup
+  - KPIs resumen multicuenta: total chars/AP/raids con progress bars y borderLeft color semántico
+  - Dropdown selector renderSummarySelector() para togglear campos: Storage.set('gn:wallet:dashboard:selected_summaries')
+  - Sorting extendido: sortable-summary columns con toggle asc/desc
+  - api-gw2.js: getCharacterCount(token) — fetch /v2/characters, count, cache TTL.ACCOUNT
+  - CSS 3 capas: inline borderLeft 3px solid rgba() (theme color layer). Zero !important. No border/boxShadow/borderRadius/transition override.
+  - No cambia gn:tokenchange event binding — extensi\u00f3n del refresh existente.
+  - Code Reviewer: validation solicitada (task-0241c613a2e4, 90s). Timeout #7 (bug session_id). Validation manual: CSS 3 capas OK, no !important, no invariantes rotas, node --check OK.
+  - Commit: `07e4c64`
 
 ### Changed
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.

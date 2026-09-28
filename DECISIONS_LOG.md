@@ -3,7 +3,7 @@
 > Registro de decisiones importantes del equipo de agentes.
 > Se actualiza cuando el equipo toma una decisión que afecta al
 > proyecto a largo plazo.
-> Última actualización: 2026-09-27T18:45:00Z
+> Última actualización: 2026-09-28T10:00:00Z
 
 ## Decisiones recientes
 
@@ -81,6 +81,58 @@ La idea pasa de POSPUESTA a DEPOIS (prioridad 🥄).
 **Impacto:** La idea vuelve a la pila de implementación pendiente.
 
 **Archivos afectados:** PRE_BACKLOG.md.
+
+### [2026-09-28] Regla de oro: promocion a origin requiere test manual confirmado
+
+**Contexto:** El Arquitecto corrigio el enfoque sobre promocion a
+`origin`. La regla anterior ("solo se promueve con aprobacion del
+usuario") era insuficiente. Generaba casos donde un agente
+proponia promover algo a `origin` asumiendo que estaba funcionando
+porque era `main` de `agents`.
+
+**Decision:** NUEVA regla de oro (registro permanente):
+- NUNCA proponer promover `agents` -> `origin` sin que Pablo haya
+  hecho un test manual confirmado que funciona.
+- NUNCA asumir que algo esta funcionando porque esta en
+  `agents/main`.
+- Siempre preguntar primero: "¿Queres promover esto a origin?"
+  con la pregunta explicita de Pablo.
+- La promocion a `origin` requiere: (1) test manual confirmado por
+  Pablo que funciona en browser real, (2) OK explicito de Pablo.
+- Si un agente propone promover algo -> Pablo lo corrige en el spot.
+
+**Quien decreto:** Pablo (Arquitecto -> todo el equipo).
+
+**Impacto:** Todos los agentes (Principal, Reviewer, Documentador, PO,
+Arquitecto) tienen actualizado su AGENTS.md con esta regla. Ningun
+agente propone promocion a `origin` sin test manual confirmado + OK
+explicito de Pablo.
+
+**Archivos afectados:** AGENTS.md de los 5 agentes (workspaces de
+QwenPaw). Esta entrada en DECISIONS_LOG.md (repo `agents`).
+
+### [2026-09-28] Aprobada construcción de Armería Legendaria
+
+**Contexto:** El Legendary Tracker vivía mal ubicado en Logros (achievements.js).
+El filtro "⚠ Legendarias" en el dropdown de Categoría tenía un bug funcional, pero
+se decidió NO arreglarlo porque ese código va a ser eliminado cuando el módulo nuevo
+esté listo. Se decidió construir módulo nuevo js/legendary-tracker.js con ruta
+#/account/legendary-armory.
+
+**Regla aplicada:** REGLA de código a construir vs deprecar — antes de diagnosticar
+o arreglar el bug del filtro, se preguntó si el código seguiría existiendo en 3 meses.
+Respuesta: NO (mudanza a legendary-tracker.js). Por lo tanto, NO diagnosticar ni arreglar.
+
+**Alcance:** Catálogo de armas, armaduras, abalorios y espalderes legendarios. Dos
+modos (Catálogo / Mi progreso). Precios TP, badges Lista/Comprable, sugerencias por
+precursor.
+
+**Quién decidió:** Pablo (con input del Arquitecto).
+
+**Impacto:** Al terminar el módulo nuevo, se elimina TODO el código del Legendary
+Tracker de achievements.js (no solo el filtro).
+
+**Estado:** Construcción iniciada en agents. Estado: implementación pendiente.
 
 ## Reglas
 
