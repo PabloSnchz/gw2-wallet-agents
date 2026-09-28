@@ -3,7 +3,7 @@
 > Registro de decisiones importantes del equipo de agentes.
 > Se actualiza cuando el equipo toma una decisión que afecta al
 > proyecto a largo plazo.
-> Última actualización: 2026-09-27T18:45:00Z
+> Última actualización: 2026-09-28T10:00:00Z
 
 ## Decisiones recientes
 
@@ -81,6 +81,35 @@ La idea pasa de POSPUESTA a DEPOIS (prioridad 🥄).
 **Impacto:** La idea vuelve a la pila de implementación pendiente.
 
 **Archivos afectados:** PRE_BACKLOG.md.
+
+### [2026-09-28] Regla de oro: promocion a origin requiere test manual confirmado
+
+**Contexto:** El Arquitecto corrigio el enfoque sobre promocion a
+`origin`. La regla anterior ("solo se promueve con aprobacion del
+usuario") era insuficiente. Generaba casos donde un agente
+proponia promover algo a `origin` asumiendo que estaba funcionando
+porque era `main` de `agents`.
+
+**Decision:** NUEVA regla de oro (registro permanente):
+- NUNCA proponer promover `agents` -> `origin` sin que Pablo haya
+  hecho un test manual confirmado que funciona.
+- NUNCA asumir que algo esta funcionando porque esta en
+  `agents/main`.
+- Siempre preguntar primero: "¿Queres promover esto a origin?"
+  con la pregunta explicita de Pablo.
+- La promocion a `origin` requiere: (1) test manual confirmado por
+  Pablo que funciona en browser real, (2) OK explicito de Pablo.
+- Si un agente propone promover algo -> Pablo lo corrige en el spot.
+
+**Quien decreto:** Pablo (Arquitecto -> todo el equipo).
+
+**Impacto:** Todos los agentes (Principal, Reviewer, Documentador, PO,
+Arquitecto) tienen actualizado su AGENTS.md con esta regla. Ningun
+agente propone promocion a `origin` sin test manual confirmado + OK
+explicito de Pablo.
+
+**Archivos afectados:** AGENTS.md de los 5 agentes (workspaces de
+QwenPaw). Esta entrada en DECISIONS_LOG.md (repo `agents`).
 
 ## Reglas
 
