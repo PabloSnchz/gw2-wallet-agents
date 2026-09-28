@@ -1,103 +1,81 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-28T00:06:00Z (Heartbeat #12)
-> FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
-> Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
-> Heartbeat #12 (manual, ~00:06 UTC 2026-09-28): Task verification — task-0c858087dfb7 (documenter) ⏱ FAILED (timeout 600s, known platform bug). task-838665263c09 ✅ completed (404=limpio). PO cron ✅ SUCCESS (00:03:43 UTC, share_session=true→false fix aplicado en este heartbeat, root cause: cron inyectaba contenido en sesión del PO). PRE_BACKLOG.md: 12 ideas consolidadas, PO reporta "no hay 3+ nuevas propuestas para Reviewer" — todas procesadas previamente. BACKLOG.md actualizado: todos los items técnicos marcados ✅ completados (storage.js Fase 2, S1 fix, inventory-dashboard fixes, grid fix, cache-busting, raid VoE). Pendiente solo: encoding corruption check + validar grid con API key. Origin INTACTADO.
-> Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
-> Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
-> Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
+> Actualizado: 2026-09-28T19:30:00Z
+> Heartbeat #14 (manual): PO consulted via PRE_BACKLOG.md — 3+ proposals confirmed. Documentador task-0c858087dfb7 TIMEOUT (600s, platform bug). Reviewer 9+ timeouts (session_id mismatch, platform bug) — not retrying. Solitary Throne CM tracker ✅ IMPLEMENTADO + PUSHED to agents (commit 116ac60, branch feature/cm-content-sept29). Nexus achievement tracker ✅ — no code change needed (dynamic category 487). Legendary Armory A/B/C CONFLICTO: BLOCKED (awaiting user direction). Next item: Homestead decoration tracker (blocked by A/B/C).
 
 ## Crons configurados
 
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
-| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ Activo | 🔄 Running (19:30 auto, sin timeout) |
-| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 (18:07, 20:00, 22:02, **00:03**)
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ Activo | 🔄 Manual #14 (2026-09-28T19:30 UTC) |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 |
 
-**✅ 900s timeout fix VERIFIED 5x:** 5 ejecuciones consecutivas sin TimeoutError. Sistema 100% estable y auto-sostenible.
+## Estado de tareas (Heartbeat #14)
 
-## Tareas en curso
-
-- **default (Principal):** Heartbeat ejecutado. Crons configurados y activos.
-  - T1 (cache-busting): ✅ Completada — commit 794bafa pusheado a agents.
-  - T2 (selectores corruptos): ✅ Diagnosticada — pertenecen a `prod_main.css` (origin snapshot). No se modifican sin autorización.
-  - T3 (grid): ✅ **RESUELTA** — causa raíz: `@media(max-width:480px)` sin cerrar en main.css. Fix aplicado (commit d1e7c14). Las reglas de grid (.meta-grid, .wallet-card-grid, .wv-card-grid, .wv-obj-grid) estaban anidadas en el media query no cerrado, aplicándose solo en pantallas ≤480px. En desktop, grids colapsaban a 1 columna en Cartera, Meta & Eventos y WV Shop. Braces verificados: 591/591 balanceados.
-  - T4 (regla de verificación): ✅ Completada — agregada a los 5 AGENTS.md.
-  - T5 (crons/documentación): ✅ Completada — crons creados, TEAM_STATUS.md actualizado, BACKLOG.md creado.
-  - T6 (gw2-agents-dashboard): ✅ **Completada y deployada** — repo nuevo `PabloSnchz/gw2-agents-dashboard`, GitHub Pages activado. HTML vanilla + marked.js v4 (CDN). 7 archivos .md fetch desde `gw2-wallet-agents/main`. 3 zonas: Estado Actual (TEAM_STATUS, ALERTS, COMMS), Últimas 24h (SESSION_LOG, BACKLOG, DECISIONS), Histórico (PRE_BACKLOG). Bugs iniciales fixados (f.name→f.filename, cache-busting `?v=2`→`?v=3`). PRE_BACKLOG.md en 404 graceful ⚠️ (no está en agents/main/).
-  - T7 (parser fix line-by-line): ✅ Aplicado en `js/parser.js` — reemplaza regex con lookahead por split('\n') + match(). Más robusto con líneas intermedias. Backslash escaping verificado.
-- **product-owner:** task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado con 3 ideas nuevas (total: 11 ideas consolidadas). task-88d0642bb3b2 ✅ completada — Heartbeat #9 query respondida. 11 ideas (4 🟢, 4 🟡, 3 pospuestas). Prioridad: Vista multicuenta NOW, VoE NEXT. Homestead REVALIDADA → DEPOIS.
-- **code-reviewer:** task-16e9e6df7e6b ⏱ **timed out** (120s). Bug conocido: session_id mismatch en Code-Reviewer. Según reglas del proyecto, no se reintenta. Validación realizada por el Principal con criterio propio:
-  - **Idea 11 (New Content VoE):** ✅ **Aprobada** — datos estáticos, pattern idéntico a raid/strike tracker. Bajo riesgo.
-  - **Idea 7 (Homestead Tracker):** ✅ **Aprobada con cambios** — API confirmada existe, pattern similar a activities.js. Necesita verificación de formato de respuesta API antes de implementar.
-- **documenter:** task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190), push a agents. task (commit 9247f0b) ✅ — gw2-agents-dashboard configuración documentada en SESSION_LOG.md. task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — Documentador se queda sin respuesta aunque modelo activo (kilo-auto/free). Documentación realizada manualmente por Principal según fallback rules.
-
-## Tareas completadas hoy (2026-09-27)
-
-- Cache-busting: actualizadas referencias `?v=` en `index.html` de agents. Commit 794bafa pusheado.
-- Regla de verificación obligatoria agregada a los 5 AGENTS.md.
-- Crons Heartbeat Principal y Heartbeat PO creados y verificados activos.
-- TEAM_STATUS.md creado con timestamp correcto (commit 4012b09).
-- BACKLOG.md creado con 4 items técnicos pendientes + histórico.
-- gw2-agents-dashboard creado, configurado y deployado (GitHub Pages).
-- Parser fix (line-by-line) aplicado en `js/parser.js`.
-- **Heartbeat #1 (manual, 12:48):** Documentador ✅, PO en progreso.
-- **Heartbeat #2 (manual, 13:00):** Documentador ✅, PO ✅ (12 ideas consolidadas), Reviewer ⏱ timeout (bug conocido). Validación por Principal: Idea 11 ✅, Idea 7 ✅ con cambios.
-- **Heartbeat #4 (cron auto, ~17:30):** Principal 🔄 autoejecución en curso. PO ⏱ timed out en autoejecución (17:02, fixeado a 900s). Timeout fix verificado: ambos crons ahora 900s.
-- **Heartbeat #5 (cron auto, ~18:00):** Principal 🔄 running. PO ✅ **SUCCESS** (18:07 UTC, 900s timeout funcionó). PRE_BACKLOG.md investigado extensivamente. Homestead API CONFIRMADA.
-- **Heartbeat #6 (cron auto, ~18:30):** Principal 🔄 running (este heartbeat). PO ✅ success. Cron sistema auto-sostenible. Timeout fix verificado estable.
-- **Heartbeat #7 (cron auto, ~19:00):** Principal 🔄 running sin timeout (19:03). PO ✅ 3ra autoejecución SUCCESS (18:07). **900s fix verificado 4x — SISTEMA ESTABLE.**
-- **Heartbeat #8 (cron auto, ~19:30):** Principal 🔄 running sin timeout (19:30). PO ✅ next run 20:00. Sistema 100% estable, 0 timeouts.
-- **Heartbeat #9 (cron auto, ~20:00):** Principal 🔄 running sin timeout (20:00). PO ✅ **SUCCESS** (20:07 UTC, 900s timeout). **900s fix verificado 5x — SISTEMA 100% ESTABLE.**
-- **Heartbeat #9 (manual, ~22:00):** Documentador ✅ (task-838665263c09 404=completed). PO ✅ (task-88d0642bb3b2: 11 ideas consolidadas, 4 🟢 4 🟡 3 pospuestas). Reviewer ⏱ timeout (bug conocido) → validación manual ✅. Origin INTACTADO. Sin nuevas propuestas para Reviewer. **Parser fix (line-by-line) aplicado en gw2-agents-dashboard.**
-- **Heartbeat #11 (manual, ~23:40 UTC):** Principal 🎯 ejecutado. PO ✅ (5-line summary: no hay 3+ nuevas propuestas para Reviewer; prioridad #2 = Idea 11 VoE). Documentador ⏱ task-0c858087dfb7 FAILED (timeout 600s) — documentado manualmente. Reviewer bug persiste (4to timeout). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe). Origin INTACTADO.
-
-**Pendientes para la próxima hora:**
-- 🟡 **Bloqueado:** Idea 2 (vista multicuenta) — conflito PO-vs-Reviewer sobre `gn:tokenchange`. Necesita decisión de usuario.
-- 🟡 **Dev chat:** gw2-agents-dashboard: verificar parser en browser real (4 agentes, 2 comms). Cache-busting `?v=3` aplicado.
-- 🟡 **Dev chat:** Opción C' híbrida (GitHub API autodetecta .md + 7 URLs fallback) — evaluación pendiente del PO.
-- 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. Prioridad alta.
-- 🟡 **Dev chat:** BACKLOG.md items técnicos (inventory-dashboard.js glow/overflow, clearTimeout bug, storage.js Fase 2) — espera dev chat.
-- 🟡 **Dev chat:** O iniciar con Idea 2 (vista consolidada multicuenta) — 🥇 AHORA, ~8-12h.
-
-## Último incidente crítico (2026-09-27)
-
-**Grid roto en agents — 3 módulos afectados:**
-- Cartera: grid colapsaba a 1 columna (debería ser 3+).
-- Meta & Eventos: no renderizaba grids.
-- WV Shop: grid colapsaba a 1 columna.
-
-**Causa raíz:** El `@media (max-width:480px)` agregado por Mobile Fase 1 (commit 16b9dff) nunca fue cerrado con `}`. Esto hizo que todas las reglas CSS posteriores (`.meta-grid`, `.wallet-card-grid`, `.wv-card-grid`, `.wv-obj-grid`) cayeran dentro del media query no cerrado, aplicándose solo en pantallas ≤480px. En desktop (>480px), las reglas de grid no aplicaban.
-
-**Fix:** Agregar `}` faltante después de `.overlay-inner{ padding:6px 8px }` (línea 307). Braces verificados: 591/591 balanceados. Commit: `d1e7c14 fix(css): cerrar @media(max-width:480px) roto`.
-
-**Selectores corruptos:** CONFIRMADO — están SOLO en `prod_main.css` (snapshot de origin deploy), NO en los CSS reales de agents (`css/main.css`, `css/theme-polish.css`). 0 selectores corruptos en agents.
+- **default (Principal):** Heartbeat #14 ejecutado.
+  - ✅ PO consulted via PRE_BACKLOG.md — 3+ proposals confirmed (Solitary Throne ✅ done, Nexus ✅ done, Homestead 🟡 pending, New Items Feed 🟢 pending, Mobile PWA 🟡 pending).
+  - ✅ Solitary Throne CM tracker: Implemented (commit 116ac60) + PUSHED to agents. activities.js v3.19.7, node --check ✅.
+  - ✅ Nexus achievement tracker: No code change needed (category 487 loads dynamically).
+  - ❌ Reviewer: 9+ timeouts (session_id mismatch platform bug). Not retrying. Proceeding by merit.
+  - ❌ Documentador: task-0c858087dfb7 TIMEOUT (600s). Platform bug. No fallback — reporting to Pablo.
+- **product-owner:** ✅ All COMMS responded/consolidated. No pending tasks.
+- **code-reviewer:** ⏳ 9+ consecutive timeouts (session_id mismatch platform bug). Cannot validate. Proceeding by merit.
+- **documenter:** ⏳ task-0c858087dfb7 TIMEOUT (600s). Platform bug. No fallback — reporting to Pablo.
 
 ## Estado de propuestas del PO
 
-- **task-e27e5d658589 ✅ completada.** El PO investigó GW2 Wiki, gw2treasures y Reddit.
-- **task-933dea65eca1 ✅ completada (Heartbeat #11).** 11 ideas consolidadas. PO reporta "no hay 3+ nuevas propuestas para Reviewer" — todas procesadas previamente.
-- PRE_BACKLOG.md tiene 12 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas, 1 descartada).
-- **Discrepancia clave resuelta:** Idea 7 (Homestead tracker) fue POSPUESTA por el Principal (creía que la API no existía). El PO confirmó que `/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/homestead/decorations/categories` EXISTEN. **Revalidada de POSPUESTA a DEPOIS.**
-- **Idea 11 (VoE raid/strike/armor updates):** ✅ IMPLEMENTADA (commit 57008ae — wing 9 Nexus of Eternity + CSS raid-expansion--voe). Usuario aprobó implementación.
-- **Prioridad final del PO (top 5):**
-  1. 🥇 Vista consolidada multicuenta (Idea 2) — ~8-12h — YA aprobada por Principal, BLOQUEADA por conflicto gn:tokenchange
-  2. 🥈 New Content Integration — VoE (Idea 11) — ~4-6h — ✅ **IMPLEMENTADA** (57008ae)
-  3. 🥉 Developer API docs (Idea 8) — ~4-8h — YA aprobada por Principal
-  4. 🥉 API key privacy docs (Idea 4) — ~2h — YA aprobada por Principal
-  5. 🥄 Homestead tracker (Idea 7) — ~15-20h — REVALIDADA, necesita validación Reviewer
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 🥇 1. AHORA | Solitary Throne fractal tracker | 🟢 Fácil | ~6-8h | ✅ IMPLEMENTADO + PUSHED to agents (commit 116ac60, branch feature/cm-content-sept29). activities.js v3.19.7. node --check ✅. |
+| 🥇 1. AHORA | Nexus achievement tracker (cat 487) | 🟢 Fácil | ~1-2h | Category 487 loads dynamically in achievements.js dropdown from API. No code change needed. Nexus raid Wing 9 NOT in raid-tracker.js (8 wings) — tracked via achievements per BACKLOG. |
+| 🥈 2. PRÓXIMA | Homestead tracker (API confirmed) | 🟡 Media | ~15-20h | API confirmed: `/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/account/home/cats`. 837+ decorations. Zero references in js/. |
+| 🥉 3. PRÓXIMA | New items awareness feed | 🟢 Fácil | ~3-5h | gw2treasures items every 1-5h. No feed exists. |
+| 🥉 3. DEPOES | Developer API docs | 🟢 Fácil | ~4-8h | docs/DESARROLLADORES.md in agents/main (not in prod origin). |
+| 🥉 3. DEPOES | API key privacy docs | 🟢 Fácil | ~2h | PRIVACIDAD.md in agents/main (not in prod origin). |
 
-## BACKLOG.md
+## Tareas completadas hoy (2026-09-28)
 
-- **Actualizado en Heartbeat #12.** Todos los items técnicos anteriores marcados ✅ completados.
-- Pendiente únicamente: encoding corruption check (carácter `械` — ya corregido en v1.x, verificar regresión) + validar grid con API key (no posible sin key).
-- Últimos commits del repo: 510c6b6 (heartbeat #11 docs) ← 57008ae (raid VoE) ← 95b4136 (inventory-dashboard fixes) ← 6065d8c (!important removal) ← 5d550b8 (storage.js Fase 2) ← 65f5f90 (S1 security fix) ← d1e7c14 (grid fix) ← 794bafa (cache-busting) ← 39aeaa3 (storage.js Fase 1)
+- **Heartbeat #14 (manual, 19:30 UTC):** Ejecutado. PO consulted via PRE_BACKLOG.md. Solitary Throne CM tracker ✅ Implemented (commit 116ac60) + pushed to agents. Nexus achievement tracker ✅ verified. Reviewer 9+ timeouts (platform bug), Documentador task TIMEOUT (600s). Push a agents: ✅ COMPLETADO.
+- **Solitary Throne CM daily tracker** — Implemented in activities.js (v3.19.7): `SOLITARY_THRONE_CM_ACHIEVEMENTS` (9423/9412/9373/9388), `loadCMStatus()` with abort/last-win pattern, render badges in `renderFractals()`, wired into tokenchange + refresh flow. Committed 116ac60, pushed to agents/feature/cm-content-sept29.
 
-## Estado del repositorio
+## Alertas
 
-- **agents:** `main` actualizado en 510c6b6 (último commit). Working tree LIMPIO.
-- **gw2-agents-dashboard:** `main` actualizado y deployado.
-- **origin:** Congelado en v6.6.1. **NO modificado.**
-- Diferencia: 66 commits adelantan agents sobre origin.
-- PO cron fix (share_session: false) aplicado en Heartbeat #12 — root cause: cron inyectaba contenido en sesión del PO, causando loop. Fix: `qwenpaw cron update c3f30dc2 --agent-id product-owner --no-share-session`.
+| # | Severidad | Descripción | Estado |
+|---|-----------|-------------|--------|
+| 1 | 🔴 Alta | Code Reviewer: bug session_id mismatch. 9+ consecutive timeouts. Cannot validate CSS/arquitectura/multi-file changes. | ⚠️ Escalado a Pablo (platform-level) |
+| 2 | 🟡 Media | Documentador: timeout. task-0c858087dfb7 timed out at 600s. No fallback (per no-fallback rule). Reportando a Pablo. | ⏳ Sin resolver (platform-level) |
+| 3 | 🟢 Baja | HEARTBEAT.md re-injection (platform bug). Banner aplicado como mitigación. | ⏳ Sin resolver (platform-level) |
+| 4 | 🟡 Media | BACKLOG.md en agents/repo is STALE — doesn't reflect completed items (legendary tracker, storage v2, S1, grid fix, Solitary Throne CM tracker). | ⏳ Pending update |
+
+## Estado de propuestas del PO (actualizado 2026-09-28T22:10 UTC)
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 🥇 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ Implemented (116ac60 + 8cc5fc6 en agents/feature/cm-content-sept29). NOT in prod (origin/main @ f914ac9). Surgical: 81 lines 2 JS + 1 CSS + wing9.png. Needs Pablo approval. |
+| 🥇 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed: `/v2/homestead/decorations` + `/v2/account/home/cats`. 837+ decorations. 0 refs in prod. |
+| 🥈 2. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ~3-5h | gw2treasures items every 1-5h. No feed exists. |
+| 🥈 3. PRÓXIMA | Mobile PWA | 🟡 Media | ~8-12h | CSS breakpoints ✅ (prod). No manifest.json + sw. MetaForge apps Sept 9. |
+| 🥈 PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
+| 🥉 DEPOES | Homestead glyph + cat trackers | 🟢 Fácil | ~4h | Micro-features (12 glyphs + 37 cats). |
+| 🥉 DEPOES | Inventory cleanup tool | 🟡 Media | ~15-20h | MetaForge WARDOGS gap. |
+| 🍎 DEPOES | Goal tracking | 🟡 Media | — | Validated only. |
+| ⏸️ POSPUESTA | Legendary Armory A/B/C conflict | — | — | Both 94fb7a9 (inline achievements.js) + bac5c67 (separate module) coexist en branch. Need resolution. |
+| ⏸️ POSPUESTA | Legendary Phase 3 render | 🟡 Media | — | Skeleton (bac5c67) en dev. No API conn, no CSS theme. |
+| ⏸️ POSPUESTA | Legendary Phase 2C (recipes) | 🟡 Media | — | Research done (research_2c_report.md). API limitation. |
+| ❌ DESCARTADA | Homestead layouts | — | — | No API (XML local). |
+
+## Crítico: Sept 29 CM deadline (demás de hoy, 2026-09-28)
+
+- **Timeline:** CM content (Solitary Throne fractal + Nexus of Eternity) goes live en el juego el 29 de Septiembre (mañana, ~14h).
+- **State prod:** NO tiene el tracker (origin/main @ f914ac9).
+- **State dev:** ✅ Implementado en agents/feature/cm-content-sept29 (116ac60 + 8cc5fc6).
+- **Promotion strategy:** Cherry-pick ONLY 116ac60 + 8cc5fc6 (NOT full branch — branch also contiene Legendary Phase 3 skeleton bac5c67 que no está ready).
+- **Validation:** Reviewer DOWN (10th timeout, session_id mismatch — platform bug). No CSS/multi-file validation posible. Proceeding by merit: diff es 81 lines en 2 JS files + 1 CSS line + 1 icon, sigue patrones existentes (abort/last-win, gn:tokenchange, _debug, no !important, CSS 3-layer).
+- **Constraint:** Golden rule requires Pablo manual test + explicit OK before promoting a origin. **ESCALADO a Pablo.**
+
+## Próximos pasos
+
+1. 🚨 **ESCALADO a Pablo: Promotion Sept 29 CM content to production** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK (golden rule). Reviewer down — proceeding by merit. Time-critical: CM goes live 2026-09-29.
+2. ⏳ **Legendary Armory A/B/C conflict resolution** — Branch has BOTH Proposición 1 (94fb7a9, inline en achievements.js, Reviewer-approved) + Proposición C (bac5c67, separate module). Need decide cuál keep. Phase 3 render pospuesto.
+3. ⏳ **Homestead decoration tracker** — PO priority #1 post-promotion. Blocked por A/B/C conflict + Reviewer down.
+4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts. Escalado a Pablo.

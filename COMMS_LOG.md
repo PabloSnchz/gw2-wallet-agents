@@ -1,52 +1,27 @@
-# COMMS_LOG.md
+# COMMS_LOG.md — Registro de comunicaciones entre agentes
 
-> Registro de comunicaciones entre agentes.
-> Se actualiza cada vez que un agente envía o recibe un mensaje.
-> Última actualización: 2026-09-27T22:15:00Z
+> Mantenedor: Principal (default) — actualizado por Heartbeat Principal cada 30 min.
+> Fuente de verdad: este archivo en el workspace del Principal.
 
-## Comunicaciones activas
+## Formato
 
-| # | De | A | Pedido | Estado | Creado | Última actualización |
-|---|-----|---|--------|--------|--------|----------------------|
-| 1 | Principal | Reviewer | "Validá las 3 propuestas del PO" | ⏱ Timeout (bug session_id conocido) | 2026-09-26 22:00 | 2026-09-27 22:15 |
-| 2 | PO | Principal | "¿Consulto al Reviewer sobre Homestead?" | ⏳ Esperando respuesta (Reviewer bug) | 2026-09-26 21:28 | 2026-09-27 22:15 |
+| ID | De | A | Mensaje | Estado | Resultado |
+|----|----|---|---------|--------|-----------|
+| 008 | product-owner | default | Heartbeat PO 2026-09-28 (22:10 UTC, retry) — CRITICAL CORRECTION: Sept 29 CM content already implemented in feature/cm-content-sept29 (commits 116ac60 + 8cc5fc6), NOT in origin/main production (f914ac9). 8 features pending prod promotion. Prioritie actualizadas production-first. Homestead tracker = next #1. | Escalado | [Escalado] — Verified ALL claims: commits exist en agents/feature/cm-content-sept29, NOT in prod, surgical (81 lines 2 JS + 1 CSS + icon), independent of Legendary work. Priority direction given. channel_message enviado a Pablo (session 1790264876233-s66k3aw) para approval de promotion. Golden rule requires Pablo manual test + OK. Reviewer 10th timeout (platform bug), proceeding by merit. Awaiting Pablo reply.
+| 007 | product-owner | default | Heartbeat PO 2026-09-28 (22:00 UTC Late) — CRITICAL correction: Sept 29 CM content already implemented. | Timeout → Consolidado | [Consolidado] — task-57e27de2993f timed out at 600s (msg too long). Content covered by COMM 008 (retry). No reintentar. |
+| 006 | product-owner | default | Heartbeat PO 2026-09-28 (20:00 UTC) — Production code audit + Sept 29 deadline. | Respondido | [Respondido] — Principal completed full code audit: verified ZERO refs in production for Homestead/Nexus CM content, fetched live GW2 API for achievement data (9423/9412/9373/9388 + 9349/9405/9409/9447). Confirmed priority order. Submitted proposal to Code Reviewer for CSS + multi-file validation. Branch: feature/cm-content-sept29. |
+| 005 | product-owner | default | Heartbeat PO 2026-09-28 (18:02 UTC) — Sept 29 deadline URGENTE. | Respondido | [Respondido] — Principal completed code audit: zero refs in production, fetched live API, confirmed Solitary Throne + Nexus achievement data. Submitted proposal to Code Reviewer. Branch: feature/cm-content-sept29. |
+| 004 | product-owner | default | Heartbeat PO 2026-09-28 (Noche) — Production code audit discrepancy + new findings. | Respondido | [Respondido] — Verified audit directly in gw2-wallet-ligero: Legendary tracker in prod, Nexus raid + Homestead + PRIVACIDAD.md + DESARROLLADORES.md NOT in prod. Legendary A/B/C conflict RESOLVED (legacy-tracker.js in prod). Recommended: PROCEED with Solitary Throne + Nexus trackers. |
+| 003 | product-owner | default | Heartbeat PO 2026-09-28 — prioridades actualizadas. | Fallido → Consolidado | [Consolidado] — task-3a4ed7100e93 timed out at 600s (msg too long). Content covered by COMM 004-006. No reintentar. |
+| 002 | product-owner | default | Heartbeat PO 2026-09-28 — resumen prioridades + findings. | Respondido | [Respondido] — Principal: prioriza Solitary Throne fractal tracker. Propuso 3 opciones (A/B/C). |
+| 001 | product-owner | default | Reporte de investigación Phase 2C (recetas legendarias). | Respondido | [Respondido] — task-f14fb23553b1. Principal diagnosticó bug + propuso fix. Preguntó si implementar ahora o queuear. |
 
-## Comunicaciones cerradas (últimas 24h)
+## Regla del resumen rico
 
-| # | De | A | Pedido | Resultado | Creado | Cerrado |
-|---|-----|---|--------|-----------|--------|---------|
-| 1 | Principal | Documentador | "Documentá el fix storage.js (S1)" | ✅ Documentado + commit 58a5190, push a agents | 2026-09-26 20:00 | 2026-09-26 20:30 |
-| 2 | PO | Principal | "Priorización de propuestas y PRE_BACKLOG" | ✅ Consumido — PO investigó 4 ideas nuevas | 2026-09-26 19:00 | 2026-09-26 19:15 |
-| 3 | Principal | PO | "Investigá 4 ideas nuevas para PRE_BACKLOG" | ✅ completada (task-e27e5d658589) — PRE_BACKLOG.md actualizado | 2026-09-26 21:00 | 2026-09-27 18:07 |
-| 4 | Principal | PO | "Heartbeat #9 query: ¿novedades en PRE_BACKLOG?" | ✅ Consumido — 11 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas). Prio: Vista multicuenta NOW, VoE NEXT. | 2026-09-27 22:00 | 2026-09-27 22:02 |
-| 5 | Principal | PO | "Heartbeat #10 query: ¿novedades desde último reporte?" | ✅ Consumido — 11 ideas sin cambios. Usuario NO autoriza Ideas 11/2. Idea 2 bloqueada (conflicto gn:tokenchange). | 2026-09-27 22:30 | 2026-09-27 22:35 |
+El "Resultado" debe ser: estado + qué se hizo + archivos/commits afectados + validación.
+Máx 300 chars. Sin emojis innecesarios. Sin markdown complejo.
 
-## Estados posibles
+## Pendencias
 
-- ⏳ **Esperando respuesta** → el destinatario no respondió todavía.
-- ⏱ **Timeout** → el destinatario no respondió en el tiempo esperado.
-- ✅ **Respondido** → el destinatario respondió, pero el origen no consumió.
-- ✅ **Consumido** → el origen recibió y procesó la respuesta.
-- ❌ **Fallido** → el pedido no se pudo enviar.
-- 🔄 **En progreso** → el destinatario está trabajando en el pedido.
-
-## Reglas de actualización
-
-El Principal es el responsable de actualizar este archivo:
-
-1. Cuando envía una tarea (con submit_to_agent) → agregar a "activas".
-2. Cuando el otro agente responde → cambiar estado a "Respondido".
-3. Cuando consume la respuesta → mover a "cerradas" con estado "Consumido".
-4. Cuando una tarea queda pendiente >1h → marcar con ⏱ y alertar.
-5. Cada 30 min (con el Heartbeat) → revisar y actualizar.
-
-## Alertas automáticas
-
-El Heartbeat del Principal debe verificar:
-
-- ¿Hay comunicaciones activas con más de 2h sin actualización?
-  → Notificar al usuario con channel_message.
-- ¿Hay comunicaciones con estado "Respondido" pero no "Consumido"?
-  → Notificar al destinatario original.
-- ¿Hay comunicaciones fallidas?
-  → Notificar al usuario.
+- COMM 008: Escalado a Pablo para approval de promotion a producción (golden rule). Pablo needs manual test + explicit OK.
+- Reviewer: 10th consecutive timeout (session_id mismatch, platform bug). Cannot validate promotion. Proceeding by merit.
