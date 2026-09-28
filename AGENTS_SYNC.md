@@ -1,13 +1,10 @@
 # AGENTS.md Sync Log
 
 > Registro de la sincronización de AGENTS.md entre agentes del ecosistema.
-> El AGENTS.md del Principal (agente `default`) vive en su workspace,
-> el cual está mapeado al repo git (`gw2-wallet-ligero`). Por tanto
-> ese AGENTS.md SÍ está versionado en el repo.
-> Los AGENTS.md del resto de los agentes (Reviewer, PO, Documentador,
-> Arquitecto) viven en sus respectivos workspaces
-> (`C:\Users\psanc\.qwenpaw\workspaces\<agent>\AGENTS.md`) y NO están
-> versionados en el repo git. Este archivo documenta los cambios
+> Los AGENTS.md de todos los agentes viven en sus workspaces de
+> QwenPaw (`C:\Users\psanc\.qwenpaw\workspaces\<agent>\AGENTS.md`),
+> por lo que NO están versionados en el repo git (como documenta
+> el MEMORY.md del Arquitecto). Este archivo documenta los cambios
 > aplicados a todos los agentes y sirve como registro de auditoría.
 
 ## Sincronización — v6.6.3 (2026-09-28)
