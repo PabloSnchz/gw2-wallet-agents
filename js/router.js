@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * Router y Vistas (WV Objetivos + Tienda unificada)
  * v2.17.0 (2026-06-03) — Soporte Strike Tracker + F5 fix + skeleton ampliado
  *
@@ -121,7 +121,8 @@
           '#/wallet/dashboard':'walletDashboard',
           '#/inventory/dashboard':'inventoryDashboard',
           '#/account/raids':'raids',
-          '#/account/strikes':'strikes'
+          '#/account/strikes':'strikes',
+          '#/account/legendary-armory':'legendary'
         };
         var dv = map[h]; if (dv) found = links.find(function (a) { return (a.getAttribute('data-view')||'').trim().toLowerCase()===dv; }) || null;
       }
@@ -142,13 +143,14 @@
       else if (view==='walletDashboard'){ /* no sidebar específico */ }
       else if (view==='raids'){ /* no sidebar específico para raids */ }
       else if (view==='strikes'){ /* no sidebar específico para strikes */ }
+      else if (view==='legendary'){ /* no sidebar específico para armorería */ }
       else if (view==='inventory'){ /* no sidebar específico para inventario */ }
       else if (view==='inventoryDashboard'){ /* no sidebar específico */ }
     } catch (e) { console.warn('[router] updateSidebarFor error', e); }
   }
 
   function showPanel(idToShow) {
-    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel'].forEach(function(id){
+    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel','legendaryTrackerPanel'].forEach(function(id){
       var node=el(id); if (!node) return;
       if (id===idToShow) node.removeAttribute('hidden'); else node.setAttribute('hidden','hidden');
     });
@@ -1557,6 +1559,22 @@
           return;
         }
 
+        if (h === '#/account/legendary-armory') {
+          try {
+            showPanel('legendaryTrackerPanel');
+            if (typeof Analytics !== 'undefined') Analytics.viewModule('legendary-armory');
+            if (window.LegendaryTracker && typeof window.LegendaryTracker.activate === 'function') {
+              window.LegendaryTracker.activate();
+            }
+          } catch (e) {
+            console.warn('[router] show legendary-armory error', e);
+          } finally {
+            updateSidebarFor('legendary');
+            setActiveNav(h);
+          }
+          return;
+        }
+
         if (h === '#/cards') {
           try { 
             showPanel('walletPanel');
@@ -1794,6 +1812,12 @@
           window.StrikeTracker.refresh(true);
         } else if (window.StrikeTracker && typeof window.StrikeTracker.activate === 'function') {
           window.StrikeTracker.activate();
+        }
+      } else if (h === '#/account/legendary-armory') {
+        if (window.LegendaryTracker && typeof window.LegendaryTracker.refresh === 'function') {
+          window.LegendaryTracker.refresh(true);
+        } else if (window.LegendaryTracker && typeof window.LegendaryTracker.activate === 'function') {
+          window.LegendaryTracker.activate();
         }
       }
 
