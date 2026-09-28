@@ -4,6 +4,7 @@
 
 ## Pendientes (prioridad alta)
 
+- [ ] **Armería Legendaria (js/legendary-tracker.js)** — NUEVO módulo Phase 1: esqueleto (IIFE, ruta, sidebar, toggle, stubs). Phase 2: data file legendario-data.js. Phase 3: catálogo grid + mi progreso collapsible + progreso componentes + badges + toast.
 - [ ] **inventory-dashboard.js (glow + overflow)** — Revisar glow de KPI cards y overflow del dashboard. Ver diagnosticado en sesión previa.
 - [ ] **Bug clearTimeout en inventory-dashboard.js** — clearTimeout no se cancela correctamente durante abort pipeline.
 - [ ] **storage.js Fase 2** — Migración de claves restantes a Storage API. Fase 1 completada en commit 39aeaa3.
