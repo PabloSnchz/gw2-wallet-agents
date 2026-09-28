@@ -6,7 +6,15 @@
 ## Heartbeat #15 (manual, 22:15 UTC) — Post-PO heartbeat priority direction
 
 ### Qué se hizo
-- Recibido Heartbeat PO #15 (COMM 008, 22:10 UTC) — CRITICAL CORRECTION sobre Sept 29 CM content.
+- Heartbeat #15 (manual, 23:00 UTC) ejecutado.
+  - Verificado estado git en code-reviewer workspace (ambos remotes: origin=prod, agents=dev).
+  - Escalated to Pablo: Promotion Sept 29 CM content to production. Cherry-pick commits 116ac60 + 8cc5fc6 (NOT full branch). Requires Pablo manual browser test + explicit OK (golden rule).
+  - Legendary Armory conflict resolution: Keep Proposición 1 (94fb7a9, Reviewer-approved), posponer Proposición C (bac5c67) hasta post-Sept 29 deadline.
+  - Documentador 6th timeout (platform bug), escalado a Pablo.
+  - Reviewer 10th timeout (session_id mismatch, platform bug), escalado a Pablo.
+
+### Qué se rompió
+- Nada. Solo análisis, dirección de prioridad y escalada.
 - Verificado estado git en code-reviewer workspace (ambos remotes: origin=prod, agents=dev).
 - Confirmado: commits 116ac60 (activities.js v3.19.7) + 8cc5fc6 (raid-tracker.js v1.9.0) existen en agents/feature/cm-content-sept29, NOT en origin/main (f914ac9).
 - Verificado diff: 81 lines en 2 JS files + 1 CSS line + wing9.png. Surgical, pattern-compliant.

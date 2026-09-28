@@ -1,7 +1,25 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-28T19:30:00Z
-> Heartbeat #14 (manual): PO consulted via PRE_BACKLOG.md — 3+ proposals confirmed. Documentador task-0c858087dfb7 TIMEOUT (600s, platform bug). Reviewer 9+ timeouts (session_id mismatch, platform bug) — not retrying. Solitary Throne CM tracker ✅ IMPLEMENTADO + PUSHED to agents (commit 116ac60, branch feature/cm-content-sept29). Nexus achievement tracker ✅ — no code change needed (dynamic category 487). Legendary Armory A/B/C CONFLICTO: BLOCKED (awaiting user direction). Next item: Homestead decoration tracker (blocked by A/B/C).
+> Actualizado: 2026-09-28T23:00:00Z
+> Heartbeat #15 (manual): Post-PO heartbeat priority direction. Escalated to Pablo: Promote Sept 29 CM content to production (cherry-pick commits 116ac60 + 8cc5fc6, NOT full branch). Reviewer 10th timeout, Documentador 6th timeout (platform bugs). Legendary Armory A/B/C conflict: Proposición 1 (94fb7a9, Reviewer-approved) → keep; Proposición C (bac5c67) → pospuesto hasta post-deadline.
+
+## Heartbeat #15 (23:00 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #15 ejecutado.
+  - ✅ Escalated to Pablo: Promotion Sept 29 CM content to production (cherry-pick 116ac60 + 8cc5fc6 onto origin/main). Requires Pablo manual test + explicit OK.
+  - ✅ Legendary Armory conflict resolution: Keep Proposición 1 (94fb7a9), postpone Proposición C (bac5c67) hasta post-Sept 29 deadline.
+  - ❌ Reviewer: 10th conseccutive timeout (session_id mismatch platform bug). Cannot validate. Proceeding by merit.
+  - ❌ Documentador: 6th consecutive timeout (platform bug). Reporting to Pablo.
+- **product-owner:** ✅ All COMMS responded/consolidated. No pending tasks.
+- **code-reviewer:** ⏳ 10th consecutive timeout (session_id mismatch). Cannot validate. Proceeding by merit.
+- **documenter:** ⏳ 6th consecutive timeout. No fallback (per no-fallback rule). Escalado a Pablo.
+
+## Crons configurados
+| Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
+|---------|--------|--------|----------|---------|--------|------------------|
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` | 900s ✅ | ✅ Activo (share_session: false) | 🔄 Manual #15 (2026-09-28T23:00 UTC) |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` | 900s ✅ | ✅ Activo | ✅ Success x4 |
 
 ## Crons configurados
 
