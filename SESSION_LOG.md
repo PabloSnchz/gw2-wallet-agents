@@ -36,3 +36,11 @@
 - Priority #1: Promote Sept 29 CM content (cherry-pick 116ac60 + 8cc5fc6 solo, NOT full branch).
 - Legendary A/B/C: Proposición 1 (94fb7a9, Reviewer-approved) → keep. Proposición C (bac5c67) → pospuesto hasta después deadline.
 - Reviewer validation skipped (platform bug, 10th timeout). Proceeding by merit.
+
+## [2026-09-28T23:35 UTC] Regla de oro sobre `origin` reforzada
+
+### Qué se hizo
+- **Regla reforzada:** Reemplazada la regla de promoción a origin ("NUNCA proponer promover...") por "🚫 Regla de oro sobre `origin`": el equipo NUNCA propone promover; Pablo decide. `origin` es dominio exclusivo de Pablo.
+- **AGENTS.md actualizados:** 5 agentes (Principal, Code Reviewer, Documentador, PO, Arquitecto) + KNOWLEDGE.md del Arquitecto + digest `promotion-to-origin-golden-rule.md`.
+- **Verificación:** `git grep "proponer promover"` en repo agents + workspaces → 0 matches. Nueva sección presente en los 5 AGENTS.md.
+- **Commit + push:** `1b2761e` — "chore(rules): reinforce golden rule" (DECISIONS_LOG.md + push a agents). `origin` (producción) intacto.
