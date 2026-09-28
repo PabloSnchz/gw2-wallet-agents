@@ -107,3 +107,22 @@
 ### Qué quedó pendiente
 - Cron del Documentador sigue actualizando SESSION_LOG.md y TEAM_STATUS.md.
 - gw2-agents-dashboard fase 4 (polish CSS) pendiente.
+
+## [PO Heartbeat 2026-09-27] — Product Owner
+
+### Qué se hizo
+- **Heartbeat PO ejecutado** (investigación → PRE_BACKLOG.md → Principal).
+- **web_fetch gw2treasures.com**: homestead (nodes, garden plots, cats, decorations, glyphs, refined materials), developer (API docs), achievement (new items/achievements VoE).
+- **web_search Reddit/GW2 Wiki**: confirmada API Homestead (`/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/account/home/cats`). gw2treasures.com tiene sección completa.
+- **Inspección código**: api-gw2.js NO tiene endpoints Homestead. activities.js SÍ tracking Home Instance nodes (≠ Homestead).
+- **PRE_BACKLOG.md actualizado**: heartbeat 2026-09-27 agregado, Idea 7 REVALIDADA (POSPUESTA → 🟡 Media → PRÓXIMA), Ideas 9-11 agregadas, prioridad final corregida, tabla de prioridades consolidada.
+- **Reporte al Principal**: Enviado via `submit_to_agent` (5ta attempt, 3600s timeout). **✅ Response recibida** (task-b7ab432cda1a). Principal confirma prioridades y coordina con Code Reviewer.
+- **Confirmado via Principal heartbeat (23:40Z)**: "PO ✅: Enviada consulta. prioridad #2 = Idea 11 (New Content VoE)". Principal implementó Nexus of Eternity wing (commit `57008ae`). "PO Homestead question" pendiente en COMMS_LOG.md (pending Reviewer validation).
+
+### Qué se rompió
+- Nada. Solo lectura de archivos + escritura de PRE_BACKLOG.md (workspace PO) + SESSION_LOG.md.
+
+### Qué quedó pendiente
+- **Homestead tracker validation**: pendiente de Code Reviewer (Reviewer agent caído con bug session_id mismatch). Principal lo revalidará manualmente.
+- **VoE content integration**: Principal ya implementó Nexus of Eternity wing (Idea 11). Restante: legendary tracker Wages of Stars + achievements Leyspring Hollows/Nexus of Eternity.
+- **New Items Awareness Feed (Idea 10)**: DEPOIS — pendiente priorización.
