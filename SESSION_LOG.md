@@ -1,5 +1,86 @@
 # Session Log
 
+## [2026-09-28T14:30Z] Armería Legendaria — Skeleton Phase 1
+
+### Diagnóstico
+- El Legendary Tracker existente vive como filtro dentro de achievements.js (categoría ID 148).
+- La auditoría del Reviewer sobre achievements.js quedó inconclusa (timeout). No se retoma.
+- El código se eliminará cuando el módulo nuevo esté funcionando.
+
+### API Investigation
+- `/v2/account/legendaryarmory` ✅ Existe, ya envuelto por `GW2Api.getAccountLegendaryArmory()` (api-gw2.js v2.14.0, TTL.ARMORY=5min).
+- `/v2/legendary` ❌ NO existe en la API de GW2. Se necesita data file estático para el catálogo completo.
+- `/v2/items` ✅ Disponible vía `GW2Api.getItemsMany()` (caché 24h, chunks de 200).
+- `/v2/commerce/prices` ✅ Disponible vía `GW2Api.getCommercePrices()` (api-gw2.js v2.15.0).
+- `/v2/account/bank` ✅ Disponible vía `GW2Api.getAccountBank()`.
+- `/v2/account/materials` ✅ Disponible vía `GW2Api.getAccountMaterials()`.
+- Asset icon: `assets/icons/Cuentas/157085.png` ✅ Confirmado existe.
+
+### Qué se hizo
+- **Nuevo módulo `js/legendary-tracker.js`** (v1.0.0, IIFE):
+  - Rutas, estado, modos (Catálogo/Mi progreso), persistencia `gn:legendary:`
+  - `activate()/deactivate()/refresh()/prefetch()/_debug()`
+  - Skeleton DOM: toggle de modos, grid 5 columnas (Catálogo), filas colapsables (Mi progreso)
+  - Toast notification hook via `gn:toast` event
+  - Reutiliza endpoints existentes de api-gw2.js
+- **Router (`js/router.js`)** — 5 integraciones:
+  - `showPanel()` array: agregado `'legendaryArmoryPanel'`
+  - `setActiveNav()` map: agregado `'#/account/legendary-armory':'legendaryArmory'`
+  - `navigateToRoute()`: agregado route handler (showPanel + activate + updateSidebarFor + setActiveNav)
+  - `onKeySelectChange()`: agregado token change handler (refresh)
+  - `updateSidebarFor()`: agregado caso `'legendaryArmory'`
+- **index.html** — 3 integraciones:
+  - Sidebar nav item `#navLegendaryArmory` (debajo de "Inventario y Personajes", antes de "Cuentas")
+  - Panel section `<section id="legendaryArmoryPanel">` (después de achievementsPanel)
+  - Script tag `<script defer src="js/legendary-tracker.js?v=1.0.0">`
+- Syntax check OK para `legendary-tracker.js` y `router.js` (node -e).
+- Commit `35a0f5e` → push a `agents/main` exitoso.
+
+### Qué se rompió
+- Nada. Los únicos cambios son aditivos (nuevo archivo + ediciones puntuales).
+
+### Qué quedó pendiente (Phase 2)
+- **Data file `js/legendary-data.js`**: catálogo estático de legendarias (armas Gen 1/2/3, armaduras por peso, espaldares, abalorios) con IDs de itemos, precursores y componentes de crafteo.
+- **Integración full**: cargar datos del API, renderizar grid/catalog, calcular progreso de componentes, precios TP.
+- **Badges**: ✅ Lista, 🛒 Comprable, límites de posesión.
+- **Toast notifications**: on status change to Lista/Comprable.
+- **Sidebar badge**: estado más prioritario.
+- **Code Reviewer**: validar esquelette + Phase 2 (usar chat_with_agent con session_id workaround).
+
+### Decisiones
+- No se arregla el bug del filtro Legendario en achievements.js (se eliminará).
+- No se toca achievements.js hasta que el módulo nuevo esté funcionando.
+- No se promueve a `origin` sin OK explícito de Pablo + test manual.
+
+## [2026-09-28T13:00Z] Heartbeat PO — Fresh Research Execution
+
+### Qué se hizo
+- **Heartbeat PO ejecutado** (~12:00-13:00 UTC). Investigación fresca de GW2 Wiki, gw2treasures.com, Reddit, gw2.com forums.
+- **Fuentes consultadas (15 en vivo):** GW2 Wiki Homestead + API docs, gw2treasures 5 subsections (nodes/glyphs/decorations/cats/new-items), Reddit, gw2.com forums (MetaForge), Nexus of Eternity wiki (edited 26 Sept), Snowcrows.com, + code audit de activities.js v3.19.6, activities-theme.js v2.6.0, api-gw2.js v2.15.0.
+- **Key findings frescos:**
+  - MetaForge confirmed: WARDOGS section (inventory cleanup, item DB, maps, leaderboards), iOS/Android apps launched Sept 9, 2026. Competitive threat for mobile + cleanup.
+  - "Code of Creation" (VoE finale) LIVE since Sept 15: Nexus of Eternity raid (CM Sept 29), Solitary Throne fractal (CM Sept 29), Wages of Stars legendary sword, Leyspring Hollows map.
+  - Homestead ≠ Home Instance: La Bóveda trackkea Home Instance nodes (68 nodes via `/v2/account/home/nodes`) pero tiene CERO Homestead tracking. Endpoints son diferentes.
+  - GW2 Wiki Homestead: 837+ decorations, 37 cats, 12 glyphs, 45 achievements (12 AP), auto-gather bug confirmed (collection boxes no count for daily gather objectives).
+  - gw2treasures homestead: nodes (37+), glyphs (12 con `upgrade_item` field), decorations (837+ con categorías/max_count), cats (37).
+  - api-gw2.js v2.15.0: ZERO homestead endpoints en API export object.
+- **PRE_BACKLOG.md actualizado** con sección "Heartbeat PO 2026-09-28 (Actual Execution — Fresh Research)" incluyendo fuentes consultadas, findings clave, y impacto en prioridades.
+- **Reporte al Principal:** Enviado via `submit_to_agent` (background). Resumen de prioridades consolidadas.
+
+### Qué se rompió
+- Nada. Solo lectura + escritura de documentación.
+
+### Qué quedó pendiente
+- **Homestead tracker (Idea 7):** #1 NEXT implementation. api-gw2.js necesita homestead endpoints. activities.js pattern (lazy load, filters, checkboxes) es el modelo a replicar.
+- **VoE content (Idea 13):** Nexus of Eternity raid CM launches Sept 29. Necesita añadirse al raid-tracker.
+- **MetaForge competitive threat (Idea 14):** Mobile PWA + inventory cleanup son urgentes diferenciadores.
+- **Code Reviewer:** Bug session_id mismatch persiste (6to timeout). Validación manual por Principal requerida.
+
+### Decisiones
+- Homestead tracker prioridad #1 tras docs. API confirmada viable. Pattern de Home Nodes es el modelo.
+- MetaForge mobile + cleanup son amenazas reales que justifican priorizar Mobile PWA e Inventory Cleanup.
+- "Code of Creation" content es timing-crítico (raid CM Sept 29) — VoE integration sigue siendo prioridad.
+
 ## [2026-09-28T12:00Z] Fix: Legendary Tracker dropdown (Runtime Bug)
 
 ### Qué se hizo
