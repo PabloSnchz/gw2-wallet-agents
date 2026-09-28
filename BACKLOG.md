@@ -11,9 +11,7 @@
 
 ## Pendientes (prioridad media)
 
-- [ ] **S1: contraseña fija en gist-sync.js** — `gist-sync.js` usa contraseña fija para encriptación. Ver `fix/security-gist-sync-encryption` en agents.
 - [ ] **Verificar codificación (encoding corruption)** — Detectado `ENCODING CORRUPT` en algunos archivos. Investigar cuáles y reparar.
-- [ ] **Validar grid visualmente** — En https://pablosnchz.github.io/gw2-wallet-agents/ requiere API key para renderizar cards.
 
 ## Completed (referencia histórica)
 
@@ -22,3 +20,5 @@
 - [x] Crons Heartbeat configurados (13dc22e6 + c3f30dc2)
 - [x] TEAM_STATUS.md creado con timestamp correcto
 - [x] storage.js Fase 1: migración localStorage → Storage API (commit 39aeaa3)
+- [x] S1: contraseña fija en gist-sync.js — Fix aplicado (commit 65f5f90, rama `fix/security-gist-sync-encryption`)
+- [x] Validar grid visualmente — Grid fix verificado visualmente (commit d1e7c14, @media cerrado)
