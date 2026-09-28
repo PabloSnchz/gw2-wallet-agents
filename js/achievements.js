@@ -907,8 +907,7 @@
 
   function fillCategoryDropdown(){
     var list = document.getElementById('achDropdownCat');
-    if (!list || list.__filled) return;
-    list.__filled = true;
+    if (!list) return;
 
     var categories = state.categories.slice().sort(function(a,b){
       return String(a?.name || '').localeCompare(String(b?.name || ''));
@@ -1045,7 +1044,7 @@
         if (!token) {
           state.token = null; state.acc = []; state.metaById = new Map();
           state.apDailyHist = 0; state.apPermanent = 0; state.apLegacyDelta = 0;
-          await ensureCategories(); fillCategoryDropdown(); ensureAside(); renderAside([]);
+          await ensureCategories(); discoverLegendaryCategory(); fillCategoryDropdown(); ensureAside(); renderAside([]);
           renderMainGrid();
           var pot = document.querySelector('.ach-potential');
           if (pot) pot.remove();
