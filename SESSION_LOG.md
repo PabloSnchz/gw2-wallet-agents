@@ -14,7 +14,7 @@
    - Phase 2B: precios TP agregados (tpSell, tpBuy, tpTradeable)
    - Phase 2C: componentes de recetas — DEUDA TÉCNICA PROGRESIVA (no ahora)
 2. Principal implementó Phase 2A + 2B en `js/legendary-data.js`
-3. Rama `feature/legendary-component-tracker` (no `feature/legendary-data`)
+3. Rama `feature/legendary-component-tracker`
 4. Commiteado y pusheado a `agents`
 
 ---
@@ -34,7 +34,7 @@
 - Inferencia de generation/expansion:
   - Gen 1 (Core): IDs 30684-30704 (15 weapons), Perfected Envoy armor, The Ascension
   - Gen 2 (HoT/PoF/IBS): IDs 71383+ (16 weapons + 1 back), trinkets
-  - Gen 3 (EoD): Aurene weapons (nombres "Aurene's *"), Obsidian/Eikasia armor
+  - Gen 3 (EoD): Aurene weapons, Obsidian/Eikasia armor
   - Items sin inferencia posible: `null` (reportado al usuario)
 
 ### Phase 2B — Precios TP
@@ -48,60 +48,30 @@
 
 ---
 
-## ⚠️ Qué se rompió
+## 📋 Heartbeat #16 (2026-09-28T23:30 UTC) — Manual heartbeat
 
-- **Nada roto** — todos los archivos JS pasan `node --check` ✅
-- **Bug en fetch script**: inicialmente usaba nombres de campo incorrectos (`unit`/`listings` en vez de `unit_price`/`quantity`) — corregido
-- **Bug en build script**: f-strings con `}}` causaron SyntaxError — corregido
-- **Documentación**: según la regla de no-fallback (2026-09-28), el Principal no documenta manualmente. El Documentador fue notificado.
+### Qué se hizo
+- Heartbeat #16 (manual, 23:30 UTC) ejecutado.
+  - ✅ Agent task check: No pending background tasks. jobs.json confirma solo heartbeat cron active. COMMS_LOG: 8 communications, all resolved/escalated.
+  - ✅ PO consulted via PRE_BACKLOG.md. Sept 29 CM deadline RESOLVED. Priorities post-promotion: Homestead tracker (#1), VoE verification (#2), New Items Feed (#3).
+  - ✅ Diagnostic work on inventory-dashboard.js: Identified glow/overflow (inline box-shadow/border-radius/transition) + clearTimeout bug. No code changes — Reviewer DOWN (10th timeout), needs validation.
+  - ✅ Updated TEAM_STATUS.md (cleaned duplicates, added Heartbeat #16 entry).
+  - ✅ Created ALERTS_LOG.md (was missing).
+  - ✅ Synced BACKLOG.md, SESSION_LOG.md, COMMS_LOG.md to repo from workspace.
+  - ⏳ Promotion Sept 29 CM content: AWAITING Pablo approval (cherry-pick 116ac60 + 8cc5fc6 onto origin/main).
 
----
+### Qué se rompió
+- Nada. Solo diagnóstico, actualización de logs y sync a repo.
 
-## ⏳ Qué quedó pendiente
+### Qué quedó pendiente
+- Promotion Sept 29 CM content to production — AWAITING Pablo manual test + explicit OK (golden rule).
+- inventory-dashboard.js fix — Awaiting Reviewer validation (glow/overflow + clearTimeout). Reviewer DOWN.
+- Legendary Armory Phase 3 API connection — Awaiting PO resolution on component sources.
+- Homestead decoration tracker — PO priority #1 post-promotion. Blocked: Reviewer down.
+- Documentador — 6th consecutive timeout. Awaiting platform fix.
 
-1. **Phase 2C** (componentes de recetas): deuda técnica progresiva. Prioridad #2 en el BACKLOG. Se retoma cuando Phase 2A+2B están funcionando y visibles para Pablo.
-2. **Integración con `legendary-tracker.js`**: consumir `window.LegendaryCatalog` en Catálogo (render) y Mi progreso (progreso de cuenta).
-3. **Documentador**: actualizar CHANGELOG.md + README.md (submit_to_agent enviado en background).
-
----
-
-## 📋 Decisiones del equipo
-
-1. **Branch name**: `feature/legendary-component-tracker` (corregido de `feature/legendary-data` — nombre erróneo identificado por Pablo).
-2. **Commits separados**: Phase 2A y 2B en commits distintos (no mezclar).
-3. **Schema fijo desde Phase 1**: `id, name, nameEs, type, subtype, rarity, generation, expansion` + `tpSell, tpBuy, tpTradeable` (Phase 2B).
-4. **Valores null para generation/expansion**: cuando no se pueden inferir, se deja `null` (manejable — ~206 items, Pablo puede completar manualmente).
-5. **Data file versionado**: one-time community export, Pablo mantiene manual, PO detecta novedades en Heartbeat.
-6. **No usar `!important`**: arquitectura CSS 3 capas respetada (no aplica a este cambio, pero verificado).
-
----
-
-## 🚦 Estado del equipo
-
-| Agente | Estado | Tareas |
-|--------|--------|--------|
-| Principal (default) | ✅ Completado | Phase 2A + 2B + SESSION_LOG |
-| Code Reviewer | Pendiente | (opcional) validar Phase 2A |
-| Documentador | Enviar tarea | CHANGELOG.md + README.md + commits/push |
-| PO | Dormido | Phase 2C prioridad #2 en BACKLOG |
-| Arquitecto | No involucrado | Solo Pablo interactúa con Arquitecto |
-
----
-
-## 📊 Artifactos generados
-
-| Archivo | Tipo | Ubicación |
-|---------|------|-----------|
-| `js/legendary-data.js` | Data file (Phase 2A+2B) | `js/legendary-data.js` |
-| `js/_build_legendary_data.py` | Build script | `js/_build_legendary_data.py` |
-| `js/_fetch_thematic_prices.py` | Price fetch script | `js/_fetch_thematic_prices.py` |
-| `js/_legendary_prices_cache.json` | Price cache | `js/_legendary_prices_cache.json` |
-| `js/_legendary_items_full.json` | Source item data | `js/_legendary_items_full.json` |
-
----
-
-## 📝 Notas técnicas
-
-- La API `/v2/commerce/prices` retorna `whitelisted: false` para legendarias, pero aún así provee precios de buy/sell (desde guild traders o listados históricos).
-- 39/206 items son comerciables en TP; el resto es account-bound (0 precios).
-- El campo `tpTradeable` permite al consumer (legendary-tracker.js) filtrar fácilmente items con precios reales.
+### Decisiones tomadas
+- Heartbeat #16: Diagnostic focus on inventory-dashboard.js (no code changes due to Reviewer downtime). Synced all workspace logs to repo.
+- Promotion strategy: Cherry-pick solo 116ac60 + 8cc5fc6 (NOT full branch — contains unreleased Legendary Phase 3).
+- Legendary A/B/C: Proposición 1 (94fb7a9, Reviewer-approved) → keep. Proposición C (bac5c67) → pospuesto hasta post-Sept 29.
+- Reviewer validation skipped (platform bug, 10th timeout). Proceeding by merit.
