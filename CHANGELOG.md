@@ -67,6 +67,18 @@ y el versionado **SemVer** (https://semver.org/).
   - **Code Reviewer**: Validación solicitada con timeout 60s — task timed out (bug de `session_id mismatch` conocido). Procedido con criterio técnico según AGENTS.md timeout rules.
   - Commit: `65f5f90`
 
+- **Vista multicuenta en Wallet Dashboard (wallet-dashboard.js v2.6.0, Idea 2 PO prioridad #1)**:
+  - Columnas summary: Personajes (char count), Logros AP (account AP), Raids (% encounters completed)
+  - loadAccountSummary() per-cuenta: getCharacterCount() + getAccountInfo() + getAccountRaids() con cache + inflight dedup
+  - KPIs resumen multicuenta: total chars/AP/raids con progress bars y borderLeft color semántico
+  - Dropdown selector renderSummarySelector() para togglear campos: Storage.set('gn:wallet:dashboard:selected_summaries')
+  - Sorting extendido: sortable-summary columns con toggle asc/desc
+  - api-gw2.js: getCharacterCount(token) — fetch /v2/characters, count, cache TTL.ACCOUNT
+  - CSS 3 capas: inline borderLeft 3px solid rgba() (theme color layer). Zero !important. No border/boxShadow/borderRadius/transition override.
+  - No cambia gn:tokenchange event binding — extensi\u00f3n del refresh existente.
+  - Code Reviewer: validation solicitada (task-0241c613a2e4, 90s). Timeout #7 (bug session_id). Validation manual: CSS 3 capas OK, no !important, no invariantes rotas, node --check OK.
+  - Commit: `07e4c64`
+
 ### Changed
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:
