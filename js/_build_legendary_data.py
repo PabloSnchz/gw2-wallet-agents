@@ -102,7 +102,7 @@ def map_subtype(item_type, details):
     return ""
 
 
-def transform_item(item):
+def transform_item(item, prices=None, with_prices=False):
     item_id = item.get("id", 0)
     name_en = item.get("name_en", "")
     name_es = item.get("name_es", "") or name_en
@@ -123,13 +123,17 @@ def transform_item(item):
         "expansion": exp
     }
 
-    # Phase 2B: merge TP prices if cached
-    if PRICES_CACHE and os.path.exists(PRICES_CACHE):
-        with open(PRICES_CACHE, "r", encoding="utf-8") as f:
-            prices = json.load(f)
-        if str(item_id) in prices:
-            entry["tpSell"] = prices[str(item_id)].get("sell", 0)
-            entry["tpBuy"] = prices[str(item_id)].get("buy", 0)
+    # Phase 2B: merge TP prices
+    if with_prices and prices is not None:
+        pid = str(item_id)
+        if pid in prices:
+            entry["tpSell"] = prices[pid].get("sell", 0)
+            entry["tpBuy"] = prices[pid].get("buy", 0)
+            entry["tpTradeable"] = True
+        else:
+            entry["tpSell"] = 0
+            entry["tpBuy"] = 0
+            entry["tpTradeable"] = False
 
     return entry
 
@@ -146,7 +150,7 @@ def build_js(items, with_prices):
     items_json = json.dumps(items, indent=2, ensure_ascii=False)
 
     lines = []
-    lines.append(f"/*!")
+    lines.append("/*!")
     lines.append(f" * js/legendary-data.js - Catalogo estatico de legendarias del Armory")
     lines.append(f" * Proyecto: Boveda del Gato Negro (GW2 Wallet Ligero)")
     lines.append(f" * Version: 1.0.0 ({phase_label})")
@@ -161,7 +165,9 @@ def build_js(items, with_prices):
     type_str = ", ".join(f"{t}={c}" for t, c in sorted(type_counts.items()))
     lines.append(f" * Tipos: {type_str}")
     if with_prices:
+        tradeable = sum(1 for i in items if i.get("tpTradeable"))
         lines.append(f" * Precios TP: tpSell (venta directa), tpBuy (pedido compra)")
+        lines.append(f" *   {tradeable}/{total} items tradeables en TP (restantes = 0, account-bound)")
     lines.append(f" */")
     lines.append("")
     lines.append(f"(function (root) {{")
@@ -174,10 +180,7 @@ def build_js(items, with_prices):
     lines.append(f"    generated: \"{now}\",")
     lines.append(f"    totalItems: {total},")
     lines.append(f"    items: LEGENDARY_CATALOG")
-    if with_prices:
-        lines.append("  };")
-    else:
-        lines.append("  };")
+    lines.append("  };")
     lines.append("")
     lines.append(f"  console.info('[LegendaryCatalog]', 'Catalogo cargado: {total} items, v1.0.0');")
     lines.append(f"}})(" + "typeof window !== 'undefined' ? window : this);")
@@ -192,11 +195,18 @@ def main():
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         items_raw = json.load(f)
 
+    # Load TP prices cache if available (Phase 2B)
+    prices = None
+    if with_prices and os.path.exists(PRICES_CACHE):
+        with open(PRICES_CACHE, "r", encoding="utf-8") as f:
+            prices = json.load(f)
+        print(f"   Loaded {len(prices)} cached price entries")
+
     items = []
     for item_id_str, item in items_raw.items():
         if not item.get("name_en"):
             continue
-        items.append(transform_item(item))
+        items.append(transform_item(item, prices, with_prices))
 
     # Sort by type priority, then generation, then ID
     type_order = {"weapon": 0, "armor": 1, "trinket": 2, "back": 3}
