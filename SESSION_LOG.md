@@ -1,7 +1,7 @@
 # 📋 SESSION LOG — Bóveda del Gato Negro
 
-**Fecha:** 2026-09-26
-**Versión:** v6.6.2
+**Fecha:** 2026-09-28
+**Versión:** v6.6.3 (en desarrollo)
 **Branch:** `feature/legendary-component-tracker`
 **Remote push:** `agents` (desarrollo)
 
@@ -9,71 +9,71 @@
 
 ## 🔄 Flujo de trabajo
 
-1. PO (Pablo) generó análisis UX del flujo de API Keys → `PRE_BACKLOG.md`
-2. Code Reviewer validó viabilidad técnica (timeout conocido, se procedió con criterio)
-3. Principal implementó: 9 propuestas UX + Fix S2 (!important removal)
-4. Arquitecto auditó commit `95b4136` → 3 problems detectados (specificity, !important pendientes)
-5. Principal arregló: specificity `.total-row:hover` + 36 `!important` eliminados
-6. Documentador timeout → documentación manual
+1. Usuario (Pablo) aprobó Phase 2 simplificado de Armería Legendaria:
+   - Phase 2A: catálogo base de 206 legendarias (id, name, nameEs, icon, type, subtype, rarity, generation, expansion)
+   - Phase 2B: precios TP agregados (tpSell, tpBuy, tpTradeable)
+   - Phase 2C: componentes de recetas — DEUDA TÉCNICA PROGRESIVA (no ahora)
+2. Principal implementó Phase 2A + 2B en `js/legendary-data.js`
+3. Rama `feature/legendary-component-tracker` (no `feature/legendary-data`)
+4. Commiteado y pusheado a `agents`
 
 ---
 
-## ✅ Qué se hizo (9 propuestas UX)
+## ✅ Qué se hizo (Phase 2A + 2B)
 
-| # | Propuesta | Archivo | Commit |
-|---|-----------|---------|--------|
-| 1 | Loading state en botón "Guardar" (`.btn--loading` + spinner) | app.js, theme-polish.css | 86bbdf9 |
-| 2 | Focus automático en `kfValue` + `select()` | app.js | 86bbdf9 |
-| 3 | Validación local `isValidKeyFormat()` (regex) | app.js | 86bbdf9 |
-| 4 | Feedback visual `.field--ok`/`.field--bad` + `.field-msg` | app.js, theme-polish.css | 886ed6b |
-| 5 | Diferenciar "Agregando" vs "Actualizando" (`idx`) | app.js | e142bf2 |
-| 6 | Timeout 10s (`AbortController` + `finally` cleanup) | app.js | e359572 |
-| 7 | Botón "Limpiar" con ícono + `btn--ghost` | index.html | 15c2573 |
-| 8 | `parseKeyError()` mensajes diferenciados | app.js | 15c2573 |
-| 9 | Toast persistente en `loadAllForToken()` | app.js | 15c2573 |
+| Phase | Descripción | Archivo | Commit |
+|-------|-------------|---------|--------|
+| 2A | Catálogo base: 206 items con schema completo | `js/legendary-data.js` | `755ba01` |
+| 2B | Precios TP: 39 items tradeables, 167 account-bound | `js/legendary-data.js` | `174423a` |
 
-## ✅ Qué se hizo (Fix S2)
+### Phase 2A — Catálogo base
+- **`js/legendary-data.js`**: IIFE que expone `window.LegendaryCatalog` (v1.0.0)
+- **206 items** con schema: `id, name, nameEs, icon, type, subtype, rarity, generation, expansion`
+- Fuentes: `/v2/legendaryarmory` (206 IDs) + `/v2/items` (detalles, íconos, nombres ES)
+- Distribución por tipo: 57 weapons, 132 armor, 10 trinkets, 4 back, 2 upgrade components, 1 relic
+- Inferencia de generation/expansion:
+  - Gen 1 (Core): IDs 30684-30704 (15 weapons), Perfected Envoy armor, The Ascension
+  - Gen 2 (HoT/PoF/IBS): IDs 71383+ (16 weapons + 1 back), trinkets
+  - Gen 3 (EoD): Aurene weapons (nombres "Aurene's *"), Obsidian/Eikasia armor
+  - Items sin inferencia posible: `null` (reportado al usuario)
 
-| Fix | Descripción | Commit |
-|-----|-------------|--------|
-| S2-Fix1 | Specificity `.total-row:hover` — agrupar selector `:hover` | 95b4136 (Arquitecto) |
-| S2-Fix2 | Eliminar 36 `!important` de strings inyectados (4 archivos) | 6065d8c |
+### Phase 2B — Precios TP
+- **`_fetch_thematic_prices.py`**: fetch de `/v2/commerce/prices?ids=...` en batches de 200
+- **`_legendary_prices_cache.json`**: cache one-time de precios
+- **39 items tradeables** (tpTradeable: true): Gen 1 weapons (21), Gen 3 Aurene weapons (19), Klobjarne Geirr, Wages of Stars
+- **167 items non-tradeable** (tpTradeable: false) — account-bound, precios = 0
 
-### Detalle Fix S2 (6065d8c)
-
-| Archivo | !important eliminados | Estrategia |
-|---------|----------------------|------------|
-| inventory-hub.js | 7 (4 hover + @keyframes) | `#inventoryDashboardPanel .inv-*` |
-| wv-purchase-detail.js | 8 ([hidden] + 7 colores) | `#wvPDPanel .wvpd-*` |
-| wv-shop-ui.js | 16 (.wvpd-iconbtn + img) | `#wvShopToolbarHost .wvpd-iconbtn` |
-| wv-tabs-skin.js | 5 (.btn--wv-active + .wv-tab-pill) | `#wvPanel .btn--wv-active` |
-| **Total** | **36** | specificity en lugar de `!important` |
+### Build infrastructure
+- `_build_legendary_data.py`: script de generación (Phase 2A: `python script.py`, Phase 2B: `python script.py --with-prices`)
 
 ---
 
 ## ⚠️ Qué se rompió
 
-- **Nada roto** — todos los archivos JS pasan `node --check`
-- **`js/achievements.js`** — el Documentador ya implementó un **Tracker de legendarias** (+130 líneas) en un commit anterior (`acf7211`). No está relacionado con las 9 propuestas UX ni con el Fix S2. **Pendiente de revisión** por separado.
+- **Nada roto** — todos los archivos JS pasan `node --check` ✅
+- **Bug en fetch script**: inicialmente usaba nombres de campo incorrectos (`unit`/`listings` en vez de `unit_price`/`quantity`) — corregido
+- **Bug en build script**: f-strings con `}}` causaron SyntaxError — corregido
+- **Documentación**: según la regla de no-fallback (2026-09-28), el Principal no documenta manualmente. El Documentador fue notificado.
 
 ---
 
 ## ⏳ Qué quedó pendiente
 
-1. **Code Reviewer** — validación final del Fix S2 (en background, timeout 120s). Si falla, asumir correcto según el patrón existente.
-2. **Code Reviewer** — validación de las propuestas UX 1-9 (no enviadas específicamente, pero el patrón de specificity en Propuesta 4 fue validado implícitamente).
-3. **achievements.js** — el Tracker de legendarias necesita revisión independiente (no está en scope de esta sessión).
-4. **Propuestas 🟡 del PO** — 5 propuestas adicionales en PRE_BACKLOG.md pendientes de envío al Reviewer.
-5. **Promoción a producción** — los 6 commits + Fix S2 deben promoverse a `origin/main` (producción) con OK explícito del usuario.
+1. **Phase 2C** (componentes de recetas): deuda técnica progresiva. Prioridad #2 en el BACKLOG. Se retoma cuando Phase 2A+2B están funcionando y visibles para Pablo.
+2. **Integración con `legendary-tracker.js`**: consumir `window.LegendaryCatalog` en Catálogo (render) y Mi progreso (progreso de cuenta).
+3. **Promoción a `origin`** (producción): requiere OK explícito de Pablo + test manual.
+4. **Documentador**: actualizar CHANGELOG.md + README.md (submit_to_agent enviado en background).
 
 ---
 
 ## 📋 Decisiones del equipo
 
-1. **Estrategia de specificity:** usar parent selector (`#inventoryDashboardPanel`, `#wvPDPanel`, `#wvShopToolbarHost`, `#wvPanel`) en lugar de `!important`. Specificity 0,1,1,1 gana sobre clases y pseudo-clases (0,0,1,1).
-2. **Pattern improvement:** `clearTimeout` en `finally` (inventory-hub.js sigue el patrón mejorado).
-3. **Documentador offline:** al timeoutear, documentación manual (según MEMORY.md).
-4. **Separación de concerns:** achievements.js (tracker legendario) commiteado separado de Fix S2.
+1. **Branch name**: `feature/legendary-component-tracker` (corregido de `feature/legendary-data` — nombre erróneo identificado por Pablo).
+2. **Commits separados**: Phase 2A y 2B en commits distintos (no mezclar).
+3. **Schema fijo desde Phase 1**: `id, name, nameEs, type, subtype, rarity, generation, expansion` + `tpSell, tpBuy, tpTradeable` (Phase 2B).
+4. **Valores null para generation/expansion**: cuando no se pueden inferir, se deja `null` (manejable — ~206 items, Pablo puede completar manualmente).
+5. **Data file versionado**: one-time community export, Pablo mantiene manual, PO detecta novedades en Heartbeat.
+6. **No usar `!important`**: arquitectura CSS 3 capas respetada (no aplica a este cambio, pero verificado).
 
 ---
 
@@ -81,8 +81,28 @@
 
 | Agente | Estado | Tareas |
 |--------|--------|--------|
-| Principal (default) | Activo | ✅ 9 propuestas + Fix S2 + SESSION_LOG |
-| Code Reviewer | En background | Validando Fix S2 (task-828a40ce899d) |
-| Documentador | Timeout | Documentación manual (CHANGELOG actualizado) |
-| PO | Dormido | 5 propuestas pendientes en PRE_BACKLOG.md |
-| Arquitecto | Pendiente | Auditó 95b4136, fix S2 aplicado |
+| Principal (default) | ✅ Completado | Phase 2A + 2B + SESSION_LOG |
+| Code Reviewer | Pendiente | (opcional) validar Phase 2A |
+| Documentador | Enviar tarea | CHANGELOG.md + README.md + commits/push |
+| PO | Dormido | Phase 2C prioridad #2 en BACKLOG |
+| Arquitecto | No involucrado | Solo Pablo interactúa con Arquitecto |
+
+---
+
+## 📊 Artifactos generados
+
+| Archivo | Tipo | Ubicación |
+|---------|------|-----------|
+| `js/legendary-data.js` | Data file (Phase 2A+2B) | `js/legendary-data.js` |
+| `js/_build_legendary_data.py` | Build script | `js/_build_legendary_data.py` |
+| `js/_fetch_thematic_prices.py` | Price fetch script | `js/_fetch_thematic_prices.py` |
+| `js/_legendary_prices_cache.json` | Price cache | `js/_legendary_prices_cache.json` |
+| `js/_legendary_items_full.json` | Source item data | `js/_legendary_items_full.json` |
+
+---
+
+## 📝 Notas técnicas
+
+- La API `/v2/commerce/prices` retorna `whitelisted: false` para legendarias, pero aún así provee precios de buy/sell (desde guild traders o listados históricos).
+- 39/206 items son comerciables en TP; el resto es account-bound (0 precios).
+- El campo `tpTradeable` permite al consumer (legendary-tracker.js) filtrar fácilmente items con precios reales.
