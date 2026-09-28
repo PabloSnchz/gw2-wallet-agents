@@ -3,14 +3,14 @@
 > Registro de alertas del ecosistema.
 > Se actualiza cuando hay errores, timeouts, o bugs que afectan
 > al funcionamiento del equipo.
-> Última actualización: 2026-09-27T22:30:00Z
-> Nota: sin nuevas alertas 🔴. Reviewer bug persiste (conocido, 3rd timeout reportado). 900s timeout fix VERIFIED 5x.
+> Última actualización: 2026-09-27T23:50:00Z
+> Nota: sin nuevas alertas 🔴. Reviewer bug persiste (5to timeout reportado). 900s timeout fix VERIFIED 5x. gw2-agents-dashboard rediseño sección comunicaciones COMPLETADO ✅.
 
 ## Alertas activas
 
 | # | Severidad | Descripción | Agente | Estado | Creado |
 |---|-----------|-------------|--------|--------|--------|
-| 1 | 🟡 Media | Code Reviewer: bug de session_id mismatch. No puede fetchear de GitHub. timed out 3 veces (120s, 600s, 600s). | Code-Reviewer | ⏳ Sin resolver | 2026-09-26 |
+| 1 | 🟡 Media | Code Reviewer: bug de session_id mismatch. No puede fetchear de GitHub. timed out 5 veces (120s, 600s, 600s, 60s, 60s). Último: validación rediseño dashboard comms (5 archivos). Validación manual por Principal ✅. | Code-Reviewer | ⏳ Sin resolver | 2026-09-26 |
 
 ## Alertas cerradas (últimas 7 días)
 

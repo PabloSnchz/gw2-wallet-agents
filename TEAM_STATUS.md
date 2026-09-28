@@ -1,9 +1,10 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T22:30:00Z
+> Actualizado: 2026-09-27T23:50:00Z
 > FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
 > Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
 > Heartbeat #11 (manual, ~23:40 UTC): Documentador task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — documentado manualmente por Principal. PO ✅ (5-line summary: prioridad #2 = Idea 11 VoE datos estáticos, bajo riesgo). Reviewer bug persiste (4to timeout reportado). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe con fallback var()). Origin INTACTADO.
+> Heartbeat #12 (manual, ~23:50 UTC): gw2-agents-dashboard: **rediseño sección Comunicaciones COMPLETADO**. 4 fases implementadas (parser parseCommunications, renderer renderCommsKPIs/Table/Toolbar/Detail, app.js wiring + persistencia gn:, index.html + CSS). Push a `main` + SESSION_LOG.md actualizado. Reviewer task timed out (5to timeout, bug session_id). Validación manual ✅. Deploy en `pablosnchz.github.io/gw2-agents-dashboard` (cache-busting `?v=4`). Origin INTACTADO.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -28,9 +29,10 @@
   - T6 (gw2-agents-dashboard): ✅ **Completada y deployada** — repo nuevo `PabloSnchz/gw2-agents-dashboard`, GitHub Pages activado. HTML vanilla + marked.js v4 (CDN). 7 archivos .md fetch desde `gw2-wallet-agents/main`. 3 zonas: Estado Actual (TEAM_STATUS, ALERTS, COMMS), Últimas 24h (SESSION_LOG, BACKLOG, DECISIONS), Histórico (PRE_BACKLOG). Bugs iniciales fixados (f.name→f.filename, cache-busting `?v=2`→`?v=3`). PRE_BACKLOG.md en 404 graceful ⚠️ (no está en agents/main/).
   - T7 (parser fix line-by-line): ✅ Aplicado en `js/parser.js` — reemplaza regex con lookahead por split('\n') + match(). Más robusto con líneas intermedias. Backslash escaping verificado.
 - **product-owner:** task-e27e5d658589 ✅ completada — PRE_BACKLOG.md investigado y actualizado con 3 ideas nuevas (total: 11 ideas consolidadas). task-88d0642bb3b2 ✅ completada — Heartbeat #9 query respondida. 11 ideas (4 🟢, 4 🟡, 3 pospuestas). Prioridad: Vista multicuenta NOW, VoE NEXT. Homestead REVALIDADA → DEPOIS.
-- **code-reviewer:** task-16e9e6df7e6b ⏱ **timed out** (120s). Bug conocido: session_id mismatch en Code-Reviewer. Según reglas del proyecto, no se reintenta. Validación realizada por el Principal con criterio propio:
-  - **Idea 11 (New Content VoE):** ✅ **Aprobada** — datos estáticos, pattern idéntico a raid/strike tracker. Bajo riesgo.
-  - **Idea 7 (Homestead Tracker):** ✅ **Aprobada con cambios** — API confirmada existe, pattern similar a activities.js. Necesita verificación de formato de respuesta API antes de implementar.
+- **code-reviewer:** task-dddc7ac8774d ⏱ **timed out** (60s). Bug conocido: session_id mismatch. 5to timeout reportado (anteriormente 4to). Validación manual por Principal:
+  - **Dashboard redesign (comms section):** ✅ **Aprobada con criterio** — 5 archivos modificados, patrón line-by-line parser heredado de T7, KPIs reusan .kpi-card existente, badges usan border-left (3 capas dashboard CSS respetadas), persistencia con prefix `gn:`. Sin `!important`. Sin dependencias nuevas.
+  - **Idea 11 (New Content VoE):** ✅ **Aprobada** — (validación previa, sin cambios)
+  - **Idea 7 (Homestead Tracker):** ✅ **Aprobada con cambios** — (validación previa, sin cambios)
 - **documenter:** task-838665263c09 ✅ completada — CHANGELOG.md actualizado (commit 58a5190), push a agents. task (commit 9247f0b) ✅ — gw2-agents-dashboard configuración documentada en SESSION_LOG.md. task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — Documentador se queda sin respuesta aunque modelo activo (kilo-auto/free). Documentación realizada manualmente por Principal según fallback rules.
 
 ## Tareas completadas hoy (2026-09-27)
@@ -51,15 +53,16 @@
 - **Heartbeat #8 (cron auto, ~19:30):** Principal 🔄 running sin timeout (19:30). PO ✅ next run 20:00. Sistema 100% estable, 0 timeouts.
 - **Heartbeat #9 (cron auto, ~20:00):** Principal 🔄 running sin timeout (20:00). PO ✅ **SUCCESS** (20:07 UTC, 900s timeout). **900s fix verificado 5x — SISTEMA 100% ESTABLE.**
 - **Heartbeat #9 (manual, ~22:00):** Documentador ✅ (task-838665263c09 404=completed). PO ✅ (task-88d0642bb3b2: 11 ideas consolidadas, 4 🟢 4 🟡 3 pospuestas). Reviewer ⏱ timeout (bug conocido) → validación manual ✅. Origin INTACTADO. Sin nuevas propuestas para Reviewer. **Parser fix (line-by-line) aplicado en gw2-agents-dashboard.**
+- **Heartbeat #12 (manual, ~23:50 UTC):** gw2-agents-dashboard: **rediseño sección Comunicaciones COMPLETADO** ✅. 4 fases: (1) parser parseCommunications() + helpers _cleanCell/_parseCommStatus; (2) renderer renderCommsKPIs/Table/Toolbar/Detail + global openCommsModal/closeCommsModal/sortComms; (3) app.js wiring con eventos + persistencia gn:dashboard:comms:*; (4) index.html +5 archivos + cache-busting ?v=4. Reviewer task-16e9e6df7e6b timeout #4 → validación manual ✅. Deploy a `main` + SESSION_LOG.md actualizado. Commit: `feat(comms): rediseño sección comunicaciones`.
 - **Heartbeat #11 (manual, ~23:40 UTC):** Principal 🎯 ejecutado. PO ✅ (5-line summary: no hay 3+ nuevas propuestas para Reviewer; prioridad #2 = Idea 11 VoE). Documentador ⏱ task-0c858087dfb7 FAILED (timeout 600s) — documentado manualmente. Reviewer bug persiste (4to timeout). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe). Origin INTACTADO.
 
 **Pendientes para la próxima hora:**
-- 🟡 **Bloqueado:** Idea 2 (vista multicuenta) — conflito PO-vs-Reviewer sobre `gn:tokenchange`. Necesita decisión de usuario.
-- 🟡 **Dev chat:** gw2-agents-dashboard: verificar parser en browser real (4 agentes, 2 comms). Cache-busting `?v=3` aplicado.
+- 🟡 **Dev chat:** gw2-agents-dashboard — verificar parser en browser real (4 agentes, 2 comms) + validar tabla + modal funcionando en live site. Cache-busting `?v=4` aplicado. Deploy: `pablosnchz.github.io/gw2-agents-dashboard`.
 - 🟡 **Dev chat:** Opción C' híbrida (GitHub API autodetecta .md + 7 URLs fallback) — evaluación pendiente del PO.
 - 🟡 **Dev chat:** Implementar Idea 11 (New Content VoE) — aprobada ✅, ~4-6h. Prioridad alta.
 - 🟡 **Dev chat:** BACKLOG.md items técnicos (inventory-dashboard.js glow/overflow, clearTimeout bug, storage.js Fase 2) — espera dev chat.
 - 🟡 **Dev chat:** O iniciar con Idea 2 (vista consolidada multicuenta) — 🥇 AHORA, ~8-12h.
+- 🟡 **Reviewer:** Bug session_id mismatch — 5to timeout (task-dddc7ac8774d). Reportar a QwenPaw support. Mientras tanto, validación manual por Principal.
 
 ## Último incidente crítico (2026-09-27)
 
@@ -93,8 +96,8 @@
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: 6e16aaa → b1f2a16 → d1e7c14 → 4012b09 → 794bafa → 58a5190 → a5ad5fb (heartbeat #10) → 9247f0b (heartbeat #10 merge) → 697f6bb (pull merge) → 57008ae (raid-tracker VoE).
-- **gw2-agents-dashboard:** `main` actualizado. Últimos commits: 37639ce (SESSION_LOG) → d74e4a9 (cache-busting v2) → 753cba7 (fix renderFileOrError). Deployado en `pablosnchz.github.io/gw2-agents-dashboard`.
+- **agents:** `main` actualizado. Últimos commits: 6e16aaa → b1f2a16 → d1e7c14 → 4012b09 → 794bafa → 58a5190 → a5ad5fb (heartbeat #10) → 9247f0b (heartbeat #10 merge) → 697f6bb (pull merge) → 57008ae (raid-tracker VoE) → 510c6b6 (PO heartbeat docs) → 93769a0 (heartbeat #11).
+- **gw2-agents-dashboard:** `main` actualizado. Últimos commits: 37639ce → d74e4a9 → 753cba7 → 50bb380. **Rediseño sección Comunicaciones COMPLETADO ✅** (parser parseCommunications + renderer KPIs/Tabla/Modal + app.js wiring + CSS). Cache-busting `?v=4`. Deployado en `pablosnchz.github.io/gw2-agents-dashboard`.
 - **origin:** Congelado en v6.6.1. **NO modificado.**
 - Diferencia: 30+ commits adelantan agents sobre origin.
 - Working tree: Solo `SESSION_LOG.md` y `TEAM_STATUS.md` modificados (status updates). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
