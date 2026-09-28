@@ -1,8 +1,8 @@
 /*!
  * js/legendary-data.js - Catalogo estatico de legendarias del Armory
  * Proyecto: Boveda del Gato Negro (GW2 Wallet Ligero)
- * Version: 1.0.0 (Phase 2A)
- * Generado: 2026-09-28 06:43:29 UTC
+ * Version: 1.0.0 (Phase 2A + Phase 2B)
+ * Generado: 2026-09-28 06:53:22 UTC
  *
  * Catalogo estatico de 206 legendarias (exportacion one-time desde
  * /v2/legendaryarmory + /v2/items). Consumido por legendary-tracker.js.
@@ -11,6 +11,8 @@
  * Pablo mantiene este archivo manualmente. El PO detecta novedades en Heartbeat.
  *
  * Tipos: armor=132, back=4, relic=1, trinket=10, upgradecomponent=2, weapon=57
+ * Precios TP: tpSell (venta directa), tpBuy (pedido compra)
+ *   39/206 items tradeables en TP (restantes = 0, account-bound)
  */
 
 (function (root) {
@@ -26,7 +28,10 @@
     "subtype": "axe",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 18890000,
+    "tpBuy": 15000000,
+    "tpTradeable": true
   },
   {
     "id": 30685,
@@ -37,7 +42,10 @@
     "subtype": "longbow",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 16989999,
+    "tpBuy": 14008200,
+    "tpTradeable": true
   },
   {
     "id": 30686,
@@ -48,7 +56,10 @@
     "subtype": "shortbow",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 17400000,
+    "tpBuy": 14300100,
+    "tpTradeable": true
   },
   {
     "id": 30687,
@@ -59,7 +70,10 @@
     "subtype": "dagger",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 18921099,
+    "tpBuy": 15800000,
+    "tpTradeable": true
   },
   {
     "id": 30688,
@@ -70,7 +84,10 @@
     "subtype": "focus",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 17300000,
+    "tpBuy": 13110100,
+    "tpTradeable": true
   },
   {
     "id": 30689,
@@ -81,7 +98,10 @@
     "subtype": "greatsword",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 32990000,
+    "tpBuy": 27003773,
+    "tpTradeable": true
   },
   {
     "id": 30690,
@@ -92,7 +112,10 @@
     "subtype": "hammer",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 19000000,
+    "tpBuy": 15500001,
+    "tpTradeable": true
   },
   {
     "id": 30691,
@@ -103,7 +126,10 @@
     "subtype": "harpoon",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 18750000,
+    "tpBuy": 15009696,
+    "tpTradeable": true
   },
   {
     "id": 30692,
@@ -114,7 +140,10 @@
     "subtype": "mace",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 15729866,
+    "tpBuy": 12060502,
+    "tpTradeable": true
   },
   {
     "id": 30693,
@@ -125,7 +154,10 @@
     "subtype": "pistol",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 14999998,
+    "tpBuy": 12000008,
+    "tpTradeable": true
   },
   {
     "id": 30694,
@@ -136,7 +168,10 @@
     "subtype": "rifle",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 15300000,
+    "tpBuy": 12020202,
+    "tpTradeable": true
   },
   {
     "id": 30695,
@@ -147,7 +182,10 @@
     "subtype": "scepter",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 14980000,
+    "tpBuy": 13000000,
+    "tpTradeable": true
   },
   {
     "id": 30696,
@@ -158,7 +196,10 @@
     "subtype": "shield",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 16899999,
+    "tpBuy": 12500307,
+    "tpTradeable": true
   },
   {
     "id": 30697,
@@ -169,7 +210,10 @@
     "subtype": "speargun",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 17490419,
+    "tpBuy": 14020000,
+    "tpTradeable": true
   },
   {
     "id": 30698,
@@ -180,7 +224,10 @@
     "subtype": "staff",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 14659999,
+    "tpBuy": 12100133,
+    "tpTradeable": true
   },
   {
     "id": 30699,
@@ -191,7 +238,10 @@
     "subtype": "sword",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 13999796,
+    "tpBuy": 11811817,
+    "tpTradeable": true
   },
   {
     "id": 30700,
@@ -202,7 +252,10 @@
     "subtype": "torch",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 17089591,
+    "tpBuy": 12804305,
+    "tpTradeable": true
   },
   {
     "id": 30701,
@@ -213,7 +266,10 @@
     "subtype": "trident",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 16999993,
+    "tpBuy": 14000000,
+    "tpTradeable": true
   },
   {
     "id": 30702,
@@ -224,7 +280,10 @@
     "subtype": "warhorn",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 19000000,
+    "tpBuy": 14500201,
+    "tpTradeable": true
   },
   {
     "id": 30703,
@@ -235,7 +294,10 @@
     "subtype": "greatsword",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 15999998,
+    "tpBuy": 13000605,
+    "tpTradeable": true
   },
   {
     "id": 30704,
@@ -246,7 +308,10 @@
     "subtype": "greatsword",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 17950000,
+    "tpBuy": 15047002,
+    "tpTradeable": true
   },
   {
     "id": 71383,
@@ -257,7 +322,10 @@
     "subtype": "staff",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 72713,
@@ -268,7 +336,10 @@
     "subtype": "pistol",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 76158,
@@ -279,7 +350,10 @@
     "subtype": "axe",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 78556,
@@ -290,7 +364,10 @@
     "subtype": "shortbow",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 79562,
@@ -301,7 +378,10 @@
     "subtype": "mace",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 79802,
@@ -312,7 +392,10 @@
     "subtype": "shield",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80488,
@@ -323,7 +406,10 @@
     "subtype": "rifle",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 81206,
@@ -334,7 +420,10 @@
     "subtype": "torch",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 81839,
@@ -345,7 +434,10 @@
     "subtype": "hammer",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 81957,
@@ -356,7 +448,10 @@
     "subtype": "sword",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 86098,
@@ -367,7 +462,10 @@
     "subtype": "focus",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 87687,
@@ -378,7 +476,10 @@
     "subtype": "warhorn",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 88576,
@@ -389,7 +490,10 @@
     "subtype": "scepter",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89854,
@@ -400,7 +504,10 @@
     "subtype": "longbow",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 90551,
@@ -411,7 +518,10 @@
     "subtype": "greatsword",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 103815,
@@ -422,7 +532,10 @@
     "subtype": "harpoon",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 25400000,
+    "tpBuy": 22000000,
+    "tpTradeable": true
   },
   {
     "id": 105653,
@@ -433,7 +546,10 @@
     "subtype": "staff",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 106273,
@@ -444,7 +560,10 @@
     "subtype": "harpoon",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 110020,
@@ -455,7 +574,10 @@
     "subtype": "sword",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 55000000,
+    "tpBuy": 48500000,
+    "tpTradeable": true
   },
   {
     "id": 87109,
@@ -466,7 +588,10 @@
     "subtype": "dagger",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 95612,
@@ -477,7 +602,10 @@
     "subtype": "mace",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19999999,
+    "tpBuy": 15006099,
+    "tpTradeable": true
   },
   {
     "id": 95675,
@@ -488,7 +616,10 @@
     "subtype": "sword",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19519800,
+    "tpBuy": 15161499,
+    "tpTradeable": true
   },
   {
     "id": 95684,
@@ -499,7 +630,10 @@
     "subtype": "hammer",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19390000,
+    "tpBuy": 15500299,
+    "tpTradeable": true
   },
   {
     "id": 95808,
@@ -510,7 +644,10 @@
     "subtype": "pistol",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19000000,
+    "tpBuy": 17000000,
+    "tpTradeable": true
   },
   {
     "id": 96028,
@@ -521,7 +658,10 @@
     "subtype": "shield",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19850000,
+    "tpBuy": 15700103,
+    "tpTradeable": true
   },
   {
     "id": 96203,
@@ -532,7 +672,10 @@
     "subtype": "dagger",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 18831947,
+    "tpBuy": 15800001,
+    "tpTradeable": true
   },
   {
     "id": 96221,
@@ -543,7 +686,10 @@
     "subtype": "scepter",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19989999,
+    "tpBuy": 16600103,
+    "tpTradeable": true
   },
   {
     "id": 96356,
@@ -554,7 +700,10 @@
     "subtype": "greatsword",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19199996,
+    "tpBuy": 16010103,
+    "tpTradeable": true
   },
   {
     "id": 96652,
@@ -565,7 +714,10 @@
     "subtype": "staff",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19799895,
+    "tpBuy": 16000002,
+    "tpTradeable": true
   },
   {
     "id": 96937,
@@ -576,7 +728,10 @@
     "subtype": "axe",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19451945,
+    "tpBuy": 16520200,
+    "tpTradeable": true
   },
   {
     "id": 97077,
@@ -587,7 +742,10 @@
     "subtype": "shortbow",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19499999,
+    "tpBuy": 16590399,
+    "tpTradeable": true
   },
   {
     "id": 97099,
@@ -598,7 +756,10 @@
     "subtype": "torch",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19942000,
+    "tpBuy": 16600001,
+    "tpTradeable": true
   },
   {
     "id": 97165,
@@ -609,7 +770,10 @@
     "subtype": "focus",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19809988,
+    "tpBuy": 16000000,
+    "tpTradeable": true
   },
   {
     "id": 97377,
@@ -620,7 +784,10 @@
     "subtype": "rifle",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 18399999,
+    "tpBuy": 16660606,
+    "tpTradeable": true
   },
   {
     "id": 97590,
@@ -631,7 +798,10 @@
     "subtype": "longbow",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 19509994,
+    "tpBuy": 15110300,
+    "tpTradeable": true
   },
   {
     "id": 97783,
@@ -642,7 +812,10 @@
     "subtype": "warhorn",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 20009000,
+    "tpBuy": 16800471,
+    "tpTradeable": true
   },
   {
     "id": 80111,
@@ -653,7 +826,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80131,
@@ -664,7 +840,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80145,
@@ -675,7 +854,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80161,
@@ -686,7 +868,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80190,
@@ -697,7 +882,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80205,
@@ -708,7 +896,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80248,
@@ -719,7 +910,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80252,
@@ -730,7 +924,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80254,
@@ -741,7 +938,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80277,
@@ -752,7 +952,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80281,
@@ -763,7 +966,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80296,
@@ -774,7 +980,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80356,
@@ -785,7 +994,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80384,
@@ -796,7 +1008,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80399,
@@ -807,7 +1022,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80435,
@@ -818,7 +1036,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80557,
@@ -829,7 +1050,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 80578,
@@ -840,7 +1064,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101460,
@@ -851,7 +1078,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101462,
@@ -862,7 +1092,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101499,
@@ -873,7 +1106,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101501,
@@ -884,7 +1120,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101516,
@@ -895,7 +1134,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101521,
@@ -906,7 +1148,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101535,
@@ -917,7 +1162,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101536,
@@ -928,7 +1176,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101544,
@@ -939,7 +1190,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101551,
@@ -950,7 +1204,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101556,
@@ -961,7 +1218,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101568,
@@ -972,7 +1232,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101570,
@@ -983,7 +1246,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101579,
@@ -994,7 +1260,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101602,
@@ -1005,7 +1274,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101609,
@@ -1016,7 +1288,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101614,
@@ -1027,7 +1302,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101645,
@@ -1038,7 +1316,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 105171,
@@ -1049,7 +1330,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 105293,
@@ -1060,7 +1344,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 105317,
@@ -1071,7 +1358,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 105921,
@@ -1082,7 +1372,10 @@
     "subtype": "light helmaquatic",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 106178,
@@ -1093,7 +1386,10 @@
     "subtype": "heavy helmaquatic",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 106658,
@@ -1104,7 +1400,10 @@
     "subtype": "medium helmaquatic",
     "rarity": "Legendary",
     "generation": 3,
-    "expansion": "EoD"
+    "expansion": "EoD",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82093,
@@ -1115,7 +1414,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82098,
@@ -1126,7 +1428,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82102,
@@ -1137,7 +1442,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82109,
@@ -1148,7 +1456,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82173,
@@ -1159,7 +1470,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82180,
@@ -1170,7 +1484,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82196,
@@ -1181,7 +1498,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82214,
@@ -1192,7 +1512,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82245,
@@ -1203,7 +1526,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82268,
@@ -1214,7 +1540,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82272,
@@ -1225,7 +1554,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82334,
@@ -1236,7 +1568,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82348,
@@ -1247,7 +1582,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82401,
@@ -1258,7 +1596,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82410,
@@ -1269,7 +1610,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82423,
@@ -1280,7 +1624,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82437,
@@ -1291,7 +1638,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82456,
@@ -1302,7 +1652,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82465,
@@ -1313,7 +1666,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82502,
@@ -1324,7 +1680,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82512,
@@ -1335,7 +1694,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82519,
@@ -1346,7 +1708,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82552,
@@ -1357,7 +1722,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82670,
@@ -1368,7 +1736,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82698,
@@ -1379,7 +1750,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82801,
@@ -1390,7 +1764,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82902,
@@ -1401,7 +1778,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82903,
@@ -1412,7 +1792,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82925,
@@ -1423,7 +1806,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82963,
@@ -1434,7 +1820,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 82994,
@@ -1445,7 +1834,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83036,
@@ -1456,7 +1848,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83087,
@@ -1467,7 +1862,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83094,
@@ -1478,7 +1876,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83113,
@@ -1489,7 +1890,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83127,
@@ -1500,7 +1904,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83162,
@@ -1511,7 +1918,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83240,
@@ -1522,7 +1932,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83289,
@@ -1533,7 +1946,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83308,
@@ -1544,7 +1960,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83323,
@@ -1555,7 +1974,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83348,
@@ -1566,7 +1988,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83394,
@@ -1577,7 +2002,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83482,
@@ -1588,7 +2016,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83497,
@@ -1599,7 +2030,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83595,
@@ -1610,7 +2044,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83676,
@@ -1621,7 +2058,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83699,
@@ -1632,7 +2072,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83702,
@@ -1643,7 +2086,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83729,
@@ -1654,7 +2100,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83862,
@@ -1665,7 +2114,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83921,
@@ -1676,7 +2128,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83929,
@@ -1687,7 +2142,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 83957,
@@ -1698,7 +2156,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84110,
@@ -1709,7 +2170,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84176,
@@ -1720,7 +2184,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84181,
@@ -1731,7 +2198,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84301,
@@ -1742,7 +2212,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84341,
@@ -1753,7 +2226,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84427,
@@ -1764,7 +2240,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84461,
@@ -1775,7 +2254,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84481,
@@ -1786,7 +2268,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84508,
@@ -1797,7 +2282,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84546,
@@ -1808,7 +2296,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84561,
@@ -1819,7 +2310,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84578,
@@ -1830,7 +2324,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84629,
@@ -1841,7 +2338,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84633,
@@ -1852,7 +2352,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84643,
@@ -1863,7 +2366,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84655,
@@ -1874,7 +2380,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84723,
@@ -1885,7 +2394,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 84748,
@@ -1896,7 +2408,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89093,
@@ -1907,7 +2422,10 @@
     "subtype": "heavy gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89094,
@@ -1918,7 +2436,10 @@
     "subtype": "medium leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89101,
@@ -1929,7 +2450,10 @@
     "subtype": "light leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89117,
@@ -1940,7 +2464,10 @@
     "subtype": "heavy helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89126,
@@ -1951,7 +2478,10 @@
     "subtype": "medium helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89134,
@@ -1962,7 +2492,10 @@
     "subtype": "medium gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89152,
@@ -1973,7 +2506,10 @@
     "subtype": "heavy coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89158,
@@ -1984,7 +2520,10 @@
     "subtype": "light shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89167,
@@ -1995,7 +2534,10 @@
     "subtype": "light gloves",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89174,
@@ -2006,7 +2548,10 @@
     "subtype": "light coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89183,
@@ -2017,7 +2562,10 @@
     "subtype": "medium coat",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89209,
@@ -2028,7 +2576,10 @@
     "subtype": "heavy shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89234,
@@ -2039,7 +2590,10 @@
     "subtype": "medium shoulders",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89235,
@@ -2050,7 +2604,10 @@
     "subtype": "medium boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89245,
@@ -2061,7 +2618,10 @@
     "subtype": "light boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89252,
@@ -2072,7 +2632,10 @@
     "subtype": "heavy boots",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89260,
@@ -2083,7 +2646,10 @@
     "subtype": "light helm",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 89266,
@@ -2094,7 +2660,10 @@
     "subtype": "heavy leggings",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 95380,
@@ -2105,7 +2674,10 @@
     "subtype": "amulet",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 81908,
@@ -2116,7 +2688,10 @@
     "subtype": "accessory",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 91048,
@@ -2127,7 +2702,10 @@
     "subtype": "accessory",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 91234,
@@ -2138,7 +2716,10 @@
     "subtype": "ring",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 92991,
@@ -2149,7 +2730,10 @@
     "subtype": "amulet",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 93105,
@@ -2160,7 +2744,10 @@
     "subtype": "ring",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 95093,
@@ -2171,7 +2758,10 @@
     "subtype": "accessory",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 107022,
@@ -2182,7 +2772,10 @@
     "subtype": "ring",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 109012,
@@ -2193,7 +2786,10 @@
     "subtype": "accessory",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 109070,
@@ -2204,7 +2800,10 @@
     "subtype": "accessory",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 77474,
@@ -2215,7 +2814,10 @@
     "subtype": "back",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "PoF"
+    "expansion": "PoF",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 81462,
@@ -2226,7 +2828,10 @@
     "subtype": "back",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 104857,
@@ -2237,7 +2842,10 @@
     "subtype": "back",
     "rarity": "Legendary",
     "generation": 1,
-    "expansion": "Core"
+    "expansion": "Core",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 74155,
@@ -2248,7 +2856,10 @@
     "subtype": "back",
     "rarity": "Legendary",
     "generation": 2,
-    "expansion": "HoT"
+    "expansion": "HoT",
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 91505,
@@ -2259,7 +2870,10 @@
     "subtype": "",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 91536,
@@ -2270,7 +2884,10 @@
     "subtype": "",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   },
   {
     "id": 101582,
@@ -2281,13 +2898,16 @@
     "subtype": "",
     "rarity": "Legendary",
     "generation": null,
-    "expansion": null
+    "expansion": null,
+    "tpSell": 0,
+    "tpBuy": 0,
+    "tpTradeable": false
   }
 ];
 
   root.LegendaryCatalog = {
     version: "1.0.0",
-    generated: "2026-09-28 06:43:29 UTC",
+    generated: "2026-09-28 06:53:22 UTC",
     totalItems: 206,
     items: LEGENDARY_CATALOG
   };

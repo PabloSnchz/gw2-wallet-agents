@@ -1,0 +1,275 @@
+{
+  "30684": {
+    "buy": 15000000,
+    "sell": 18890000,
+    "buy_listings": 4382,
+    "sell_listings": 30,
+    "whitelisted": false
+  },
+  "30685": {
+    "buy": 14008200,
+    "sell": 16989999,
+    "buy_listings": 4232,
+    "sell_listings": 27,
+    "whitelisted": false
+  },
+  "30686": {
+    "buy": 14300100,
+    "sell": 17400000,
+    "buy_listings": 3429,
+    "sell_listings": 49,
+    "whitelisted": false
+  },
+  "30687": {
+    "buy": 15800000,
+    "sell": 18921099,
+    "buy_listings": 9385,
+    "sell_listings": 35,
+    "whitelisted": false
+  },
+  "30688": {
+    "buy": 13110100,
+    "sell": 17300000,
+    "buy_listings": 1902,
+    "sell_listings": 21,
+    "whitelisted": false
+  },
+  "30689": {
+    "buy": 27003773,
+    "sell": 32990000,
+    "buy_listings": 39985,
+    "sell_listings": 27,
+    "whitelisted": false
+  },
+  "30690": {
+    "buy": 15500001,
+    "sell": 19000000,
+    "buy_listings": 5706,
+    "sell_listings": 33,
+    "whitelisted": false
+  },
+  "30691": {
+    "buy": 15009696,
+    "sell": 18750000,
+    "buy_listings": 4107,
+    "sell_listings": 36,
+    "whitelisted": false
+  },
+  "30692": {
+    "buy": 12060502,
+    "sell": 15729866,
+    "buy_listings": 2226,
+    "sell_listings": 31,
+    "whitelisted": false
+  },
+  "30693": {
+    "buy": 12000008,
+    "sell": 14999998,
+    "buy_listings": 2195,
+    "sell_listings": 40,
+    "whitelisted": false
+  },
+  "30694": {
+    "buy": 12020202,
+    "sell": 15300000,
+    "buy_listings": 4916,
+    "sell_listings": 35,
+    "whitelisted": false
+  },
+  "30695": {
+    "buy": 13000000,
+    "sell": 14980000,
+    "buy_listings": 2909,
+    "sell_listings": 34,
+    "whitelisted": false
+  },
+  "30696": {
+    "buy": 12500307,
+    "sell": 16899999,
+    "buy_listings": 2779,
+    "sell_listings": 35,
+    "whitelisted": false
+  },
+  "30697": {
+    "buy": 14020000,
+    "sell": 17490419,
+    "buy_listings": 1983,
+    "sell_listings": 25,
+    "whitelisted": false
+  },
+  "30698": {
+    "buy": 12100133,
+    "sell": 14659999,
+    "buy_listings": 7187,
+    "sell_listings": 45,
+    "whitelisted": false
+  },
+  "30699": {
+    "buy": 11811817,
+    "sell": 13999796,
+    "buy_listings": 8077,
+    "sell_listings": 66,
+    "whitelisted": false
+  },
+  "30700": {
+    "buy": 12804305,
+    "sell": 17089591,
+    "buy_listings": 1670,
+    "sell_listings": 16,
+    "whitelisted": false
+  },
+  "30701": {
+    "buy": 14000000,
+    "sell": 16999993,
+    "buy_listings": 1838,
+    "sell_listings": 21,
+    "whitelisted": false
+  },
+  "30702": {
+    "buy": 14500201,
+    "sell": 19000000,
+    "buy_listings": 2334,
+    "sell_listings": 21,
+    "whitelisted": false
+  },
+  "30703": {
+    "buy": 13000605,
+    "sell": 15999998,
+    "buy_listings": 8746,
+    "sell_listings": 27,
+    "whitelisted": false
+  },
+  "30704": {
+    "buy": 15047002,
+    "sell": 17950000,
+    "buy_listings": 18415,
+    "sell_listings": 67,
+    "whitelisted": false
+  },
+  "95612": {
+    "buy": 15006099,
+    "sell": 19999999,
+    "buy_listings": 721,
+    "sell_listings": 24,
+    "whitelisted": false
+  },
+  "95675": {
+    "buy": 15161499,
+    "sell": 19519800,
+    "buy_listings": 1244,
+    "sell_listings": 26,
+    "whitelisted": false
+  },
+  "95684": {
+    "buy": 15500299,
+    "sell": 19390000,
+    "buy_listings": 2792,
+    "sell_listings": 21,
+    "whitelisted": false
+  },
+  "95808": {
+    "buy": 17000000,
+    "sell": 19000000,
+    "buy_listings": 8324,
+    "sell_listings": 21,
+    "whitelisted": false
+  },
+  "96028": {
+    "buy": 15700103,
+    "sell": 19850000,
+    "buy_listings": 1003,
+    "sell_listings": 14,
+    "whitelisted": false
+  },
+  "96203": {
+    "buy": 15800001,
+    "sell": 18831947,
+    "buy_listings": 1187,
+    "sell_listings": 27,
+    "whitelisted": false
+  },
+  "96221": {
+    "buy": 16600103,
+    "sell": 19989999,
+    "buy_listings": 762,
+    "sell_listings": 23,
+    "whitelisted": false
+  },
+  "96356": {
+    "buy": 16010103,
+    "sell": 19199996,
+    "buy_listings": 11182,
+    "sell_listings": 25,
+    "whitelisted": false
+  },
+  "96652": {
+    "buy": 16000002,
+    "sell": 19799895,
+    "buy_listings": 832,
+    "sell_listings": 24,
+    "whitelisted": false
+  },
+  "96937": {
+    "buy": 16520200,
+    "sell": 19451945,
+    "buy_listings": 734,
+    "sell_listings": 25,
+    "whitelisted": false
+  },
+  "97077": {
+    "buy": 16590399,
+    "sell": 19499999,
+    "buy_listings": 9473,
+    "sell_listings": 31,
+    "whitelisted": false
+  },
+  "97099": {
+    "buy": 16600001,
+    "sell": 19942000,
+    "buy_listings": 968,
+    "sell_listings": 13,
+    "whitelisted": false
+  },
+  "97165": {
+    "buy": 16000000,
+    "sell": 19809988,
+    "buy_listings": 473,
+    "sell_listings": 18,
+    "whitelisted": false
+  },
+  "97377": {
+    "buy": 16660606,
+    "sell": 18399999,
+    "buy_listings": 835,
+    "sell_listings": 19,
+    "whitelisted": false
+  },
+  "97590": {
+    "buy": 15110300,
+    "sell": 19509994,
+    "buy_listings": 596,
+    "sell_listings": 12,
+    "whitelisted": false
+  },
+  "97783": {
+    "buy": 16800471,
+    "sell": 20009000,
+    "buy_listings": 475,
+    "sell_listings": 26,
+    "whitelisted": false
+  },
+  "103815": {
+    "buy": 22000000,
+    "sell": 25400000,
+    "buy_listings": 1717,
+    "sell_listings": 43,
+    "whitelisted": false
+  },
+  "110020": {
+    "buy": 48500000,
+    "sell": 55000000,
+    "buy_listings": 589,
+    "sell_listings": 15,
+    "whitelisted": false
+  }
+}
