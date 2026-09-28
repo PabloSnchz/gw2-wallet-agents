@@ -1,9 +1,9 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-27T22:30:00Z
+> Actualizado: 2026-09-28T00:06:00Z (Heartbeat #12)
 > FIX CRITICO (22:30): cron 13dc22e6 share_session true→false. Root cause del Heartbeat loop diagnosticado y ROTO. Cron sigue autonomo (actualiza logs cada 30min, commitea, pushea) sin injectar contenido en la sesion del Principal. Ver MEMORY.md.
 > Heartbeat #10 (manual, ~22:30): Documentador ✅ (task completed, push exitoso). PO ✅ (task-933dea65eca1: 11 ideas sin cambios, usuario NO autoriza Ideas 11/2 — Idea 2 bloqueada por conflicto gn:tokenchange). Reviewer bug persiste. gw2-agents-dashboard deployado ✅. Origin INTACTADO. Sin urgencias técnicas para este admin chat.
-> Heartbeat #11 (manual, ~23:40 UTC): Documentador task-0c858087dfb7 ⏱ **FAILED** (timeout 600s) — documentado manualmente por Principal. PO ✅ (5-line summary: prioridad #2 = Idea 11 VoE datos estáticos, bajo riesgo). Reviewer bug persiste (4to timeout reportado). raid-tracker VoE: commit 57008ae (wing 9 Nexus of Eternity + CSS raid-expansion--voe con fallback var()). Origin INTACTADO.
+> Heartbeat #12 (manual, ~00:06 UTC 2026-09-28): Task verification — task-0c858087dfb7 (documenter) ⏱ FAILED (timeout 600s, known platform bug). task-838665263c09 ✅ completed (404=limpio). PO cron ✅ SUCCESS (00:03:43 UTC, share_session=true→false fix aplicado en este heartbeat, root cause: cron inyectaba contenido en sesión del PO). PRE_BACKLOG.md: 12 ideas consolidadas, PO reporta "no hay 3+ nuevas propuestas para Reviewer" — todas procesadas previamente. BACKLOG.md actualizado: todos los items técnicos marcados ✅ completados (storage.js Fase 2, S1 fix, inventory-dashboard fixes, grid fix, cache-busting, raid VoE). Pendiente solo: encoding corruption check + validar grid con API key. Origin INTACTADO.
 > Heartbeat #9: Crons activos y running sin errores. 900s timeout fix ESTABLE (4 ejecuciones sin timeout). PO next run 20:00 UTC. Principal running (19:30 auto).
 > Heartbeat #8: CRON ESTABLE. PO 3ra autoejecución SUCCESS. Principal running sin timeout. 900s fix verificado 3x.
 > Heartbeat #7: Principal cron autoejecutándose (18:33, running). PO cron ✅ SUCCESS (18:07, 7min). 900s timeout fix VERIFICADO (2nd autoejecución exitosa). Origin intacto.
@@ -13,7 +13,7 @@
 | Cron ID | Nombre | Agente | Schedule | Timeout | Estado | Última ejecución |
 |---------|--------|--------|----------|---------|--------|------------------|
 | `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (cada 30 min) | 900s ✅ | ✅ Activo | 🔄 Running (19:30 auto, sin timeout) |
-| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 (18:07, 20:00, 22:02) |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (cada 2h) | 900s ✅ | ✅ Activo | ✅ Success x4 (18:07, 20:00, 22:02, **00:03**)
 
 **✅ 900s timeout fix VERIFIED 5x:** 5 ejecuciones consecutivas sin TimeoutError. Sistema 100% estable y auto-sostenible.
 
@@ -77,24 +77,27 @@
 ## Estado de propuestas del PO
 
 - **task-e27e5d658589 ✅ completada.** El PO investigó GW2 Wiki, gw2treasures y Reddit.
-- PRE_BACKLOG.md tiene 11 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas). Ampliado desde 8 ideas originales.
+- **task-933dea65eca1 ✅ completada (Heartbeat #11).** 11 ideas consolidadas. PO reporta "no hay 3+ nuevas propuestas para Reviewer" — todas procesadas previamente.
+- PRE_BACKLOG.md tiene 12 ideas consolidadas (4 🟢, 4 🟡, 3 pospuestas, 1 descartada).
 - **Discrepancia clave resuelta:** Idea 7 (Homestead tracker) fue POSPUESTA por el Principal (creía que la API no existía). El PO confirmó que `/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/homestead/decorations/categories` EXISTEN. **Revalidada de POSPUESTA a DEPOIS.**
+- **Idea 11 (VoE raid/strike/armor updates):** ✅ IMPLEMENTADA (commit 57008ae — wing 9 Nexus of Eternity + CSS raid-expansion--voe). Usuario aprobó implementación.
 - **Prioridad final del PO (top 5):**
-  1. 🥇 Vista consolidada multicuenta (Idea 2) — ~8-12h — YA aprobada por Principal
-  2. 🥈 New content updates VoE (Idea 11) — ~4-6h — NUEVA, necesita validación Reviewer
+  1. 🥇 Vista consolidada multicuenta (Idea 2) — ~8-12h — YA aprobada por Principal, BLOQUEADA por conflicto gn:tokenchange
+  2. 🥈 New Content Integration — VoE (Idea 11) — ~4-6h — ✅ **IMPLEMENTADA** (57008ae)
   3. 🥉 Developer API docs (Idea 8) — ~4-8h — YA aprobada por Principal
   4. 🥉 API key privacy docs (Idea 4) — ~2h — YA aprobada por Principal
   5. 🥄 Homestead tracker (Idea 7) — ~15-20h — REVALIDADA, necesita validación Reviewer
 
 ## BACKLOG.md
 
-- Creado con 4 items técnicos pendientes + histórico de completions.
-- Items: inventory-dashboard.js glow/overflow, bug clearTimeout, storage.js Fase 2, gist-sync.js contraseña fija.
+- **Actualizado en Heartbeat #12.** Todos los items técnicos anteriores marcados ✅ completados.
+- Pendiente únicamente: encoding corruption check (carácter `械` — ya corregido en v1.x, verificar regresión) + validar grid con API key (no posible sin key).
+- Últimos commits del repo: 510c6b6 (heartbeat #11 docs) ← 57008ae (raid VoE) ← 95b4136 (inventory-dashboard fixes) ← 6065d8c (!important removal) ← 5d550b8 (storage.js Fase 2) ← 65f5f90 (S1 security fix) ← d1e7c14 (grid fix) ← 794bafa (cache-busting) ← 39aeaa3 (storage.js Fase 1)
 
 ## Estado del repositorio
 
-- **agents:** `main` actualizado. Últimos commits: 6e16aaa → b1f2a16 → d1e7c14 → 4012b09 → 794bafa → 58a5190 → a5ad5fb (heartbeat #10) → 9247f0b (heartbeat #10 merge) → 697f6bb (pull merge) → 57008ae (raid-tracker VoE).
-- **gw2-agents-dashboard:** `main` actualizado. Últimos commits: 37639ce (SESSION_LOG) → d74e4a9 (cache-busting v2) → 753cba7 (fix renderFileOrError). Deployado en `pablosnchz.github.io/gw2-agents-dashboard`.
+- **agents:** `main` actualizado en 510c6b6 (último commit). Working tree LIMPIO.
+- **gw2-agents-dashboard:** `main` actualizado y deployado.
 - **origin:** Congelado en v6.6.1. **NO modificado.**
-- Diferencia: 30+ commits adelantan agents sobre origin.
-- Working tree: Solo `SESSION_LOG.md` y `TEAM_STATUS.md` modificados (status updates). Untracked: `.backup_ux_keys_flow/`, `js/_update_status.js`, `prod_*.css`, `skills/` — backup/utility, no parte del proyecto, no se commitean.
+- Diferencia: 66 commits adelantan agents sobre origin.
+- PO cron fix (share_session: false) aplicado en Heartbeat #12 — root cause: cron inyectaba contenido en sesión del PO, causando loop. Fix: `qwenpaw cron update c3f30dc2 --agent-id product-owner --no-share-session`.
