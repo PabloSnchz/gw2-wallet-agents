@@ -3,7 +3,7 @@
 > Registro de decisiones importantes del equipo de agentes.
 > Se actualiza cuando el equipo toma una decisión que afecta al
 > proyecto a largo plazo.
-> Última actualización: 2026-09-28T10:00:00Z
+> Última actualización: 2026-09-29T14:36:00Z
 
 ## Decisiones recientes
 
@@ -22,6 +22,29 @@ mientras el Reviewer está roto.
 
 **Archivos afectados:** AGENTS.md, SOUL.md, KNOWLEDGE.md,
 MEMORY.md del Arquitecto.
+
+### [2026-09-29] Revertidos cambios de BOM en JS (out of scope heartbeat)
+
+**Contexto:** 16 archivos .js en el repo tenían el UTF-8 BOM removido
+(Byte Order Mark) — cambios detectados como diff inesperado durante
+el sync del Heartbeat #27. El script `remove-bom.ps1` (untracked) fue
+el responsable. Estos cambios no son parte de la agenda de este heartbeat
+ni fueron validados por el Code Reviewer (que está DOWN, platform bug,
+11th consecutive timeout).
+
+**Decisión:** Revertir los 16 archivos .js con `git checkout -- js/*.js`.
+Preservar `remove-bom.ps1` como artefacto para uso futuro. La remoción de
+BOM es una tarea válida (documentada en BACKLOG.md: "Verificar encoding de
+archivos — UTF-8 sin BOM"), pero requiere Reviewer validation (toca 16 archivos)
+y debe ser un commit separado, no parte del sync de management files.
+
+**Quién decidió:** Principal (default) — proceeding by merit (Reviewer DOWN).
+
+**Impacto:** Los archivos .js permanecen con BOM intacto. El repo solo
+commitea management files en este heartbeat. BOM removal queda pendiente
+de Reviewer validation.
+
+**Archivos afectados:** 16 archivos js/ revertidos. remove-bom.ps1 preservado (untracked).
 
 ### [2026-09-27] Estrategia de repositorios
 

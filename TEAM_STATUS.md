@@ -1,7 +1,214 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T08:31:00Z
-> Heartbeat #21: Agent task check (all 404, no pending). PO consulted (PRE_BACKLOG 06:00 UTC production verification, DASHBOARD 07:37 UTC — no new proposals). BACKLOG pospuesto (Reviewer 10th timeout, platform bug). CRITICAL: Sept 29 CM promotion AWAITING Pablo approval (COMM 008 escalation still pending). Reviewer 10th timeout (unchanged). Documentador 6th timeout (unchanged). Workspace files synced to agents repo (commit 873eb8f + Heartbeat #19-21). Pending commit + push.
+> Actualizado: 2026-09-29T15:10:00Z
+> Heartbeat #28: (1) task-dd859ed5ab5e FAILED (12th timeout, session_id mismatch). task-3751dd8645a7 finished OK (COMM 009). (2) PO: PRE_BACKLOG sin novedades desde 10:00 UTC (mismas 3 ideas). (3) 3 propuestas reenviadas al Reviewer -> task-ec845e5c532b FAILED (12th timeout). (4) BACKLOG: se avanzo con el item no-CSS mas grave: **Homestead glyph schema** — DIAGNOSTICADO Y CORREGIDO (commit 18ef9a4). Hallazgo mayor que el reportado por el PO: la API /v2/homestead/glyphs devuelve un array de STRINGS (36 entradas tipo "alchemy_harvesting"), NO objetos {id,name,icon}. El modulo renderizaba glyphs completamente rotos (id/icon/name undefined). Se agrego normalizeGlyphs() + normalizeGlyphIds() y se elimino el dead code CONFIG.GLYPH_UPGRADES (leia glyph.upgrade_item, campo inexistente). Verificado contra API real: 36/36 normalizados, node --check OK. (5) Logs actualizados. (6) Commit + push a agents.
+
+## Heartbeat #28 (15:10 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #28 ejecutado (manual — solicitud de usuario).
+  - Agent task check: task-dd859ed5ab5e (Reviewer, #25) → **FAILED** (12th consecutive timeout, session_id mismatch platform bug). task-3751dd8645a7 (PO, COMM 009) → finished. Sin tareas pendientes.
+  - PO consultado: PRE_BACKLOG.md sin novedades desde 10:00 UTC. Mismas 3 ideas consolidadas. Sin propuestas nuevas.
+  - PO 3+ propuestas: reenviadas al Reviewer (task-ec845e5c532b) → **FAILED** (12th timeout). Proceeding by merit.
+  - BACKLOG: avanzado el item no-CSS de mayor impacto (Homestead glyph schema). **COMPLETADO** (18ef9a4).
+  - Management files sync + commit + push a agents.
+- **code-reviewer:** 12th consecutive timeout (session_id mismatch, platform bug). Proceeding by merit.
+- **documenter:** 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+- **product-owner:** Timeout (platform bug), pero publica heartbeats occasionales. Ultimo: 10:00 UTC.
+
+### Hallazgo critico: schema de la API de glyphs (corregido)
+
+El PO reporto un fix de una linea (`glyph.upgrade_item` → `glyph.upgrades`). **Ese diagnostico era incorrecto.** Verificacion directa contra la API:
+
+```
+GET https://api.guildwars2.com/v2/homestead/glyphs
+-> ["alchemy_harvesting","alchemy_logging",... ]  (36 strings)
+```
+
+La API devuelve **strings**, no objetos. No existe `upgrade_item` ni `upgrades`. El modulo leia `glyph.id` / `glyph.icon` / `glyph.name` sobre un string, por lo que **los 36 glyphs se renderizaban rotos** (id undefined, icon vacio, nombre undefined). El fix real es normalizar, no reindexar.
+
+| Item | Antes | Despues |
+|------|-------|----------|
+| `state.glyphs` | array de strings crudo | `normalizeGlyphs()` → {id, profession, slot, name, icon} |
+| `state.accountGlyphs` | crudo | `normalizeGlyphIds()` → array de ids comparable |
+| `CONFIG.GLYPH_UPGRADES` | dead code (leia campo inexistente) | **eliminado**, reemplazado por GLYPH_PROFESSIONS + GLYPH_SLOTS |
+| render | siempre caia en `upgradeInfo = ''` | bloque `upgrade_item` eliminado |
+
+Verificacion: 36 inputs → 36 outputs, nombres en español correctos ("Alquimia · Cosecha"), `node --check` OK. Sin cambios de CSS (no requiere Reviewer).
+
+### Bug secundario detectado (NO corregido — requiere decision)
+
+`js/homestead-tracker.js` esta commiteado en `agents/main` (lo introdujo 680f051, Heartbeat #17) pero **sus 5 metodos `GW2Api` NO existen en `api-gw2.js` de main** — solo en la rama `feature/homestead-tracker`. Verificado: en `agents/main`, `index.html` NO tiene el script tag, `router.js` NO tiene la route y no existe el panel. O sea, en main el modulo esta **inerte**: el archivo esta commiteado pero nunca se carga ni se invoca. En la rama `feature/homestead-tracker` el wiring si esta completo (script tag + route + panel + API), salvo que el icono `assets/icons/Cuentas/homestead-icon.png` **no existe** en el repo (icono roto).
+
+Consecuencia: el fix de glyphs (18ef9a4) esta en `fix/homestead-glyph-data`, base de `feature/homestead-tracker`, y es el unico lugar donde el modulo funciona. **No afecta a `agents/main` ni a produccion** (el archivo no esta en `origin/main`). Requiere decision: mergear la rama completa (con icono faltante) vs continuar el fix ahi vs revertir el archivo huerfano de main.
+
+### Proximos pasos
+1. Resolver bug secundario: homestead-tracker.js huerfano en agents/main (decidir merge vs revert).
+2. Fractal Instability Planner — blocked (Reviewer DOWN, requiere validacion).
+3. Convergence Achievement Tracker — blocked (Reviewer DOWN).
+4. Reviewer (12th) + Documentador (7th) platform bugs — escalado a Pablo.
+
+## Heartbeat #27 (14:36 UTC) — resumen
+
+> Heartbeat #27: Heartbeat #27 ejecutado (manual — solicitud de usuario). (1) Agent task check: task-dd859ed5ab5e → FAILED (60s timeout, 11th consecutive, session_id mismatch platform bug). All others 404. No pending tasks. (2) PO consulted: PRE_BACKLOG.md (heartbeat 10:00 UTC — production verification + 3 ideas consolidadas: Fractal Instability Planner, Convergence Achievement Tracker, Homestead Glyph Upgrade Fix). PO heartbeats 08:00/10:00/12:00 UTC — timeout (platform bug). No new proposals since COMM 009. (3) PO 3+ proposals: already sent in #25 → FAILED (timeout #11). Reviewer DOWN. Proceeding by merit (non-CSS data prep). CSS changes remain blocked (require Reviewer). (4) BACKLOG: Sept 29 CM RESOLVED (origin/main @ 392c3b9). Next items blocked by Reviewer timeout (CSS changes): homestead tracker fixes, fractal instability planner, convergence tracker. Legendary Phase 3 blocked by API GW2. (5) Management files sync + commit + push a agents. JS BOM changes reverted (out of scope for heartbeat, require Reviewer validation).
+
+## Heartbeat #27 (14:01 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #27 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** task-dd859ed5ab5e → **FAILED** (60s timeout, 11th consecutive timeout, session_id mismatch platform bug). Todas las demás task IDs → 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (heartbeat 10:00 UTC — production verification + 3 ideas consolidadas: Fractal Instability Planner, Convergence Achievement Tracker, Homestead Glyph Upgrade Fix). PO heartbeats 08:00/10:00/12:00 UTC → timeout (platform bug). COMM 009 ya respondido.
+  - ✅ **PO 3+ proposals:** 3 ideas consolidadas en #25 ya enviadas al Reviewer → FAILED (timeout #11). Reviewer sigue DOWN. Proceeding by merit — data prep (non-CSS work). CSS changes remain blocked (require Reviewer).
+  - ✅ **BACKLOG reviewed:** Sept 29 CM promotion ✅ RESOLVED (origin/main @ 392c3b9, achievement 9423 verificado). Próximos items bloqueados por Reviewer timeout (CSS changes): homestead tracker fixes, fractal instability planner, convergence tracker. Legendary Phase 3 bloqueado por API GW2.
+  - ❌ **Reviewer:** 11th consecutive timeout (session_id mismatch platform bug). Proceeding by merit. CSS changes bloqueados.
+  - ❌ **Documentador:** 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Heartbeat publicado 06:00 UTC. Proceeding by merit.
+  - ✅ **Management files sync:** Sync workspace → repo + commit + push a agents/main.
+- **product-owner:** ⏳ Timeout (platform bug). Heartbeat 06:00 UTC publicado. No nuevas propuestas.
+- **code-reviewer:** ❌ 11th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+- **documenter:** ❌ 7th consecutive timeout (platform bug). No fallback. Principal maintains logs.
+
+## Heartbeat #26 (11:30 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #26 ejecutado (cron-triggered, 11:30 UTC).
+  - ✅ **Agent task check:** Verificada task ID task-dd859ed5ab5e (Reviewer submission COMM 010) → **FAILED** (60s timeout, 11th consecutive timeout, session_id mismatch platform bug). Todas las demás task IDs de heartbeats anteriores → 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (PO heartbeat 06:00 UTC — production verification + Idea 35-37: Fractal instability planner, homestead mastery tracker, Home vs Homestead comparison). File last modified 07:09 UTC. PO heartbeats 08:00/10:00 UTC — timeout (platform bug; jobs_history solo tiene 1 entrada: 07:14 UTC). COMM 009 (task-3751dd8645a7) ya Respondido. No nuevas proposals.
+  - ⚠️ **PO 3+ proposals:** Ya enviadas al Reviewer en Heartbeat #25 (task-dd859ed5ab5e) → FAILED (timeout #11). Reviewer sigue DOWN. Proceeding by merit para data/API preparation (non-CSS work). CSS changes remain blocked.
+  - ✅ **BACKLOG reviewed:** Sept 29 CM promotion ✅ RESOLVED (origin/main @ 392c3b9, achievement 9423 verificado). Próximos items todos bloqueados por Reviewer timeout (CSS changes require Reviewer validation): inventory-dashboard.js fixes (glow/overflow + clearTimeout), Homestead Glyph Fix (3 issues), Fractal Instability Planner (Idea 35), Convergence Achievement Tracker. Legendary Armory Phase 3 bloqueado por API GW2 (no expone recipes con ingredients).
+  - ❌ **Reviewer:** 11th consecutive timeout (session_id mismatch platform bug). task-dd859ed5ab5e → FAILED (60s). Proceeding by merit. CSS changes bloqueados.
+  - ❌ **Documentador:** 7th consecutive timeout (platform bug). No fallback per no-fallback rule. Principal maintains logs.
+  - ❌ **PO:** Timeout (platform bug). Heartbeat 06:00 UTC publicado (production verification + Idea 35-37). No nuevas proposals desde COMM 009. Proceeding by merit.
+  - ✅ **Management files sync:** 8 files DIFF (TEAM_STATUS, SESSION_LOG, CRON_SCHEDULE, ALERTS_LOG, COMMS_LOG, IN_PROGRESS, READY_FOR_PROMOTION, DECISIONS_LOG). Sync workspace → repo + commit + push a agents.
+
+### Estado de propuestas del PO (3 consolidadas en #25, ya enviadas → FAILED)
+
+| # | Item | Dificultad | Estado |
+|---|------|------------|--------|
+| 1 | Homestead Glyph Fix (3 bugs: CSS inline, localStorage, glyph API mismatch) | 🟢 | ⚠️ FAILED Reviewer timeout #11. Proceeding by merit. Bugs documentados en ALERTS_LOG. CSS changes bloqueados. |
+| 2 | Fractal Instability Planner (Idea 35) | 🟢 | ❌ Bloqueado por Reviewer DOWN (CSS changes require Reviewer). Proceeding by merit para data preparation. |
+| 3 | Convergence Achievement Tracker | 🟢 | ❌ Bloqueado por Reviewer DOWN (CSS changes require Reviewer). Proceeding by merit para data preparation. |
+
+### Próximos pasos
+1. ⏳ **Management files sync** — 8 files DIFF entre workspace y repo (code-reviewer\repo). Sync + commit + push a agents. (Heartbeat #25 sync was not completed in prior cycle.)
+2. ⏳ **Non-CSS data preparation** — Proceeding by merit for non-CSS work while Reviewer is DOWN: prepare static data files (homestead decoration catalog, fractal instability data, convergence achievement data) for when Reviewer recovers.
+3. ⏳ **Reviewer + Documentador platform bugs** — 11th + 7th consecutive timeouts (unchanged). Escalado a Pablo.
+4. ⚠️ **Sept 29 CM promotion** — ✅ RESOLVED. Ya en production (origin/main @ 392c3b9). Achievement 9423 verificado.
+
+## Heartbeat #25 (11:00 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #25 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** Todas las 5 task IDs → 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (PO heartbeat FINAL 05:08 UTC — production verification + research). DASHBOARD_PO_IDEAS.md actualizado 10:00 UTC. COMM 009 = Respondido. 3 propuestas consolidadas: Homestead Glyph Fix (API mismatch + CSS inline + localStorage), Fractal Instability Planner, Convergence Achievement Tracker.
+  - ⚠️ **PO 3+ propuestas:** 3 items enviados al Reviewer (task-dd859ed5ab5e, 60s timeout). Reviewer 11th consecutive timeout (session_id mismatch, platform bug). Proceeding by merit — propuestas documentadas, bloqueadas (CSS changes require Reviewer validation).
+  - ✅ **BACKLOG reviewed:** Sept 29 CM promotion RESOLVIDO (origin/main @ 392c3b9, achievement 9423 verificado). Próximos items bloqueados por Reviewer timeout (CSS changes require Reviewer): inventory-dashboard.js fixes (glow/overflow + clearTimeout), Homestead tracker, Fractal Instability Planner, Convergence Achievement Tracker. Legendary Phase 3 bloqueado por API GW2.
+  - ❌ **Reviewer:** 11th consecutive timeout (session_id mismatch platform bug). Submitted PO proposals (task-dd859ed5ab5e) → FAILED (60s timeout). Proceeding by merit.
+  - ❌ **Documentador:** 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Pero heartbeat FINAL publicado (05:08 UTC). Proceeding by merit.
+  - ✅ **Management files sync:** 8 files DIFFERENT entre workspace y repo (TEAM_STATUS, SESSION_LOG, CRON_SCHEDULE, HEARTBEAT, AGENTS). 3 files missing en workspace (IN_PROGRESS, READY_FOR_PROMOTION, DECISIONS_LOG). Sync + commit + push in progress.
+
+### Estado de propuestas del PO (3 consolidadas)
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 1 | Homestead Glyph Fix (3 bugs) | 🟢 | ~1-3h | ⚠️ FAILED Reviewer timeout #11. Proceeding by merit — bugs documentados. CSS changes bloqueados (require Reviewer). |
+| 2 | Fractal Instability Planner | 🟢 | ~3-4h | ❌ Bloqueado por Reviewer DOWN (CSS changes require Reviewer validation). |
+| 3 | Convergence Achievement Tracker | 🟢 | ~2-3h | ❌ Bloqueado por Reviewer DOWN (CSS changes require Reviewer validation). |
+
+### Próximos pasos
+1. ⏳ Homestead Glyph Fix — Reviewer FAILED (timeout #11). Bugs documentados en ALERTS_LOG. CSS changes cannot proceed without Reviewer.
+2. ⏳ Fractal Instability Planner + Convergence Achievement Tracker — AWAITING Reviewer validation (CSS changes require Reviewer). Proceeding by merit for data/API preparation (non-CSS work).
+3. ✅ Management files sync — 8 files different + 3 missing. Sync to repo + commit + push.
+4. ⚠️ Reviewer (11th timeout) + Documentador (7th timeout) — platform bugs. Escalado a Pablo.
+
+## Heartbeat #24 (10:00 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #24 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** Verificadas todas las 5 task IDs (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS devuelven 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (PO heartbeat FINAL 05:08 UTC — production verification + fresh research + 3 nuevas ideas 35-37). DASHBOARD_PO_IDEAS.md (actualizado 07:37 UTC). COMM 009 = Respondido. No hay propuestas nuevas desde COMM 009 (PO heartbeat labeled "FINAL").
+  - ⚠️ **PO 3+ propuestas:** 3 items consolidados (Homestead decoration tracker 🥇, Fractal instability planner Idea 35 🥈, Mobile PWA 🥉). Reviewer DOWN (10th timeout, platform bug) — no submission to Reviewer, proceeding by merit.
+  - ⚠️ **BACKLOG review:**
+    - **Sept 29 CM content:** ✅ **RESOLVED** — contenido en production (origin/main @ 392c3b9, achievement 9423 verificado). CRITICAL alert RESOLVED.
+    - **Próximos items:** Todos bloqueados por Reviewer timeout (CSS changes require Reviewer validation): inventory-dashboard.js fixes (glow/overflow/clearTimeout), Homestead decoration tracker. Legendary Armory Phase 3 bloqueado por API GW2 (no expone recipes con ingredients). Proceeding by merit — no se aplican cambios CSS sin Reviewer.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Unchanged. Proceeding by merit.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). Unchanged. No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Pero heartbeat FINAL publicado (05:08 UTC verification + research). No nuevas propuestas. Proceeding by merit.
+
+### Estado de propuestas del PO (sin cambios)
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ **RESOLVED** — En production (origin/main @ 392c3b9). Achievement 9423 verificado. Promotion completada. |
+| 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed. WIP branch removed (e855e67). 3 issues: CSS violation, localStorage, glyph API mismatch. Reviewer DOWN, proceeding by merit. |
+| 2. PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
+| 3. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ~3-5h | ✅ IMPLEMENTED & COMMITTED (v3.20.0, agents/main). js/activities.js + assets/data/new-items-feed.json. |
+| 4. NEW | Fractal instability planner (Idea 35) | 🟢 Fácil | ~2-3h | gw2treasures.com/fractals shows T4 instabilities + AR. Sources from Invisi/gw2-fotm-instabilities (MIT). JSON estático + pattern activities.js. |
+| 5. PRÓXIMA | Mobile PWA | 🟡 Media | ~8-12h | CSS breakpoints done. Need manifest.json + service worker. MetaForge apps launched Sept 9. |
+
+### Próximos pasos
+1. ⏳ **Homestead decoration tracker** — PO priority #1 (post-promotion). API confirmed. WIP branch removed (3 issues: CSS, localStorage, glyph API mismatch). AWAITING Reviewer validation for CSS changes (Reviewer DOWN, platform bug).
+2. ⏳ **inventory-dashboard.js fixes** — Diagnosticado (glow/overflow lines 462/473/709/830 + clearTimeout bug lines 267-290). Blocked by Reviewer timeout (CSS changes require Reviewer).
+3. ⏳ **Legendary Armory Phase 3** — Skeleton in agents/main (bac5c67, 7c88fe6, 1aaff5a). Blocked by API GW2 (no expone recipes con ingredients). 110020 (Wages of Stars) ya en legendary-data.js.
+4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts (unchanged). Escalado a Pablo.
+5. ⚠️ **HEARTBEAT.md re-injection** — Banner previene ejecución automática. Cron activo (share_session: false).
+
+## Heartbeat #23 (14:12 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #23 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** Verificadas todas las 5 task IDs (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (último heartbeat 06:00 UTC — production verification + fresh research). DASHBOARD_PO_IDEAS.md (actualizado 07:37 UTC). COMM 009 = Respondido. No hay propuestas nuevas.
+  - ✅ **PO 3+ propuestas:** 0 nuevas — prioridades post-Sept 29 ya validadas (Homestead tracker, VoE verification, New Items Feed). Reviewer DOWN (10th timeout, platform bug). No envío al Reviewer.
+  - ⚠️ **BACKLOG review:**
+    - **Sept 29 CM content:** ✅ **RESOLVED** — contenido en production (origin/main @ 392c3b9, achievement 9423 verificado).
+    - **Próximos items:** Todos bloqueados por Reviewer timeout (CSS changes require Reviewer validation): inventory-dashboard.js fixes (glow/overflow/clearTimeout), Homestead decoration tracker. Legendary Armory Phase 3 bloqueado por API GW2 (no expone recipes con ingredients). Proceeding by merit — no se aplican cambios CSS sin Reviewer.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Unchanged. Proceeding by merit.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). Unchanged. No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Heartbeat publicado (06:00 UTC production verification). Proceeding by merit.
+
+### Estado de propuestas del PO (sin cambios)
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ **RESOLVED** — En production (origin/main @ 392c3b9). Achievement 9423 verificado. Promotion completada entre 06:00-09:06 UTC. |
+| 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed. Cero refs in prod. Next priority. Reviewer DOWN, proceeding by merit. AWAITING Reviewer validation. |
+| 2. PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
+| 3. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ~3-5h | ✅ IMPLEMENTED & COMMITTED (v3.20.0, agents/main). js/activities.js + assets/data/new-items-feed.json. |
+
+### Crítico: Sept 29 CM deadline — ✅ RESOLVED
+
+- **Timeline:** CM content (Solitary Throne fractal + Nexus of Eternity) — Sept 29.
+- **State prod:** ✅ TIENE el tracker — origin/main @ 392c3b9. Achievement IDs 9423/9412/9373/9388 presentes en production.
+- **State dev:** ✅ Implementado en agents/main (commits 116ac60, 8cc5fc6, 4b253b2).
+- **Promotion:** ✅ COMPLETED — Cherry-pick a origin/main creó commit 392c3b9. Promotion completada entre 06:00 UTC (PO verification: NOT in prod) y 09:06 UTC (Heartbeat #22: IN prod).
+
+### Próximos pasos
+1. ⏳ **Homestead decoration tracker** — PO prioridad #1 (post-promotion). API confirmed. Pattern: activities.js Home Nodes. Bloqueado (CSS changes require Reviewer; Reviewer DOWN 10th timeout, platform bug).
+2. ⏳ **inventory-dashboard.js fixes** — Diagnosticado (glow/overflow lines 462/473/709/830 + clearTimeout bug lines 267-290). Bloqueado (CSS changes require Reviewer; Reviewer DOWN).
+3. ⏳ **VoE content verification** — Post-promotion. ~2h. Bloqueado por Reviewer DOWN (proceeding by merit, no aplicar cambios sin validation).
+4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts (unchanged). Escalado a Pablo.
+5. ⚠️ **HEARTBEAT.md re-injection** — Banner previene ejecución automática. Cron activo (share_session: false). Heartbeats manuales cuando el usuario lo solicita.
+
+## Heartbeat #22 (09:06 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #22 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** Verificadas todas las task IDs (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (último heartbeat 06:00 UTC — production verification). DASHBOARD_PO_IDEAS.md (actualizado 07:37 UTC). No hay propuestas nuevas (0). Prioridades sin cambios. PO sigue en timeout (platform bug); heartbeat publicado via PRE_BACKLOG.md.
+  - ✅ **PO 3+ propuestas:** No hay propuestas nuevas (0). Reviewer DOWN (10th timeout, platform bug). No envío al Reviewer.
+  - ⚠️ **BACKLOG review:**
+    - **Sept 29 CM content:** ✅ **RESOLVED** — `git fetch origin` confirma origin/main @ 392c3b9. Achievement ID 9423 presente en production `js/activities.js`. El contenido CM SÍ está en producción. El clone local estaba desactualizado (origin/main estaba en 07e4c64 antes del fetch). Promotion completada entre las 06:00 UTC (PO verification) y el 09:06 UTC (heartbeat).
+    - **Legendary Armory Phase 3:** Sigue bloqueado (API GW2 no expone recetas con ingredients). Skeleton en agents/main.
+    - **inventory-dashboard.js fixes:** Pospuesto per HEARTBEAT.md banner (CSS changes require Reviewer; Reviewer DOWN, 10th timeout, platform bug).
+    - **Homestead decoration tracker:** PO prioridad #1 (post-promotion). Bloqueado (CSS changes require Reviewer; Reviewer DOWN).
+    - **VoE content verification:** Post-promotion. ~2h.
+    - **No new work advanced** — todos los items siguientes bloqueados por Reviewer DOWN.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Unchanged.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). Unchanged. No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Heartbeat publicado (06:00 UTC production verification). Proceeding by merit.
+  - ⏳ **Management files:** Workspace files listos para sync al repo + commit + push.
 
 ## Heartbeat #21 (08:31 UTC)
 
@@ -138,21 +345,23 @@
 
 | # | Item | Dificultad | Tiempo | Estatus |
 |---|------|------------|--------|---------|
-| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ Cherry-picked to agents/main (4b253b2). NOT in prod (origin/main @ f914ac9). AWAITING Pablo approval. |
+| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ **RESOLVED** — En production (origin/main @ 392c3b9). Achievement 9423 verificado. Promotion completada entre 06:00-09:06 UTC. |
 | 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed. 0 refs in prod. Next priority. Reviewer down (platform bug), proceeding by merit. |
 | 2. PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
 | 3. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ~3-5h | ✅ IMPLEMENTED & COMMITTED (v3.20.0, commit in agents/main). js/activities.js + assets/data/new-items-feed.json. |
 
-## Crítico: Sept 29 CM deadline
+## Crítico: Sept 29 CM deadline — ✅ RESOLVED
 
 - **Timeline:** CM content (Solitary Throne fractal + Nexus of Eternity) — Sept 29.
-- **State prod:** NO tiene el tracker (origin/main).
-- **State dev:** ✅ Implementado en agents/feature/cm-content-sept29, cherry-picked a agents/main (commit 4b253b2).
-- **Promotion:** ⏳ AWAITING Pablo approval. Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Golden rule: Pablo manual test + explicit OK required.
-- **Validation:** Reviewer DOWN (10th timeout, platform bug). Proceeding by merit: 81 lines, 2 JS + 1 CSS + 1 icon, pattern-compliant.
+- **State prod:** ✅ TIENE el tracker — `git fetch origin` confirma origin/main @ 392c3b9. `git show origin/main:js/activities.js | findstr "9423"` → match. Achievement IDs 9423/9412/9373/9388 presentes en production.
+- **State dev:** ✅ Implementado en agents/feature/cm-content-sept29 (116ac60) + cherry-picked a agents/main (4b253b2).
+- **Promotion:** ✅ COMPLETED — Cherry-pick a origin/main creó commit 392c3b9 (diferente hash que 4b253b2 — distinto parent, pero mismo contenido). Promotion completada entre 06:00 UTC (PO verification: NOT in prod) y 09:06 UTC (heartbeat: IN prod).
+- **Validation:** Reviewer DOWN (10th timeout, platform bug). Proceeding by merit: 81 lines, 2 JS + 1 CSS + 1 icon, pattern-compliant. PO verification (06:00 UTC) confirmó contenido faltante; promotion completada después.
+- **Nota:** El clone local estaba desactualizado (origin/main @ 07e4c64 → después de fetch @ 392c3b9). El PO y el SESSION_LOG #15-16 documentaron la promotion correctamente.
 
 ## Próximos pasos
-1. 🚨 **ESPERANDO Pablo: Promotion Sept 29 CM content to production** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK.
-2. 📋 **inventory-dashboard.js diagnostic** — Completed. Glow/overflow + clearTimeout issues identified. Awaiting Reviewer validation for CSS changes. Reviewer DOWN.
-3. ⏳ **Homestead decoration tracker** — PO priority #1. API confirmed. Pattern exists (Home Nodes en activities.js). Reviewer down, proceeding by merit.
-4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts. Escalado a Pablo.
+1. ✅ **Sept 29 CM content promotion** — COMPLETADO. Contenido en production (origin/main @ 392c3b9). Achievement 9423 verificado. CRITICAL alert RESOLVED.
+2. ⏳ **Legendary Armory Phase 3 (API connection)** — Skeleton implementado (commits bac5c67, 7c88fe6, 1aaff5a en agents/main). Componentes de recetas bloqueados (GW2 API no expone recipes con ingredients). Wages of Stars (110020) ya en legendary-data.js. ~15-20h remaining (awaiting API).
+3. ⏳ **inventory-dashboard.js fixes** — Diagnosticado (glow/overflow lines 462/473/709/830 + clearTimeout bug lines 267-290). Pospuesto (CSS changes require Reviewer; Reviewer DOWN, 10th timeout, platform bug).
+4. ⏳ **Homestead decoration tracker** — PO prioridad #1 (post-promotion). API confirmed. Pattern: activities.js Home Nodes. Bloqueado (CSS changes require Reviewer; Reviewer DOWN).
+5. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts (unchanged). Escalado a Pablo.

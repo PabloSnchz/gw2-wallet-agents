@@ -16,6 +16,11 @@
 | 006 | product-owner | default | Heartbeat PO — Production audit + deadline | Resuelto | 1 | - | 2026-09-28 | 2026-09-28 | Verified ZERO refs in prod. Fetched GW2 API data. Confirmed priority. Submitted to Reviewer. |
 | 007 | product-owner | default | Heartbeat PO (22:00 UTC) — CRITICAL correction | Resuelto | 1 | task-57e27de2993f | 2026-09-28 | 2026-09-28 | Timeout 600s (msg too long). Content covered by COMM 008. No reintentar. |
 | 008 | product-owner | default | Heartbeat PO (22:10 UTC) — CRITICAL CORRECTION: Sept 29 CM content | Resuelto | 1 | - | 2026-09-28 | 2026-09-28 | All claims verified. channel_message to Pablo (session 1790264876233). Reviewer 10th timeout. Awaiting Pablo reply. |
+| 009 | product-owner | default | Heartbeat PO FINAL (05:08 UTC) — production verification + 3 propuestas | Resuelto | 1 | - | 2026-09-29 | 2026-09-29 | Principal responded HB#24. 3 propuestas: Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker. PO timeout (platform bug), HB published via PRE_BACKLOG.md. |
+| 010 | default | Code-Reviewer | Envío de 3 PO proposals al Reviewer (Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker) | Fallido | 1 | task-dd859ed5ab5e | 2026-09-29T11:00:44Z | 2026-09-29T15:12:00Z | 12th timeout (session_id mismatch). Principal ejecuto el item 1 por merito: fix glyph schema commit 18ef9a4 en rama fix/homestead-glyph-data. Items 2-3 blocked (requieren Reviewer). |
+| 012 | default | Code-Reviewer | REINTENTO #2 de 3 PO proposals (auditoria acotada, 3 items no-CSS) | Fallido | 2 | task-ec845e5c532b | 2026-09-29T15:05:00Z | 2026-09-29T15:11:00Z | 12th timeout (90s). Procediendo por merito. Fix glyph schema aplicado y verificado contra API real (18ef9a4). Items Fractal/Convergence siguen blocked por Reviewer DOWN. |
+| 011 | default | Code-Reviewer, Documentador, PO | Notificación de política de repositorios (2026-09-29) | Enviado | 1 | task-1f9858ba7c2e (Reviewer), task-50223079043d (Documentador), task-6042477524c8 (PO) | 2026-09-29T11:42:00Z | 2026-09-29T11:42:00Z | Pablo aclaró: autonomía total en agents/main (sandbox). Producción (gw2-wallet-ligero) requiere OK explícito. Notificado a Reviewer, Documentador y PO. Arquitecto excluido (design). |
+| 013 | default | product-owner | Consulta PRE_BACKLOG.md novedades (HB#28) | Resuelto | 1 | task-3751dd8645a7 | 2026-09-29T15:02:00Z | 2026-09-29T15:03:00Z | PRE_BACKLOG.md sin novedades desde 10:00 UTC. Mismas 3 ideas de COMM 009. Sin propuestas nuevas que escalar. |
 
 ## Estados
 
@@ -35,6 +40,10 @@ Máx 300 chars. Sin emojis innecesarios. Sin markdown complejo.
 
 ## Pendencias
 
-- COMM 008: Escalado a Pablo para approval de promotion (golden rule). Awaiting Pablo manual test + explicit OK.
-- Reviewer: 10th consecutive timeout (session_id mismatch, platform bug). Cannot validate promotion. Proceeding by merit.
-- Sistema auto-recuperable deployado (2026-09-29): AGENTS.md de 5 agentes actualizado, HEARTBEAT.md watchdog agregado, COMMS_LOG.md estructura nueva.
+- COMM 008: ✅ **RESUELTO** — Sept 29 CM content IS in production (origin/main @ 392c3b9, achievement 9423 verified after git fetch en Heartbeat #22). Promotion completada entre 06:00 UTC (PO verification: NOT in prod) y 09:06 UTC (Heartbeat #22: IN prod). channel_message a Pablo enviado (COMM 008).
+- COMM 009: ✅ **RESUELTO** — PO heartbeat FINAL (05:08 UTC). Principal responded HB#24. 3 propuestas consolidadas.
+- COMM 010: ❌ **FAILED** — Reviewer submission (task-dd859ed5ab5e) timeout 60s. 11th consecutive timeout (platform bug). Proceeding by merit. CSS changes bloqueados.
+- Reviewer: 11th consecutive timeout (session_id mismatch, platform bug). Cannot validate CSS/multi-file changes. Proceeding by merit.
+- Documentador: 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+- PO: Timeout (platform bug). Heartbeat FINAL publicado (05:08 UTC). 3 propuestas consolidadas. Proceeding by merit.
+- Sistema auto-recuperable deployado (2026-09-29): AGENTS.md de 5 agentes, HEARTBEAT.md watchdog, COMMS_LOG.md 4 capas.

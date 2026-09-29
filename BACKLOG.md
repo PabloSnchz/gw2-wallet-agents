@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-29T07:37:00Z (Heartbeat #19 — production verification findings from PO)
+> Actualizado: 2026-09-29T15:10:00Z (Heartbeat #28 — Homestead glyph schema corregido)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -19,7 +19,9 @@
 
 ## Pendientes (prioridad media)
 
-- [ ] **Verificar encoding de archivos** — UTF-8 sin BOM en todos los archivos .js del repo. Usar powershell para verificar.
+- [x] **Homestead Glyph API mismatch** — ✅ CORREGIDO (Heartbeat #28, commit 18ef9a4, rama `fix/homestead-glyph-data`). El diagnostico del PO era incorrecto: la API `/v2/homestead/glyphs` devuelve un array de **strings** (36 entradas tipo `"alchemy_harvesting"`), no objetos `{id,name,icon}`. No existe `upgrade_item` ni `upgrades`. Agregado `normalizeGlyphs()` + `normalizeGlyphIds()`; eliminado el dead code `CONFIG.GLYPH_UPGRADES`. Verificado contra API real (36/36) + `node --check`. Sin cambios CSS. NO mergeado a main: el modulo solo es funcional en `feature/homestead-tracker` (ver item siguiente).
+- [ ] **Homestead tracker: completar wiring** — ⚠️ PENDIENTE DECISION. En `agents/main` el archivo `js/homestead-tracker.js` esta commiteado pero **inerte**: sus 5 metodos `GW2Api` no existen en `api-gw2.js` de main, y no hay script tag en index.html, ni route en router.js, ni panel. En la rama `feature/homestead-tracker` el wiring esta completo, salvo que falta el icono `assets/icons/Cuentas/homestead-icon.png` (no existe en el repo). Decidir: mergear la rama completa (con icono) vs dejar el fix ahi vs revertir el archivo huerfano de main.
+- [ ] **Verificar encoding de archivos** — 📋 ESCANEADO (Heartbeat #28). Detectados 17 archivos .js con BOM UTF-8 en `js/`. NO se modificaron: es un cambio masivo que requiere validacion del Reviewer (DOWN). Pendiente.
 
 ## Pendientes (prioridad baja)
 
