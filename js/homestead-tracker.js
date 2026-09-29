@@ -36,20 +36,69 @@
     CACHE_KEY_CATEGORIES: 'gn:homestead:categories',
     CACHE_KEY_GLYPHS: 'gn:homestead:glyphs',
     CACHE_TTL: 6 * 60 * 60 * 1000,  // 6 horas (datos estáticos)
-    GLYPH_UPGRADES: [
-      { id: 1, name: 'Herbalist', nameEs: 'Herboristero', upgradeItem: 21234 },
-      { id: 2, name: 'Leatherworker', nameEs: 'Marroquinero', upgradeItem: 21235 },
-      { id: 3, name: 'Forester', nameEs: 'Corredor', upgradeItem: 21236 },
-      { id: 4, name: 'Watchknight', nameEs: 'Centinela', upgradeItem: 21237 },
-      { id: 5, name: 'Tailor', nameEs: 'Sastre', upgradeItem: 21238 },
-      { id: 6, name: 'Scavenger', nameEs: 'Carroñero', upgradeItem: 21239 },
-      { id: 7, name: 'Prospector', nameEs: 'Prospector', upgradeItem: 21240 },
-      { id: 8, name: 'Unbound', nameEs: 'Independiente', upgradeItem: 21241 },
-      { id: 9, name: 'Volatility', nameEs: 'Volatilidad', upgradeItem: 21242 },
-      { id: 10, name: 'Crucible', nameEs: 'Crisol', upgradeItem: 21243 },
-      { id: 11, name: 'Virtue', nameEs: 'Virtud', upgradeItem: 21244 }
-    ]
+    // La API /v2/homestead/glyphs devuelve un array de STRINGS ("herbalist_mining"),
+    // NO objetos con {id, name, icon}. Estos mapas son solo de presentación.
+    // (El antiguo CONFIG.GLYPH_UPGRADES era dead code: leía glyph.upgrade_item,
+    //  campo que la API nunca devuelve, y sus upgradeItem no existen.)
+    GLYPH_PROFESSIONS: {
+      alchemy: 'Alquimia',
+      crucible: 'Crisol',
+      forester: 'Corredor',
+      herbalist: 'Herboristero',
+      leatherworker: 'Marroquinería',
+      prospector: 'Prospector',
+      scavenger: 'Carroñero',
+      tailor: 'Sastrería',
+      unbound: 'Independiente',
+      virtue: 'Virtud',
+      volatility: 'Volatilidad',
+      watchknight: 'Centinela'
+    },
+    GLYPH_SLOTS: {
+      harvesting: 'Cosecha',
+      logging: 'Tala',
+      mining: 'Minería'
+    }
   };
+
+  // =======================================================================
+  // 1b. NORMALIZACIÓN DE GLYPHS
+  // =======================================================================
+  // /v2/homestead/glyphs -> ["alchemy_harvesting", "herbalist_mining", ...] (36 entradas)
+  // /v2/account/homestead/glyphs -> mismo shape, solo los desbloqueados.
+  // Normalizamos a {id, profession, slot, name, icon} para que el render sea uniforme.
+  // Si la API pasa a devolver objetos, se respetan tal cual (forward-compatible).
+  function normalizeGlyphs(raw) {
+    if (!Array.isArray(raw)) return [];
+    var out = [];
+    raw.forEach(function (g) {
+      if (typeof g === 'string') {
+        var parts = g.split('_');
+        var slot = parts.length > 1 ? parts.pop() : '';
+        var prof = parts.join('_');
+        out.push({
+          id: g,
+          profession: prof,
+          slot: slot,
+          name: (CONFIG.GLYPH_PROFESSIONS[prof] || prof) + ' · ' +
+                (CONFIG.GLYPH_SLOTS[slot] || slot),
+          icon: ''
+        });
+      } else if (g && g.id != null) {
+        out.push(g);
+      }
+    });
+    return out;
+  }
+
+  // El endpoint de cuenta devuelve strings; si en el futuro devuelve objetos,
+  // extraemos el id para que el Set de poseídos sea comparable.
+  function normalizeGlyphIds(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function (g) {
+      return (typeof g === 'string') ? g : (g && g.id);
+    }).filter(function (g) { return g != null; });
+  }
 
   // =======================================================================
   // 2. ESTADO GLOBAL
@@ -191,14 +240,14 @@
 
       state.decorations = results[0] || [];
       state.categories = results[1] || [];
-      state.glyphs = results[2] || [];
+      state.glyphs = normalizeGlyphs(results[2]);
       state.accountDecorations = {};
       if (Array.isArray(results[3])) {
         results[3].forEach(function (entry) {
           if (entry && entry.id != null) state.accountDecorations[entry.id] = entry.count || 1;
         });
       }
-      state.accountGlyphs = Array.isArray(results[4]) ? results[4] : [];
+      state.accountGlyphs = normalizeGlyphIds(results[4]);
 
       // Fallback: load from localStorage if API returned empty
       if (state.decorations.length === 0) {
@@ -213,7 +262,7 @@
           }
           var cachedGlyphs = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY_GLYPHS) || '{}');
           if (cachedGlyphs.ts && (Date.now() - cachedGlyphs.ts) < CONFIG.CACHE_TTL) {
-            state.glyphs = cachedGlyphs.data || [];
+            state.glyphs = normalizeGlyphs(cachedGlyphs.data);
           }
         } catch (_) {}
       }
@@ -243,7 +292,7 @@
         }
         var glyCached = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY_GLYPHS) || '{}');
         if (glyCached.ts && (Date.now() - glyCached.ts) < CONFIG.CACHE_TTL) {
-          state.glyphs = glyCached.data || [];
+          state.glyphs = normalizeGlyphs(glyCached.data);
         }
         if (state.decorations.length > 0) {
           renderHomestead();
@@ -324,16 +373,13 @@
     var ownedSet = new Set(state.accountGlyphs);
     state.glyphs.forEach(function (glyph) {
       var owned = ownedSet.has(glyph.id);
-      var upgradeInfo = '';
-      if (glyph.upgrade_item) {
-        upgradeInfo = ' (upgrade: ' + glyph.upgrade_item + ')';
-      }
       html += '<div class="glyph-card card" style="padding: 8px; text-align: center; ' +
         (owned ? 'borderLeft: 3px solid rgba(105,180,255,0.5);' : 'opacity: 0.5;') + '">' +
-        '<img src="' + esc(glyph.icon || '') + '" width="32" height="32" alt="' + esc(glyph.name) + '" style="display:block;margin:0 auto 4px;">' +
+        (glyph.icon
+          ? '<img src="' + esc(glyph.icon) + '" width="32" height="32" alt="' + esc(glyph.name) + '" style="display:block;margin:0 auto 4px;">'
+          : '<div style="height:32px;margin:0 auto 4px;"></div>') +
         '<small>' + esc(glyph.name || ('Glyph ' + glyph.id)) + '</small>' +
         (owned ? '<div style="color:var(--color-green);font-size:0.75rem;">✓</div>' : '<div style="color:var(--tx-2);font-size:0.75rem;">✗</div>') +
-        upgradeInfo +
         '</div>';
     });
 
