@@ -55,3 +55,20 @@
 - Nada.
 ### Pendiente
 - Git history aun tiene escalation en commits ef25dc0/5904b3d (no se modifica sin rewrite).
+
+## [2026-09-29T00:23 UTC] Branch methodology documented + 2 new repo files
+
+### Qué se hizo
+- **AGENTS.md de 5 agentes actualizado:** Reemplazada frase "Solo se promueve desde `agents` cuando Pablo aprueba manualmente" por nueva sección "🔄 Metodología de ramas" (6 rules: nada directo a agents/main, cada feat en su rama, merge a agents/main, Pablo prueba en Pages, Pablo pide explícitamente, cherry-pick a origin/main). Archivos afectados: default, code-reviewer, documenter, product-owner, architect.
+- **AGENTS.md del Principal (default) actualizado:** Tabla de mantenimiento ampliada con READY_FOR_PROMOTION.md e IN_PROGRESS.md.
+- **READY_FOR_PROMOTION.md creado** en repo agents (inventario de feats listos: feat-cm-content, fix/grid, fix/security-gist-sync, fix/topPendingItems).
+- **IN_PROGRESS.md recreado** per nueva plantilla (ramas activas: chore/cleanup-promotion-references, feature/legendary-component-tracker).
+- **Commit + push:** `411f071` en rama `chore/cleanup-promotion-references`, fast-forward merge a `agents/main`, push a remote `agents` (main branch). `origin` (producción) intacto en `07e4c64`.
+
+### Qué se rompió
+- Nada. El `git push agents agents/main` inicial creó un branch duplicado `agents/agents/main` en el remote (issue de refspec ambiguo). Corregido: borrado del branch duplicado, push corregido a `refs/heads/main`.
+
+### Qué quedó pendiente
+- Documentador y Reviewer en timeout (platform bug, session_id mismatch) — proceeding by merit.
+- Legendary Armory Phase 3 (feature/legendary-component-tracker) — 3/4 commits, merge pendiente Reviewer approval.
+- Homestead decoration tracker — próximo #1 post-cleanup.
