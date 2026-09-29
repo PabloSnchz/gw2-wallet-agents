@@ -1,4 +1,4 @@
-﻿# SESSION_LOG.md
+# SESSION_LOG.md
 
 > Mantenido por: Principal (default). Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
 
@@ -118,3 +118,22 @@
 - `C:\Users\psanc\.qwenpaw\workspaces\architect\AGENTS.md` (dueÃ±o del dashboard)
 - `C:\Users\psanc\.qwenpaw\workspaces\architect\KNOWLEDGE.md` (modelo 3 capas)
 - `C:\Users\psanc\.qwenpaw\workspaces\default\AGENTS.md` (no tocar el dashboard)
+
+## Incidente 2026-09-29 — Lecciones aprendidas + reglas nuevas
+
+### Qué pasó
+1. Branch duplicado creado por refspec mal: `git push agents agents/main` creó un branch literal `agents/main` (con slash) en el remote. NO actualizó `main` real.
+2. Ramas mergeadas sin borrar: `feature/cm-content-sept29`, `feature/legendary-data`, `mobile-responsive-phase1`, `fix/grid`, `fix/security-gist-sync-encryption`.
+3. Hashes incorrectos en `READY_FOR_PROMOTION.md`: listaba hashes de rama feature en vez de agents/main.
+4. WIP huérfano: cambios sin commitear sin rama asignada.
+
+### Reglas nuevas agregadas al AGENTS.md del Principal
+1. **Refspec correcto:** `git push agents HEAD:main` o `git push agents main`. NUNCA `git push agents agents/main`.
+2. **Verificación post-push:** `git ls-remote --heads agents` + borrar duplicates.
+3. **Borrar rama tras merge:** push → delete remote → `git branch -d` local.
+4. **Hashes en READY_FOR_PROMOTION.md:** solo hashes en agents/main.
+5. **WIP huérfano:** crear rama antes de commitear.
+
+### Estado actual
+- Branches en agents: main, feature/homestead-tracker, feature/legendary-component-tracker.
+- origin intacto.
