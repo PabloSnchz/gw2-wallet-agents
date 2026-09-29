@@ -11,6 +11,12 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **docs: dos anotaciones que se leían como promoción a producción sin serlo** (a pedido del PO, 2026-09-29):
+  - `CHANGELOG.md` y `docs/ONBOARDING.md` afirmaban, en la sección de Suerte, que `origin/main` estaba en `0cc5cb7` con `luck-curve.js` y `getAccountLuck`. **Falso**: `0cc5cb7` es el head de `agents/main` (desarrollo). Producción (`origin/main` = repo `gw2-wallet-ligero`) está en `392c3b9` y **no** contiene esos archivos — verificado con `git cat-file -e origin/main:js/luck-curve.js` (no existe) y `git branch --contains 0cc5cb7` (solo `main`/`agents/main`).
+  - Causa: en este clon el remote `origin` apunta a producción y el remote `agents` a desarrollo, así que un `origin/main` sin contexto se lee como "ya está en producción". Ahora ambas líneas nombran **el repositorio**, no el alias del remote.
+  - `docs/ONBOARDING.md`: el heading "Novedades 2026-09-29 (SEPT 2026)" mezclaba la fecha de la release con la de la mecánica (que es de 2013-09-03). Se quitó el paréntesis y se agregó una nota explícita de que la fecha es la del proyecto.
+  - Solo docs. Sin código, sin CSS. Producción intacta.
+
 - **fix(activities): la rotación diaria de fractales era información INVENTADA (`27b8394` en `agents/main`; original `c081496`)**:
   - **Bug**: `Fractals.loadToday()` / `loadTomorrow()` tenían **3 fractales T4 + 3 escalas hardcodeadas** y el panel los pintaba como los dailies de hoy y de mañana. Eran siempre los mismos, todos los días, sin ninguna fuente real.
   - **Verificado contra la API GW2** (2026-09-29): `/v2/fractals?ids=1` → **404 not found**; `/v2/achievements/daily` → **`{"text":"API not active"}`**. La GW2 API **no expone** esta rotación. No existe endpoint sustituto.
@@ -89,9 +95,9 @@ y el versionado **SemVer** (https://semver.org/).
   - `js/wallet-dashboard.js` v2.6.0 → **v2.7.0**: nuevo campo de resumen opt-in `'luck'` (columna "Suerte (MF)"). Helpers `luckToProgress`/`fmtLuck`/`renderLuckCell`, fetch en `loadAccountSummary`. Celda con MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% **no** se puede sumar entre cuentas (curva independiente por cuenta).
   - `index.html`: `<script src="js/luck-curve.js?v=1.0.0">` + bump de cache-busting de `wallet-dashboard.js` a `?v=2.7.0`.
   - **Curva oficial**: 300 niveles, tope de **300% de MF base = 4.295.450 luck**. Además se siguen acumulando hasta **472.510** de exceso (ya sin otorgar MF). Fuente: https://wiki.guildwars2.com/wiki/Luck
-  - **Validación**: tabla parseada del wikitext y verificada en consistencia cumulativa — **0 discrepancias** entre suma-de-requeridos y total-de-fila en los 300 niveles; tope calculado 4.295.450 coincide con la prosa de la wiki. Test funcional en Node contra el código real extraído del archivo (8 casos: 0, 99, 100, 1000000, 4295449, 4295450, 4500000, `[]` + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS antes y después del merge. Verificado en GitHub: `origin/main` @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag.
+  - **Validación**: tabla parseada del wikitext y verificada en consistencia cumulativa — **0 discrepancias** entre suma-de-requeridos y total-de-fila en los 300 niveles; tope calculado 4.295.450 coincide con la prosa de la wiki. Test funcional en Node contra el código real extraído del archivo (8 casos: 0, 99, 100, 1000000, 4295449, 4295450, 4500000, `[]` + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS antes y después del merge. Verificado en GitHub: `agents/main` (desarrollo, repo `gw2-wallet-agents`) @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag. **NO está en producción**: `origin/main` (repo `gw2-wallet-ligero`) sigue en `392c3b9` sin estos archivos, verificado con `git cat-file -e origin/main:js/luck-curve.js` → no existe.
   - Sin CSS, sin DOM ajeno, sin localStorage nuevo, sin prefijo `gn:` nuevo. Producción (`gw2-wallet-ligero`) intacta.
-  - Commits: `44c64a9` (feat), `6067851` (merge feat-luck-kpi), `0cc5cb7` (merge origin/main → agents/main)
+  - Commits: `44c64a9` (feat), `6067851` (merge `feat-luck-kpi`), `0cc5cb7` (merge de `gw2-wallet-ligero/main` a `gw2-wallet-agents/main`)
 
 - **Mejoras de UX en flujo de API Keys (9 propuestas del PO Pablo)**:
   - Propuesta 1: Loading state en botón "Guardar" (`.btn--loading` + spinner CSS)

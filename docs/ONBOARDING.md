@@ -61,7 +61,9 @@ Si hay riesgo → advertir antes de generar código.
 
 ---
 
-## 🎲 Novedades 2026-09-29 (SEPT 2026) — Suerte (Luck / MF base account-wide)
+## 🎲 Novedades 2026-09-29 — Suerte (Luck / MF base account-wide)
+
+> 📅 La fecha del título es la de la **release del proyecto** (cuándo se escribió el código), **no** la de la mecánica ni la del endpoint. Esa confusion ya produjo un error real: ver el matiz histórico más abajo.
 
 Idea del PO. **La premisa se verificó y se corrigió antes de implementar**, por eso esta sección arranca por los datos y no por el código.
 
@@ -110,9 +112,9 @@ Idea del PO. **La premisa se verificó y se corrigió antes de implementar**, po
 - Tabla parseada del wikitext y validada en **consistencia cumulativa**: 0 discrepancias entre suma-de-requeridos y total-de-fila en los 300 niveles. Tope calculado 4.295.450 = prosa de la wiki.
 - Test funcional en Node que evalúa el **código real** extraído del archivo (`renderLuckCell`/`luckToProgress`): 8 casos (0, 99, 100, 1000000, 4295449, 4295450, 4500000, `[]`) + 4 checks de curva → TODO OK.
 - `node --check` OK en los 3 JS, antes y después del merge.
-- Verificado en GitHub: `origin/main` @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag.
+- Verificado en GitHub: `agents/main` (desarrollo, repo `gw2-wallet-agents`) @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag. **NO está en producción**: `origin/main` (repo `gw2-wallet-ligero`) sigue en `392c3b9` sin estos archivos.
 - **Sin CSS, sin DOM ajeno, sin localStorage nuevo, sin prefijo `gn:` nuevo.** Producción (`gw2-wallet-ligero`) intacta.
-- Commits: `44c64a9` (feat) → `6067851` (merge `feat-luck-kpi`) → `0cc5cb7` (merge `origin/main` → `agents/main`).
+- Commits: `44c64a9` (feat) → `6067851` (merge `feat-luck-kpi`) → `0cc5cb7` (merge de `gw2-wallet-ligero/main` a `gw2-wallet-agents/main`).
 
 ---
 
