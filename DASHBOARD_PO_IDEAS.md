@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-29T19:00:00Z (Heartbeat PO #32 — 3 correcciones del Principal aceptadas, 1 idea DROP, 1 backlog cerrado)
+> Actualizado: 2026-09-29T22:00:00Z (Heartbeat PO #33 — Idea 45 CERRADA, Idea 46 nueva: pool global de requests, 2 correcciones propias)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -14,18 +14,35 @@
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
-| 🔴 0 | **Fix `meta.js`: endpoint `/v1/events` obsoleto** (ArenaNet lo marca deprecated desde megaservers). Ya existe `/v2/account/worldbosses` y `meta.js:230` lo usa | 🟢 Fácil | Bug real, no implementado | Inmediato |
-| 🥇 1 | **Coleccionables account-scoped multicuenta** — 12 endpoints (`account/skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins` (10.632) | 🟡 Media | API confirmada, 0% implementado | Ahora |
-| 🥇 2 | Fractal Tracker multicuenta (T1-T4+CM, instabilities, agony) — falta el 3er tipo de contenido instanciado | 🟡 Media | API parcial, patrón de raid/strike reusable | Ahora |
-| 🥈 3 | **Commerce delivery**: ítems sin recoger de la caja del TP. La Bóveda ya lee buys/sells pero no `commerce/delivery` | 🟢 Fácil | API confirmada, no implementado | Próxima |
-| 🥈 4 | **Dungeon dailies multicuenta** (`account/dungeons`, 8 mazmorras). Completa una familia que ya tiene WB + mapchests + dailycrafting | 🟢 Fácil | API confirmada, no implementado | Próxima |
-| ⚠️ 5 | Desbloquear `homestead-tracker.js` (código muerto: 5 wrappers ausentes en api-gw2.js, sin wiring en index.html, schema de glyphs roto) | 🟡 | Bloqueado, estimación subestimada | Post-1 |
+| 🟢 0 | **IDEA 46 t1: pool global de requests.** El limitador `MAX=3` existe pero es **local a cada dashboard** (no global) y `inventory-dashboard.js:315` hace `Promise.all` de 3 dentro del pool = **9 simultáneos**. Límite real de ArenaNet: **600/min** (header `X-Rate-Limit-Limit`). Idea 42 son 324 requests → rompe el límite | 🟢 Fácil | Patrón ya existe y funciona en 2 archivos (copiar y centralizar) | **Ahora, antes de 42** |
+| 🟡 0b | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". Sin esto, el t1 hace la app más lenta de forma invisible | 🟡 Media | No implementado | Con 46 t1 |
+| ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0). Verificada, no era mi estimación | — | **Implementada** | ✅ |
+| ✅ | **Commerce delivery** (`getCommerceDelivery`) — API en `agents/main` @ `7d13155`. **UI sigue pendiente** (0 callers) | 🟢 | API lista, sin UI | Con 46 t2 |
+| ✅ | **Fix `meta.js`: endpoint `/v2/events` obsoleto** | 🟢 | **CERRADO** @ `f533d67` (guard `LEY_LINE_ENDPOINT_RETIRED`, v3.4.1) | ✅ |
+| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons`, 401; `/v2/dungeons` = 8 mazmorras / 36 paths, público y sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0%** | **Próxima** |
+| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints (`account/skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ⚠️ **Depende de 46 t1** | 🟡 Media | API confirmada, 0% implementado | Después de 46 + dungeons |
+| 🥇 3 | Fractal Tracker multicuenta (T1-T4+CM, instabilities, agony) — falta el 3er tipo de contenido instanciado | 🟡 Media | API parcial, patrón de raid/strike reusable | Ahora |
+| 🥉 4 | Titles tracker (`/v2/account/titles`, 496). **Reabierta**: `achievements.js` solo usa `/v2/titles?id=` como resolutor de nombres, nunca llama al account-scoped. No es redundante | 🟢 Fácil | API confirmada | Próxima |
+| ⚠️ 5 | `homestead-tracker.js` (código muerto: 5 wrappers ausentes, sin wiring). **Cuarta verificación hoy, misma respuesta.** `TEAM_STATUS.md:198` ya lo registra como *"decisión pendiente"* — **sale de la tabla, pasa a decisión abierta del Principal** | 🟡 | **Parado, decisión del Principal** | — |
 | 🥉 6 | New Items Awareness Feed (`gw2treasures.com`) | 🟢 Fácil | Validated, not implemented | Continuous |
 | 4 | Mobile PWA (manifest.json + service worker) | 🟡 Media | CSS breakpoints done, PWA no | Post-Homestead |
 | 5 | WvW Borderlands beta tracker | 🟡 Media | Not implemented | Nov 10 |
 | 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
 | 7 | Goal tracking | 🟡 Media | Validated | — |
 | 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+
+## 🟢 Correcciones propias del PO (2026-09-29 22:00 UTC) — 2, ambas autode-
+
+Las 4 correcciones anteriores vinieron del equipo; estas 2 **me las encontré yo solo** auditando qué rompe la Idea 45 ya implementada.
+
+| Mi afirmación de las 20:00 | Verdad | Impacto |
+|---|---|---|
+| "**no hay limitador de concurrencia**" | **Falso.** Existe un worker-pool `MAX=3` en `wallet-dashboard.js:433` **e** `inventory-dashboard.js:302`. Además `fetchWithRetry` (`api-gw2.js:141-160`) sí tiene backoff exponencial con jitter para 429/503/504 | Mitad de mi frase era correcta. Pero el hallazgo útil es que el limitador es **local, no global**, y `inventory-dashboard.js:315` hace `Promise.all` de 3 **adentro** del pool → **9 requests simultáneos** contra un `MAX=3` que el código cree tener. Eso es lo que genera la Idea 46 |
+| "Idea 45 es la prioridad #1, no está hecha" | Ya implementada @ `ee0494d` | Mi tabla de prioridades estaba desactualizada respecto al repo. Regla: leer `git log agents/main` ANTES de escribir la tabla |
+
+**Por qué importa:** es la cuarta vez en 24h que escribo una afirmación sin el comando que la sostenga, y las 4 veces la corrección vino del mismo lado. La regla "grep antes de afirmar" ya está escrita tres veces en este archivo; a partir de ahora es un paso del procedimiento, no una nota.
+
+**Método:** quinta ronda consecutiva con **0 web research**. La idea 46 salió de una sola pregunta — *"la 45 ya está hecha, ¿qué la rompe a escala?"* — y de medir un header (`X-Rate-Limit-Limit: 600`). Google sigue devolviendo basura; el código y la API siguen rindiendo.
 
 ## 🔴 Correcciones del PO (2026-09-29 19:00 UTC) — acepto 3 del Principal, DROP 1 idea, cierro 1 item
 
