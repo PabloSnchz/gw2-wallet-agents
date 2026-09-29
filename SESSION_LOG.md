@@ -72,3 +72,18 @@
 - Documentador y Reviewer en timeout (platform bug, session_id mismatch) — proceeding by merit.
 - Legendary Armory Phase 3 (feature/legendary-component-tracker) — 3/4 commits, merge pendiente Reviewer approval.
 - Homestead decoration tracker — próximo #1 post-cleanup.
+
+## [2026-09-29 UTC] Cambio de propiedad: gw2-agents-dashboard
+
+### Qué se hizo
+- Agregada sección "Sos dueño del dashboard" al AGENTS.md del Arquitecto (workspace).
+- Actualizada sección de dashboard en AGENTS.md del Arquitecto: "Solo lectura" → "Escritura (es tu producto)".
+- Agregada sección "No tocar el dashboard" al AGENTS.md del Principal (workspace).
+- Agregada sección "Modelo de 3 capas" al KNOWLEDGE.md del Arquitecto (workspace).
+- MCP mi-repo-boveda del Arquitecto: description actualizada (quitado "(read-only)"). Verificado: gw2-agents-dashboard ya estaba en args; overrides_count: 0 (no requería ajuste).
+
+### Archivos modificados (workspaces QwenPaw — NO en repo git)
+- `C:\Users\psanc\.qwenpaw\workspaces\architect\agent.json` (description MCP)
+- `C:\Users\psanc\.qwenpaw\workspaces\architect\AGENTS.md` (dueño del dashboard)
+- `C:\Users\psanc\.qwenpaw\workspaces\architect\KNOWLEDGE.md` (modelo 3 capas)
+- `C:\Users\psanc\.qwenpaw\workspaces\default\AGENTS.md` (no tocar el dashboard)
