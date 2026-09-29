@@ -33,6 +33,8 @@
 
 ## Completed (referencia histórica)
 
+- [x] **Suerte (MF base account-wide)** — ✅ IMPLEMENTADO (2026-09-29, `agents/main` @ `0cc5cb7`, commits `44c64a9`/`6067851`). Columna opt-in "Suerte (MF)" en el Dashboard Cartera multicuenta. `js/luck-curve.js` v1.0.0 (nuevo, tabla oficial de 300 umbrales de GW2 Wiki + `fromLuck()`), `getAccountLuck()` en api-gw2.js vía `/v2/account/luck`. **Corrección a la premisa del PO:** la Luck NO está en `/v2/currencies`; el endpoint dedicado existe desde 2019-04-08 y la mecánica es de 2013-09-03. Test funcional node TODO OK, `node --check` limpio.
+
 - [x] Legendary Armory Phase 1 skeleton (router + panel + IIFE v1.0.0) — ✅ Implementado (commit 35a0f5e, rama agents/feature/legendary-component-tracker)
 - [x] Legendary Armory Phase 2 (legendary-data.js: catálogo base 206 items + precios TP 39 tradeables) — ✅ Completado (commit 755ba01, 174423a)
 - [x] Legendary Armory Phase 3 skeleton (render-catologo + detail-modal + CSS theme JS) — ✅ Implementado (commits bac5c67, 7c88fe6, 1aaff5a). Awaiting API connection (Phase 3 commit 4).

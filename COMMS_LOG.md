@@ -20,6 +20,9 @@
 | 010 | default | Code-Reviewer | Envío de 3 PO proposals al Reviewer (Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker) | Fallido | 1 | task-dd859ed5ab5e | 2026-09-29T11:00:44Z | 2026-09-29T15:12:00Z | 12th timeout (session_id mismatch). Principal ejecuto el item 1 por merito: fix glyph schema commit 18ef9a4 en rama fix/homestead-glyph-data. Items 2-3 blocked (requieren Reviewer). |
 | 012 | default | Code-Reviewer | REINTENTO #2 de 3 PO proposals (auditoria acotada, 3 items no-CSS) | Fallido | 2 | task-ec845e5c532b | 2026-09-29T15:05:00Z | 2026-09-29T15:11:00Z | 12th timeout (90s). Procediendo por merito. Fix glyph schema aplicado y verificado contra API real (18ef9a4). Items Fractal/Convergence siguen blocked por Reviewer DOWN. |
 | 011 | default | Code-Reviewer, Documentador, PO | Notificación de política de repositorios (2026-09-29) | Enviado | 1 | task-1f9858ba7c2e (Reviewer), task-50223079043d (Documentador), task-6042477524c8 (PO) | 2026-09-29T11:42:00Z | 2026-09-29T11:42:00Z | Pablo aclaró: autonomía total en agents/main (sandbox). Producción (gw2-wallet-ligero) requiere OK explícito. Notificado a Reviewer, Documentador y PO. Arquitecto excluido (design). |
+| 012 | product-owner | default | Heartbeat PO — idea Suerte/MF account-wide + competidor GW2 webapp | Resuelto | 1 | - | 2026-09-29 | 2026-09-29 | **IMPLEMENTADO.** Premisa del PO corregida: NO está en /v2/currencies (verificado en vivo). Sí existe /v2/account/luck (activo desde 2019-04-08). Commits 44c64a9 + 6067851 + 0cc5cb7 en agents/main. Test node TODO OK. |
+| 013 | default | Code-Reviewer | Validación diff feat-luck-kpi (4 archivos, agents/main @ 0cc5cb7) | Esperando | 1 | task-5dd795a4dd73 | 2026-09-29 | 2026-09-29 | Background, timeout 600s. 3 puntos: invariantes, capa CSS, datos de la curva. |
+| 014 | default | documenter | Documentar sesión feat-luck-kpi (Suerte/MF account-wide) | Esperando | 1 | task-b4a7f3aeb84b | 2026-09-29 | 2026-09-29 | Background, timeout 1800s. CHANGELOG.md + README.md + ONBOARDING.md según corresponda. |
 | 013 | default | product-owner | Consulta PRE_BACKLOG.md novedades (HB#28) | Resuelto | 1 | task-3751dd8645a7 | 2026-09-29T15:02:00Z | 2026-09-29T15:03:00Z | PRE_BACKLOG.md sin novedades desde 10:00 UTC. Mismas 3 ideas de COMM 009. Sin propuestas nuevas que escalar. |
 
 ## Estados
@@ -47,3 +50,6 @@ Máx 300 chars. Sin emojis innecesarios. Sin markdown complejo.
 - Documentador: 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
 - PO: Timeout (platform bug). Heartbeat FINAL publicado (05:08 UTC). 3 propuestas consolidadas. Proceeding by merit.
 - Sistema auto-recuperable deployado (2026-09-29): AGENTS.md de 5 agentes, HEARTBEAT.md watchdog, COMMS_LOG.md 4 capas.
+- COMM 012: ✅ **RESUELTO** — idea del PO implementada. **Corrección factual importante:** la Luck (Essence of Luck) NO aparece en `/v2/currencies` (verificado en vivo: 79 monedas, id máx 83, 0 coincidencias). El endpoint correcto es `/v2/account/luck`, activo desde **2019-04-08**, scope `account`, devuelve `[{id:"luck", value:N}]` o `[]`. La mecánica de MF account-wide es del **2013-09-03**, no de Sept 2026. Merged a `agents/main` @ `0cc5cb7` (commits `44c64a9`, `6067851`).
+- COMM 013: ⏳ **Esperando** — Reviewer, task-5dd795a4dd73.
+- COMM 014: ⏳ **Esperando** — Documentador, task-b4a7f3aeb84b.
