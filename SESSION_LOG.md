@@ -87,3 +87,10 @@
 - `C:\Users\psanc\.qwenpaw\workspaces\architect\AGENTS.md` (dueño del dashboard)
 - `C:\Users\psanc\.qwenpaw\workspaces\architect\KNOWLEDGE.md` (modelo 3 capas)
 - `C:\Users\psanc\.qwenpaw\workspaces\default\AGENTS.md` (no tocar el dashboard)
+
+## [2026-09-29 UTC] Regla de merge obligatorio aplicada
+
+### Qué se hizo
+- Agregada "Regla de merge obligatorio" (detalle completo) al AGENTS.md del Principal (workspace, línea 626).
+- Agregada aclaración "Vos NO mergeás. Avisá al Principal cuando terminás tu rama." al AGENTS.md de Reviewer, Documentador y PO (workspace).
+- Commit + push a agents (SESSION_LOG.md).
