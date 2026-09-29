@@ -1,6 +1,6 @@
 # IN_PROGRESS.md — Feats en desarrollo
 
-> Actualizado: 2026-09-29 00:30 UTC
+> Actualizado: 2026-09-29 01:25 UTC
 > Mantenedor: Principal (default)
 
 ---
@@ -10,6 +10,7 @@
 | Rama | Item | Iniciada | Estado | Notas |
 |------|------|----------|--------|-------|
 | `feature/legendary-component-tracker` | feat-legendary-armory Phase 3 | 2026-09-26 | 🟡 En progreso (3/4 commits) | Commit 1 (skeleton + render) ✅, Commit 2 (detail-modal) ✅, Commit 3 (CSS 3-capas) ✅, Commit 4 (API integration) ⏳. Merge a agents/main pendiente Reviewer approval. |
+| `feature/homestead-tracker` | Homestead Decorator Tracker v0.1 | 2026-09-29 | 🟡 En progreso (WIP) | API functions (getHomesteadDecorationDetails/Categories/Glyphs, getAccountHomesteadDecorations/Glyphs), router route + index.html panel. Branch creada durante cleanup; commits commiteados como e855e67. |
 
 ---
 
