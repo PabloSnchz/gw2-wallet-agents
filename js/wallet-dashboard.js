@@ -1,7 +1,8 @@
 /*!
  * js/wallet-dashboard.js — Dashboard de Cartera Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.7.0 (2026-09-29) — + columna Suerte (MF base account-wide, /v2/account/luck)
+ * Versión: 2.8.0 (2026-09-29) — + columna Suerte (MF base account-wide, /v2/account/luck)
+ *                              + error por columna: "no se pudo leer" ≠ 0
  *
  * Características:
  *  - Tabla de cuentas vs divisas seleccionadas
@@ -12,6 +13,9 @@
  *  - Fix: reintento de renderizado si la tabla no existe
  *  - Columna opcional "Suerte (MF)": MF% base account-wide + barra de progreso
  *    al siguiente +1% (fuente: GW2 Wiki, curva de 300 niveles)
+ *  - Una columna que falló al leerse muestra "— ⚠" con el endpoint en el tooltip,
+ *    y los totales marcados como parciales. Antes un error se escribía como 0 y
+ *    se mostraba como un cero real.
  */
 
 (function (root) {
@@ -31,6 +35,23 @@
   function fmtInt(n){ if (n==null || !isFinite(n)) return '—'; n=Number(n||0); return n.toLocaleString('es-AR'); }
   function esc(s){ return String(s||'').replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
   function fpToken(token){ var t=String(token||''); return t ? (t.slice(0,4)+'…'+t.slice(-4)) : 'anon'; }
+  // Nombres legibles de los endpoints que alimentan las columnas resumen.
+  var SUMMARY_ENDPOINTS = {
+    characters: 'getCharacterCount (/v2/characters)',
+    achievements: 'getAccountInfo (/v2/account/info)',
+    raids: 'getAccountRaids (/v2/account/raids)',
+    luck: 'getAccountLuck (/v2/account/luck)'
+  };
+  function unreadableReason(e, field){
+    var ep = SUMMARY_ENDPOINTS[field] || field;
+    return 'No se pudo leer ' + ep + ' — ' + ((e && e.message) ? e.message : 'error desconocido');
+  }
+  // Celda de un valor que NO se pudo leer. Distingue "0 real" de "no se pudo consultar",
+  // que es la diferencia entre un dato y su ausencia. Ver docs/ONBOARDING.md
+  // ("Criterio de manejo de error en la capa API").
+  function unreadableCell(reason){
+    return '<td class="right" title="' + esc(reason) + '">— ⚠</td>';
+  }
   function formatTimestamp(date){
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '—';
     return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -359,21 +380,22 @@
       luckP = root.GW2Api.getAccountLuck(token, { nocache: nocache });
     }
 
-    var summary = {};
+    var summary = { _errors: {} };
     if (charP) {
-      try { summary.characters = await charP; } catch(e) { summary.characters = 0; }
+      try { summary.characters = await charP; }
+      catch(e) { summary.characters = 0; summary._errors.characters = unreadableReason(e, 'characters'); }
     }
     if (apP) {
       try {
         var info = await apP;
         summary.ap = (info && typeof info.achievements === 'number') ? info.achievements : 0;
-      } catch(e) { summary.ap = 0; }
+      } catch(e) { summary.ap = 0; summary._errors.achievements = unreadableReason(e, 'achievements'); }
     }
     if (raidsP) {
       try {
         var raidsArr = await raidsP;
         summary.raids = Array.isArray(raidsArr) ? raidsArr.length : 0;
-      } catch(e) { summary.raids = 0; }
+      } catch(e) { summary.raids = 0; summary._errors.raids = unreadableReason(e, 'raids'); }
     }
     if (luckP) {
       // 'luck' se guarda como numero (MF%) para que sortAccounts ordene bien.
@@ -393,8 +415,10 @@
         summary.luckPct = 0;
         summary.luckCapped = false;
         summary.luckOverflow = 0;
+        summary._errors.luck = unreadableReason(e, 'luck');
       }
     }
+    if (!Object.keys(summary._errors).length) delete summary._errors;
     return summary;
   }
 
@@ -904,8 +928,9 @@
       // Summary cells (Idea 2)
       activeSummaryFields.forEach(function(field) {
         var s = acc.summary || {};
+        var fieldErr = (s._errors && s._errors[field]) || null;
         if (field === 'luck') {
-          cells.push(renderLuckCell(s));
+          cells.push(fieldErr ? unreadableCell(fieldErr) : renderLuckCell(s));
           return;
         }
         var sv = 0;
@@ -918,7 +943,8 @@
           var pct = Math.round(sv / TOTAL_RAID_ENCOUNTERS * 100);
           displayVal = sv + '/' + TOTAL_RAID_ENCOUNTERS + ' (' + pct + '%)';
         }
-        cells.push('<td class="right" title="' + titleLabel + '">' + displayVal + '</td>');
+        cells.push(fieldErr ? unreadableCell(fieldErr)
+                            : '<td class="right" title="' + titleLabel + '">' + displayVal + '</td>');
       });
       selectedCurrencies.forEach(function(cur) {
         var value = acc.wallet[cur.id] || 0;
@@ -932,8 +958,10 @@
     var totalCells = ['<td class="total-label"><strong><img src="assets/icons/578844.png" width="14" height="14" alt="" style="vertical-align: middle; margin-right: 6px;">TOTAL</strong></td>'];
     activeSummaryFields.forEach(function(field) {
       var sTotal = 0;
+      var unreadable = 0;
       rowsAcc.forEach(function(acc) {
         var s = acc.summary || {};
+        if (s._errors && s._errors[field]) { unreadable++; return; }
         if (field === 'achievements') sTotal += s.ap || 0;
         else if (field === 'characters') sTotal += s.characters || 0;
         else if (field === 'raids') sTotal += s.raids || 0;
@@ -946,12 +974,22 @@
           '<strong>' + (cappedN > 0 ? cappedN + ' tope' : '—') + '</strong></td>');
         return;
       }
-      totalCells.push('<td class="right total-cell"><strong>' + fmtInt(sTotal) + '</strong></td>');
+      // Si alguna cuenta no se pudo leer, el total está incompleto y hay que decirlo.
+      var totTitle = unreadable > 0
+        ? 'Parcial: ' + unreadable + ' de ' + rowsAcc.length + ' cuentas no se pudieron leer en esta columna.'
+        : '';
+      totalCells.push('<td class="right total-cell"' + (totTitle ? ' title="' + esc(totTitle) + '"' : '') + '>' +
+        '<strong>' + fmtInt(sTotal) + (unreadable > 0 ? ' ⚠' : '') + '</strong></td>');
     });
     selectedCurrencies.forEach(function(cur) {
       var totalValue = totals[cur.id];
       var displayTotal = formatValueForDisplay(cur.id, totalValue);
-      totalCells.push('<td class="right total-cell"><strong>' + displayTotal + '</strong></td>');
+      var walletUnreadable = rowsAcc.filter(function(acc) { return acc.error; }).length;
+      var curTitle = walletUnreadable > 0
+        ? 'Parcial: ' + walletUnreadable + ' de ' + rowsAcc.length + ' cuentas no se pudieron leer.'
+        : '';
+      totalCells.push('<td class="right total-cell"' + (curTitle ? ' title="' + esc(curTitle) + '"' : '') + '>' +
+        '<strong>' + displayTotal + (walletUnreadable > 0 ? ' ⚠' : '') + '</strong></td>');
     });
     var totalRow = '<tr class="total-row">' + totalCells.join('') + '<\/tr>';
 
