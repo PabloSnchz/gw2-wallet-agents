@@ -1,5 +1,17 @@
 /*!
  * js/activities.js — Panel de Actividades (Objetivos / Home Nodes)
+ * v3.20.1 (2026-09-29) - Fix: la rotación diaria de fractales era INVENTADA
+ *
+ * CAMBIOS v3.20.1:
+ * - loadToday() y loadTomorrow() hardcodeaban 3 fractales T4 + 3 escalas cada una,
+ *   de modo que el panel mostraba SIEMPRE los mismos nombres, presentados como los
+ *   "dailies de hoy" y los "dailies de mañana". Era informacion falsa.
+ * - La API GW2 no expone esa rotacion: /v2/fractals -> {"error":"not found"} y
+ *   /v2/achievements/daily -> {"text":"API not active"} (retirado tras Wizard's Vault).
+ * - Ahora la rotacion queda marcada rotationAvailable:false y el panel muestra un
+ *   aviso explicito. El tracker de Solitary Throne CM NO se toca: ese es real
+ *   (viene de getAccountAchievements).
+ *
  * v3.19.6 (2026-04-05) - Persistencia robusta de Piedras Vetustas (sin Promesas como claves)
  *
  * CAMBIOS v3.19.6:
@@ -47,6 +59,13 @@
       fractals: {
         status: 'idle',
         error: null,
+        // La API GW2 NO expone la rotación diaria de fractales: /v2/fractals
+        // devuelve {"error":"not found"} y /v2/achievements/daily responde
+        // {"text":"API not active"} (retirado tras la rework de Wizard's Vault).
+        // Por eso `t4` y `rec` quedan vacíos y `rotationAvailable:false`:
+        // preferimos mostrar "no disponible" antes que inventar nombres.
+        // El tracker de CM (abajo) SÍ es real (viene de getAccountAchievements).
+        rotationAvailable: false,
         today: { t4: [], rec: [] },
         tomorrow: { t4: [], rec: [] },
         cmAchievements: new Set()
@@ -830,12 +849,16 @@
   var Fractals = {
     _cachedIcons: new Map(),
     _cmFetchId: 0,
+    // La rotación diaria de fractales NO viene de la API (ver state.daily.fractals).
+    // Antes esta función hardcodeaba 3 T4 + 3 escalas y loadTomorrow() hardcodeaba
+    // otros 3, de modo que el panel siempre mostraba los MISMOS nombres todos los
+    // días. Eso es información falsa: el jugador creía que eran los dailies reales.
+    // Ahora no se pinta nada hasta que haya una fuente real de datos.
     loadToday: async function() {
       state.daily.fractals.status = 'ready';
-      state.daily.fractals.today = {
-        t4: [{ name: 'Twilight Oasis', cm: false }, { name: 'Cliffside', cm: false }, { name: 'Chaos', cm: false }],
-        rec: [{ scale: 10, name: 'Scale 10' }, { scale: 32, name: 'Scale 32' }, { scale: 65, name: 'Scale 65' }]
-      };
+      state.daily.fractals.rotationAvailable = false;
+      state.daily.fractals.today = { t4: [], rec: [] };
+      state.daily.fractals.tomorrow = { t4: [], rec: [] };
       renderFractals();
     },
 
@@ -867,10 +890,8 @@
       renderFractals();
     },
     loadTomorrow: async function() {
-      state.daily.fractals.tomorrow = {
-        t4: [{ name: 'Solid Ocean', cm: false }, { name: 'Uncategorized', cm: false }, { name: 'Urban Battleground', cm: false }],
-        rec: [{ scale: 20, name: 'Scale 20' }, { scale: 45, name: 'Scale 45' }, { scale: 78, name: 'Scale 78' }]
-      };
+      // Sin fuente de datos para la rotación de mañana: no se inventa.
+      state.daily.fractals.tomorrow = { t4: [], rec: [] };
       renderFractals();
     }
   };
@@ -882,6 +903,17 @@
     var t4 = state.daily.fractals.today.t4 || [];
     var rec = state.daily.fractals.today.rec || [];
     var html = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+    // La API GW2 no expone la rotación de fractales. Antes se hardcodeaban
+    // nombres fijos y el panel los presentaba como "dailies de hoy", lo cual
+    // era falso. Ahora mostramos un aviso explícito en su lugar.
+    if (!state.daily.fractals.rotationAvailable) {
+      html += '<div class="muted" style="font-size: 0.78rem; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--bd-1); border-left: 3px solid rgba(123,194,255,0.5); border-radius: 8px;">' +
+              'ℹ️ <strong>Rotación diaria no disponible.</strong> La API de GW2 no expone qué fractales son los diarios ni las escalas recomendadas del día ' +
+              '(<code>/v2/fractals</code> no existe y <code>/v2/achievements/daily</code> fue retirado). ' +
+              'El tracker de Solitary Throne CM de abajo <strong>sí</strong> es real: refleja tus logros de la cuenta.' +
+              '</div>';
+    }
+    if (t4.length) {
     html += '<div><h4 style="margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;"><span class="badge badge--success" style="background: var(--color-green-bg); border: none;">🌀 T4</span><span style="font-size: 0.85rem;">Fractales diarios</span></h4><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">';
     t4.forEach(function(fractal) {
       var name = typeof fractal === 'string' ? fractal : fractal.name;
@@ -904,7 +936,9 @@
               '<div style="width: 100%;"><div style="font-weight: 600; font-size: 0.85rem;">' + esc(scaleName) + '</div>' +
               '<div style="margin-top: 6px;"><span class="badge badge--info" style="font-size: 0.6rem; padding: 2px 6px;">📊 Escala ' + scaleNum + '</span></div></div></article>';
     });
-    html += '</div></div></div>';
+    html += '</div></div>';
+    } // fin if (t4.length)
+    html += '</div>';
 
     // --- Solitary Throne CM daily tracker ---
     var cmDone = state.daily.fractals.cmAchievements || new Set();
