@@ -11,6 +11,24 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **fix(activities): la rotación diaria de fractales era información INVENTADA (`c081496`, rama `fix-fractals-fake-daily-data`)**:
+  - **Bug**: `Fractals.loadToday()` / `loadTomorrow()` tenían **3 fractales T4 + 3 escalas hardcodeadas** y el panel los pintaba como los dailies de hoy y de mañana. Eran siempre los mismos, todos los días, sin ninguna fuente real.
+  - **Verificado contra la API GW2** (2026-09-29): `/v2/fractals?ids=1` → **404 not found**; `/v2/achievements/daily` → **`{"text":"API not active"}`**. La GW2 API **no expone** esta rotación. No existe endpoint sustituto.
+  - **Fix**: `rotationAvailable: false` en el estado de fractales. El panel deja de pintar nombres de fractales/escalas y muestra un aviso explícito. Se eliminó el hardcode de los 3 T4 + 3 escalas.
+  - **Lo que NO se tocó**: el tracker de Solitary Throne CM (achievements `9423`/`9412`/`9373`/`9388`) sigue intacto — ese dato **sí** viene de `getAccountAchievements` y es real.
+  - Sin CSS, sin endpoints nuevos, sin tocar `router.js` ni `gn:tokenchange`.
+  - **Estado**: commiteado en la rama `fix-fractals-fake-daily-data` (`c081496`, `js/activities.js` v3.20.1 + `index.html` `?v=3.20.1`). **Todavía NO mergeado a `agents/main`** — verificado con `git show origin/main:js/activities.js` → sigue en v3.19.6 con `?v=3.19.6`.
+
+- **fix(meta): `/v2/events` retirado por megaservers → guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`, en `agents/main`)**:
+  - **Bug**: `fetchLeyLineActiveMap()` pegaba a `/v2/events?ids=<GUIDs>`. Ese endpoint fue **retirado** con la transición a megaservers. Verificado 2026-09-29 18:06 UTC: `/v2/events` → **503 `{"text":"API not active"}`**, mientras `/v2/maps`, `/v2/worlds`, `/v2/continents`, `/v2/itemstats` responden **200**. El 503 es específico de esos dos endpoints: es **retiro, no caída transitoria**.
+  - Los `eventIds` de `assets/meta-events.json` son **GUIDs de `v1/events`**, que nunca fueron válidos contra `/v2`. La request moría en cada render sin aportar nada.
+  - **Descartada la propuesta de reemplazo por `/v2/account/worldbosses`**: devuelve el historial de bosses derrotados de la cuenta, no tiene relación alguna con el mapa rotativo de Ley Line Anomaly.
+  - **Fix**: la llamada dinámica queda **deshabilitada a propósito** mediante el flag `LEY_LINE_ENDPOINT_RETIRED = true` (línea 258 de `js/meta.js`). El panel usa el **waypoint estático** (`meta.chat`). **No se hardcodeó ninguna rotación local de mapas** — criterio de proyecto, ver README/ONBOARDING.
+  - El código ya degradaba solo (`if (!r.ok) return cache || null`, y el render usa `inst._activeWaypoint || meta.chat`), así que **no había crash**: el fix evita emitir un request que nunca va a funcionar y documenta el hallazgo.
+  - **Reversión**: poner `LEY_LINE_ENDPOINT_RETIRED` en `false`. La lógica queda intacta.
+  - Sin validación del Code Reviewer (**13º timeout consecutivo**, bug de plataforma `session_id` mismatch). Cambio data-only, 1 archivo, sin CSS, no toca invariantes.
+  - **Nota de versión**: el commit **no bumpeó** el header de `js/meta.js` (sigue en `v3.4.0`, línea 7) ni el `?v=3.4.0` en `index.html`. La rama `fix/leyline-obsolete-events` nunca existió en el remoto: el fix entró directo a `agents/main` como `f533d67`.
+
 - **fix(achievements): Legendary Tracker dropdown — opción "⚠ Legendarias" no aparecía (`b591210`)**:
   - **Bug doble de runtime** (no deploy, el JS v3.2.0 estaba en producción pero con lógica rota):
     - **Bug 1 — `discoverLegendaryCategory()` faltante en no-token path**: en el path de render sin key, `discoverLegendaryCategory()` no se llamaba antes de `fillCategoryDropdown()`, por lo que `state.legendaryCatId` permanecía vacío y la opción "⚠ Legendarias" nunca se agregaba al dropdown. Fix: insertada llamada `discoverLegendaryCategory()` entre `ensureCategories()` y `fillCategoryDropdown()` (línea 1045).

@@ -1162,7 +1162,7 @@
 - `assets/meta-drops.json` — Drops destacados por evento
 - `https://api.guildwars2.com/v2/account/worldbosses?access_token=...` — Bosses completados hoy
 - `https://api.guildwars2.com/v2/account/mapchests?access_token=...` — Cofres completados hoy
-- `https://api.guildwars2.com/v2/events?ids=...` — Estado de eventos (Ley Line Anomaly)
+- ~~`https://api.guildwars2.com/v2/events?ids=...` — Estado de eventos (Ley Line Anomaly)~~ — **RETIRADO** (503 `API not active`, verificado 2026-09-29). Llamada deshabilitada por el flag `LEY_LINE_ENDPOINT_RETIRED` en `js/meta.js`; el panel usa el waypoint estático (`meta.chat`). No hay endpoint sustituto.
 - `https://api.guildwars2.com/v2/items?ids=...&lang=es` — Metadatos de items drop
 
 **Datos que persiste:**
@@ -1206,7 +1206,7 @@
 
 **Bugs o problemas detectados:**
 - ✅ **v3.3.1**: Sin marcado manual (solo API) — eliminado el marcado manual de "hecho hoy".
-- ⚠️ `fetchLeyLineActiveMap` cachea la respuesta por 2 minutos; puede mostrar información desactualizada.
+- ⚠️ `fetchLeyLineActiveMap` cachea la respuesta por 2 minutos; puede mostrar información desactualizada. **Resuelto en `f533d67`:** el endpoint `/v2/events` fue retirado, así que la función ya no se invoca (guard `LEY_LINE_ENDPOINT_RETIRED = true`, revertible poniendo el flag en `false`).
 - ⚠️ `renderSkeletonMeta` crea skeletons pero no los limpia correctamente al renderizar.
 - ⚠️ `computeAllInstances` recalcula todas las instancias en cada render; podría ser costoso.
 

@@ -44,6 +44,19 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 
 ## ✨ Novedades principales — Unreleased
 
+### ⚠ Criterio: cuando la GW2 API no expone un dato, se avisa — nunca se inventa
+
+**Dos correcciones de datos aplicadas el 2026-09-29 (Heartbeat #30) aplican el mismo criterio.**
+
+| Regla | Aplicación |
+|-------|------------|
+| Si la GW2 API no expone un dato, el módulo **muestra un aviso o usa el fallback estático**. **Nunca** se hardcodea una rotación, un calendario o un listado inventado. | `activities.js` v3.20.1 — la rotación diaria de fractales no existe en la API (`/v2/fractals?ids=1` → 404, `/v2/achievements/daily` → `API not active`). Antes pintaba 3 fractales T4 + 3 escalas fijas como si fueran los dailies de hoy y mañana. Ahora: `rotationAvailable:false` + aviso explícito. |
+| Cuando un endpoint se **retira** (503 `API not active` mientras el resto de la API responde 200), se deshabilita la llamada a propósito y se cae al fallback estático. **No** se reemplaza por un endpoint ajeno. | `meta.js` — `/v2/events` fue retirado con los megaservers. `fetchLeyLineActiveMap()` muere en cada render sin aportar nada. Ahora: guard `LEY_LINE_ENDPOINT_RETIRED = true` y el panel usa el waypoint estático (`meta.chat`). **No** se hardcodeó una rotación local de mapas. |
+
+**Por qué importa:** un dato hardcodeado se ve igual que uno real. El usuario no tiene forma de saber que es falso, y la app degrada en silencio. Un aviso explícito es más útil que una respuesta inventada.
+
+> **Consecuencia para futuros módulos:** si un feature necesita un dato que la API no expone, el feature se entrega *sin* ese dato (o con el fallback estático ya existente en el proyecto), no *con* una estimación. Ver detalle en `docs/ONBOARDING.md` → Invariantes Técnicas.
+
 ### 🎲 Suerte (MF base account-wide) en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0)
 
 **Idea del PO (2026-09-29). La premisa se corrigió antes de implementar: la Luck no es una moneda.**

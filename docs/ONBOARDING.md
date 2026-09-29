@@ -34,6 +34,7 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - Purchase Detail depende exclusivamente de SeasonStore (selector, timers, KPIs).
 - Ningún módulo toca DOM ajeno (cada módulo gestiona su propio panel).
 - Sin frameworks: JavaScript, HTML y CSS puros.
+- **Cuando la GW2 API no expone un dato: se muestra un aviso o se usa el fallback estático. Nunca se hardcodea una rotación, calendario o listado inventado.** Un dato hardcodeado es indistinguible de uno real para el usuario. Aplicado en `activities.js` v3.20.1 (rotación de fractales → `rotationAvailable:false` + aviso) y en `meta.js` (endpoint `/v2/events` retirado → guard `LEY_LINE_ENDPOINT_RETIRED` + waypoint estático). Si un endpoint se retira (503 `API not active` mientras el resto responde 200), se deshabilita la llamada y se cae al fallback estático; no se sustituye por un endpoint ajeno.
 
 ### Reglas de Estilo
 
@@ -53,6 +54,7 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - ☐ ¿Requiere fallback offline?
 - ☐ ¿Hace falta abort/guardas?
 - ☐ ¿Refactor o feature?
+- ☐ **¿De dónde sale cada dato que pinto? ¿La GW2 API lo expone? Si no → aviso o fallback estático, NUNCA hardcodear una rotación.**
 - ☐ ¿Impacto en performance/UI?
 
 Si hay riesgo → advertir antes de generar código.
