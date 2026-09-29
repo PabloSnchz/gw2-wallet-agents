@@ -1,6 +1,55 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T14:36:00Z
+> Actualizado: 2026-09-29T15:10:00Z
+> Heartbeat #28: (1) task-dd859ed5ab5e FAILED (12th timeout, session_id mismatch). task-3751dd8645a7 finished OK (COMM 009). (2) PO: PRE_BACKLOG sin novedades desde 10:00 UTC (mismas 3 ideas). (3) 3 propuestas reenviadas al Reviewer -> task-ec845e5c532b FAILED (12th timeout). (4) BACKLOG: se avanzo con el item no-CSS mas grave: **Homestead glyph schema** — DIAGNOSTICADO Y CORREGIDO (commit 18ef9a4). Hallazgo mayor que el reportado por el PO: la API /v2/homestead/glyphs devuelve un array de STRINGS (36 entradas tipo "alchemy_harvesting"), NO objetos {id,name,icon}. El modulo renderizaba glyphs completamente rotos (id/icon/name undefined). Se agrego normalizeGlyphs() + normalizeGlyphIds() y se elimino el dead code CONFIG.GLYPH_UPGRADES (leia glyph.upgrade_item, campo inexistente). Verificado contra API real: 36/36 normalizados, node --check OK. (5) Logs actualizados. (6) Commit + push a agents.
+
+## Heartbeat #28 (15:10 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #28 ejecutado (manual — solicitud de usuario).
+  - Agent task check: task-dd859ed5ab5e (Reviewer, #25) → **FAILED** (12th consecutive timeout, session_id mismatch platform bug). task-3751dd8645a7 (PO, COMM 009) → finished. Sin tareas pendientes.
+  - PO consultado: PRE_BACKLOG.md sin novedades desde 10:00 UTC. Mismas 3 ideas consolidadas. Sin propuestas nuevas.
+  - PO 3+ propuestas: reenviadas al Reviewer (task-ec845e5c532b) → **FAILED** (12th timeout). Proceeding by merit.
+  - BACKLOG: avanzado el item no-CSS de mayor impacto (Homestead glyph schema). **COMPLETADO** (18ef9a4).
+  - Management files sync + commit + push a agents.
+- **code-reviewer:** 12th consecutive timeout (session_id mismatch, platform bug). Proceeding by merit.
+- **documenter:** 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+- **product-owner:** Timeout (platform bug), pero publica heartbeats occasionales. Ultimo: 10:00 UTC.
+
+### Hallazgo critico: schema de la API de glyphs (corregido)
+
+El PO reporto un fix de una linea (`glyph.upgrade_item` → `glyph.upgrades`). **Ese diagnostico era incorrecto.** Verificacion directa contra la API:
+
+```
+GET https://api.guildwars2.com/v2/homestead/glyphs
+-> ["alchemy_harvesting","alchemy_logging",... ]  (36 strings)
+```
+
+La API devuelve **strings**, no objetos. No existe `upgrade_item` ni `upgrades`. El modulo leia `glyph.id` / `glyph.icon` / `glyph.name` sobre un string, por lo que **los 36 glyphs se renderizaban rotos** (id undefined, icon vacio, nombre undefined). El fix real es normalizar, no reindexar.
+
+| Item | Antes | Despues |
+|------|-------|----------|
+| `state.glyphs` | array de strings crudo | `normalizeGlyphs()` → {id, profession, slot, name, icon} |
+| `state.accountGlyphs` | crudo | `normalizeGlyphIds()` → array de ids comparable |
+| `CONFIG.GLYPH_UPGRADES` | dead code (leia campo inexistente) | **eliminado**, reemplazado por GLYPH_PROFESSIONS + GLYPH_SLOTS |
+| render | siempre caia en `upgradeInfo = ''` | bloque `upgrade_item` eliminado |
+
+Verificacion: 36 inputs → 36 outputs, nombres en español correctos ("Alquimia · Cosecha"), `node --check` OK. Sin cambios de CSS (no requiere Reviewer).
+
+### Bug secundario detectado (NO corregido — requiere decision)
+
+`js/homestead-tracker.js` esta commiteado en `agents/main` (lo introdujo 680f051, Heartbeat #17) pero **sus 5 metodos `GW2Api` NO existen en `api-gw2.js` de main** — solo en la rama `feature/homestead-tracker`. Verificado: en `agents/main`, `index.html` NO tiene el script tag, `router.js` NO tiene la route y no existe el panel. O sea, en main el modulo esta **inerte**: el archivo esta commiteado pero nunca se carga ni se invoca. En la rama `feature/homestead-tracker` el wiring si esta completo (script tag + route + panel + API), salvo que el icono `assets/icons/Cuentas/homestead-icon.png` **no existe** en el repo (icono roto).
+
+Consecuencia: el fix de glyphs (18ef9a4) esta en `fix/homestead-glyph-data`, base de `feature/homestead-tracker`, y es el unico lugar donde el modulo funciona. **No afecta a `agents/main` ni a produccion** (el archivo no esta en `origin/main`). Requiere decision: mergear la rama completa (con icono faltante) vs continuar el fix ahi vs revertir el archivo huerfano de main.
+
+### Proximos pasos
+1. Resolver bug secundario: homestead-tracker.js huerfano en agents/main (decidir merge vs revert).
+2. Fractal Instability Planner — blocked (Reviewer DOWN, requiere validacion).
+3. Convergence Achievement Tracker — blocked (Reviewer DOWN).
+4. Reviewer (12th) + Documentador (7th) platform bugs — escalado a Pablo.
+
+## Heartbeat #27 (14:36 UTC) — resumen
+
 > Heartbeat #27: Heartbeat #27 ejecutado (manual — solicitud de usuario). (1) Agent task check: task-dd859ed5ab5e → FAILED (60s timeout, 11th consecutive, session_id mismatch platform bug). All others 404. No pending tasks. (2) PO consulted: PRE_BACKLOG.md (heartbeat 10:00 UTC — production verification + 3 ideas consolidadas: Fractal Instability Planner, Convergence Achievement Tracker, Homestead Glyph Upgrade Fix). PO heartbeats 08:00/10:00/12:00 UTC — timeout (platform bug). No new proposals since COMM 009. (3) PO 3+ proposals: already sent in #25 → FAILED (timeout #11). Reviewer DOWN. Proceeding by merit (non-CSS data prep). CSS changes remain blocked (require Reviewer). (4) BACKLOG: Sept 29 CM RESOLVED (origin/main @ 392c3b9). Next items blocked by Reviewer timeout (CSS changes): homestead tracker fixes, fractal instability planner, convergence tracker. Legendary Phase 3 blocked by API GW2. (5) Management files sync + commit + push a agents. JS BOM changes reverted (out of scope for heartbeat, require Reviewer validation).
 
 ## Heartbeat #27 (14:01 UTC)

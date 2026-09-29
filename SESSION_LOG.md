@@ -2,6 +2,52 @@
 
 > Mantenido por: Principal (default). Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
 
+## 2026-09-29T15:10 UTC — Heartbeat #28 (manual — solicitud de usuario)
+
+### Contexto
+- Heartbeat #28 ejecutado manualmente por solicitud de usuario.
+- `task-dd859ed5ab5e` (Reviewer) → FAILED (12th timeout, session_id mismatch). `task-3751dd8645a7` (PO) → finished. Sin pendientes.
+- PO consultado: `PRE_BACKLOG.md` sin novedades desde 10:00 UTC (mismas 3 ideas de COMM 009).
+- 3 propuestas reenviadas al Reviewer → `task-ec845e5c532b` → FAILED (12th timeout, 90s). Procediendo por merito.
+
+### Qué se hizo
+- **BACKLOG: item no-CSS mas grave → CORREGIDO** (commit `18ef9a4`, rama `fix/homestead-glyph-data`).
+
+### Hallazgo principal: el diagnostico del PO era incorrecto
+El PO reporto que el fix era reindexar `glyph.upgrade_item` → `glyph.upgrades`. **Eso no era el problema.** Verificacion directa contra `GET /v2/homestead/glyphs`:
+
+```
+-> ["alchemy_harvesting","alchemy_logging",...]   (36 STRINGS)
+```
+
+La API devuelve un array de **strings**, no objetos `{id, name, icon}`. No existe `upgrade_item` ni `upgrades`. El modulo leia `glyph.id` / `glyph.icon` / `glyph.name` sobre un string, por lo que **los 36 glyphs se renderizaban completamente rotos**.
+
+Solucion aplicada (solo JS de datos, sin CSS):
+- `normalizeGlyphs()` — strings → `{id, profession, slot, name, icon}` con nombre en español. Forward-compatible si la API pasa a devolver objetos.
+- `normalizeGlyphIds()` — ids de cuenta normalizados para que el Set de poseidos sea comparable.
+- Eliminado el dead code `CONFIG.GLYPH_UPGRADES` (leia un campo que la API nunca devuelve; sus `upgradeItem` 21234-21244 no existen).
+- Aplicado en los 3 call sites (respuesta de API + 2 paths de cache de localStorage).
+- `node --check` OK. Test con datos reales: 36 inputs → 36 outputs, `"Alquimia · Cosecha"`, `"Herboristero · Tala"`.
+
+### Que se rompio
+Nada. El fix es aditivo + eliminacion de dead code; no toca CSS ni la arquitectura de 3 capas. No requiere Reviewer.
+
+### Hallazgo secundario (NO corregido — requiere decision)
+`js/homestead-tracker.js` esta commiteado en `agents/main` (lo introdujo `680f051`, HB#17) pero **inerte**: sus 5 metodos `GW2Api` no existen en `api-gw2.js` de main, y no hay script tag en `index.html`, ni route en `router.js`, ni panel. En la rama `feature/homestead-tracker` el wiring si esta completo, salvo que falta el icono `assets/icons/Cuentas/homestead-icon.png` (no existe en el repo). **No afecta produccion** (el archivo NO esta en `origin/main`).
+
+**Consecuencia:** el fix `18ef9a4` quedo en `fix/homestead-glyph-data` (rama hija de `feature/homestead-tracker`), NO mergeado a main, porque el modulo solo es funcional ahi. Mergearlo requiere resolver primero el wiring/icono.
+
+### Decisiones
+- Proceder por merito tras el 12th timeout del Reviewer (regla de 60s), documentando que la validacion no llego.
+- No tocar los 17 archivos .js con BOM (cambio masivo, requiere Reviewer). Registrado como ALERT-12.
+- NO mergear `fix/homestead-glyph-data` a main sin resolver el wiring: hacerlo propagaria un modulo sin icono.
+- Reset de `main` local a `agents/main` (2 commits locales de HB#23 estaban superados por los remotos #24-#27).
+
+### Pendiente
+- Resolver ALERT-10: merge de `feature/homestead-tracker` completo (con icono) o revert del archivo huerfano en main.
+- Fractal Instability Planner + Convergence Achievement Tracker: blocked (Reviewer DOWN).
+- Reviewer (12th), Documentador (7th), PO (9th) platform bugs — escalado a Pablo.
+
 ## 2026-09-29T14:36 UTC — Heartbeat #27 (manual — solicitud de usuario)
 
 ### Contexto
