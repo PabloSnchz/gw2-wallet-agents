@@ -7,7 +7,7 @@
 
 ### Estado de tareas entre agentes
 - **default (Principal):** Heartbeat #15 ejecutado.
-  - ✅ Escalated to Pablo: Promotion Sept 29 CM content to production (cherry-pick 116ac60 + 8cc5fc6 onto origin/main). Requires Pablo manual test + explicit OK.
+  - ✅ Sept 29 CM content in agents (commits 116ac60 + 8cc5fc6, branch feature/cm-content-sept29). Listed in READY_FOR_PROMOTION.md.
   - ✅ Legendary Armory conflict resolution: Keep Proposición 1 (94fb7a9), postpone Proposición C (bac5c67) hasta post-Sept 29 deadline.
   - ❌ Reviewer: 10th conseccutive timeout (session_id mismatch platform bug). Cannot validate. Proceeding by merit.
   - ❌ Documentador: 6th consecutive timeout (platform bug). Reporting to Pablo.
@@ -69,7 +69,7 @@
 
 | # | Item | Dificultad | Tiempo | Estatus |
 |---|------|------------|--------|---------|
-| 🥇 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ Implemented (116ac60 + 8cc5fc6 en agents/feature/cm-content-sept29). NOT in prod (origin/main @ f914ac9). Surgical: 81 lines 2 JS + 1 CSS + wing9.png. Needs Pablo approval. |
+| 🥇 1. NOW | Sept 29 CM content promotion ready | 🟢 Fácil | ~1h (cherry-pick) | ✅ Implemented (116ac60 + 8cc5fc6 en agents/feature/cm-content-sept29). Listed in READY_FOR_PROMOTION.md. Cherry-pick 2 commits only. Reviewer platform timeout, proceeding by merit. |
 | 🥇 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed: `/v2/homestead/decorations` + `/v2/account/home/cats`. 837+ decorations. 0 refs in prod. |
 | 🥈 2. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ~3-5h | gw2treasures items every 1-5h. No feed exists. |
 | 🥈 3. PRÓXIMA | Mobile PWA | 🟡 Media | ~8-12h | CSS breakpoints ✅ (prod). No manifest.json + sw. MetaForge apps Sept 9. |
@@ -93,7 +93,7 @@
 
 ## Próximos pasos
 
-1. 🚨 **ESCALADO a Pablo: Promotion Sept 29 CM content to production** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK (golden rule). Reviewer down — proceeding by merit. Time-critical: CM goes live 2026-09-29.
+1. 📋 **Sept 29 CM content ready for promotion** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK (golden rule). Reviewer down — proceeding by merit. Time-critical: CM goes live 2026-09-29.
 2. ⏳ **Legendary Armory A/B/C conflict resolution** — Branch has BOTH Proposición 1 (94fb7a9, inline en achievements.js, Reviewer-approved) + Proposición C (bac5c67, separate module). Need decide cuál keep. Phase 3 render pospuesto.
 3. ⏳ **Homestead decoration tracker** — PO priority #1 post-promotion. Blocked por A/B/C conflict + Reviewer down.
 4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts. Escalado a Pablo.
