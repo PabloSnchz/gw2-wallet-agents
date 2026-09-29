@@ -1,7 +1,7 @@
 /*!
  * js/fractal-tracker-theme.js — Capa 3 (color semántico) del bloque de fractales
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.0.0 (2026-09-29)
+ * Versión: 1.0.1 (2026-09-29) — fix: borderLeft shorthand completo (COMM 022)
  *
  * POR QUÉ EXISTE ESTE ARCHIVO
  * El commit `27b8394` (fix de datos falsos de la rotación diaria) corrigió el
@@ -51,7 +51,10 @@
    */
   function paint(el) {
     if (!el || el.__flPainted === COLORS[roleOf(el)]) return;
-    el.style.borderLeft = COLORS[roleOf(el)];
+    // `borderLeft` es un SHORTHAND: asignarle solo el color resetea las otras
+    // longhands a su valor inicial (width=medium, style=none), y con style=none
+    // el borde no se dibuja. Mismo fix que commerce-delivery-theme.js.
+    el.style.borderLeft = '3px solid ' + COLORS[roleOf(el)];
     el.__flPainted = COLORS[roleOf(el)];
   }
 
