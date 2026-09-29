@@ -61,28 +61,7 @@ y el versionado **SemVer** (https://semver.org/).
   - **Validación del Code Reviewer**: `task-a0398e55c545` — *aprobado con cambios*, el primero en ManyToMany tras 14 fallas. Cache/inflight aprobados sin reservas; los 3 cambios pedidos (propagar el error, restaurar el BOM, declarar el ámbito) están aplicados.
   - Sin CSS, sin endpoints nuevos, sin tocar `router.js`, `gn:tokenchange` ni `WVSeasonStore`.
 
-- **\`meta.js\` v3.4.0 → v3.4.1** (Heartbeat #33): el guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`. **El fix existíaa en el repo pero no en la app**: cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` que devuelve 503. Un fix funcional sin bump de query string no llega al usuario.
-
-
-- **`getCommerceDelivery(token, opts)` — Commerce Delivery, la caja del Trading Post sin cobrar (`js/api-gw2.js` v2.16.0)**:
-  - **Fricción real reportada por el PO**: un ítem que quedó en la caja del Trading Post hace semanas y la Bóveda lo muestra como **venta pasada**, sin ninguna señal de que el dinero nunca se cobró.
-  - **Endpoint verificado en vivo** (2026-09-29), antes de escribir una línea:
-
-    | Check | Resultado |
-    |---|---|
-    | `/v2/commerce/delivery` con token falso | **401** `Invalid access token` → **existe** |
-    | `/v2/commerce/bogusendpoint123` (control) | **404** `not found` → así se ven los inexistentes |
-
-  - Mismo patrón que `getCommerceTransactionsBuys`/`Sells`: cache con TTL de 60s, `inflightOnce`, inflight key prefijada por `fpToken(token)`. **Sin colisión de claves** (verificado con grep: `commerce_delivery` no existe en ninguna otra base-key).
-  - **⚠️ Se desvía deliberadamente de sus sisters en el manejo de error** — decisión del Code Reviewer, no un descuido:
-    - `buys`/`sells` degradan a `[]` porque `[]` es su estado **normal**.
-    - En `delivery`, `[]` es indistinguible de «caja vacía» cuando en realidad puede ser «no se pudo leer». El caso que más probable lo dispara no es una caída transitoria sino un **403 permanente por falta de scope `tradingpost`**, que nunca se resuelve solo. Como el valor de la feature **es** el alerta, un vacío silencioso la deja mintiendo sobre su único propósito.
-    - Por lo tanto el error **se propaga**. La UI debería distinguir tres estados: **pendiente / vacío real / no se pudo leer**.
-  - **Estado: API sin consumidor todavía.** No hay UI. Se documenta explícitamente para que no se lea como deuda oculta (hallazgo transversal #10, código muerto). Cablear la vista es el paso siguiente.
-  - **Validación del Code Reviewer**: `task-a0398e55c545` — *aprobado con cambios*, el primero en ManyToMany tras 14 fallas. Cache/inflight aprobados sin reservas; los 3 cambios pedidos (propagar el error, restaurar el BOM, declarar el ámbito) están aplicados.
-  - Sin CSS, sin endpoints nuevos, sin tocar `router.js`, `gn:tokenchange` ni `WVSeasonStore`.
-
-- **\`meta.js\` v3.4.0 → v3.4.1** (Heartbeat #33): el guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`. **El fix existíaa en el repo pero no en la app**: cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` que devuelve 503. Un fix funcional sin bump de query string no llega al usuario.
+- **`meta.js` v3.4.0 → v3.4.1** (Heartbeat #33): el guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`. **El fix existía en el repo pero no en la app**: cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` que devuelve 503. Un fix funcional sin bump de query string no llega al usuario.
 
 
 - **🎲 Columna "Suerte (MF)" en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0 + `wallet-dashboard.js` v2.7.0, `44c64a9`)**:

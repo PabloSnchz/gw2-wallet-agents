@@ -955,7 +955,7 @@ Definí en `index.html` (antes de router.js):
 
 | Archivo | Versión | Responsabilidad |
 |---------|---------|-----------------|
-| `js/api-gw2.js` | **v2.15.0** | API Layer. **Inventory + Commerce (listings, prices, transactions)** |
+| `js/api-gw2.js` | **v2.16.0** | API Layer. **Inventory + Commerce (listings, prices, transactions, delivery)** |
 | `js/converter-modal.js` | **v1.0.0** | **NUEVO: Modal del Conversor con 3 tabs (Cambio, Transacciones, Populares)** |
 | `js/inventory-dashboard.js` | **v1.0.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa, sets con tiers, carga en 2 fases** |
 | `js/router.js` | **v2.17.0** | **Router desacoplado (~800 líneas). WV Objectives Dashboard + Inventory Dashboard. Sidebar sin conversor.** |
@@ -978,7 +978,7 @@ Definí en `index.html` (antes de router.js):
 | `js/activities.js` | **v3.19.6** | Actividades. **Glow en íconos de Ecto** |
 | `js/activities-theme.js` | v2.6.0 | Home Nodes + barra de horarios unificada con iconos GW2 |
 | `js/characters.js` | v2.3.0 | Panel de Personajes. **Íconos profesión locales. Subvista del InventoryHub** |
-| `js/meta.js` | **v3.4.0** | MetaEventos. **Rediseño cards estilo Raids, barra progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español** |
+| `js/meta.js` | **v3.4.1** | MetaEventos. **Rediseño cards estilo Raids, barra progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español** |
 | `js/meta-theme.js` | **v1.4.2** | Tema visual de Meta. **Solo border-left** |
 | `js/wallet-theme.js` | **v1.3.1** | Tema visual de Cartera. **Glow en ícono + glow neutro para divisas sin color** |
 | `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |

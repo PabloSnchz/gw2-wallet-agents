@@ -34,6 +34,7 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - Purchase Detail depende exclusivamente de SeasonStore (selector, timers, KPIs).
 - Ningún módulo toca DOM ajeno (cada módulo gestiona su propio panel).
 - Sin frameworks: JavaScript, HTML y CSS puros.
+- **Un `[]` degradado no siempre es un dato válido.** La degradación a `[]` en error solo es aceptable si `[]` es el estado *normal* de la función. Cuando `[]` es indistinguible de un fallo (p.ej. la caja del Trading Post: "no tenés nada pendiente" vs "no se pudo leer"), **el error se propaga** y la UI distingue tres estados: *pendiente / vacío real / no se pudo leer*. Ver la sección "Criterio de manejo de error en la capa API" más abajo.
 - **Cuando la GW2 API no expone un dato: se muestra un aviso o se usa el fallback estático. Nunca se hardcodea una rotación, calendario o listado inventado.** Un dato hardcodeado es indistinguible de uno real para el usuario. Aplicado en `activities.js` v3.20.1 (rotación de fractales → `rotationAvailable:false` + aviso) y en `meta.js` (endpoint `/v2/events` retirado → guard `LEY_LINE_ENDPOINT_RETIRED` + waypoint estático). Si un endpoint se retira (503 `API not active` mientras el resto responde 200), se deshabilita la llamada y se cae al fallback estático; no se sustituye por un endpoint ajeno.
 
 ### Reglas de Estilo
@@ -56,6 +57,7 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - ☐ ¿Refactor o feature?
 - ☐ **¿De dónde sale cada dato que pinto? ¿La GW2 API lo expone? Si no → aviso o fallback estático, NUNCA hardcodear una rotación.**
 - ☐ ¿Impacto en performance/UI?
+- ☐ ¿Alguna función nueva degrada a `[]` en error? Solo vale si `[]` es su estado normal; si no, el error se propaga y la UI distingue pendiente / vacío real / no se pudo leer.
 
 Si hay riesgo → advertir antes de generar código.
 
@@ -115,6 +117,53 @@ Idea del PO. **La premisa se verificó y se corrigió antes de implementar**, po
 - Verificado en GitHub: `agents/main` (desarrollo, repo `gw2-wallet-agents`) @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag. **NO está en producción**: `origin/main` (repo `gw2-wallet-ligero`) sigue en `392c3b9` sin estos archivos.
 - **Sin CSS, sin DOM ajeno, sin localStorage nuevo, sin prefijo `gn:` nuevo.** Producción (`gw2-wallet-ligero`) intacta.
 - Commits: `44c64a9` (feat) → `6067851` (merge `feat-luck-kpi`) → `0cc5cb7` (merge de `gw2-wallet-ligero/main` a `gw2-wallet-agents/main`).
+
+---
+
+## 📦 Novedades 2026-09-29 — `getCommerceDelivery` + criterio de manejo de error en la capa API
+
+Commit `7d13155` en `agents/main`. **`js/api-gw2.js` v2.15.0 → v2.16.0**, `js/meta.js` v3.4.0 → v3.4.1.
+
+### 🎯 Qué resuelve
+
+La Bóveda mostraba un ítem del Trading Post como **venta pasada**, sin ninguna señal de que el dinero nunca se cobró. `getCommerceDelivery(token, opts)` lee lo que la cuenta tiene **pendiente de recoger** en la caja del TP.
+
+Endpoint `/v2/commerce/delivery`, verificado en vivo antes de escribir código (2026-09-29): token falso → **401** (existe); control `/v2/commerce/bogusendpoint123` → **404** (así se ven los inexistentes). Requiere API key con permiso `tradingpost`.
+
+Mismo patrón que sus sisters: cache TTL 60s, `inflightOnce`, inflight key `if:commerce_delivery:<fpToken>`.
+
+| Función | Endpoint | TTL | Error |
+|---------|----------|-----|-------|
+| `getCommerceListings(opts)` | `/v2/commerce/listings` | 5 min | degrada |
+| `getCommercePrices(ids, opts)` | `/v2/commerce/prices` | 2 min | degrada |
+| `getCommerceTransactionsBuys(token, opts)` | `/v2/commerce/transactions/current/buys` | 1 min | degrada a `[]` |
+| `getCommerceTransactionsSells(token, opts)` | `/v2/commerce/transactions/current/sells` | 1 min | degrada a `[]` |
+| **`getCommerceDelivery(token, opts)`** | **`/v2/commerce/delivery`** | **1 min** | **propaga** |
+
+### ⚠️ Criterio de manejo de error en la capa API: cuándo `[]` NO es una respuesta válida
+
+**Este es el punto de fondo de la feature, no un detalle de implementación.**
+
+`getCommerceDelivery` se desvía **deliberadamente** de `getCommerceTransactionsBuys`/`Sells`:
+
+- Buys y sells degradan a `[]` en error porque **`[]` es su estado normal**: la cuenta no compró ni vendió nada. La UI no puede distinguir "no hay datos" de "falló", pero tampoco lo necesita.
+- En `delivery`, `[]` significa dos cosas incompatibles: **"no tenés nada pendiente"** (la caja vacía, el caso bueno) o **"no se pudo leer"** (el caso malo). Son indistinguibles una vez degradados.
+- El caso que **más probable** dispara ese `[]` **no es una caída transitoria**, sino un **403 permanente por falta del scope `tradingpost`** en la API key. No se resuelve solo, no reintenta bien, y no se avisa: la cuenta simplemente nunca muestra lo que tiene sin cobrar.
+- Como **el valor de la feature ES el alerta**, un vacío silencioso la deja mintiendo sobre su único propósito.
+
+**Regla general que sale de acá:**
+
+> Degradar a `[]` en error es aceptable **solo si `[]` es el estado normal de la función**. Si `[]` es indistinguible de un fallo, **el error se propaga** y la UI debe distinguir **tres estados: pendiente / vacío real / no se pudo leer**.
+
+Está escrito en tres lugares a propósito: el **JSDoc** de la función (para que el próximo que abra el archivo no lo "normalice" por parecer un outlier), los **Invariantes Técnicas**, y el **Checklist pre-trabajo** de más arriba.
+
+**Estado: la API no tiene consumidor todavía.** No hay UI. Se documenta explícitamente para que no se lea como deuda oculta. Cablear la vista es el paso siguiente; cuando se haga, tiene que respetar el contrato de tres estados.
+
+### 🧹 `meta.js` v3.4.0 → v3.4.1 (solo bump)
+
+El guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`: **el fix existía en el repo pero no en la app**. Cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` (retirado, 503).
+
+**Lección general: un fix funcional que no bumpea la query string de `index.html` no llega al usuario.** El bump va junto con el fix, no después.
 
 ---
 
@@ -1627,7 +1676,7 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 
 | Archivo | Versión | Responsabilidad |
 |---------|---------|-----------------|
-| `js/api-gw2.js` | **v2.15.0** | API Layer con fetchWithRetry, cachés, WV, achievements, items, account info con last_modified, **getAccountRaids**, **getAccountBank**, **getAccountMaterials**, **getAccountLegendaryArmory**, **getCommerceListings**, **getCommercePrices**, **getCommerceTransactionsBuys**, **getCommerceTransactionsSells** |
+| `js/api-gw2.js` | **v2.16.0** | API Layer con fetchWithRetry, cachés, WV, achievements, items, account info con last_modified, **getAccountRaids**, **getAccountBank**, **getAccountMaterials**, **getAccountLegendaryArmory**, **getCommerceListings**, **getCommercePrices**, **getCommerceTransactionsBuys**, **getCommerceTransactionsSells**, **getCommerceDelivery** (propaga el error, ver "Criterio de manejo de error" — sin consumidor todavía) |
 | `js/wv-season-storage.js` | v1.1.1 | Almacenamiento por temporada (JSON por temporada en localStorage) |
 | `js/wizards-vault.js` | v1.3.0 | WV: objetivos, tienda, integración con SeasonStore. Recarga forzada de temporada |
 | `js/wv-shop-ui.js` | **v1.0.2** | UI de Tienda WV — **Glow solo en ícono de rareza, fix de timing con wv-theme.js** |
@@ -1636,7 +1685,7 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 | `js/wv-purchase-detail.js` | **v1.13.1** | Detalle de compras — **Fix estado online (data-token), ícono reloj local** |
 | `js/wv-tabs-skin.js` | v1.0.0 | Re-skin de tabs WV, consistente con rerenders |
 | `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns personalizados, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
-| `js/meta.js` | **v3.4.0** | MetaEventos — **Rediseño cards estilo Raids, barra de progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español, limpieza de código (~90 líneas menos)** |
+| `js/meta.js` | **v3.4.1** | MetaEventos — **Rediseño cards estilo Raids, barra de progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español, limpieza de código (~90 líneas menos)**. v3.4.1 = bump que publica el guard `LEY_LINE_ENDPOINT_RETIRED` |
 | `js/sidebar-nav.js` | v1.2 | Router‑friendly + tokenchange + a11y |
 | `js/activities.js` | **v3.19.6** | Actividades — **Glow en íconos de Ecto** |
 | `js/activities-theme.js` | v2.6.0 | Home Nodes + barra de horarios unificada con iconos GW2 |
