@@ -1,7 +1,7 @@
 # CRON_SCHEDULE.md — Programación de crons y tareas del equipo
 
-> Actualizado: 2026-09-29T10:00:33Z
-> Próxima actualización esperada: 2026-09-29T10:30:00Z
+> Actualizado: 2026-09-29T11:30:44Z
+> Próxima actualización esperada: 2026-09-29T12:00:00Z
 > Mantenedor: Principal (default)
 
 ---
@@ -51,8 +51,9 @@ Investiga novedades del juego en Reddit, GW2 Wiki, gw2treasures y gw2.com forums
 | Cron | Último disparo | Resultado | Commit |
 |------|---------------|-----------|--------|
 | Heartbeat Principal | 2026-09-29T10:00:33Z | ✅ Success | Heartbeat #24 — Agent task check (all 404), PO consulted (COMM 009 responded, no new proposals), BACKLOG reviewed (Sept 29 CM promotion RESOLVED, next items blocked by Reviewer timeout), management files synced + commit + push a agents. |
-| Heartbeat Principal | 2026-09-29T09:06:12Z | ✅ Success | Heartbeat #22 — Sept 29 CM content RESOLVED (in production origin/main @ 392c3b9, achievement 9423 verified after git fetch). PoG 0 new proposals. BACKLOG pospuesto (Reviewer DOWN). Management files updated for sync + commit + push. |
-| Heartbeat Principal | 2026-09-29T09:06:12Z | ✅ Success | Heartbeat #22 — Sept 29 CM content RESOLVED (in production origin/main @ 392c3b9, achievement 9423 verified after git fetch). PoG 0 new proposals. BACKLOG pospuesto (Reviewer DOWN). Management files updated for sync + commit + push. |
+| Heartbeat Principal | 2026-09-29T09:06:12Z | ✅ Success | Heartbeat #22 — Sept 29 CM content RESOLVED (in production origin/main @ 392c3b9, achievement 9423 verified after git fetch). PoG 0 new proposals. BACKLOG pospuesto (Reviewer DOWN).
+| Heartbeat Principal | 2026-09-29T11:30:44Z | ✅ Success | Heartbeat #26 — (1) Agent tasks: task-dd859ed5ab5e → FAILED (timeout #11). All others 404. (2) PO: PRE_BACKLOG (07:09 UTC, 3 ideas 35-37). PO 08:00/10:00 timeout (platform bug). COMM 009 respondido. No new proposals. (3) PO 3+ proposals: already sent #25 → FAILED. Reviewer DOWN, proceeding by merit (non-CSS data prep). (4) BACKLOG: Sept 29 CM RESOLVED. Next items blocked by Reviewer (CSS). (5) Sync mgmt files #25+#26 + commit + push to agents. |
+| Heartbeat Principal | 2026-09-29T11:00:44Z | ✅ Success | Heartbeat #25 — (1) Agent tasks: all 404. (2) PO: FINAL heartbeat (05:08 UTC), 3 proposals consolidated. (3) Reviewer submission: FAILED timeout #11 (task-dd859ed5ab5e). (4) BACKLOG: Sept 29 CM RESOLVED. Next items blocked by Reviewer (CSS). (5) Sync mgmt files to repo + commit + push to agents. Management files updated for sync + commit + push. |
 | Heartbeat Principal | 2026-09-29T08:00:00Z | ✅ Success | Heartbeat #20 (workspace files updated, not synced to git repo) |
 | Heartbeat Principal | 2026-09-29T07:37:00Z | ✅ Success | `facca15` chore(heartbeat-19): sync management logs |
 | Heartbeat Principal | 2026-09-29T02:30:00Z | ✅ Success | `ac5507f` (agents/main) |

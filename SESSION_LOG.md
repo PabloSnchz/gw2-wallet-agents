@@ -2,6 +2,66 @@
 
 > Mantenido por: Principal (default). Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
 
+## 2026-09-29T11:30 UTC — Heartbeat #26
+
+### Contexto
+- Cron `13dc22e6` (Heartbeat Principal) disparó a las 11:30 UTC (cron-triggered, share_session: false).
+- Reviewer 11th consecutive timeout (session_id mismatch platform bug). task-dd859ed5ab5e (Reviewer submission COMM 010) → FAILED 60s timeout.
+- Documentador 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+- PO timeout (platform bug). Heartbeat 06:00 UTC publicado (production verification + Idea 35-37). PO heartbeats 08:00/10:00 UTC no produjeron nuevo contenido (jobs_history solo tiene entrada 07:14 UTC).
+
+### Qué se hizo
+- **Agent task check:** task-dd859ed5ab5e → FAILED (timeout 60s, 11th consecutive timeout). Todas las demás task IDs de heartbeats anteriores → 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+- **PO consulted:** PRE_BACKLOG.md (última modificación 07:09 UTC — PO heartbeat 06:00 UTC). 3 new ideas (35-37): Fractal instability planner, homestead mastery tracker, Home vs Homestead comparison. PO heartbeats 08:00/10:00 UTC timeout (platform bug). COMM 009 (task-3751dd8645a7) ya respondido.
+- **PO 3+ proposals:** Ya enviadas al Reviewer en #25 (task-dd859ed5ab5e) → FAILED (timeout #11). Reviewer DOWN. Proceeding by merit para data/API preparation (non-CSS work). CSS changes remain blocked.
+- **BACKLOG reviewed:** Sept 29 CM promotion ✅ RESOLVED (origin/main @ 392c3b9). Próximos items: inventory-dashboard.js fixes (glow/overflow + clearTimeout) — blocked by Reviewer (CSS). Homestead Glyph Fix (3 issues) — blocked by Reviewer (CSS). Fractal Instability Planner + Convergence Achievement Tracker — blocked by Reviewer (CSS). Legendary Phase 3 — blocked by API GW2.
+- **Management files sync:** 8 files DIFF entre workspace y repo (TEAM_STATUS, SESSION_LOG, CRON_SCHEDULE, ALERTS_LOG, COMMS_LOG, IN_PROGRESS, READY_FOR_PROMOTION, DECISIONS_LOG). Sync workspace → repo (code-reviewer\repo) + commit + push a agents/main.
+- **Non-CSS data preparation:** Proceeding by merit — preparing static data files for homestead decorations, fractal instabilities, convergence achievements while Reviewer is DOWN (CSS changes blocked but data prep is non-destructive).
+
+### Qué se rompió
+- Nada. Solo status update + sync + preparación de datos.
+
+### Qué quedó pendiente
+1. Reviewer (11th timeout) + Documentador (7th timeout) — platform bugs, escalado a Pablo.
+2. Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker — AWAITING Reviewer validation (CSS changes). Proceeding by merit para data prep.
+3. inventory-dashboard.js fixes — bloqueado (CSS changes require Reviewer).
+4. Legendary Armory Phase 3 — bloqueado por API GW2 (no expone recipes con ingredients).
+5. Management files sync #25+#26 — pendiente (sync + commit + push).
+
+### Estado de agentes
+- Reviewer: TIMEOUT (session_id mismatch platform bug, 11th consecutive). task-dd859ed5ab5e → FAILED. Proceeding by merit. CSS changes bloqueados.
+- Documentador: TIMEOUT (platform bug, 7th consecutive). No fallback per no-fallback rule.
+- PO: Timeout (platform bug). Heartbeat 06:00 UTC publicado (production verification + Idea 35-37). No nuevas proposals desde COMM 009. Proceeding by merit.
+
+## 2026-09-29T11:00 UTC — Heartbeat #25
+
+### Contexto
+- Cron `13dc22e6` (Heartbeat Principal) está activo (*/30 * * * *, share_session: false).
+- HEARTBEAT.md re-injection bug persiste (platform-level). Banner previene ejecución.
+- Heartbeat #25 ejecutado manualmente por solicitud de usuario.
+- Reviewer 11th consecutive timeout (session_id mismatch, platform bug). Documentador 7th timeout. PO timeout (platform bug) — pero heartbeat FINAL publicado (05:08 UTC).
+
+### Qué se hizo
+- **Agent task check:** Todas las task IDs verificadas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404.
+- **PO consulted:** PRE_BACKLOG.md (PO heartbeat FINAL 05:08 UTC). 3 propuestas consolidadas: Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker. DASHBOARD_PO_IDEAS.md actualizado 10:00 UTC.
+- **Reviewer submission:** 3 PO proposals enviadas al Reviewer (task-dd859ed5ab5e, 60s timeout). FAILED — 11th consecutive timeout (session_id mismatch, platform bug). Proceeding by merit.
+- **BACKLOG reviewed:** Sept 29 CM promotion RESUELTO (origin/main @ 392c3b9, achievement 9423). Próximos items bloqueados por Reviewer (CSS changes require Reviewer validation).
+- **Management files sync:** 8 files DIFFERENT (TEAM_STATUS, SESSION_LOG, CRON_SCHEDULE, HEARTBEAT, AGENTS + 3 missing: IN_PROGRESS, READY_FOR_PROMOTION, DECISIONS_LOG). Sync + commit + push to agents.
+
+### Qué se rompió
+- Nada.
+
+### Qué queda pendiente
+1. Reviewer (11th timeout) + Documentador (7th timeout) — platform bugs, escalado a Pablo.
+2. Homestead Glyph Fix + Fractal Instability Planner + Convergence Achievement Tracker — AWAITING Reviewer validation (CSS changes). Proceeding by merit for non-CSS work.
+3. Management files sync — sync workspace → repo, commit + push a agents.
+
+### Comm 010 (Reviewer submission)
+- Pedido: 3 PO proposals (Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker)
+- Estado: FAILED — Reviewer timeout a los 60s (11th consecutive timeout, session_id mismatch platform bug)
+- Task ID: task-dd859ed5ab5e
+- Proceeding by merit — propuestas documentadas, bloqueadas (CSS changes require Reviewer validation).
+
 ## 2026-09-29T10:00 UTC — Heartbeat #24
 
 ### Contexto
