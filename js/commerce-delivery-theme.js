@@ -56,7 +56,12 @@
     if (!el) return;
     var color = COLORS[roleOf(el)];
     if (el.__cvPainted === color) return;
-    el.style.borderLeft = color;
+    // `borderLeft` es un SHORTHAND: asignarle solo el color resetea las otras
+    // longhands a su valor inicial (width=medium, style=none), y con style=none
+    // el borde no se dibuja. Hay que pasar el shorthand completo, igual que
+    // achievements-theme.js:104, characters-theme.js:103, meta-theme.js:400,
+    // wallet-theme.js:148 y wv-theme.js:87.
+    el.style.borderLeft = '3px solid ' + color;
     el.__cvPainted = color;
   }
 
