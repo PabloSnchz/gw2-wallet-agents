@@ -44,3 +44,14 @@
 - **AGENTS.md actualizados:** 5 agentes (Principal, Code Reviewer, Documentador, PO, Arquitecto) + KNOWLEDGE.md del Arquitecto + digest `promotion-to-origin-golden-rule.md`.
 - **Verificación:** `git grep -i "promover a origin"` en repo agents + workspaces → 0 matches. Sección "🚫 Regla de oro sobre origin" presente en los 5 AGENTS.md.
 - **Commit + push:** `2021b4d` + `1b2761e` — "chore(rules): reinforce golden rule" (DECISIONS_LOG.md + SESSION_LOG.md + push a agents). `origin` (producción) intacto.
+
+## [2026-09-29T00:15 UTC] Branch methodology + cleanup
+
+### Que se hizo
+- Aplicada nueva metodologia de ramas (2026-09-29): nada directo a agents/main, cada feat en su rama.
+- Identified feats: feat-cm-content (feature/cm-content-sept29), feat-legendary-armory (feature/legendary-component-tracker), fix-grid (d1e7c14), mobile-responsive, fix-security-gist-sync, home-nodes.
+- Created fix/grid branch desde d1e7c14. Created IN_PROGRESS.md + READY_FOR_PROMOTION.md (merge 46f4060). Cleanup promocion-escalation en TEAM_STATUS.md + SESSION_LOG.md.
+### Que se rompio
+- Nada.
+### Pendiente
+- Git history aun tiene escalation en commits ef25dc0/5904b3d (no se modifica sin rewrite).
