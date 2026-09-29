@@ -1,6 +1,20 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
+ * Versión: 2.17.0 (2026-09-29) — Pool global de requests (Idea 46 t1)
+ *
+ * Cambios v2.17.0:
+ *  - NUEVO pool global de concurrencia en el unico punto de estrangulacion
+ *    de la capa (jfetch). El MAX=3 estaba duplicado dentro de cada dashboard,
+ *    o sea que era local: inventory-dashboard hacia Promise.all de 3 DENTRO
+ *    de su pool = 9 requests simultaneos reales. Con este pool el tope es
+ *    global a la pagina entera, no por modulo.
+ *  - __cfg.poolStats() y __cfg.setPoolMax(n) para observar y ajustar.
+ *    Idea 46 t2 va a leer poolStats() para decir "limitado por la API (600/min)"
+ *    en vez de "Cargando" cuando la cola se acumula.
+ *  - Sin cambio de comportamiento observable: mismos resultados, mismos
+ *    errores, misma cache. Solo cambia CUANTOS requests pueden estar en vuelo.
+ *
  * Versión: 2.16.0 (2026-09-29) — Commerce: + Delivery (ítems sin recoger del TP)
  *
  * Cobertura de este archivo:
@@ -73,11 +87,57 @@
     TTL: TTL,
     LANG: 'es',
     RETRIES: 2,
-    RETRY_BASE_MS: 600
+    RETRY_BASE_MS: 600,
+    POOL_MAX: 3
   };
 
   var __mem = new Map();
   var __inflight = new Map();
+
+  // ---- Pool global de requests (Idea 46, t1) ------------------------------
+  // El limite MAX=3 vivia duplicado dentro de cada dashboard, o sea que era
+  // LOCAL: dos dashboards cargando a la vez = 6, y inventory-dashboard hacia
+  // Promise.all de 3 DENTRO del pool = 9 requests simultaneos reales, contra
+  // un MAX=3 que el codigo creia tener.
+  // aca hay UN solo punto de estrangulacion para toda la capa API: jfetch().
+  // El header real de ArenaNet es X-Rate-Limit-Limit: 600/min.
+  // t2 (UI) lee poolStats() para poder decir "limitado por la API" en vez de
+  // "Cargando" cuando la cola se esta acumulando.
+  var __poolActive = 0;
+  var __poolQueue = [];
+  var __poolWaited = 0;   // requests que tuvieron que esperar turno
+  var __poolWaitMs = 0;   // espera acumulada de la cola, en ms
+
+  function poolStats() {
+    return {
+      max: CFG.POOL_MAX,
+      active: __poolActive,
+      queued: __poolQueue.length,
+      waited: __poolWaited,
+      waitMs: __poolWaitMs
+    };
+  }
+
+  function poolRun(task) {
+    return new Promise(function (resolve, reject) {
+      __poolQueue.push({ task: task, resolve: resolve, reject: reject, enqueued: now() });
+      poolPump();
+    });
+  }
+
+  function poolPump() {
+    while (__poolActive < CFG.POOL_MAX && __poolQueue.length) {
+      var slot = __poolQueue.shift();
+      var waited = now() - slot.enqueued;
+      if (waited > 0) { __poolWaited++; __poolWaitMs += waited; }
+      __poolActive++;
+      (function (s) {
+        function done() { __poolActive--; poolPump(); }
+        s.task().then(function (v) { done(); s.resolve(v); },
+                      function (e) { done(); s.reject(e); });
+      })(slot);
+    }
+  }
 
   function lsGet(key) {
     try { var j = localStorage.getItem(key); return j ? JSON.parse(j) : null; } catch (_) { return null; }
@@ -122,18 +182,23 @@
     };
     if (opts.signal) init.signal = opts.signal;
 
-    return fetch(url, init).then(function (res) {
-      return res.text().then(function (raw) {
-        if (!res.ok) {
-          var msg = raw || ('HTTP ' + res.status);
-          try {
-            var o = raw ? JSON.parse(raw) : null;
-            if (o && (o.text || o.error)) msg = o.text || o.error;
-          } catch (_){}
-          var err = new Error(msg); err.status = res.status; err.url = url; throw err;
-        }
-        try { return raw ? JSON.parse(raw) : null; }
-        catch (e) { var er = new Error('JSON inválido en ' + url + ': ' + String(raw).slice(0,200)); er.url = url; throw er; }
+    // Todo request de la capa API pasa por el pool global (Idea 46 t1).
+    // El slot se toma antes del fetch y se devuelve DESPUES de leer el body,
+    // para que el limite cuente requests en vuelo y no solo fetch iniciados.
+    return poolRun(function () {
+      return fetch(url, init).then(function (res) {
+        return res.text().then(function (raw) {
+          if (!res.ok) {
+            var msg = raw || ('HTTP ' + res.status);
+            try {
+              var o = raw ? JSON.parse(raw) : null;
+              if (o && (o.text || o.error)) msg = o.text || o.error;
+            } catch (_){}
+            var err = new Error(msg); err.status = res.status; err.url = url; throw err;
+          }
+          try { return raw ? JSON.parse(raw) : null; }
+          catch (e) { var er = new Error('JSON inválido en ' + url + ': ' + String(raw).slice(0,200)); er.url = url; throw er; }
+        });
       });
     });
   }
@@ -866,7 +931,11 @@
       TTL: CFG.TTL,
       LANG: CFG.LANG,
       setLang: function (lang) { if (lang) CFG.LANG = String(lang); },
-      setRetries: function (n) { var x = +n; if (isFinite(x) && x >= 0 && x <= 5) CFG.RETRIES = x|0; }
+      setRetries: function (n) { var x = +n; if (isFinite(x) && x >= 0 && x <= 5) CFG.RETRIES = x|0; },
+      // Idea 46: estado del pool global. t2 lo usa para distinguir
+      // "Cargando" de "limitado por la API (600/min)".
+      poolStats: poolStats,
+      setPoolMax: function (n) { var x = +n; if (isFinite(x) && x >= 1 && x <= 20) { CFG.POOL_MAX = x|0; poolPump(); } }
     },
     __cacheClear: cacheClear,
     __indexArrayByKey: indexArrayByKey
