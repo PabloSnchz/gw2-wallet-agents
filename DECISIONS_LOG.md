@@ -7,6 +7,34 @@
 
 ## Decisiones recientes
 
+### [2026-09-29] C2 — Destino del bloque CM de Solitary Throne en `activities.js`
+
+**Contexto:** El Reviewer (COMM 015, `task-d3355a858009` — su primera respuesta en 13 intentos) aprobo la Idea 39 (Fractal Tracker multicuenta) *con cambios*, y la condicion bloqueante **C2** es que se decida esto ANTES de escribir una linea del modulo nuevo.
+
+El bloque actual de `activities.js` ya renderiza el CM de Solitary Throne:
+- `SOLITARY_THRONE_CM_ACHIEVEMENTS` (activities.js:823) — tabla `{9423:'T1', 9412:'T2', 9373:'T3', 9388:'T4'}` con iconos y escalas.
+- `state.daily.fractals.cmAchievements` (activities.js:52, 844-867) — estado de completados.
+- `renderFractals()` (activities.js:877-910) — pinta los badges.
+- Export (activities.js:1242).
+
+Si el Fractal Tracker **re-declara** esa tabla, aparece el hallazgo transversal #4 (codigo duplicado) desde el commit 1, y las dos vistas se desincronizan.
+
+**Decision: opcion (a) — modulo compartido de datos, `activities.js` lo importa.**
+
+Se crea `js/fractal-data.js` con la unica fuente de verdad (`CM_ACHIEVEMENTS` + tabla de instabilities + tabla de availability T1-T4+CM, todo con `nameEn` y provenance). `activities.js` pasa a leer de ahi en vez de declarar su propia tabla. El Fractal Tracker tambien lee de ahi.
+
+**Por que (a) y no (b):**
+1. `activities.js` esta **en produccion** y funcionando (CM lanzo hoy, Sept 29). Quitarle el render del CM es un cambio con riesgo de regresion visible para el usuario en el momento de mayor trafico del ciclo.
+2. La opcion (b) dejaria a `activities.js` sin saber de fractales — un modulo en produccion que hoy pinta el CM quedaria ciego hasta que el tracker nuevo este completo.
+3. La opcion (a) es un refactor mecanico y de bajo riesgo: la tabla no cambia de valores, solo de ubicacion.
+
+**Consecuencias y condiciones:**
+- **C1** — No inventar badge de relics. No existe endpoint de "fractal LI" en la API (a diferencia de `/v2/account/raids` con `li_value`). Si no hay dato, no hay KPI.
+- **C3** — La tabla de 17 instabilities y de availability es **dato estatico de GW2 Wiki, no de la API**. Vive como constante dentro del IIFE, con `nameEn` y provenance. **No va a `localStorage`** sin consultar (checklist: prefijo `gn:`).
+- Multicuenta: el last-win debe ser **por-token** (mapa de seq por cuenta), no un `_refreshSeq` global. `raid-tracker.js:895-896` y `strike-tracker.js:395-396` usan un seq global porque son de una sola cuenta; copiar eso en un tracker multicuenta hace que el render de la cuenta B se pise con el de la A. Es el riesgo #1 del modulo.
+- CSS: el modulo **nace** con `fractal-tracker-theme.js` (solo `borderLeft`) y sin `style=` inline en el HTML del panel. No se replica el precedente de `raid-tracker.js:975` / `index.html:421,437`, que es una violacion preexistente de la arquitectura de 3 capas.
+- Scope: "instability usada esta semana" es **imposible con los datos disponibles** (las instabilities no tienen representacion en `/v2/...`). El tracker solo puede marcar **achievement completion** de los tiers CM, via `getAccountAchievements` (igual que `activities.js:851`).
+
 ### [2026-09-27] Rol del Arquitecto corregido
 
 **Contexto:** El Arquitecto perdía tiempo auditando código técnicamente.

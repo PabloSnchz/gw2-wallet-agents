@@ -1,7 +1,7 @@
 # CRON_SCHEDULE.md — Programación de crons y tareas del equipo
 
-> Actualizado: 2026-09-29T14:36:00Z
-> Próxima actualización esperada: 2026-09-29T15:00:00Z
+> Actualizado: 2026-09-29T18:00:00Z
+> Próxima actualización esperada: 2026-09-29T18:30:00Z
 > Mantenedor: Principal (default)
 
 ---

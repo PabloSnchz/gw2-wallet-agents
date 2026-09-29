@@ -1,6 +1,62 @@
-# SESSION_LOG.md
+﻿# SESSION_LOG.md
 
-> Mantenido por: Principal (default). Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
+> Mantenido por: Principal (default).
+
+## 2026-09-29T18:00 UTC — Heartbeat #30 (cron-triggered, 18:00 UTC)
+
+> **Heartbeat histórico. Tres cosas cambiaron de verdad:** el Reviewer respondió después de 13 fallos, el Documentador volvió, y la verificación de la API destapó que el PO había propuesto 2 IDs de logro que no existen.
+
+### Contexto
+- **COMM 013b** (Reviewer, `task-5dd795a4dd73`) → FAILED con un modo **nuevo**: `Provider returned an empty response`. No es `session_id mismatch`.
+- **COMM 014** (Documentador, `task-b4a7f3aeb84b`) → **COMPLETADA**. CHANGELOG + README + ONBOARDING de la feature Suerte/MF, commit `53425b0`. **El Documentador deja de estar caído.**
+- **COMM 015** (Reviewer, `task-d3355a858009`, attempt #3) → **RESPONDIÓ.** Primera respuesta en 13 intentos. Veredicto: **aprobar con cambios**.
+- **COMM 016** (PO, `task-5ccb7fb3377d`) → enviados 3 correcciones factuales + cierre del item VoE. Running al cierre.
+
+### Qué se hizo
+
+**1. Pozo de clones (ALERT-17).** El heartbeat arrancó sobre `C:\repo`, un clon duplicado sin remote `agents` y con `main` 5 commits atrás. Todo el trabajo se migró al clon canónico `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` (que tiene `origin` + `agents` + la rama `fix/fractal-rotation-hardcoded` ya pusheada). `agents/main` mergeado con `origin/main` primero, para no perder los 5 commits de producción.
+
+**2. BACKLOG: "VoE content integration verification" → COMPLETADO.** Verificado contra API en vivo **y** contra `origin/main`:
+- Los 4 logros del CM existen: 9423/9412/9373/9388 = "Daily Tier 1/2/3/4 Solitary Throne", hardcodeados en `origin/main:js/activities.js:823-827` con escalas 1+/26+/51+/76+.
+- Nexus of Eternity en `origin/main:js/raid-tracker.js:121`, `wing9.png`, `.raid-expansion--voe`.
+- La categoría 487 "Convergencia: Nexo de Eternidad" ya aparece sola en el selector de logros (`achievements.js:255` → `/v2/achievements/categories?ids=all&lang=es`, 360 categorías).
+
+**3. Tres correcciones factuales al PO — dos cambian decisiones:**
+- **`9384` y `9454` no existen** (`404 {"text":"no such id"}`). El "Convergence Achievement Tracker" propuesto se apoyaba en 2 IDs de basura. El set real es la categoría 487 con **7** logros: `9349, 9394, 9405, 9409, 9422, 9435, 9447`. Y como la 487 ya se carga dinámicamente, el módulo era **redundante**.
+- **`/v2/account/luck` SÍ existe.** Devuelve `401 Unauthorized` sin token, no 404. 401 prueba existencia; 404 probaría lo contrario. La feature Suerte (MF) ya commiteada es correcta.
+- `DASHBOARD_PO_IDEAS.md` clavado en 07:37 UTC — 10h sin los heartbeats 16:00 y 17:00. Es lo único que ve Pablo.
+
+**4. Decisión C2 registrada (DECISIONS_LOG).** La condición C2 del Reviewer era bloqueante y es decisión del Principal: **opción (a) — `js/fractal-data.js` como fuente única de verdad**, y `activities.js` importa de ahí en vez de declarar su propia `SOLITARY_THRONE_CM_ACHIEVEMENTS`. Motivo: `activities.js` está **en producción y el CM lanzó hoy**; quitarle el render del CM es regresión visible en el pico de tráfico. La opción (b) dejaría ciego a producción hasta que el tracker nuevo esté completo.
+
+**5. Condiciones que quedan para el Fractal Tracker (del Reviewer):**
+- **C1** — No inventar badge de relics: no existe endpoint de "fractal LI" en la API. Si no hay dato, no hay KPI.
+- **C3** — La tabla de 17 instabilities + availability es **dato estático de Wiki, no de la API**. Constante en el IIFE, con `nameEn` y provenance. Nada de `localStorage` sin consultar.
+- **Riesgo #1 — multicuenta NO es el patrón de raid/strike.** `raid-tracker.js:895-896` y `strike-tracker.js:395-396` usan un `_refreshSeq` **global** porque son de una sola cuenta. Copiar eso en un tracker multicuenta hace que el render de la cuenta B se pise con el de la A. El seq tiene que ser **por-token**.
+- **CSS — no copiar el precedente.** `raid-tracker.js:975` e `index.html:421,437` usan `style=` inline con `border-radius`, o sea violan la arquitectura de 3 capas. El módulo nuevo **nace** con `fractal-tracker-theme.js` (solo `borderLeft`) y sin inline, aunque se desalinee del precedente.
+- **Scope — "instability usada esta semana" es imposible.** Las instabilities no tienen representación en `/v2/...`. El tracker solo puede marcar **achievement completion** de los tiers CM vía `getAccountAchievements`.
+
+**6. Logros del heartbeat:**
+- Primer item de BACKLOG cerrado en varias horas sin depender del Reviewer.
+- Primera respuesta del Reviewer en 13 intentos → **CSS changes desbloqueados de facto**. ALERT-06 y ALERT-07 (inventory-dashboard) pasan a enviarse al Reviewer en el próximo ciclo en vez de seguir en "proceeding by merit".
+- El PO dejó de ser una fuente de features no verificables: ahora todo lo que manda pasa por `curl` a la API antes de llegar al Principal.
+
+### Qué se rompió
+- Nada del código de producción. `git status` limpio antes de arrancar.
+- Se descubrió que el repo tenía **dos clones divergentes** en disco (ALERT-17). No hubo daño: los cambios se hicieron en el canónico.
+
+### Qué quedó pendiente
+- **PO** (`task-5ccb7fb3377d`): corregir PRE_BACKLOG con el set real de 7 logros + actualizar DASHBOARD_PO_IDEAS.md.
+- **Fractal Tracker (Idea 39)**: arrancar en rama propia siguiendo la decisión C2 + C1/C3 + seq por-token + theme JS desde el día 1. Patrón de datos nuevo (`fractal-data.js`) primero.
+- **ALERT-10 (homestead tracker huérfano)**: sigue sin decisión. El PO confirma en su heartbeat 16:00 que "es más trabajo del que asumíamos" (5 wrappers + wiring + fix de glyphs + icono faltante).
+- **ALERT-06/07 (inventory-dashboard)**: enviar al Reviewer ahora que responde.
+- **ALERT-12 (17 .js con BOM)**: sin tocar, esperando ventana con Reviewer disponible.
+
+### Decisiones tomadas
+1. **C2 → opción (a)**, `fractal-data.js` como fuente única; `activities.js` importa en vez de declarar.
+2. **Secuencia de implementación**: datos compartidos primero (`fractal-data.js`), módulo tracker después. Nunca al revés.
+3. **Regla de proceso**: toda propuesta del PO se verifica contra la API antes de convertirse en item de BACKLOG. Dos IDs inválidos y un claim falso en un solo día justifican la regla.
+4. **Clon canónico**: `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` es el único donde se commitea. `C:\repo` queda como scratch.
+ Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
 
 ## 2026-09-29T15:10 UTC — Heartbeat #28 (manual — solicitud de usuario)
 

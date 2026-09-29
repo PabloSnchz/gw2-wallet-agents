@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-29T15:10:00Z (Heartbeat #28 — Homestead glyph schema corregido)
+> Actualizado: 2026-09-29T18:00:00Z (Heartbeat #30 — VoE verification cerrado, correcciones al PO)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -12,10 +12,19 @@
 
 ## Pendientes (prioridad alta)
 
+- [x] **`/v2/events` RETIRADO (meta.js Ley Line)** — ✅ RESUELTO 2026-09-29T18:20Z, commit `f533d67` en `agents/main`. Verificado en vivo: `/v2/events` y `/v2/achievements/daily` → **503 `{"text":"API not active"}`**, mientras `/v2/maps`, `/v2/worlds`, `/v2/continents` y `/v2/itemstats` → **200**. No es caída transitoria: es retiro selectivo de esos dos endpoints. **No hay endpoint sustituto** — la rotación del mapa de Ley Line Anomaly no está expuesta en la GW2 API. La propuesta de reemplazarlo por `/v2/account/worldbosses` es incorrecta (worldbosses = historial de bosses derrotados). El código ya degradaba solo (`inst._activeWaypoint || meta.chat`); el guard `LEY_LINE_ENDPOINT_RETIRED` solo evita emitir un request condenado y documenta el hallazgo. El mismo retiro aplica a `/v2/achievements/daily`, aunque hoy no lo usa ningún módulo de `js/`.
+- [ ] **Coberturable account-scoped multicuenta (idea del PO 18:00 UTC)** — 🟡 **MAYOR GAP MEDIDO.** 12 endpoints `/v2/account/*` sin tocar: `skins` (10.632), `outfits` (136), `finishers` (70), `minis` (983), `novelties` (236), `gliders` (148), `mailcarriers` (16), `mounts/skins` (488), `mounts/types` (9), `titles` (496), `dyes` (643), `home/cats` (35). La Bóveda usa ~10 de ~50 disponibles. Arrancar por `skins`; el resto es data + columnas. Subsume las Ideas 38/40/41 del PO. ⚠️ **Trampa verificada:** `?ids=all` → **HTTP 400** en `/v2/skins` (y en `/v2/items`, `/v2/achievements`), pero **200** en `/v2/currencies`. Hay que paginar en lotes. Referencia del código existente: `chunk = 100` (`meta.js:294`).
+- [ ] **Commerce delivery** — 🟢 ~3-4h, dinero directo, riesgo casi nulo. `/v2/commerce/delivery` (verificado 401 con token inválido = existe). `api-gw2.js:310` y `:341` ya leen `transactions/buys` y `/sells`; falta lo que el usuario dejó sin recoger.
+- [ ] **Dungeon dailies** — 🟢 ~3-4h, completa una familia ya implementada 3/4. `activities.js` ya trackea `dailycrafting`, `worldbosses` y `mapchests`; falta `dungeons` (8 mazmorras, verificado 401 = existe). Patrón ya probado, es el de menor riesgo de los tres.
 - [ ] **Legendary Armory Phase 3** — ⏳ Skeleton implemented (bac5c67, 7c88fe6, 1aaff5a). Detail modal + CSS 3-capas done. AWAITING API connection (Phase 3 commit 4). Componentes de recetas bloqueados (API GW2 no expone recetas con ingredients). Wages of Stars (110020) ya en legendary-data.js. ~15-20h remaining.
 - [ ] **inventory-dashboard.js (glow + overflow)** — 📋 DIAGNOSTICADO. 4 inline styles con box-shadow/border-radius/transition (lines 462, 473, 709, 830) violate CSS 3-layer architecture. Awaiting Reviewer validation (Reviewer DOWN — 10th timeout, platform bug).
 - [ ] **Bug clearTimeout en inventory-dashboard.js** — 📋 DIAGNOSTICADO. loadActiveCharacterInventory (lines 267-290): clearTimeout(t1) en finally, pero AbortController c1 nunca se aborting explícitamente en error paths. loadAllInventories/loadCharactersInBackground no implementan abort en el pipeline. Timer leaks en caso de key-change o abort. Pattern reference: activities.js loadCMStatus (abort + last win).
-- [ ] **VoE content integration verification** — Confirmar que Nexus raid + Solitary Throne CM trackers funcionan con VoE verification content. Post-Sept 29. ~2h.
+- [x] **VoE content integration verification** — ✅ COMPLETADO (Heartbeat #30, 2026-09-29T18:00 UTC). Verificado contra API en vivo y contra producción:
+  - **Solitary Throne CM** — los 4 logros existen y están hardcodeados en `origin/main:js/activities.js:823-827`: `SOLITARY_THRONE_CM_ACHIEVEMENTS = {9423:'T1' (Scale 1+), 9412:'T2' (26+), 9373:'T3' (51+), 9388:'T4' (76+)}`. Nombres reales en la API: "Daily Tier 1/2/3/4 Solitary Throne". ✅
+  - **Nexus of Eternity** — presente en `origin/main:js/raid-tracker.js:121` (`nameEn: "Nexus of Eternity"`, `assets/icons/raids/wing9.png`, clase `.raid-expansion--voe`). ✅
+  - **Categoría 487 "Convergencia: Nexo de Eternidad"** ya aparece en el selector de logros: `achievements.js:255` carga `/v2/achievements/categories?ids=all&lang=es` dinámicamente (360 categorías, 168 KB). ✅
+  - **Hallazgo de robustez:** las 4 categorías del CM (78200/78572/78260/78613) **todavía no están publicadas** en `/v2/achievements/categories` (no aparecen entre las 360). Nuestro código matchea por **ID de logro**, no por categoría → inmune. No agrupar por categoría en código nuevo sin verificar contra la API.
+  - **IDs inválidos detectados:** `9384` y `9454` (propuestos por el PO) devuelven `404 {"text":"no such id"}`. El set real de VoE es `{9349, 9394, 9405, 9409, 9422, 9435, 9447}`. Ver DECISIONS_LOG 2026-09-29.
 
 ## Pendientes (prioridad media)
 

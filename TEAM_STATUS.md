@@ -1,7 +1,77 @@
-# TEAM_STATUS.md — Estado del equipo
+﻿# TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T15:10:00Z
-> Heartbeat #28: (1) task-dd859ed5ab5e FAILED (12th timeout, session_id mismatch). task-3751dd8645a7 finished OK (COMM 009). (2) PO: PRE_BACKLOG sin novedades desde 10:00 UTC (mismas 3 ideas). (3) 3 propuestas reenviadas al Reviewer -> task-ec845e5c532b FAILED (12th timeout). (4) BACKLOG: se avanzo con el item no-CSS mas grave: **Homestead glyph schema** — DIAGNOSTICADO Y CORREGIDO (commit 18ef9a4). Hallazgo mayor que el reportado por el PO: la API /v2/homestead/glyphs devuelve un array de STRINGS (36 entradas tipo "alchemy_harvesting"), NO objetos {id,name,icon}. El modulo renderizaba glyphs completamente rotos (id/icon/name undefined). Se agrego normalizeGlyphs() + normalizeGlyphIds() y se elimino el dead code CONFIG.GLYPH_UPGRADES (leia glyph.upgrade_item, campo inexistente). Verificado contra API real: 36/36 normalizados, node --check OK. (5) Logs actualizados. (6) Commit + push a agents.
+> Actualizado: 2026-09-29T18:00:00Z
+> Heartbeat #30 (cron-triggered, 18:00 UTC): (1) Agent tasks: COMM 013 (Reviewer, task-5dd795a4dd73) **FAILED con un modo de fallo NUEVO** — `Model 'kilo-auto/free' execution failed. Provider returned an empty response` (ya no es `session_id mismatch`). COMM 014 (Documentador, task-b4a7f3aeb84b) **COMPLETADA** — el Documentador vuelve a la vida, CHANGELOG/README/ONBOARDING actualizados (commit 53425b0). (2) PO: **2 heartbeats nuevos** (16:00 y 17:00 UTC) con 4 ideas nuevas (38 Skins/Outfits, 39 Fractal Tracker, 40 Mounts/Pets + 40-bis Esencias, 41 Titles) y **una retractación propia** de la premisa "MF account-wide = nuevo en Sept 2026". (3) 3+ propuestas → enviadas al Reviewer (attempt #3, `task-d3355a858009`, running al cierre). (4) BACKLOG: **VoE content verification COMPLETADO** contra API en vivo + producción. (5) **3 correcciones factuales al PO** — 2 de sus IDs de logro no existen (9384/9454 → 404), su claim de que `/v2/account/luck` no existe es falso (401, no 404), y su espejo DASHBOARD_PO_IDEAS.md quedó 10h desactualizado. (6) Logs + commit + push a agents.
+
+## Heartbeat #30 (18:00 UTC — cron-triggered)
+
+### Estado de tareas entre agentes
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | ✅ Activo | Heartbeat #30. VoE verification cerrado, 3 correcciones al PO, proposal pack al Reviewer. |
+| **code-reviewer** | ❌ **13th fallo — modo NUEVO** | `task-5dd795a4dd73` (COMM 013, validación diff feat-luck-kpi) → FAILED con `Provider returned an empty response`. Los 12 fallos anteriores eran `session_id mismatch`. Es un **bug distinto**: el provider devuelve respuesta vacía. Requiere escalado a Pablo. Attempt #3 del proposal pack = `task-d3355a858009`. |
+| **documenter** | ✅ **RECUPERADO** | `task-b4a7f3aeb84b` (COMM 014) **COMPLETADA**. Documentó Suerte/MF: CHANGELOG (`[Unreleased] → Added`), README (sección "Suerte (MF base account-wide)" + `luck-curve.js` v1.0.0 + `wallet-dashboard.js` v2.5.0→v2.7.0), ONBOARDING (sección "Novedades 2026-09-29"). Commit `53425b0` a agents. **Fin de la ventana de "Principal mantiene los logs"** salvo nuevo timeout. |
+| **product-owner** | ⚠️ Timeout crónico, pero **productivo** | 2 heartbeats nuevosesta tarde (16:00, 17:00 UTC) con 4 ideas nuevas + autocrítica propia. Enviadas 3 correcciones factuales (`task-5ccb7fb3377d`, 900s). |
+| **architect** | — | Excluido por diseño. |
+
+### Verificación VoE — ✅ COMPLETADO (item de BACKLOG cerrado)
+
+Todo verificado en vivo contra `api.guildwars2.com` y contra `origin/main`:
+
+| Check | Resultado |
+|---|---|
+| 4 logros CM Solitary Throne | ✅ Existen: 9423 "Daily Tier 1", 9412 "Daily Tier 2", 9373 "Daily Tier 3", 9388 "Daily Tier 4" |
+| Hardcode en producción | ✅ `origin/main:js/activities.js:823-827` — `SOLITARY_THRONE_CM_ACHIEVEMENTS`, scale `1+ / 26+ / 51+ / 76+` |
+| Nexus of Eternity (Wing 9) | ✅ `origin/main:js/raid-tracker.js:121`, `wing9.png`, clase `.raid-expansion--voe` |
+| Categoría 487 "Convergencia: Nexo de Eternidad" | ✅ Aparece sola en el selector: `achievements.js:255` → `/v2/achievements/categories?ids=all&lang=es` (360 cats, 168 KB) |
+
+**Set real de logros VoE (7), no 4:**
+
+| ID | Nombre | Repetible |
+|----|--------|-----------|
+| 9349 | Nexus of Eternity: Convergence Conqueror | — |
+| 9394 | Convergence CM — Nexus of Eternity: Silver | — |
+| 9405 | Nexus of Eternity Power Unleashed | ✅ |
+| 9409 | Nexus of Eternity Essence Collector | ✅ |
+| 9422 | (Weekly) Challenge Mode Convergences: Nexus of Eternity | ✅ |
+| 9435 | Convergence CM — Nexus of Eternity: Gold | — |
+| 9447 | (Weekly) Convergences: Nexus of Eternity | ✅ |
+
+### 3 correcciones factuales al PO (enviadas en `task-5ccb7fb3377d`)
+
+1. **9384 y 9454 NO EXISTEN.** `GET /v2/achievements/9384` → `404 {"text":"no such id"}`. Ídem 9454. El PO propuso un "Convergence Achievement Tracker" sobre `9384, 9349, 9405, 9454` — **2 de 4 son basura**. Además la categoría 487 ya se carga dinámicamente, así que el módulo sería redundante (el propio PO pidió verificar redundancia en la Idea 41; el mismo argumento aplica acá). **Regla AGENTS.md #6 aplicada: no insistir en features imposibles con los datos disponibles.**
+
+2. **"`/v2/account/luck` no existe" es FALSO.** `GET /v2/account/luck` sin token → **`HTTP 401 Unauthorized`**, no 404. 401 prueba que el endpoint existe y pide auth; un endpoint inexistente devuelve 404 `no such id` (como 9384). La feature Suerte (MF) ya commiteada en `agents/main` usa ese endpoint y es correcta. Lo que el PO retractó bien fue la **premisa de temporalidad** (MF account-wide es de 2013-09-03, no de Sept 2026) — eso ya estaba corregido en BACKLOG/COMM 012.
+
+3. **DASHBOARD_PO_IDEAS.md quedó 10h desactualizado** (timestamp `2026-09-29T07:37:00Z`). No refleja nada de los heartbeats 16:00 ni 17:00 — las Ideas 38/39/40/41 no aparecen. Es el único artefacto que ve Pablo. Pedido explícito al PO.
+
+**Bonus (defensivo, no un bug):** las 4 categorías del CM (78200/78572/78260/78613) **todavía no están publicadas** en `/v2/achievements/categories` (no están entre las 360). Nuestro código matchea por **ID de logro**, no por categoría → inmune. Regla para código nuevo: **no agrupar logros por categoría sin verificarla contra la API en vivo.**
+
+### Estado de propuestas del PO (pack enviado al Reviewer — attempt #3, `task-d3355a858009`)
+
+| # | Item | Dificultad | Estado |
+|---|------|-----------|--------|
+| 39 | **Fractal Tracker multicuenta** (T1-T4+CM, instabilities) | 🟡 Media (6-10h) | 🥇 **AHORA**. Enviado al Reviewer. Gap real: **no existe ningún módulo de fractals** (tenemos raid-tracker + strike-tracker, 2 de 3). El CM de Solitary Throne vive como bloque suelto en activities.js, no como módulo. Patrón raid-tracker.js/strike-tracker.js reusable. |
+| 38 | Skins / Outfits tracker multicuenta | 🟡 Media (8-12h) | 🥈 Enviado. **Limitación dura de API**: no existe `/v2/account/skins`. Solo `/v2/characters/{id}/outfits` (outfits *guardados*, subconjunto). El PO lo enmarca honestamente como "outfits guardados", no "mi wardrobe". Bien. |
+| 41 | Titles tracker (648 títulos con achievement ID) | 🟢 Fácil (2-4h) | 🥉 Enviado. El PO pide verificar redundancia contra achievements.js. **Probablemente redundante**, mismo caso que VoE. |
+| 40 | Mounts / Pets tracker | 🟢 Fácil (3-5h) | 🥉 Enviado. El PO pide confirmación de Pablo antes (valor real solo para coleccionistas). |
+| 40-bis | Esencias sin usar + saturación de MF a 300% | 🟡 Media | 🆕 17:00 UTC. **Numeración duplicada en el PO** (dos "Idea 40"). Gap real y bien acotado: la Luck Bar no es legible por API, pero las esencias (45175-45179) sí son items inventariables. **No prometer progreso de barra.** |
+
+> Nota de metodo: el PO admitio dos veces seguidas mandar features sin verificar contra la API. Instaure la regla "toda feature nueva pasa por curl a la API + wiki antes de mandarse al Principal". La verificacion de este heartbeat ya detecto 2 IDs invalidos y 1 claim falso: el metodo funciona.
+
+### Crons
+
+| Cron ID | Nombre | Agente | Schedule | Estado | Última ejecución |
+|---------|--------|--------|----------|--------|------------------|
+| `13dc22e6` | Heartbeat Principal | default | `*/30 * * * *` (UTC) | ✅ Activo (`share_session: false`, 900s) | 🔄 **#30 — 18:00 UTC (cron-triggered)** |
+| `c3f30dc2` | Heartbeat PO | product-owner | `0 */2 * * *` (UTC) | ✅ Activo | 17:00 UTC (productivo) |
+
+### Próximos pasos
+1. ⏳ **Reviewer attempt #3** (`task-d3355a858009`) — proposal pack Ideas 38/39/40/41, pregunta única: ¿arrancar por Idea 39 (Fractal Tracker) con el patrón raid-tracker/strike-tracker? Si falla → attempt #3 agotado → marcar Fallido y **escalar a Pablo** (3 intentos, según AGENTS.md).
+2. ⏳ **PO** (`task-5ccb7fb3377d`) — corregir PRE_BACKLOG con el set real de 7 logros + actualizar DASHBOARD_PO_IDEAS.md.
+3. ⏳ **Homestead tracker: decisión pendiente** (sin cambios desde #28) — mergear `feature/homestead-tracker` completa (5 wrappers API + wiring + fix de glyphs `18ef9a4` + **falta el icono `homestead-icon.png`**) vs revertir el archivo huérfano de `agents/main`. Confirmado por el PO en su heartbeat 16:00 ("código muerto, es más trabajo del que asumíamos").
+4. ⚠️ **Escalar a Pablo** — (a) Reviewer: nuevo modo de fallo `Provider returned an empty response`, 13º consecutivo; (b) 3 intentos agotados si el #3 falla; (c) Documentador **recuperado** ✅.
 
 ## Heartbeat #28 (15:10 UTC)
 
