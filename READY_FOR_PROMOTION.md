@@ -1,38 +1,27 @@
-# READY_FOR_PROMOTION.md
+# READY_FOR_PROMOTION.md — Cambios listos para promover a origin
 
-> Inventario de feats/fixes listos para promocion a `origin/main`
-> (produccion). El equipo NO promueve. Pablo debe solicitar
-> explicitamente: "promove feat-X a origin" antes de cherry-pick.
+> Actualizado: 2026-09-29 00:23 UTC
+> Mantenedor: Principal (default)
+>
+> IMPORTANTE: Este archivo es INFORMATIVO. No implica ninguna acción esperada de Pablo.
+> El equipo NO espera respuesta. Pablo decide cuándo promover cuando quiera.
 
-## Feat 1: Sept 29 CM content — Listo
+---
 
-| Rama | Commits | Push | Detalle |
-|------|---------|------|---------|
-| `feature/cm-content-sept29` | `8cc5fc6`, `116ac60` | agents/main | Wing 9 VoE (raid-tracker) + Solitary Throne CM (activities) |
+## Listos para promover
 
-Cherry-pick: `8cc5fc6` + `116ac60` a `origin/main`
+| Item | Rama | Commit(s) | Fecha | Descripción |
+|------|------|-----------|-------|-------------|
+| Sept 29 CM content | `feature/cm-content-sept29` | `8cc5fc6`, `116ac60` | 2026-09-29 | Wing 9 VoE (raid-tracker) + Solitary Throne CM (activities). Merged a agents/main. |
+| Grid corruption fix | `fix/grid` | `d1e7c14` | 2026-09-29 | Cierra media query roto en main.css (header duplication). Merged a agents/main. |
+| Security: gist-sync encryption | `fix/security-gist-sync-encryption` | `65f55f90` | 2026-09-29 | PBKDF2 + AES-GCM. Merged a agents/main. |
+| Top pending items refactor | `fix/topPendingItems` | `d035e8c`, `729112` | 2026-09-29 | Refactor de topPendingItems. Merged a agents/main. |
 
-## Fix: Grid corruption — Listo
+---
 
-| Rama | Commits | Push | Detalle |
-|------|---------|------|---------|
-| `fix/grid` | `d1e7c14` | agents/main | Cierra media query roto en main.css (591/591 braces) |
+## Reglas
 
-Cherry-pick: `d1e7c14` a `origin/main`
-
-## Feat: Legendary Armory Phase 1 — Parcial
-
-| Rama | Commits | Push | Detalle |
-|------|---------|------|---------|
-| `feature/legendary-component-tracker` | `35a0f5e`, `bac5c67` | agents/main | Skeleton + Phase 3 Commits 1-3. Phase 3 Commit 4 en progreso. |
-
-No cherry-pick hasta que Phase 3 Complete y Pablo test.
-
-## Instrucciones para Pablo
-
-1. Pablo prueba en gw2-wallet-agents Pages.
-2. Pablo dice: "promove feat-sept-29-cm-content a origin"
-3. Equipo cherry-picka los commits a origin/main
-4. Pablo valida en gw2-wallet-ligero Pages
-
-Recordatorio: el equipo NO propone promocion. Espera OK explicito.
+1. Solo se agregan items estables y testeados por el equipo.
+2. NO implica urgencia. NO esperar respuesta de Pablo.
+3. Si un item queda obsoleto, se elimina de esta lista.
+4. Cuando Pablo pide promover, los items se mueven a "promovidos" o se eliminan.
