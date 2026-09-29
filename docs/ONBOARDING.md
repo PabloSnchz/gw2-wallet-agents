@@ -2,7 +2,7 @@
 # 🐈⬛ Bóveda del Gato Negro — Onboarding Técnico Consolidado (v6.6.0)
 
 Fecha: 2026-09-24
-Módulos clave: `api-gw2.js`, `router.js`, `achievements.js`, `wizards-vault.js`, `wv-season-storage.js`, `wv-purchase-detail.js`, `wv-tabs-skin.js`, `wv-shop-ui.js`, `wv-objectives-ui.js`, `wv-objectives-dashboard.js`, `wv-theme.js`, `wallet-dashboard.js`, `inventory-dashboard.js`, `raid-tracker.js`, `app.js`, `meta.js`, `activities.js`, `activities-theme.js`, `characters.js`, `characters-theme.js`, `accounts-panel.js`, `welcome-panel.js`, `settings-manager.js`, `analytics.js`, `gist-sync.js`, `sidebar-nav.js`, `inventory-hub.js`, `converter-modal.js`, `storage.js`, `*-theme.js`, `main.css`, `theme-polish.css`
+Módulos clave: `api-gw2.js`, `router.js`, `achievements.js`, `wizards-vault.js`, `wv-season-storage.js`, `wv-purchase-detail.js`, `wv-tabs-skin.js`, `wv-shop-ui.js`, `wv-objectives-ui.js`, `wv-objectives-dashboard.js`, `wv-theme.js`, `wallet-dashboard.js`, `inventory-dashboard.js`, `raid-tracker.js`, `app.js`, `meta.js`, `activities.js`, `activities-theme.js`, `characters.js`, `characters-theme.js`, `accounts-panel.js`, `welcome-panel.js`, `settings-manager.js`, `analytics.js`, `gist-sync.js`, `sidebar-nav.js`, `inventory-hub.js`, `converter-modal.js`, `luck-curve.js`, `storage.js`, `*-theme.js`, `main.css`, `theme-polish.css`
 
 ## 📌 BAI — Bloque de Alineamiento Instantáneo
 
@@ -56,6 +56,61 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - ☐ ¿Impacto en performance/UI?
 
 Si hay riesgo → advertir antes de generar código.
+
+---
+
+## 🎲 Novedades 2026-09-29 (SEPT 2026) — Suerte (Luck / MF base account-wide)
+
+Idea del PO. **La premisa se verificó y se corrigió antes de implementar**, por eso esta sección arranca por los datos y no por el código.
+
+### 📌 Hechos sobre la Luck (verificados)
+
+| Dato | Valor |
+|------|-------|
+| **Endpoint real** | `/v2/account/luck` — activo desde **2019-04-08**, scope `account` |
+| **NO está en** | `/v2/currencies` — comprobado en vivo: 79 monedas, `id` máximo 83, **0 coincidencias** con `luck` / `magic find` |
+| **Respuesta** | `[{"id":"luck","value":N}]` o `[]` si la cuenta nunca consumió esencia |
+| **Curva** | 300 niveles; tope = **300% de MF base = 4.295.450 luck** |
+| **Exceso** | Se siguen acumulando hasta **472.510** luck por encima del tope (ya no otorgan MF) |
+| **Fuente** | https://wiki.guildwars2.com/wiki/Luck |
+
+> ⚠️ **Matiz histórico**: la mecánica de *magic find* account-wide es de **2013-09-03**, no de septiembre 2026. Lo nuevo en 2025/2026 en el juego es otro sistema (ítems account-bound con stat options, del ecosistema Path of Fire) y **no afecta estos datos**. La idea del PO era correcta en el objetivo, no en la premisa.
+
+### 📦 `js/luck-curve.js` (NUEVO, v1.0.0)
+
+- IIFE que expone `window.LuckCurve`. **Sin DOM, sin fetch, sin storage** — módulo de cálculo puro.
+- `CUMULATIVE`: tabla con los **300 umbrales oficiales**, parseada del wikitext de GW2 Wiki. `CUMULATIVE[0] = 100` (de 0 a 1% MF), `CUMULATIVE[299] = 4295450` (tope).
+- Constantes: `MF_CAP = 300`, `LUCK_CAP = CUMULATIVE[299]`, `LUCK_OVERFLOW = 472510`.
+- `fromLuck(value)` → `{value, mf, missing, nextLuck, capped, pct, maxed, overflow}`:
+  - `mf` = % de MF base alcanzado (último umbral que cabe en el luck consumido).
+  - `missing` = luck que falta para el próximo **+1%**.
+  - `pct` = progreso **entre** el umbral actual y el siguiente (barra de progreso de la celda).
+  - `capped` / `maxed` = `true` al tope; `overflow` = luck por encima de `LUCK_CAP`.
+
+### 🔌 `api-gw2.js` — `getAccountLuck(token, opts) -> Number`
+
+- Sigue el patrón de `getAccountWallet`: `getCache` → `inflightOnce` → `fetchWithRetry` → `putCache`.
+- `TTL.LUCK = 10 min` (la suerte solo sube al consumir esencia, así que no necesita TTL largo).
+- Devuelve el **luck crudo**; el MF% se calcula aparte con `LuckCurve`. `[]` de la API → `0`.
+
+### 📊 `wallet-dashboard.js` v2.6.0 → v2.7.0
+
+- Nuevo **campo de resumen opt-in** `'luck'` (columna "Suerte (MF)", símbolo 🍀). Aparece solo si el usuario lo selecciona.
+- Helpers: `luckToProgress(value)` (delega en `window.LuckCurve`, con fallback neutro si el módulo no estuviera cargado), `fmtLuck(n)`, `renderLuckCell(s)`.
+- Fetch en `loadAccountSummary` solo si `'luck'` está en `state.summaryFields`.
+- Celda: MF% en color + barra de progreso de 56px + `title` con "Faltan X luck para el siguiente +1%".
+- **KPI**: "Mejor MF base (N/M al tope)" — `borderLeft:3px solid rgba(255,193,7,0.5)`, sin CSS nuevo.
+- **Fila TOTAL**: muestra "N tope" (o `—`) porque **el MF% no se puede sumar entre cuentas**: cada cuenta tiene su curva independiente.
+- El sort existente `summary:<field>` ya funciona: `summary.luck` se guarda como número.
+
+### ✅ Validación
+
+- Tabla parseada del wikitext y validada en **consistencia cumulativa**: 0 discrepancias entre suma-de-requeridos y total-de-fila en los 300 niveles. Tope calculado 4.295.450 = prosa de la wiki.
+- Test funcional en Node que evalúa el **código real** extraído del archivo (`renderLuckCell`/`luckToProgress`): 8 casos (0, 99, 100, 1000000, 4295449, 4295450, 4500000, `[]`) + 4 checks de curva → TODO OK.
+- `node --check` OK en los 3 JS, antes y después del merge.
+- Verificado en GitHub: `origin/main` @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag.
+- **Sin CSS, sin DOM ajeno, sin localStorage nuevo, sin prefijo `gn:` nuevo.** Producción (`gw2-wallet-ligero`) intacta.
+- Commits: `44c64a9` (feat) → `6067851` (merge `feat-luck-kpi`) → `0cc5cb7` (merge `origin/main` → `agents/main`).
 
 ---
 
@@ -1590,7 +1645,8 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 | `js/welcome-panel.js` | v1.4.0 | Pantalla de Bienvenida |
 | `js/raid-tracker.js` | v1.7.0 | Seguimiento de Raids Semanales |
 | `js/strike-tracker.js` | **v1.0.0** | **Seguimiento de Strike Missions (NUEVO v6.6.2)** |
-| `js/wallet-dashboard.js` | **v2.5.0** | Dashboard de Cartera — **KPIs con border-left semántico + glow, tabla unificada. Estilos inline eliminados, usa `.wd-*` + `.card`** |
+| `js/luck-curve.js` | **v1.0.0** | Curva de Suerte (Luck) account-wide — **tabla `CUMULATIVE` de 300 umbrales oficiales + `fromLuck()`. Sin DOM, sin fetch, sin storage** |
+| `js/wallet-dashboard.js` | **v2.7.0** | Dashboard de Cartera — **KPIs con border-left semántico + glow, tabla unificada, columna opt-in "Suerte (MF)". Estilos inline eliminados, usa `.wd-*` + `.card`** |
 | `js/inventory-dashboard.js` | **v1.0.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa de ítems, sets con tiers, carga en 2 fases. Estilos inline eliminados, usa `.id-*` + `.card`** |
 | `js/router.js` | **v2.17.0** | Router desacoplado (~800 líneas). **Soporta InventoryHub, WV Objectives Dashboard. Sidebar sin conversor. Purchase Detail en nav tabs.** |
 | `js/app.js` | **v2.7.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |

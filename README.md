@@ -44,6 +44,30 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 
 ## ✨ Novedades principales — Unreleased
 
+### 🎲 Suerte (MF base account-wide) en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0)
+
+**Idea del PO (2026-09-29). La premisa se corrigió antes de implementar: la Luck no es una moneda.**
+
+| Dato | Valor |
+|------|-------|
+| **Endpoint real** | `/v2/account/luck` (activo desde 2019-04-08, scope `account`) |
+| **NO está en** | `/v2/currencies` — 79 monedas, `id` máx 83, 0 coincidencias con `luck`/`magic find` |
+| **Respuesta** | `[{"id":"luck","value":N}]` o `[]` si nunca se consumió esencia |
+| **Curva** | 300 niveles; tope = **300% MF base = 4.295.450 luck** |
+| **Exceso** | Hasta 472.510 luck por encima del tope (ya no otorgan MF) |
+| **Fuente** | https://wiki.guildwars2.com/wiki/Luck |
+
+> La mecánica de *magic find* account-wide es de **2013-09-03**, no de septiembre 2026. Lo nuevo de 2025/2026 (ítems account-bound con stat options) es otro sistema y no afecta estos datos.
+
+| Archivo | Versión | Cambio |
+|---------|---------|--------|
+| `js/luck-curve.js` | **v1.0.0** | **NUEVO** — IIFE → `window.LuckCurve`. Tabla `CUMULATIVE` con los 300 umbrales oficiales + `fromLuck(value)`. Sin DOM, sin fetch, sin storage |
+| `js/api-gw2.js` | v2.15.0 | `getAccountLuck(token, opts) -> Number`, `TTL.LUCK = 10 min`. Patrón de `getAccountWallet` |
+| `js/wallet-dashboard.js` | **v2.7.0** | Campo de resumen opt-in `'luck'` → columna "Suerte (MF)": MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% no se suma entre cuentas |
+| `index.html` | — | `<script src="js/luck-curve.js?v=1.0.0">` + `wallet-dashboard.js` a `?v=2.7.0` |
+
+**Validación:** tabla parseada del wikitext con **0 discrepancias cumulativas** en los 300 niveles; tope calculado 4.295.450 = prosa de la wiki. Test funcional en Node contra el código real (8 casos + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS. Commit `44c64a9`.
+
 ### 💾 Centralización de localStorage (`js/storage.js` v1.0.1)
 
 **Único punto de acceso a `localStorage` con migración automática de prefijos.**
@@ -929,7 +953,8 @@ Definí en `index.html` (antes de router.js):
 | `js/wv-theme.js` | **v1.0.1** | Tema visual de WV. **Solo border-left, expone window.WVTheme** |
 | `js/characters-theme.js` | **v1.0.1** | Tema visual de Personajes. **Solo border-left, elimina hover manual** |
 | `js/wv-purchase-detail.js` | **v1.13.1** | Detalle de compras. **Fix estado online (data-token), ícono reloj local** |
-| `js/wallet-dashboard.js` | **v2.5.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra** |
+| `js/luck-curve.js` | **v1.0.0** | **NUEVO: Curva de Suerte (Luck) account-wide — 300 umbrales oficiales + `fromLuck()` MF%. Sin DOM/fetch/storage** |
+| `js/wallet-dashboard.js` | **v2.7.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra, columna opt-in "Suerte (MF)"** |
 | `js/raid-tracker.js` | **v1.8.0** | **Raid Tracker: 8 alas, 33 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
 | `js/strike-tracker.js` | **v1.0.0** | **Strike Tracker: 15 strikes, grid optimizado, KPIs, modal con detalles, navegación integrada con Raids** |
 | `js/analytics.js` | **v1.0.0** | **Eventos personalizados para Google Analytics** |

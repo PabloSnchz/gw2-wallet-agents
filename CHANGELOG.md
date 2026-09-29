@@ -19,6 +19,20 @@ y el versionado **SemVer** (https://semver.org/).
   - **Cambio quirúrgico**: 2 líneas borradas, 1 agregada. No toca CSS ni arquitectura. Code Reviewer ✅ (task-fa0e4c29b938, commit original `94fb7a9`).
 
 ### Added
+- **🎲 Columna "Suerte (MF)" en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0 + `wallet-dashboard.js` v2.7.0, `44c64a9`)**:
+  - **Idea del PO (2026-09-29), premisa verificada y corregida antes de implementar**:
+    - La Luck **NO** aparece en `/v2/currencies` (verificado en vivo: 79 monedas, `id` máximo 83, 0 coincidencias con `luck`/`magic find`).
+    - Endpoint real: **`/v2/account/luck`**, activo desde **2019-04-08**, scope `account`. Devuelve `[{"id":"luck","value":N}]` o `[]` si la cuenta nunca consumió esencia.
+    - La mecánica de *magic find* account-wide es de **2013-09-03**, no de septiembre 2026. Lo nuevo en 2025/2026 en el juego es otro sistema (ítems account-bound con stat options, del ecosistema Path of Fire) y **no afecta estos datos**.
+  - `js/luck-curve.js` (NUEVO, v1.0.0, IIFE → `window.LuckCurve`): tabla `CUMULATIVE` con los **300 umbrales oficiales** de GW2 Wiki + `fromLuck(value)` → `{value, mf, missing, nextLuck, capped, pct, maxed, overflow}`. Sin DOM, sin fetch, sin storage.
+  - `js/api-gw2.js`: nueva `getAccountLuck(token, opts) -> Number` con `TTL.LUCK = 10 min`. Sigue el patrón de `getAccountWallet` (`getCache`/`putCache`/`inflightOnce`/`fetchWithRetry`). Devuelve el luck crudo; el MF% se calcula aparte con `LuckCurve`.
+  - `js/wallet-dashboard.js` v2.6.0 → **v2.7.0**: nuevo campo de resumen opt-in `'luck'` (columna "Suerte (MF)"). Helpers `luckToProgress`/`fmtLuck`/`renderLuckCell`, fetch en `loadAccountSummary`. Celda con MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% **no** se puede sumar entre cuentas (curva independiente por cuenta).
+  - `index.html`: `<script src="js/luck-curve.js?v=1.0.0">` + bump de cache-busting de `wallet-dashboard.js` a `?v=2.7.0`.
+  - **Curva oficial**: 300 niveles, tope de **300% de MF base = 4.295.450 luck**. Además se siguen acumulando hasta **472.510** de exceso (ya sin otorgar MF). Fuente: https://wiki.guildwars2.com/wiki/Luck
+  - **Validación**: tabla parseada del wikitext y verificada en consistencia cumulativa — **0 discrepancias** entre suma-de-requeridos y total-de-fila en los 300 niveles; tope calculado 4.295.450 coincide con la prosa de la wiki. Test funcional en Node contra el código real extraído del archivo (8 casos: 0, 99, 100, 1000000, 4295449, 4295450, 4500000, `[]` + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS antes y después del merge. Verificado en GitHub: `origin/main` @ `0cc5cb7` contiene `luck-curve.js`, `getAccountLuck` y el script tag.
+  - Sin CSS, sin DOM ajeno, sin localStorage nuevo, sin prefijo `gn:` nuevo. Producción (`gw2-wallet-ligero`) intacta.
+  - Commits: `44c64a9` (feat), `6067851` (merge feat-luck-kpi), `0cc5cb7` (merge origin/main → agents/main)
+
 - **Mejoras de UX en flujo de API Keys (9 propuestas del PO Pablo)**:
   - Propuesta 1: Loading state en botón "Guardar" (`.btn--loading` + spinner CSS)
   - Propuesta 2: Focus automático en `kfValue` tras éxito (con `select()`)
