@@ -122,7 +122,8 @@
           '#/inventory/dashboard':'inventoryDashboard',
           '#/account/raids':'raids',
           '#/account/strikes':'strikes',
-          '#/account/legendary-armory':'legendaryArmory'
+          '#/account/legendary-armory':'legendaryArmory',
+          '#/account/homestead':'homestead'
         };
         var dv = map[h]; if (dv) found = links.find(function (a) { return (a.getAttribute('data-view')||'').trim().toLowerCase()===dv; }) || null;
       }
@@ -144,13 +145,14 @@
       else if (view==='raids'){ /* no sidebar específico para raids */ }
       else if (view==='strikes'){ /* no sidebar específico para strikes */ }
       else if (view==='legendaryArmory'){ /* no sidebar específico para arm. legendaria */ }
+      else if (view==='homestead'){ /* no sidebar específico para homestead */ }
       else if (view==='inventory'){ /* no sidebar específico para inventario */ }
       else if (view==='inventoryDashboard'){ /* no sidebar específico */ }
     } catch (e) { console.warn('[router] updateSidebarFor error', e); }
   }
 
   function showPanel(idToShow) {
-    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel','legendaryArmoryPanel'].forEach(function(id){
+    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel','legendaryArmoryPanel','homesteadTrackerPanel'].forEach(function(id){
       var node=el(id); if (!node) return;
       if (id===idToShow) node.removeAttribute('hidden'); else node.setAttribute('hidden','hidden');
     });
@@ -1575,6 +1577,22 @@
           return;
         }
 
+        if (h === '#/account/homestead') {
+          try {
+            showPanel('homesteadTrackerPanel');
+            if (typeof Analytics !== 'undefined') Analytics.viewModule('homestead');
+            if (window.HomesteadTracker && typeof window.HomesteadTracker.activate === 'function') {
+              window.HomesteadTracker.activate();
+            }
+          } catch (e) {
+            console.warn('[router] show homestead error', e);
+          } finally {
+            updateSidebarFor('homestead');
+            setActiveNav(h);
+          }
+          return;
+        }
+
         if (h === '#/cards') {
           try { 
             showPanel('walletPanel');
@@ -1818,6 +1836,12 @@
           window.LegendaryTracker.refresh(true);
         } else if (window.LegendaryTracker && typeof window.LegendaryTracker.activate === 'function') {
           window.LegendaryTracker.activate();
+        }
+      } else if (h === '#/account/homestead') {
+        if (window.HomesteadTracker && typeof window.HomesteadTracker.refresh === 'function') {
+          window.HomesteadTracker.refresh(true);
+        } else if (window.HomesteadTracker && typeof window.HomesteadTracker.activate === 'function') {
+          window.HomesteadTracker.activate();
         }
       }
 
