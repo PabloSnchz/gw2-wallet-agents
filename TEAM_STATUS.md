@@ -1,6 +1,8 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T19:52:00Z
+> Actualizado: 2026-09-29T21:35:00Z
+> Heartbeat #34: (1) **Reviewer RESPONDIO las 2 consultas abiertas** (`task-57c182d1993a` / COMM 019 y `task-a0398e55c545` / COMM 020) — fin de la racha de 14 fallas. (2) **Ejecutado su veredicto de COMM 019**: los estilos inline del bloque de fractales salen de `style=` y se reparten en las 3 capas — `main.css` v2.8.0 (estructura), `theme-polish.css` v2.3.0 (piel), **`js/fractal-tracker-theme.js` v1.0.0 (nuevo, capa 3, unica que escribe `borderLeft`)**. Commit `b1fbd83`, merge `b2a307f` a `agents/main`, rama borrada. (3) **Auditado el trabajo de la rama del PO**: `Idea 45` (multicuenta) ya estaba mergeada en `3e012c2`; sus 2 tramos quedaron validados por el Reviewer sin cambios. (4) **PO consultado**: 4 ideas nuevas (42/43/44/45), 2 de las viejas corregidas por el propio PO, y 3 propuestas abiertas esperando validacion. (5) Logs + commit + push a agents.
+> Heartbeat #35 (21:30 UTC): (1) **Rescate de datos: `ALERTS_LOG.md` estaba en 0 bytes en el working tree** con un diff de -39 lineas — se habian perdido 17 alertas activas. Restaurado con `git checkout` (8151 bytes). (2) **Verificado el veredicto del Reviewer (COMM 020) contra el codigo real**: los 3 bloqueantes ya estaban resueltos — `.catch` propaga en vez de degradar a `[]`, BOM de `meta.js` restaurado, y `getCommerceDelivery` documentada en CHANGELOG/ONBOARDING como API sin consumidor. (3) **Verificada la extraccion de CSS de COMM 019**: 0 estilos inline con `border` en `activities.js`, y `fractal-tracker-theme.js` escribe unicamente `borderLeft`, sin `!important`. (4) PO: timeout de plataforma. (5) Logs + commit + push a agents.
 > Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
 
 > Heartbeat #33: (1) **Documentador recuperado y productivo** — completó `task-d1308a9671e0` (2º vez consecutiva que responde). Documentó los 2 fixes de datos falsos en commit `e7672bc`. (2) **Audité sus 3 discrepancias contra el código real** — 1 era certa, 2 no. (3) **Corregí el CHANGELOG**: decía que el fix de fractals no estaba mergeado y **sí lo está** (`27b8394`). (4) **Bumpeé `meta.js` v3.4.0 → v3.4.1**: el fix de Ley Line nunca bumpeó la query string, así que no llegó al navegador por cache. (5) **Implementé el item #43 (Commerce Delivery)** — la fricción real que reportó el PO: «me muestra el ítem del TP como venta pasada sin decirme que no lo cobré». Endpoint **verificado en vivo** (401 con token falso ≠ 404 de inexistente). (6) **PO cerró la idea #40** por sí mismo: pets no tiene endpoint account-scoped. (7) Reviewer: **14º falla consecutiva**.
@@ -558,3 +560,82 @@ Consecuencia: el fix de glyphs (18ef9a4) esta en `fix/homestead-glyph-data`, bas
 3. ⏳ **inventory-dashboard.js fixes** — Diagnosticado (glow/overflow lines 462/473/709/830 + clearTimeout bug lines 267-290). Pospuesto (CSS changes require Reviewer; Reviewer DOWN, 10th timeout, platform bug).
 4. ⏳ **Homestead decoration tracker** — PO prioridad #1 (post-promotion). API confirmed. Pattern: activities.js Home Nodes. Bloqueado (CSS changes require Reviewer; Reviewer DOWN).
 5. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts (unchanged). Escalado a Pablo.
+
+---
+
+## Heartbeat #34 (21:05 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | OK. Activo | Heartbeat #34. Ejecuto el veredicto de CSS del Reviewer, mergeo a `agents/main`, audito y avanzo el siguiente item del BACKLOG. |
+| **code-reviewer** | **RECUPERADO** | Respondio las 2 consultas abiertas (COMM 019 `task-57c182d1993a`, COMM 020 `task-a0398e55c545`). Racha de 14 fallas interrumpida. Sigue siendo intermitente. |
+| **documenter** | Operativo | Sin tarea abierta en este ciclo. |
+| **product-owner** | Respondio | `task-8ac8b315b5ac` **COMPLETADA**. Reporto 4 ideas nuevas y **corrigio 2 de las suyas propias**. Pide subir `DASHBOARD_PO_IDEAS.md` (tiene 2 afirmaciones falsas). |
+| **architect** | — | Excluido por diseno. |
+
+### Trabajo completado en este ciclo
+
+**Racha de 14 fallas del Reviewer: interrumpida.** Las dos consultas que carried el bloqueo anterior respondieron en el mismo ciclo, y las dos con analisis substantial, no con el placeholder que venia devolviendo. Eso cambia el estado operativo: el bloqueo por CSS que arrastraba el backlog **se levanta**.
+
+**Veredicto de COMM 019 aplicado (extraccion de estilos inline de fractales).** El Reviewer fue categorico: extraer, y extraer **el aviso y la card en el mismo commit**, porque extraer solo el aviso dejaba `renderFractals()` incoherente por dentro. Eso se hizo.
+
+Reparto final, verificado contra el codigo real:
+
+| Capa | Archivo | Que aporta |
+|------|---------|------------|
+| 1 — layout | `css/main.css` **v2.8.0** | `.fractals-stack`, `.fractal-card` y sus clases hijas. Estructura, sin bordes. |
+| 2 — piel | `css/theme-polish.css` **v2.3.0** | Borde neutro + `border-radius` de `.fractal-notice`; `border-top` separadores. |
+| 3 — color | `js/fractal-tracker-theme.js` **v1.0.0** (nuevo) | **Unica capa que escribe `borderLeft`.** Resuelve `data-fl-color` (`info` / `t4` / `cm`). |
+
+`activities.js` v3.20.2 bajo a **0 `style=` inline en ese bloque**: ahora solo marca el rol semantico con `data-fl-color` y no conoce la existencia del theme.
+
+**Verificacion antes de commitear** (no despues):
+- `node --check` limpio en los 2 JS.
+- `borderLeft` es la **unica** propiedad que escribe el theme JS. Sin `!important`, sin `boxShadow`, sin `borderRadius`, sin `transition`.
+- Sin colision: `.fractal-card` / `.fractal-notice` no existian en ningun CSS previo.
+
+**Dos defectos corregidos de paso, que no eran parte del encargo:**
+1. Los cache-busters de `index.html` apuntaban a `main.css?v=9.9.1` y `theme-polish.css?v=3.21.0`, **versiones que no existen** (los headers dicen 2.7.0 y 2.2.0). Alineados a 2.8.0 / 2.3.0.
+2. El comentario del header de `activities.js` decia que la piel habia ido a `theme-polish.css`, cuando `padding`/`flex`/`grid` van a `main.css` (capa 1). Corregido: un comentario que miente sobre donde vive cada capa induce al siguiente a buscarla en el archivo equivocado.
+
+**Idea 45 del PO: auditada, no reimplements.** El commit `3e012c2` ya esta en `agents/main` con los 2 tramos. Se reviso el diff real en vez de asumirlo, y el Reviewer en COMM 020 lo audito sin pedir cambios.
+
+### Pendientes
+
+- **Idea 45.2 (error por cuenta con endpoint)** — desbloquea 42 y 43. Es la de mayor retorno: sin ella, un fallo de red es indistinguible de un resultado vacio en las 27 cuentas.
+- **Idea 44 (dungeon dailies)** — completa una familia ya implementada 3/4. Patron de render probado, es la de menor riesgo.
+- **Idea 43 (UI de Commerce Delivery)** — la API ya existe pero el Reviewer la aprobo **con cambios**: el `.catch -> []` produce un falso negativo indistinguible del estado real. Un 403 permanente por falta de scope `tradingpost` se veria como "caja vacia" **de forma indefinida**. Pide propagar el error y documentar por que esta funcion se desvia de sus sisters.
+- **Idea 42** — el mayor gap medido (12 endpoints account-scoped, ninguno de los 46 que usa la app), pero **trampa de paginacion**: devuelve **206**, no 200, y `X-Result-Count` no cuadra con el rango pedido. Todo codigo que asuma `count == ids.length` revienta en runtime.
+- **Idea 41 (Titulos)** — **reabierta por el propio PO.** La dio por baja como redundante; verifico que `achievements.js` solo usa `/v2/titles?id=` como resolutor de nombres y **nunca llama a `/v2/account/titles`**. No era duplicada.
+- **`DASHBOARD_PO_IDEAS.md`** — congelado en 16:00 UTC, con 2 afirmaciones que el PO **desmiento el mismo** (endpoints de skins que si existen; Convergence Tracker que se drope). Es el artefacto unico que ve Pablo. El PO.ofrece arreglarlo; no lo hizo porque se le pidio responder sin commitear.
+
+### Alertas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| 9 | **El Reviewer volvio, pero intermitente.** 2 respuestas completas en el mismo ciclo tras 14 fallas. No hay fix de plataforma: hay que reintentar cada heartbeat y no asumir que volvio para siempre. | Media — monitorear |
+| 10 | **Idea 42 con paginacion que devuelve 206.** No es un detalle de implementacion, es una trampa que rompe en runtime. | Media — bloquea 42 |
+| 11 | **El `.catch -> []` de `getCommerceDelivery` es un falso negativo por diseño.** El Reviewer lo aprobo con cambios. Con 0 callers el costo de arreglarlo ahora es cero; cablear la UI primero lo convierte en refactor sobre algo en uso. | Media — hacer antes de la UI |
+| 12 | **`DASHBOARD_PO_IDEAS.md` publica datos falsos.** Es lo unico que ve Pablo. | Media — el PO ofrece arreglarlo |
+
+### Estado de propuestas del PO
+
+3 propuestas abiertas esperando validacion del Reviewer, ninguna toca CSS:
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| **45.1** | Barra de progreso multicuenta (N/27) | Verde | 2-3h | **ABIERTA.** Es leer el loop que ya existe. |
+| **44** | Dungeon dailies multicuenta | Verde | 3-4h | **ABIERTA.** Patron de render ya probado. |
+| **45.2** | Error por cuenta con endpoint en el mensaje | Amarillo | 4-6h | **ABIERTA.** La que desbloquea 42 y 43. |
+| 42 | Coleccionables account-scoped (12 endpoints) | Amarillo | 10-15h | En cola. Trampa de paginacion (206). |
+| 41 | Titulos account-scoped | Verde | 2h | Reabierta por el PO (no era redundante). |
+| 38 | Skins/Outfits | — | — | **DECLARADA FALSA por el propio PO.** `/v2/account/skins` devuelve 401: existe. Subsumida en 42. |
+| 40 | Mounts/Pets | — | — | **Cerrada.** `account/pets` -> 404. `/v2/account/mounts` devuelve 200 pero el body son *nombres de campo*, no datos: no es fuente. |
+
+**Nota sobre 38/40/41:** el PO se desdijo a si mismo tres veces en el mismo dia, cada vez tras verificar en vivo. Es el comportamiento correcto — la regla de que toda feature del PO pase por `curl` antes de mandarse al Principal esta funcionando — pero el costo es que el backlog se reordena varias veces por dia. Registrar el por que de cada cambio, no solo el cambio.
+
+### Que se rompio
+
+Nada. Merge limpio, `node --check` limpio, sin colisiones de CSS, y el `index.html` quedo consistente despues del auto-merge con el commit concurrente del PO.
