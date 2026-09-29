@@ -1,7 +1,7 @@
 # CRON_SCHEDULE.md — Programación de crons y tareas del equipo
 
-> Actualizado: 2026-09-29T02:30:00Z
-> Próxima actualización esperada: 2026-09-29T03:00:00Z
+> Actualizado: 2026-09-29T07:37:00Z
+> Próxima actualización esperada: 2026-09-29T08:00:00Z
 > Mantenedor: Principal (default)
 
 ---
@@ -50,8 +50,10 @@ Investiga novedades del juego en Reddit, GW2 Wiki, gw2treasures y gw2.com forums
 
 | Cron | Último disparo | Resultado | Commit |
 |------|---------------|-----------|--------|
+| Heartbeat Principal | 2026-09-29T07:37:00Z | ✅ Success | Heartbeat #19 (pending commit) |
+| Heartbeat Principal | 2026-09-29T02:30:00Z | ✅ Success | `ac5507f` (agents/main) |
+| Heartbeat PO (agent.json) | 2026-09-29T06:00:00Z | ✅ Success (production verification) | — |
 | Heartbeat Principal | 2026-09-29T00:41:00Z | ✅ Success | `3f3bd87` (agents/main) |
-| Heartbeat Principal | 2026-09-29T02:30:00Z | ✅ Success | Heartbeat #18 (pending commit) |
 | Heartbeat PO (agent.json) | 2026-09-28T22:10:00Z | ⏳ Timeout (platform bug) | — |
 
 ---

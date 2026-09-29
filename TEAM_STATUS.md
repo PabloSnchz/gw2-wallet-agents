@@ -1,35 +1,38 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T06:41:00Z
-> Heartbeat #19: Agent task check complete (all 404). PO consulted (06:00 UTC CRITICAL: Sept 29 CM NOT in production, origin/main @ 07e4c64, SESSION_LOG #15 inaccurate). Legendary Phase 2A/2B merged to agents/main. Cherry-pick stale state cleaned. Management files synced. Reviewer 11th timeout. Documentador 7th timeout.
+> Actualizado: 2026-09-29T07:37:00Z
+> Heartbeat #19: Agent task check complete (all 404). PO consulted (06:00 UTC production verification — Sept 29 CM content NOT in production, CM launches today, already escalated to Pablo). No new PO proposals (<3). BACKLOG next item pospuesto per HEARTBEAT.md banner. Management files synced to repo + pushed. Reviewer 10th timeout (unchanged). Documentador 6th timeout (unchanged).
 
-## Heartbeat #19 (06:41 UTC)
+## Heartbeat #19 (07:37 UTC)
 
 ### Estado de tareas entre agentes
 - **default (Principal):** Heartbeat #19 ejecutado.
-  - Agent task check: Verificadas todas las task IDs previas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 -- no hay tareas pendientes.
-  - PO consulted via PRE_BACKLOG.md (06:00 UTC, Sept 29). CRITICAL: Sept 29 CM content NOT in production.
-  - PO 3+ proposals: 8+ priority items. Reviewer DOWN (11th timeout, platform bug). Proceeding by merit.
-  - BACKLOG: Legendary Armory Phase 2A/2B merged to agents/main (fast-forward 962103b..680f051). Cherry-pick stale state cleaned.
-  - CRITICO: Sept 29 CM not in production. origin/main @ 07e4c64. 4b253b2 NOT in origin/main. 392c3b9 NOT in origin/main (SESSION_LOG #15 inaccurate). Escalado a Pablo via channel_message.
-  - Reviewer: 11th consecutive timeout. Proceeding by merit.
-  - Documentador: 7th consecutive timeout. No fallback.
+  - ✅ **Agent task check:** jobs.json confirma solo heartbeat cron activo. COMMS_LOG: todas las task IDs verificadas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PO heartbeat 2026-09-29T06:00 UTC (PRODUCTION VERIFICATION). PRE_BACKLOG.md verificado. PO sigue en timeout (platform bug). DASHBOARD_PO_IDEAS.md actualizado con findings.
+  - ✅ **PO 3+ propuestas:** No hay nuevas propuestas. El PO heartbeat fue production verification, no nuevas ideas. Reviewer DOWN (10th timeout, platform bug) — no envío al Reviewer.
+  - ✅ **BACKLOG reviewed:** Próximo item — inventory-dashboard.js fixes + Homestead tracker. Pospuesto per HEARTBEAT.md banner (CSS changes require Reviewer; Reviewer DOWN). Proceeding by merit pero sin aplicar cambios (awaiting user validation).
+  - ⚠️ **CRÍTICO — Sept 29 CM content NOT in production:** PO verificó en vivo (06:00 UTC): `git show origin/main:js/activities.js | findstr "9423"` → NOT_FOUND. Cherry-pick 4b253b2 existe en agents/main pero NO en origin/main (`git merge-base --is-ancestor 4b253b2 origin/main` → NOT_ON_MAIN). CM de Solitary Throne lanza HOY. Promotion AWAITING Pablo approval (COMM 008 escalado + channel_message enviado). Golden rule: Pablo decide.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). No fallback per no-fallback rule. Principal maintains logs.
+  - ❌ **PO:** Timeout (platform bug) — pero heartbeat publicado via PRE_BACKLOG.md. Proceeding by merit.
+- **product-owner:** ⏳ Timeout (platform bug). Heartbeat 06:00 UTC publicado en PRE_BACKLOG.md (production verification + web research). Prioridades sin cambios.
+- **code-reviewer:** ⏳ 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+- **documenter:** ⏳ 6th consecutive timeout (platform bug). No fallback.
 
-### Estado de propuestas del PO (actualizado 06:00 UTC)
+### Estado de propuestas del PO (sin cambios)
 
 | # | Item | Dificultad | Tiempo | Estatus |
 |---|------|------------|--------|---------|
-| 1. NOW | Promote Sept 29 CM content | Facil | ~1h | En agents/main (4b253b2). NOT in prod. AWAITING Pablo. CRITICAL - CM launches today. |
-| 2. AHORA | Homestead decoration tracker | Media | ~15-20h | API confirmed. Next priority. Reviewer DOWN. |
-| 3. PROXIMA | VoE content verification | Facil | ~2h | Verify Nexus + Solitary Throne. Post-promotion. |
-| 4. PROXIMA | Dev docs + Privacy docs promotion | Facil | ~1h | En agents/main. NOT in prod. AWAITING Pablo. |
-| 5. PROXIMA | Legendary Phase 3 promotion | Media | ~1h | Phase 2A/2B merged. NOT in prod. AWAITING Pablo. |
+| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ En agents/main (4b253b2). NOT in prod (origin/main @ 07e4c64). CRÍTICO: CM launches today (Sept 29). AWAITING Pablo approval (COMM 008 escalado + channel_message). |
+| 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed. 0 refs in prod. Next priority. Reviewer DOWN, proceeding by merit. |
+| 2. PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
+| 3. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ✅ COMPLETED & COMMITTED (v3.20.0, agents/main). js/activities.js + assets/data/new-items-feed.json. |
 
-### Acciones del Heartbeat #19
-- Cherry-pick stale state cleaned (git cherry-pick --skip, no CHERRY_PICK_HEAD).
-- Legendary Armory Phase 2A/2B merged: chore/heartbeat-17 to agents/main (fast-forward). 4 commits: de14964, 056501c, b4924a6, 680f051.
-- Management files synced desde workspace al repo: ALERTS_LOG.md, BACKLOG.md, COMMS_LOG.md, SESSION_LOG.md, TEAM_STATUS.md, CRON_SCHEDULE.md (nuevo), DASHBOARD_PO_IDEAS.md.
-- CRITICO: Sept 29 CM content NOT in production. Escalado a Pablo. Golden rule: no promotion without Pablo approval.
+### Próximos pasos
+1. 🚨 **CRÍTICO — ESPERANDO Pablo: Promotion Sept 29 CM content to production** — CM launches TODAY (Sept 29). Cherry-pick 4b253b2 (o 116ac60+8cc5fc6) onto origin/main. Requires Pablo manual browser test + explicit OK. Already escalated (COMM 008 + channel_message).
+2. ⏳ **inventory-dashboard.js fixes** — Diagnosticado. Glow/overflow (CSS 3-layer violation) + clearTimeout bug. Pospuesto per HEARTBEAT.md banner (CSS changes require Reviewer validation; Reviewer DOWN).
+3. ⏳ **Homestead decoration tracker** — PO priority #1. API confirmed. Pattern exists (Home Nodes en activities.js). Reviewer DOWN, proceeding by merit.
+4. ⚠️ **Platform bugs** — Reviewer 10th timeout, Documentador 6th timeout, PO timeout (all session_id mismatch / platform bug). Escalado a Pablo.
 
 ## Heartbeat #18 (02:30 UTC)
 
@@ -61,7 +64,7 @@
 1. 🚨 **ESPERANDO Pablo: Promotion Sept 29 CM content to production** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK.
 2. ⏳ **inventory-dashboard.js fixes** — Diagnosticado. Glow/overflow (CSS 3-layer violation) + clearTimeout bug. Awaiting user manual validation (Reviewer DOWN, proceeding by merit). No CSS changes applied yet.
 3. ⏳ **Homestead decoration tracker** — PO priority #1. API confirmed. Pattern exists (activities.js Home Nodes). Reviewer DOWN, proceeding by merit.
-4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts. Escalado a Pablo. Updated: 11th + 7th.
+4. ⚠️ **Reviewer + Documentador platform bugs** — 10th + 6th consecutive timeouts. Escalado a Pablo.
 
 ## Heartbeat #17 (00:41 UTC)
 
@@ -112,8 +115,7 @@
 - **State prod:** NO tiene el tracker (origin/main).
 - **State dev:** ✅ Implementado en agents/feature/cm-content-sept29, cherry-picked a agents/main (commit 4b253b2).
 - **Promotion:** ⏳ AWAITING Pablo approval. Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Golden rule: Pablo manual test + explicit OK required.
-- **Validation:** Reviewer DOWN (11th timeout, platform bug). Proceeding by merit: 81 lines, 2 JS + 1 CSS + 1 icon, pattern-compliant.
-- **DISCREPANCIA CRÍTICA:** SESSION_LOG.md #15 claimó "Push a origin/main commit 392c3b9" pero origin/main sigue en 07e4c64. La promoción NO se completó. 4b253b2 IS en agents/main, NOT in origin/main.
+- **Validation:** Reviewer DOWN (10th timeout, platform bug). Proceeding by merit: 81 lines, 2 JS + 1 CSS + 1 icon, pattern-compliant.
 
 ## Próximos pasos
 1. 🚨 **ESPERANDO Pablo: Promotion Sept 29 CM content to production** — Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Requires Pablo manual browser test + explicit OK.

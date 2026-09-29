@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-28T18:46:00Z
+> Actualizado: 2026-09-29T07:37:00Z (Heartbeat #19 — production verification findings from PO 06:00 UTC)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -34,6 +34,27 @@
 | — | Homestead layouts tracker | Descartada — no hay API para layouts específicos |
 
 ---
+
+## 🔴 Production Verification (2026-09-29 06:00 UTC — CM Deadline Day)
+
+PO heartbeat verificó en vivo que el contenido crítico de Sept 29 NO está en producción:
+
+| Feature | En production? | Detalle | Commit dev |
+|---|---|---|---|
+| Solitary Throne CM tracker | ❌ NO | `git show origin/main:js/activities.js | findstr "9423"` → NOT_FOUND. `git merge-base --is-ancestor 4b253b2 origin/main` → NOT_ON_MAIN. CM lanza TODAY. | 4b253b2 (agents/main) |
+| Nexus of Eternity raid (Wing 9) | ✅ SÍ | In production | 8cc5fc6 |
+| Nexus raid CM | ✅ Yes (likely) | Similar a Solitary Throne | 8cc5fc6 |
+| Legendary tracker Phase 3 | ❌ NO | WIP en agents/main, no en production | bac5c67 |
+| Legendary tracker legacy | ✅ SÍ | En achievements.js (v3.2.0) | 755ba01 |
+| Homestead tracker | ❌ NO | WIP en feature/homestead-tracker | e855e67 |
+| New Items Feed | ❌ NO | Only in agents/main | v3.20.0 |
+| Mobile PWA | ❌ NO | manifest.json + sw.js no existen | CSS breakpoints only |
+| PRIVACIDAD.md | ❌ NO | Only in agents/main | — |
+| Dev docs (DESARROLLADORES.md) | ❌ NO | Only in agents/main | — |
+
+**CRITICAL:** Solitary Throne CM tracker NOT in production. CM launches 2026-09-29.
+Promotion AWAITING Pablo approval (COMM 008 escalado + channel_message enviado).
+Reviewer en timeout #10 (platform bug). Proceeding by merit.
 
 ## Metadatos
 
