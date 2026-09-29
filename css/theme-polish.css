@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bóveda del Gato Negro — Theme Polish v2.2.0
+   Bóveda del Gato Negro — Theme Polish v2.3.0
    Componentes genéricos + piel unificada
    Todos los colores usan variables CSS (definidas en css/themes/*.css)
    ========================================================================== */
@@ -1517,4 +1517,18 @@ aside.col-side .panel-head img {
   background: transparent;
   border: none;
   box-shadow: none;
+}
+
+/* Fractales — piel unificada del aviso de rotación (capa 2).
+ * El borde neutro va acá; el `borderLeft` de color lo pone
+ * js/fractal-tracker-theme.js (capa 3). La estructura (padding, tipografía)
+ * vive en main.css (capa 1). */
+.fractal-notice {
+  border: 1px solid var(--bd-1);
+  border-radius: 8px;
+}
+
+.fractals-cm,
+.fractals-tomorrow {
+  border-top: 1px solid var(--bd-1);
 }

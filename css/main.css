@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bóveda del Gato Negro — Main CSS v2.7.0
+   Bóveda del Gato Negro — Main CSS v2.8.0
    Layout + estructura + tipografía
    Todos los colores usan variables CSS (definidas en css/themes/*.css)
    ========================================================================== */
@@ -1343,4 +1343,134 @@ th.sortable:hover{ background:var(--bg-2) }
   background: var(--bg-1);
   border-color: var(--bd-1);
   color: var(--muted);
+}
+
+/* ==================== Fractales (actividades.js -> renderFractals) =========
+ * Estructura del bloque de fractales. CAPA 1 (main.css) = layout, sin bordes.
+ *
+ * Por qué estas reglas existen: `.card` (main.css) trae `display:grid`,
+ * `grid-template-rows:auto auto auto`, `min-height:126px` y `padding-right:60px`
+ * porque está pensada para las cards de wallet (icono izq / título / amount).
+ * La card de fractal es otra cosa: columna centrada de icono + nombre + badge.
+ * Estos overrides son los mismos valores que el `style=` inline tenía hardcodeados
+ * en el commit 27b8394 — se extraen sin cambiar el resultado en pantalla.
+ *
+ * El `borderLeft` NO está acá: lo aplica js/fractal-tracker-theme.js (capa 3).
+ * El borde neutro del aviso tampoco: vive en theme-polish.css (capa 2).
+ */
+.card.fractal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  grid-template-rows: none;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.fractals-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fractal-card__icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fractal-card__body {
+  width: 100%;
+}
+
+.fractal-card__name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fractal-card__name--wrap {
+  white-space: normal;
+}
+
+.fractal-card__tag {
+  margin-top: 6px;
+}
+
+.fractal-card__cm-badge,
+.fractal-card__scale-badge {
+  font-size: 0.6rem;
+  padding: 2px 6px;
+}
+
+/* Aviso "rotación no disponible": es texto, no una card de dato. */
+.fractal-notice {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
+.fractals-section__title {
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fractals-section__hint {
+  font-size: 0.85rem;
+}
+
+.fractals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fractals-cm {
+  margin-top: 20px;
+  padding-top: 16px;
+}
+
+.fractals-cm__title {
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fractals-cm__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.fractals-cm__badge {
+  font-size: 0.65rem;
+  padding: 3px 8px;
+}
+
+.fractals-cm__needs-key {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fractals-tomorrow {
+  margin-top: 16px;
+  padding-top: 12px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
