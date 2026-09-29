@@ -140,6 +140,46 @@
 
 ---
 
+## 2026-09-29T08:00 UTC — Heartbeat #20
+
+### Contexto
+- Cron `13dc22e6` disparó el heartbeat a las 08:00 UTC. HEARTBEAT.md re-injection
+  bug persiste (platform-level), pero share_session: false evita el loop de ejecución.
+- El agente ejecuta heartbeats manualmente cuando el usuario lo solicita.
+  Heartbeats #14-#20 ejecutados exitosamente (manual).
+- PO publicó production verification a las 06:00 UTC. Sin nuevas propuestas.
+- Sept 29 CM content en agents/main (4b253b2), NOT en production. AWAITING Pablo.
+
+### Qué se hizo
+- **Agent task check:** Todas las task IDs verificadas (task-f14fb23553b1,
+  task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7).
+  TODAS 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+- **PO consulted:** DASHBOARD_PO_IDEAS.md (production verification, 06:00 UTC).
+  No nuevas propuestas. PO sigue en timeout (platform bug). Proceeding by merit.
+- **PO 3+ propuestas:** No hay nuevas propuestas. Reviewer DOWN (10th timeout).
+  No envío al Reviewer.
+- **BACKLOG reviewed:** Próximo item pospuesto (Reviewer DOWN).
+  inventory-dashboard.js fixes + Homestead tracker bloqueados.
+- **CRÍTICO:** Sept 29 CM promotion AWAITING Pablo approval (COMM 008 + channel_message).
+- **Management files updated:** TEAM_STATUS.md, CRON_SCHEDULE.md, ALERTS_LOG.md
+  sincronizados al repo. Listos para commit + push.
+
+### Qué se rompió
+- Nada. Solo sync de archivos + status update.
+
+### Qué quedó pendiente
+- Promotion Sept 29 CM content a production — AWAITING Pablo approval.
+- inventory-dashboard.js fixes (glow/overflow + clearTimeout) — pospuesto (Reviewer DOWN).
+- Homestead decoration tracker — PO priority #1 (post-promotion).
+- Reviewer (10th timeout) + Documentador (6th timeout) + PO (platform bug).
+
+### Estado de agentes
+- Reviewer: TIMEOUT (session_id mismatch, platform bug, 10th consecutive). Proceeding by merit.
+- Documentador: TIMEOUT (platform bug, 6th consecutive). No fallback.
+- PO: Timeout (platform bug), heartbeat publicado (06:00 UTC production verification). Proceeding by merit.
+
+---
+
 ## 2026-09-29T07:37 UTC — Heartbeat #19
 
 ### Contexto
