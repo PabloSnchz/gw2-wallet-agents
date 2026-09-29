@@ -1,8 +1,12 @@
 ﻿/*!
  * js/converter-modal.js — Conversor Gem ↔ Gold (Modal)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.1.0 (2026-09-29)
+ * Versión: 1.1.1 (2026-09-29)
  *
+ * v1.1.1: el titulo decia "sin cobrar", pero /v2/commerce/delivery devuelve la
+ *         caja ENTERA: ventas sin retirar y compras sin retirar. Para un item
+ *         comprado, "no te abonaron" es falso. Corregido a "sin recoger" con
+ *         un cuerpo que no presupone de que lado viene (correccion del PO).
  * v1.1.0: banner "caja del Trading Post sin cobrar" (getCommerceDelivery).
  *         Tres estados distinguibles a proposito: pendiente / vacio real /
  *         "no se pudo leer". Sin ordenes activas el banner se dibuja igual.
@@ -800,10 +804,11 @@
     return '<div class="cv-delivery" data-cv-color="pending" role="status">' +
       '<div class="cv-delivery__head">' +
         '<span class="cv-delivery__icon" aria-hidden="true">📦</span>' +
-        '<span class="cv-delivery__title">' + count + ' ítem' + (count === 1 ? '' : 's') + ' sin cobrar</span>' +
+      '<span class="cv-delivery__title">' + count + ' ítem' + (count === 1 ? '' : 's') + ' sin recoger</span>' +
       '</div>' +
-      '<p class="cv-delivery__body">Siguen en tu caja del Trading Post. Mientras no los retires no te abonaron: ' +
-      'la venta figura como hecha, pero el dinero no está acreditado.' +
+      '<p class="cv-delivery__body">Están en tu caja del Trading Post. Hasta que no los retires no los tenés ' +
+      'en tus manos, y si son ventas el dinero tampoco está acreditado todavía. La caja no dice cuáles son ' +
+      'compras y cuáles ventas.' +
       (totalUnits > 1 ? ' (<strong>' + totalUnits + '</strong> unidades en total)' : '') +
       ' Se recogen en el Trading Post de la Wilderness, o desde la pestaña Commerce de tu cuenta.</p>' +
       '<div class="cv-delivery__chips">' + chips + more + '</div>' +

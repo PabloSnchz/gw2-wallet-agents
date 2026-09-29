@@ -44,12 +44,12 @@ const cases = [
     st: { deliveryStatus: 'pending',
           delivery: [{ item_id: 12345, quantity: 2 }, { item_id: 777, quantity: 1 }, { item_id: 999, quantity: 5 }],
           itemsById: ITEMS },
-    expect: ['data-cv-color="pending"', '3 ítems sin cobrar', '<strong>8</strong> unidades', 'Legendaria de Test', 'Ítem #777']
+    expect: ['data-cv-color="pending"', '3 ítems sin recoger', 'no dice cuáles son', '<strong>8</strong> unidades', 'Legendaria de Test', 'Ítem #777']
   },
   {
     name: 'pending (singular)',
     st: { deliveryStatus: 'pending', delivery: [{ item_id: 12345, quantity: 1 }], itemsById: ITEMS },
-    expect: ['data-cv-color="pending"', '1 ítem sin cobrar', 'Legendaria de Test']
+    expect: ['data-cv-color="pending"', '1 ítem sin recoger', 'Legendaria de Test']
   },
   {
     name: 'error',
