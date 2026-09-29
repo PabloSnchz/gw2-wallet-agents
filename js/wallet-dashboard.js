@@ -16,6 +16,13 @@
 
 (function (root) {
   'use strict';
+  // v2.8.0 (2026-09-29) — Idea 45: progreso multicuenta + error por cuenta.
+  // Antes: "Cargando carteras..." sin más. Un fallo de red en la cuenta 14 de
+  // 27 se veía EXACTAMENTE igual que una cuenta vacía: la UI mentía sin
+  // delatarlo. Ahora el loop reporta "N/27 · M con error" en vivo, y al
+  // terminar cada cuenta fallida se nombra CON su endpoint.
+  // Importante para las features multicuenta que vienen (coleccionables,
+  // fractals, dungeons): sin esto, cada una hereda el mismo "no sé si falló".
   var LOG = '[WalletDashboard]';
 
   // ------------------------------ Utils DOM ------------------------------
@@ -61,6 +68,91 @@
   };
 
   var _refreshInFlight = null;
+
+  // ------------------------------ Progreso multicuenta (Idea 45) ----------
+  // Con muchas cuentas, "Cargando carteras..." no distingue entre:
+  //   (a) todavía está cargando, (b) se colgó, (c) la 14 de 27 falló y la UI
+  //       muestra 13 filas como si ese fuera el total.
+  // El último caso es el peor: un fallo de red silencioso se ve EXACTAMENTE
+  // igual que un resultado vacío. Este tracker hace los tres distinguibles.
+  var _progress = { done: 0, total: 0, current: [], errors: [] };
+
+  // La URL de error de la API trae ?access_token=... — NUNCA se muestra.
+  // Se reduce al path para poder decir QUÉ endpoint falló sin filtrar el token.
+  function safeEndpoint(e, fallback) {
+    var u = (e && e.url) ? String(e.url) : '';
+    if (!u) return fallback || null;
+    try {
+      var url = new URL(u);
+      url.searchParams.delete('access_token');
+      return url.pathname;
+    } catch (_) {
+      return u.split('?')[0] || fallback || null;
+    }
+  }
+
+  // Normaliza un error de fetch a algo mostrable: mensaje + status + endpoint.
+  function describeError(e, endpointFallback) {
+    var ep = safeEndpoint(e, endpointFallback);
+    var status = (e && e.status) ? e.status : null;
+    var msg = (e && e.message) ? String(e.message) : 'Error desconocido';
+    // "No scope" / "Requires scope progression" vienen como texto de la API:
+    // no son un fallo de red, son una cuenta sin permisos. Se distinguen.
+    var kind = 'error';
+    if (/scope/i.test(msg)) kind = 'scope';
+    return { message: msg, status: status, endpoint: ep, kind: kind };
+  }
+
+  function progressReset(total) {
+    _progress = { done: 0, total: total || 0, current: [], errors: [] };
+    updateProgressStatus();
+  }
+
+  function progressStart(label) {
+    _progress.current.push(label);
+    updateProgressStatus();
+  }
+
+  function progressEnd(label, errInfo) {
+    var i = _progress.current.indexOf(label);
+    if (i >= 0) _progress.current.splice(i, 1);
+    if (errInfo) _progress.errors.push(errInfo);
+    _progress.done++;
+    updateProgressStatus();
+  }
+
+  function updateProgressStatus() {
+    if (!_progress.total) return;
+    var msg = 'Cargando cuentas... ' + _progress.done + '/' + _progress.total;
+    if (_progress.errors.length) {
+      msg += ' · ' + _progress.errors.length + ' con error';
+    }
+    setStatus(msg, _progress.errors.length ? 'error' : undefined);
+  }
+
+  // Resumen de fallos: cada cuenta nombrada CON su endpoint. Sin esto, un
+  // fallo es indistinguible de una cuenta vacía.
+  function renderProgressErrors() {
+    var box = document.getElementById('wdLoadErrors');
+    if (!box) return;
+    if (!_progress.errors.length) { box.innerHTML = ''; return; }
+
+    var html = '<div style="margin:0 0 12px 0;padding:10px 12px;border-left:3px solid rgba(255,193,7,0.5);background:rgba(255,193,7,0.06);border-radius:6px;">' +
+      '<div style="font-size:0.85rem;color:var(--tx-1);margin-bottom:6px;">' +
+      _progress.errors.length + ' de ' + _progress.total + ' cuentas no se pudieron leer</div>' +
+      '<ul style="margin:0;padding-left:18px;font-size:0.78rem;color:var(--muted);line-height:1.5;">';
+    for (var i = 0; i < _progress.errors.length && i < 10; i++) {
+      var e = _progress.errors[i];
+      var ep = e.endpoint ? ' (' + esc(e.endpoint) + ')' : '';
+      var st = e.status ? ' · HTTP ' + e.status : '';
+      html += '<li>' + esc(e.label) + ' no se pudo leer' + ep + st + '</li>';
+    }
+    if (_progress.errors.length > 10) {
+      html += '<li>… y ' + (_progress.errors.length - 10) + ' más</li>';
+    }
+    html += '</ul></div>';
+    box.innerHTML = html;
+  }
 
   var STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_CURR : 'gn:wallet:dashboard:selected_currencies';
   var SORT_STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_SORT : 'gn:wallet:dashboard:sort';
@@ -306,7 +398,7 @@
     return summary;
   }
 
-  async function loadWalletForAccount(token, forceNoCache) {
+  async function loadWalletForAccount(token, forceNoCache, label) {
     try {
       var wallet = await root.GW2Api.getAccountWallet(token, { nocache: !!forceNoCache });
       var map = {};
@@ -319,10 +411,14 @@
       if (state.summaryFields && state.summaryFields.length) {
         summary = await loadAccountSummary(token, forceNoCache);
       }
-      return { wallet: map, error: null, summary: summary };
+      return { wallet: map, error: null, summary: summary, errorInfo: null };
     } catch(e) {
       console.warn(LOG, 'Error loading wallet for token', e);
-      return { wallet: {}, error: e.message || 'Error al cargar wallet', summary: null };
+      // El fallback sigue siendo {} (no romper el render), pero el error deja de
+      // ser invisible: se nombra la cuenta y el endpoint que falló.
+      var info = describeError(e, '/v2/account/wallet');
+      info.label = label || ('Key ' + fpToken(token));
+      return { wallet: {}, error: e.message || 'Error al cargar wallet', summary: null, errorInfo: info };
     }
   }
 
@@ -336,6 +432,8 @@
     var out = [];
     var idx = 0, ACTIVE = 0, MAX = 3;
 
+    progressReset(state.keys.length);
+
     await new Promise(function(resolve) {
       function next() {
         if (idx >= state.keys.length && ACTIVE === 0) return resolve();
@@ -346,7 +444,8 @@
             var token = k.value;
             var label = k.label || ('Key ' + fpToken(token));
             var fp = fpToken(token);
-            loadWalletForAccount(token, forceNoCache)
+            progressStart(label);
+            loadWalletForAccount(token, forceNoCache, label)
               .then(function(result) {
                 out.push({
                   token: token,
@@ -356,6 +455,7 @@
                   error: result.error || null,
                   summary: result.summary || null
                 });
+                progressEnd(label, result.errorInfo);
               })
               .catch(function(e) {
                 console.warn(LOG, 'Error loading wallet for', label, e);
@@ -367,6 +467,9 @@
                   error: e.message || 'Error al cargar wallet',
                   summary: null
                 });
+                var info = describeError(e, '/v2/account/wallet');
+                info.label = label;
+                progressEnd(label, info);
               })
               .finally(function() { ACTIVE--; next(); });
           })(it);
@@ -377,7 +480,8 @@
 
     state.accounts = out;
     state.lastRefreshTime = new Date();
-    console.log(LOG, 'Cargadas', out.length, 'cuentas');
+    console.log(LOG, 'Cargadas', out.length, 'cuentas',
+      '(' + _progress.errors.length + ' con error)');
   }
 
   // ------------------------------ Ordenamiento ------------------------------
@@ -936,6 +1040,7 @@
     try {
       _refreshInFlight = (async () => {
         showSkeleton();
+        renderProgressErrors();
         setStatus('Cargando divisas...');
         await loadCurrencies();
         
@@ -946,8 +1051,13 @@
         renderCurrencySelector();
         renderSummarySelector();
         renderTable();
+        renderProgressErrors();
         updateTimestamp();
-        setStatus('Listo.');
+        if (_progress.errors.length) {
+          setStatus('Listo con ' + _progress.errors.length + ' de ' + _progress.total + ' cuentas con error.', 'error');
+        } else {
+          setStatus('Listo.');
+        }
         
         hideSkeletonAndRestoreTable();
       })();
@@ -993,6 +1103,7 @@
         </h2>
       </div>
       <div class="panel__body">
+        <div id="wdLoadErrors"></div>
         <div id="wdKPIs" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; margin-bottom:20px;"></div>
         
         <div class="wd-filters" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:16px;">
@@ -1104,10 +1215,25 @@
 
     async refresh(forceNoCache) {
       await refreshData(forceNoCache);
+    },
+
+    _debug() {
+      return {
+        progress: {
+          done: _progress.done,
+          total: _progress.total,
+          inFlight: _progress.current.slice(),
+          errors: _progress.errors.slice()
+        },
+        accounts: state.accounts.map(function(a) {
+          return { label: a.label, error: a.error || null };
+        }),
+        statusText: (document.getElementById('wdStatusMsg') || {}).textContent || null
+      };
     }
   };
 
   root.WalletDashboard = WalletDashboard;
 
-  console.info(LOG, 'ready v2.7.0 — Vista multicuenta: columnas Personajes/AP/Raids/Suerte(MF) + KPIs resumen');
+  console.info(LOG, 'ready v2.8.0 — multicuenta con progreso "N/total" y error por cuenta nombrado (Idea 45)');
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
