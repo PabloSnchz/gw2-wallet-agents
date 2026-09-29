@@ -11,13 +11,13 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
-- **fix(activities): la rotación diaria de fractales era información INVENTADA (`c081496`, rama `fix-fractals-fake-daily-data`)**:
+- **fix(activities): la rotación diaria de fractales era información INVENTADA (`27b8394` en `agents/main`; original `c081496`)**:
   - **Bug**: `Fractals.loadToday()` / `loadTomorrow()` tenían **3 fractales T4 + 3 escalas hardcodeadas** y el panel los pintaba como los dailies de hoy y de mañana. Eran siempre los mismos, todos los días, sin ninguna fuente real.
   - **Verificado contra la API GW2** (2026-09-29): `/v2/fractals?ids=1` → **404 not found**; `/v2/achievements/daily` → **`{"text":"API not active"}`**. La GW2 API **no expone** esta rotación. No existe endpoint sustituto.
   - **Fix**: `rotationAvailable: false` en el estado de fractales. El panel deja de pintar nombres de fractales/escalas y muestra un aviso explícito. Se eliminó el hardcode de los 3 T4 + 3 escalas.
   - **Lo que NO se tocó**: el tracker de Solitary Throne CM (achievements `9423`/`9412`/`9373`/`9388`) sigue intacto — ese dato **sí** viene de `getAccountAchievements` y es real.
   - Sin CSS, sin endpoints nuevos, sin tocar `router.js` ni `gn:tokenchange`.
-  - **Estado**: commiteado en la rama `fix-fractals-fake-daily-data` (`c081496`, `js/activities.js` v3.20.1 + `index.html` `?v=3.20.1`). **Todavía NO mergeado a `agents/main`** — verificado con `git show origin/main:js/activities.js` → sigue en v3.19.6 con `?v=3.19.6`.
+- **Estado**: **MERGEADO a `agents/main`** como `27b8394` (`js/activities.js` v3.20.1 + `index.html` `?v=3.20.1`). Verificado con `git branch --contains 27b8394` → `main`. El commit original `c081496` quedó en la rama `fix-fractals-fake-daily-data`, ya superada. (La anotación anterior decía que no estaba mergeado: se escribió sobre un worktree con estado previo al merge. Corregido en Heartbeat #32.)
 
 - **fix(meta): `/v2/events` retirado por megaservers → guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`, en `agents/main`)**:
   - **Bug**: `fetchLeyLineActiveMap()` pegaba a `/v2/events?ids=<GUIDs>`. Ese endpoint fue **retirado** con la transición a megaservers. Verificado 2026-09-29 18:06 UTC: `/v2/events` → **503 `{"text":"API not active"}`**, mientras `/v2/maps`, `/v2/worlds`, `/v2/continents`, `/v2/itemstats` responden **200**. El 503 es específico de esos dos endpoints: es **retiro, no caída transitoria**.
@@ -27,7 +27,7 @@ y el versionado **SemVer** (https://semver.org/).
   - El código ya degradaba solo (`if (!r.ok) return cache || null`, y el render usa `inst._activeWaypoint || meta.chat`), así que **no había crash**: el fix evita emitir un request que nunca va a funcionar y documenta el hallazgo.
   - **Reversión**: poner `LEY_LINE_ENDPOINT_RETIRED` en `false`. La lógica queda intacta.
   - Sin validación del Code Reviewer (**13º timeout consecutivo**, bug de plataforma `session_id` mismatch). Cambio data-only, 1 archivo, sin CSS, no toca invariantes.
-  - **Nota de versión**: el commit **no bumpeó** el header de `js/meta.js` (sigue en `v3.4.0`, línea 7) ni el `?v=3.4.0` en `index.html`. La rama `fix/leyline-obsolete-events` nunca existió en el remoto: el fix entró directo a `agents/main` como `f533d67`.
+- **Nota de versión**: el bump se aplicó en el Heartbeat #32 (`js/meta.js` v3.4.0 → **v3.4.1** + `index.html` `?v=3.4.1`), porque un fix funcional que no bumpea la query string no llega al navegador por cache. La rama `fix/leyline-obsolete-events` nunca existió en el remoto: el fix entró directo a `agents/main` como `f533d67`.
 
 - **fix(achievements): Legendary Tracker dropdown — opción "⚠ Legendarias" no aparecía (`b591210`)**:
   - **Bug doble de runtime** (no deploy, el JS v3.2.0 estaba en producción pero con lógica rota):
@@ -37,6 +37,48 @@ y el versionado **SemVer** (https://semver.org/).
   - **Cambio quirúrgico**: 2 líneas borradas, 1 agregada. No toca CSS ni arquitectura. Code Reviewer ✅ (task-fa0e4c29b938, commit original `94fb7a9`).
 
 ### Added
+- **`getCommerceDelivery(token, opts)` — Commerce Delivery, la caja del Trading Post sin cobrar (`js/api-gw2.js` v2.16.0)**:
+  - **Fricción real reportada por el PO**: un ítem que quedó en la caja del Trading Post hace semanas y la Bóveda lo muestra como **venta pasada**, sin ninguna señal de que el dinero nunca se cobró.
+  - **Endpoint verificado en vivo** (2026-09-29), antes de escribir una línea:
+
+    | Check | Resultado |
+    |---|---|
+    | `/v2/commerce/delivery` con token falso | **401** `Invalid access token` → **existe** |
+    | `/v2/commerce/bogusendpoint123` (control) | **404** `not found` → así se ven los inexistentes |
+
+  - Mismo patrón que `getCommerceTransactionsBuys`/`Sells`: cache con TTL de 60s, `inflightOnce`, inflight key prefijada por `fpToken(token)`. **Sin colisión de claves** (verificado con grep: `commerce_delivery` no existe en ninguna otra base-key).
+  - **⚠️ Se desvía deliberadamente de sus sisters en el manejo de error** — decisión del Code Reviewer, no un descuido:
+    - `buys`/`sells` degradan a `[]` porque `[]` es su estado **normal**.
+    - En `delivery`, `[]` es indistinguible de «caja vacía» cuando en realidad puede ser «no se pudo leer». El caso que más probable lo dispara no es una caída transitoria sino un **403 permanente por falta de scope `tradingpost`**, que nunca se resuelve solo. Como el valor de la feature **es** el alerta, un vacío silencioso la deja mintiendo sobre su único propósito.
+    - Por lo tanto el error **se propaga**. La UI debería distinguir tres estados: **pendiente / vacío real / no se pudo leer**.
+  - **Estado: API sin consumidor todavía.** No hay UI. Se documenta explícitamente para que no se lea como deuda oculta (hallazgo transversal #10, código muerto). Cablear la vista es el paso siguiente.
+  - **Validación del Code Reviewer**: `task-a0398e55c545` — *aprobado con cambios*, el primero en ManyToMany tras 14 fallas. Cache/inflight aprobados sin reservas; los 3 cambios pedidos (propagar el error, restaurar el BOM, declarar el ámbito) están aplicados.
+  - Sin CSS, sin endpoints nuevos, sin tocar `router.js`, `gn:tokenchange` ni `WVSeasonStore`.
+
+- **\`meta.js\` v3.4.0 → v3.4.1** (Heartbeat #33): el guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`. **El fix existíaa en el repo pero no en la app**: cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` que devuelve 503. Un fix funcional sin bump de query string no llega al usuario.
+
+
+- **`getCommerceDelivery(token, opts)` — Commerce Delivery, la caja del Trading Post sin cobrar (`js/api-gw2.js` v2.16.0)**:
+  - **Fricción real reportada por el PO**: un ítem que quedó en la caja del Trading Post hace semanas y la Bóveda lo muestra como **venta pasada**, sin ninguna señal de que el dinero nunca se cobró.
+  - **Endpoint verificado en vivo** (2026-09-29), antes de escribir una línea:
+
+    | Check | Resultado |
+    |---|---|
+    | `/v2/commerce/delivery` con token falso | **401** `Invalid access token` → **existe** |
+    | `/v2/commerce/bogusendpoint123` (control) | **404** `not found` → así se ven los inexistentes |
+
+  - Mismo patrón que `getCommerceTransactionsBuys`/`Sells`: cache con TTL de 60s, `inflightOnce`, inflight key prefijada por `fpToken(token)`. **Sin colisión de claves** (verificado con grep: `commerce_delivery` no existe en ninguna otra base-key).
+  - **⚠️ Se desvía deliberadamente de sus sisters en el manejo de error** — decisión del Code Reviewer, no un descuido:
+    - `buys`/`sells` degradan a `[]` porque `[]` es su estado **normal**.
+    - En `delivery`, `[]` es indistinguible de «caja vacía» cuando en realidad puede ser «no se pudo leer». El caso que más probable lo dispara no es una caída transitoria sino un **403 permanente por falta de scope `tradingpost`**, que nunca se resuelve solo. Como el valor de la feature **es** el alerta, un vacío silencioso la deja mintiendo sobre su único propósito.
+    - Por lo tanto el error **se propaga**. La UI debería distinguir tres estados: **pendiente / vacío real / no se pudo leer**.
+  - **Estado: API sin consumidor todavía.** No hay UI. Se documenta explícitamente para que no se lea como deuda oculta (hallazgo transversal #10, código muerto). Cablear la vista es el paso siguiente.
+  - **Validación del Code Reviewer**: `task-a0398e55c545` — *aprobado con cambios*, el primero en ManyToMany tras 14 fallas. Cache/inflight aprobados sin reservas; los 3 cambios pedidos (propagar el error, restaurar el BOM, declarar el ámbito) están aplicados.
+  - Sin CSS, sin endpoints nuevos, sin tocar `router.js`, `gn:tokenchange` ni `WVSeasonStore`.
+
+- **\`meta.js\` v3.4.0 → v3.4.1** (Heartbeat #33): el guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`. **El fix existíaa en el repo pero no en la app**: cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` que devuelve 503. Un fix funcional sin bump de query string no llega al usuario.
+
+
 - **🎲 Columna "Suerte (MF)" en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0 + `wallet-dashboard.js` v2.7.0, `44c64a9`)**:
   - **Idea del PO (2026-09-29), premisa verificada y corregida antes de implementar**:
     - La Luck **NO** aparece en `/v2/currencies` (verificado en vivo: 79 monedas, `id` máximo 83, 0 coincidencias con `luck`/`magic find`).

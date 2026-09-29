@@ -1,7 +1,130 @@
-﻿# TEAM_STATUS.md — Estado del equipo
+# TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T18:00:00Z
-> Heartbeat #30 (cron-triggered, 18:00 UTC): (1) Agent tasks: COMM 013 (Reviewer, task-5dd795a4dd73) **FAILED con un modo de fallo NUEVO** — `Model 'kilo-auto/free' execution failed. Provider returned an empty response` (ya no es `session_id mismatch`). COMM 014 (Documentador, task-b4a7f3aeb84b) **COMPLETADA** — el Documentador vuelve a la vida, CHANGELOG/README/ONBOARDING actualizados (commit 53425b0). (2) PO: **2 heartbeats nuevos** (16:00 y 17:00 UTC) con 4 ideas nuevas (38 Skins/Outfits, 39 Fractal Tracker, 40 Mounts/Pets + 40-bis Esencias, 41 Titles) y **una retractación propia** de la premisa "MF account-wide = nuevo en Sept 2026". (3) 3+ propuestas → enviadas al Reviewer (attempt #3, `task-d3355a858009`, running al cierre). (4) BACKLOG: **VoE content verification COMPLETADO** contra API en vivo + producción. (5) **3 correcciones factuales al PO** — 2 de sus IDs de logro no existen (9384/9454 → 404), su claim de que `/v2/account/luck` no existe es falso (401, no 404), y su espejo DASHBOARD_PO_IDEAS.md quedó 10h desactualizado. (6) Logs + commit + push a agents.
+> Actualizado: 2026-09-29T19:52:00Z
+> Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
+
+> Heartbeat #33: (1) **Documentador recuperado y productivo** — completó `task-d1308a9671e0` (2º vez consecutiva que responde). Documentó los 2 fixes de datos falsos en commit `e7672bc`. (2) **Audité sus 3 discrepancias contra el código real** — 1 era certa, 2 no. (3) **Corregí el CHANGELOG**: decía que el fix de fractals no estaba mergeado y **sí lo está** (`27b8394`). (4) **Bumpeé `meta.js` v3.4.0 → v3.4.1**: el fix de Ley Line nunca bumpeó la query string, así que no llegó al navegador por cache. (5) **Implementé el item #43 (Commerce Delivery)** — la fricción real que reportó el PO: «me muestra el ítem del TP como venta pasada sin decirme que no lo cobré». Endpoint **verificado en vivo** (401 con token falso ≠ 404 de inexistente). (6) **PO cerró la idea #40** por sí mismo: pets no tiene endpoint account-scoped. (7) Reviewer: **14º falla consecutiva**.
+
+---
+
+## Heartbeat #33 (19:52 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | ✅ Activo | Heartbeat #33. Commerce Delivery implementado, corrección de docs, auditoría del trabajo del Documentador. |
+| **code-reviewer** | ❌ **14ª falla consecutiva** | `task-57c182d1993a` (COMM 019) → FAILED, `Provider returned an empty response`. Consulta nueva en vuelo: `task-a0398e55c545` (intento 3 de 3). **Requiere escalado a Pablo.** |
+| **documenter** | ✅ **Operativo** | `task-d1308a9671e0` **COMPLETADA** (2ª成功后 seguida). Commit `e7672bc`. Reportó 3 discrepancias — 1 cierta, 2 por worktree desactualizado. Autocrítico. |
+| **product-owner** | ✅ **Respondió** | `task-37c40aae4017` **COMPLETADA**. Cerró la idea #40 por sí mismo (pets = 404, no hay endpoint account-scoped). Priorizó #43 como fricción real. |
+| **architect** | — | Excluido por diseño. |
+
+### Trabajo completado en este ciclo
+
+**Corrección de dos anotaciones falsas en el CHANGELOG.** El Documentador reportó que el fix de la rotación de fractals "todavía NO mergeado a `agents/main`". **Es falso**: `git branch --contains 27b8394` devuelve `main`. La causa es que el Documentador trabajó en un worktree temporal creado **antes** del merge, y leyó el estado de ese worktree en vez del de `agents/main`.
+
+Esta es exactamente la clase de error que un heartbeat documenta como cerrado y que después alguien se cree. Un log que afirma un estado de git sin verificarlo se vuelve evidencia falsa para el siguiente que lo lea.
+
+**`meta.js` v3.4.0 → v3.4.1 — un fix funcional que nunca llegó al navegador.** El guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) está en `agents/main`, pero el header seguía en `v3.4.0` y el `index.html` en `?v=3.4.0`. Como el query string no cambió, **cualquier navegador con el archivo cacheado sigue ejecutando el código viejo** y sigue emitiendo el request a `/v2/events` que devuelve 503. El fix existíaa en el repo y no existía en la app. Bumpeado en este ciclo.
+
+**Item #43 — Commerce Delivery.** El PO reportó la fricción más concreta del ciclo: un ítem que dejó en la caja del Trading Post hace semanas y la Bóveda se lo muestra como **venta pasada**, sin ninguna señal de que el dinero nunca se cobró. Eso no es un feature眼中的 es plata quieta.
+
+Implementado `getCommerceDelivery(token, opts)` en `api-gw2.js` (v2.15.0 → v2.16.0), siguiendo **exactamente** el patrón de sus sisters `getCommerceTransactionsBuys`/`Sells`: misma cache con TTL de 60s, mismo `inflightOnce`, misma inflight key prefijada por `fpToken(token)`, mismo `.catch` que degrada a `[]`.
+
+Endpoint verificado en vivo antes de escribir una línea:
+
+| Check | Resultado |
+|---|---|
+| `/v2/commerce/delivery` con token falso | **401** `Invalid access token` → **existe** |
+| `/v2/commerce/bogusendpoint123` (control) | **404** `not found` → así se ven los endpoints inexistentes |
+
+### Pendientes
+
+- 🟡 **UI de Commerce Delivery — BLOQUEADA por Reviewer.** La capa API está lista y verificada, pero renderizarla requiere CSS nuevo y el Reviewer lleva **14** consultas fallidas. No se avanza sin él.
+- 🟡 **Duda real abierta sobre el `.catch → []`:** degradar a vacío es inocuo en `buys`/`sells`, pero en `delivery` el usuario **creería que no tiene nada pendiente**. Si la API falla y mostramos `[]`, el único se esconde justo donde no debe. Se mandó al Reviewer como pregunta única. Default si no responde: distinguir "vacío real" de "no se pudo leer".
+- 🔴 **`fix-fractals-fake-daily-data` — borrar.** Superada por `27b8394`. Mergearla es destructivo (alerta #1). No se borra sin OK de Pablo.
+- 🔴 **`fix/fractal-rotation-hardcoded` (`316311d`)** — obsoleta, superada por `27b8394`.
+- 🟡 **Idea #42 (coberturable account-scoped, 12 endpoints)** — **mayor gap medido.** El PO confirma que subsume y **cancela** #38/#40/#41. La usa ~10 de ~50 endpoints disponibles. Trampa: `?ids=all` → HTTP 400 en `/v2/skins`; hay que paginar en lotes.
+- 🟡 **Idea #44 (dungeons)** — completa una familia ya implementada 3/4. Patrón probado, el de menor riesgo.
+
+### Alertas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| 6 | **Reviewer: 14 fallas consecutivas.** Dos modos: `session_id mismatch` (13) y `Provider returned an empty response` (1). El último es un bug distinto y más grave. **Escalar a Pablo.** | 🔴 Alta — bloquea todo el trabajo con CSS |
+| 7 | **El Documentador verificó sobre un worktree desactualizado** y reportó como "pendiente de merge" algo ya mergeado. Riesgo: el log afirma un estado de git sin comprobarlo. | 🟡 Media — Acción: toda afirmación sobre estado de repo se verifica con `git branch --contains` antes de escribirse |
+| 8 | **`meta.js` tenía un fix funcional que nunca llegó al navegador** por no bumpar el query string. El código correcto existíaa en el repo, no en la app. | 🟡 Media — resolta en este ciclo, pero la clase de bug (fix sin bump) puede seguir existiendo en otros módulos |
+
+### Estado de propuestas del PO
+
+| # | Item | Estado |
+|---|------|--------|
+| 43 | **Commerce Delivery** (`/v2/commerce/delivery`) | 🟢 **EN CURSO.** Capa API implementada + verificada en vivo. UI bloqueada por Reviewer. |
+| 42 | **Coberturable account-scoped** (12 endpoints) | 🟡 **Mayor gap medido.** Cancela #38/#40/#41. Requiere paginación (no `?ids=all`). |
+| 44 | **Dungeons** (`/v2/account/dungeons`) | 🟡 Pendiente. Completa familia 3/4. Menor riesgo. |
+| 39 | **Fractal Tracker multicuenta** | 🟡 Desbloqueado por `27b8394`, pero **pierde prioridad**: la GW2 API no expone la rotación diaria (ver commit `27b8394`), así que el instábulo central de la idea no tiene backing de datos. |
+| 40 | **Pets** | ❌ **CERRADA por el propio PO:** `/v2/account/pets` → **404**. No existe endpoint account-scoped. Pasa a ser columna de #42. |
+| 40-bis | Esencias sin usar + saturación de MF | 🟡 Pendiente. Gap real. La Luck Bar no es legible por API. No prometer progreso de barra. |
+| 41 | **Titles** | 🟡 Pendiente, ahora **subsumida en #42** (496 títulos). |
+| 38 | **Skins / Outfits** | ❌ **RECHAZADA** — `/v2/skins?ids=all` → HTTP 400. Subsumida en #42. |
+| — | Convergence Achievement Tracker | ❌ **DROP** (decisión del propio PO). 2 de 4 IDs eran 404. |
+
+---
+
+## Heartbeat #32 (19:35 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | ✅ Activo | Heartbeat #32. Rescate de la rama del PO + fix de rotación inventada mergeado a `agents/main`. |
+| **code-reviewer** | ⏳ **Ejecutándose** | `task-57c182d1993a` (COMM 019), background 900s. 2ª consulta tras su recuperación del HB#30. Pregunta única y acotada: ¿extraer a `theme-polish.css` los estilos inline del nuevo aviso, o dejarlos inline? |
+| **documenter** | ✅ **Operativo** | Sin tarea abierta este ciclo. Confirmado recuperado en HB#30 (`53425b0`). Le paso el fix de rotación al cerrar. |
+| **product-owner** | ✅ **Respondió** | `task-5ccb7fb3377d` **COMPLETADA**: aceptó las 3 correcciones, verificó en vivo, y applying su propio DROP. Commit `feda750`. Productividad alta y autocrítica real. |
+| **architect** | — | Excluido por diseño. |
+
+### Trabajo completado en este ciclo
+
+**Rotación diaria de fractales — datos falsos en producción de `agents`.** El panel de Actividades pintaba 3 fractales T4 y 3 escalas **hardcodeadas** como si fueran los dailies de hoy y los de mañana. Todos los días, los mismos nombres. El PO lo detectó verificando contra la API: `/v2/fractals` → **404** y `/v2/achievements/daily` → **503 `{"text":"API not active"}`**. La GW2 API no expone esa rotación, así que no había forma de dejarla verdadera: la decisión correcta era dejar de mentir, no rellenar con un placeholder.
+
+Ahora: `rotationAvailable:false`, arrays vacíos, aviso explícito que además señala que el tracker de Solitary Throne CM **sí** es real (viene de `getAccountAchievements`). Ese contraste es lo que evita que el jugador piense que toda la sección es ficticia.
+
+**Rescate de rama — el riesgo real del ciclo.** El commit del PO `c081496` estaba en `fix-fractals-fake-daily-data`, brakeda desde `53425b0`, seis commits atrás. Un merge normal de esa rama habría revertido **335 líneas** en 14 archivos de documentación, incluido el guard `LEY_LINE_ENDPOINT_RETIRED` de `meta.js` (el fix de `/v2/events` retired del HB#30, hecho la hora anterior). El diff看起来 de "muchos cambios" porque el diff es contra `agents/main`, no contra el padre real de la rama.
+
+Lo resolví con `cherry-pick -x` a una rama limpia desde `agents/main`: 2 archivos, 44 inserciones, 10 borrados. Verifiqué que el diff resultante es exactamente el que el PO quería, con `node --check` limpio en `activities.js` y `meta.js`, HTML balanceado tras el restructure del bloque condicional, y el guard de Ley Line intacto.
+
+> **Regla para el futuro:** un commit del PO que llega por `agents` sin avisar debe verificarse contra `agents/main` antes de mergear, no contra su padre. El mensaje del commit puede ser correcto y el merge aun así ser destructivo.
+
+### Pendientes
+
+- ⏳ **COMM 019 — Reviewer** (`task-57c182d1993a`): el nuevo `<div>` del aviso mete `border`, `border-left` y `border-radius` en `style=` inline. Viola la arquitectura CSS de 3 capas y contradice la condición que el propio Reviewer puso en COMM 015 ("nace con `fractal-tracker-theme.js`, sin `style=` inline"). Cosmético, no funcional — el código ya está en `agents/main` y no bloquea nada.
+- 🧹 **`fix-fractals-fake-daily-data` — borrar.** Su contenido ya está en `agents/main` vía `27b8394`. Mergearla sería destructivo. No la borro sin OK de Pablo.
+- 🧹 **`fix/fractal-rotation-hardcoded` (`316311d`) — obsoleta**, superada por `27b8394`.
+- 📋 **Fractal Tracker multicuenta (Idea 39)** — desbloqueado. C2 resuelta, datos reales garantizados. Listo para arrancar; ~6-10h.
+
+### Alertas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| 1 | **Rama `fix-fractals-fake-daily-data` es una bomba de merge.** Un merge directo revierte 335 líneas de logs y el guard `LEY_LINE_ENDPOINT_RETIRED`. | 🔴 Alta — mitigada por rescate, sigue abierta hasta borrarla |
+| 2 | El fix de rotación introduce `style=` inline en un bloque nuevo, contra la arquitectura de 3 capas. | 🟡 Media —cosmética, en consulta (COMM 019) |
+| 3 | **Reviewer intermitente:** 13 fallos consecutivos, luego 1 respuesta completa (HB#30), ahora otra consulta en vuelo. Dos modos de fallo distintos: `session_id mismatch` (12×) y `Provider returned an empty response` (1×). | 🟠 Media — bug de plataforma, no del proyecto |
+| 4 | El panel de Actividades mostró datos falsos durante semanas sin que nadie lo reportara. El PO lo encontró verificando la API, no leyendo la UI. | 🟠 Media — el PO es el control de calidad de datos de facto |
+| 5 | `fractal-rotation-hardcoded` y `fix-fractal-rotation-hardcoded` convivieron; ahora queda una rama obsoleta. | 🟢 Baja |
+
+### Estado de propuestas del PO
+
+| # | Item | Estado |
+|---|------|--------|
+| 39 | **Fractal Tracker multicuenta** (T1-T4+CM, instabilities) | 🥇 **Desbloqueado.** Reviewer aprobó con cambios (C1-C3). C2 resuelta. `27b8394` garantiza datos reales. Listo para arrancar. |
+| 40-bis | Esencias sin usar + saturación de MF a 300% | 🟡 Pendiente. Gap real. La Luck Bar no es legible por API; las esencias (45175-45179) sí. No prometer progreso de barra. |
+| 40 | Mounts / Pets tracker | 🟢 Pendiente. Requiere confirmación de Pablo (valor real solo para coleccionistas). |
+| 41 | Titles tracker (648 títulos) | 🟢 Pendiente. Probablemente redundante con `achievements.js` — mismo caso que VoE. |
+| 38 | Skins / Outfits tracker | 🟢 Pendiente. **Limitación dura:** no existe `/v2/account/skins`. Solo outfits guardados por personaje. |
+| — | Convergence Achievement Tracker | ❌ **DROP** (decisión del propio PO). 2 de 4 IDs eran 404 y la categoría 487 ya se carga dinámicamente. |
+| — | Coberturable account-scoped multicuenta | 🟡 **Mayor gap medido.** 12 endpoints `/v2/account/*` sin tocar; la Bóveda usa ~10 de ~50. Subsume 38/40/41. |
+
+---
 
 ## Heartbeat #30 (18:00 UTC — cron-triggered)
 

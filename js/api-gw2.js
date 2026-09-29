@@ -1,7 +1,7 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.15.0 (2026-05-04) — Commerce: Listings, Prices + Transactions (Buy/Sell)
+ * Versión: 2.16.0 (2026-09-29) — Commerce: + Delivery (ítems sin recoger del TP)
  *
  * Cobertura de este archivo:
  *  - Token / permisos (tokeninfo)
@@ -11,8 +11,14 @@
  *  - Account info (con last_modified para detectar actividad)
  *  - Raids (getAccountRaids para seguimiento semanal)
  *  - Inventory: Bank, Materials, Legendary Armory
- *  - Commerce: Listings, Prices, Transactions (buys/sells)
+ *  - Commerce: Listings, Prices, Transactions (buys/sells), Delivery (sin recoger)
  *  - Delegados Wizard's Vault (retrocompatibles)
+ *
+ * Cambios v2.16.0:
+ *  - NUEVA función getCommerceDelivery(token, opts) - Endpoint /v2/commerce/delivery
+ *    Muestra lo que la cuenta tiene pendiente de recoger en la caja del Trading Post.
+ *    Endpoint verificado en vivo 2026-09-29: 401 con token inválido (existe); un
+ *    endpoint inexistente devuelve 404 "not found". Data-only, sin CSS.
  *
  * Cambios v2.15.0:
  *  - NUEVA función getCommerceListings(opts) — Endpoint /v2/commerce/listings
@@ -349,6 +355,60 @@
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting commerce transactions (sells):', error);
         return [];
+      });
+    });
+  }
+
+  /**
+   * Obtiene los items del Trading Post que la cuenta aún NO ha recogido
+   * (botín de ventas y compras pendientes de cobro).
+   *
+   * Endpoint: /v2/commerce/delivery — verificado 2026-09-29 (401 con token
+   * inválido = existe; un endpoint inexistente devuelve 404 "not found").
+   * Requiere API key con permiso `tradingpost`.
+   *
+   * A diferencia de buys/sells, acá el problema de negocio es del usuario:
+   * lo que figura en la caja del TP y nunca se cobró. Sin esto, la Bóveda
+   * muestra la venta como histórica y el ítem queda invisible.
+   *
+   * ⚠️ DESVIACIÓN DELIBERADA de sus sisters (revisado por el Code Reviewer):
+   * buys/sells degradan a `[]` en error porque `[]` es su estado NORMAL. Acá
+   * no: `[]` significaría "no tenés nada pendiente" cuando en realidad puede
+   * ser "no se pudo leer". El caso que más probable lo dispara no es una caída
+   * transitoria sino un **403 permanente por falta de scope `tradingpost`**,
+   * que nunca se resuelve solo. Como el valor de esta feature ES el alerta,
+   * un vacío silencioso la deja mintiendo sobre su único propósito.
+   * Por eso acá el error se PROPAGA. La UI debe distinguir tres estados:
+   * pendiente / vacío real / no se pudo leer.
+   *
+   * @param {string} token - API Key con permiso tradingpost
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<Array>} - Array de entradas pendientes de recoger
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   */
+  function getCommerceDelivery(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+
+    var key = 'commerce_delivery';
+    var ttl = 60 * 1000; // 1 minuto
+
+    var cached = getCache(key, ttl, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withToken(CFG.API_BASE + '/v2/commerce/delivery', token);
+    var ikey = 'if:commerce_delivery:' + fpToken(token);
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var delivery = Array.isArray(data) ? data : [];
+        putCache(key, delivery, token, ttl);
+        return delivery;
+      }).catch(function (error) {
+        // Se registra y se propaga. Ver la nota de contrato en el JSDoc:
+        // degradar a [] acá sería indistinguible de "caja vacía".
+        console.warn(LOGP, 'Error getting commerce delivery:', error);
+        throw error;
       });
     });
   }
@@ -762,6 +822,7 @@
     getCommercePrices: getCommercePrices,
     getCommerceTransactionsBuys: getCommerceTransactionsBuys,
     getCommerceTransactionsSells: getCommerceTransactionsSells,
+    getCommerceDelivery: getCommerceDelivery,
 
     // Inventory (NUEVO v2.13.0)
     getAccountBank: getAccountBank,

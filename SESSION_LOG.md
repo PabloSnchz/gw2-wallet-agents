@@ -1,6 +1,54 @@
-﻿# SESSION_LOG.md
+# SESSION_LOG.md
 
 > Mantenido por: Principal (default).
+
+## 2026-09-29T19:35 UTC — Heartbeat #32
+
+> **El PO encontró que la Bóveda le estaba mintiendo al usuario.** El panel de Actividades pintaba 3 fractales T4 y 3 escalas hardcodeadas como si fueran los dailies de hoy y los de mañana. Todos los días, los mismos nombres. Y su commit, correcto, venía en una rama que habría revertido 335 líneas de documentación si la mergeaba.
+
+### Contexto
+- **COMM 016** (PO, `task-5ccb7fb3377d`) → **RESUELTO.** El PO aceptó las 3 correcciones factuales tras verificarlas él mismo contra la API, y descartó su propia propuesta.
+- **Rama nueva en `agents`** que no conocía: `fix-fractals-fake-daily-data` (`c081496`).
+- `agents/main` estaba 1 commit adelante de mi `main` local. Sincronizado con `--ff-only`.
+
+### Qué se hizo
+
+**1. El PO aceptó las 3 correcciones y dropeó su propia idea.** Verificó en vivo antes de aceptar (el tema ya se lo había marcado en la Heartbeat #30): `9384`/`9454` → 404, categoría 487 → 7 logros, `/v2/account/luck` → 401, `categories?ids=all` → 200 con 360 categorías. Su conclusión: el **Convergence Achievement Tracker es un DROP, no un downgrade** — 2 de sus 4 IDs no existían y además era redundante con `achievements.js:255`. Séptima corrección en 48h; en dos había violado una regla que él mismo había escrito. Commit `feda750`.
+
+**2. Datos falsos en el panel de Actividades — el hallazgo real del ciclo.** `loadToday()` y `loadTomorrow()` hardcodeaban 3 fractales T4 + 3 escalas cada una, y las pintaban como los "dailies de hoy" y "de mañana". El PO lo verificó contra la API: `/v2/fractals` → **404**, `/v2/achievements/daily` → **503 `{"text":"API not active"}`**. La GW2 API **no expone esa rotación**, así que no había forma de dejarla verdadera.
+
+El fix (suyo, `c081496`): `rotationAvailable:false`, arrays vacíos, y un aviso explícito que además aclara que el tracker de Solitary Throne CM **sí** es real (viene de `getAccountAchievements`). Ese contraste es deliberado: sin él, el jugador concluiría que toda la sección de fractales es ficticia, y sería un error — el tracker de CM refleja logros reales de la cuenta.
+
+**3. La rama era una bomba de merge — esta fue la parte que requería criterio.** `fix-fractals-fake-daily-data` estaba brakeda desde `53425b0`, seis commits atrás. Un merge normal habría revertido **335 líneas en 14 archivos de documentación**, incluido el guard `LEY_LINE_ENDPOINT_RETIRED` de `meta.js` — el fix de `/v2/events` retirado del HB#30, hecho **la hora anterior**.
+
+El `git diff --stat` contra `agents/main` mostraba 16 archivos y 335 borrones, lo que hace parecer un cambio grande y legítimo. No lo era: era la foto de una base vieja. El commit en sí, aislado, toca **2 archivos**.
+
+Rescate: `cherry-pick -x` a una rama limpia `fix/fractal-rotation-fake` desde `agents/main` → `27b8394`. Verificado:
+- `node --check` limpio en `activities.js` y `meta.js`
+- HTML balanceado (el restructure movió un `</div>` fuera del bloque `if (t4.length)`; lo conté)
+- `LEY_LINE_ENDPOINT_RETIRED` sigue presente (2 ocurrencias)
+- Mergeado a `agents/main` @ `27b8394`; `git ls-remote` sin branches duplicados
+
+**Regla que sale de esto:** un commit del PO que llega por `agents` sin avisar se verifica contra `agents/main`, no contra su padre. El mensaje puede ser correcto y el merge aun así destructivo.
+
+**4. Consulta acotada al Reviewer (COMM 019, `task-57c182d1993a`).** El nuevo `<div>` del aviso mete `border`, `border-left` y `border-radius` en `style=` inline — viola la arquitectura CSS de 3 capas y contradice la condición C3 que el propio Reviewer puso en COMM 015 ("nace con `fractal-tracker-theme.js`, sin `style=` inline"). No lo apliqué por mi cuenta: es cosmético, el código ya está mergeado, y la decisión de dónde vive ese estilo es del Reviewer. Pregunté solo eso, sin expandir el alcance a los `style=` inline preexistentes de los `<article class="card fractal-card">` (trackeados aparte en BACKLOG).
+
+### Qué se rompió
+Nada. No hubo regresión: el cambio es un `if` que evita renderizar un bloque vacío.
+
+### Qué quedó pendiente
+- **COMM 019** ⏳ esperando al Reviewer. Cosmético, no bloquea.
+- **Borrar `fix-fractals-fake-daily-data`** — obsoleta y peligrosa. No la borro sin OK de Pablo.
+- **`fix/fractal-rotation-hardcoded` (`316311d`)** — antecedente obsoleto del mismo fix.
+- **Fractal Tracker multicuenta (Idea 39) desbloqueado** — C2 resuelta, `27b8394` garantiza datos reales. Listo para arrancar (~6-10h).
+
+### Decisiones
+1. **Rescatar el commit del PO en vez de esperar que arreglara la rama.** El contenido era correcto; la rama era un problema de mecánica, no de criterio. Un autor con un commit bueno y una rama mala es un problema distinto a un autor con un commit malo.
+2. **No tocar los estilos inline del nuevo aviso por mi cuenta.** Sé que lo quiero limpio, pero la respuesta "theme-polish.css o inline" le corresponde al Reviewer — es exactamente el tipo de decisión de arquitectura que le pedí, y adelantarla anula la consulta.
+3. **No borrar la rama del PO sin permiso.** Es suya, y aunque ya es obsoleta, borrar ramas en un repo que Pablo puede estar mirando no es mi decisión.
+4. **Cerrar el Convergence Tracker como DROP, no como "para más adelante".** Es la diferencia entre una idea descartada con motivo y una idea olvidada que vuelve. El PO lo dijo bien: *verificar mata ideas*.
+
+---
 
 ## 2026-09-29T18:00 UTC — Heartbeat #30 (cron-triggered, 18:00 UTC)
 
@@ -551,3 +599,35 @@ Nada. El fix es aditivo + eliminacion de dead code; no toca CSS ni la arquitectu
 - inventory-dashboard.js fixes — diagnosticado, bloqueado (CSS require Reviewer).
 - Legendary Armory Phase 3 — bloqueado por API GW2 (no expone recipes con ingredients).
 - Reviewer (10th timeout, platform bug) + Documentador (6th timeout) + PO timeout.
+
+---
+
+## Heartbeat #33 — 2026-09-29 19:52 UTC
+
+### Que se hizo
+
+1. **Auditoria del trabajo del Documentador.** Completo `task-d1308a9671e0` (2ª seguida tras una racha de 7 timeouts) y reporto 3 discrepancias. Las verifique una por una contra el codigo real:
+   - **Falsa:** «el fix de fractals no esta mergeado». `git branch --contains 27b8394` → `main`. Si lo esta. Causa: el Documentador trabajo en un worktree creado antes del merge.
+   - **Falsa:** «la rama `fix/leyline-obsolete-events` nunca existio». Correcto, pero irrelevante: el fix entro directo a main.
+   - **Cierta:** faltaba el bump de `meta.js`. Resuelta.
+2. **Correccion del CHANGELOG**: dos anotaciones afirmaban un estado de git falso. Un log que dice «no mergeado» sobre algo que si lo esta se convierte en evidencia falsa para quien lo lea despues.
+3. **`meta.js` v3.4.0 → v3.4.1.** El guard `LEY_LINE_ENDPOINT_RETIRED` estaba en main pero el query string no cambio: **el navegador cacheado seguia ejecutando el codigo viejo** y emitiendo el request a `/v2/events` que devuelve 503. El fix existia en el repo, no en la app.
+4. **Item #43 implementado (capa API).** `getCommerceDelivery` en `api-gw2.js` v2.16.0, mismo patron que sus sisters.
+5. **PO consultada**: cerro la idea #40 por si mismo tras verificar `/v2/account/pets` → 404.
+
+### Que se rompio
+
+Nada. `node --check` limpio en `api-gw2.js`, `meta.js` y `activities.js`.
+
+### Que quedo pendiente
+
+- **UI de Commerce Delivery**, bloqueada por el Reviewer (14ª falla consecutiva).
+- **Decision semantica del `.catch` a `[]`** en delivery (preguntada al Reviewer, `task-a0398e55c545`).
+- **Escalado a Pablo**: el Reviewer acumula 14 consultas fallidas con dos modos de fallo distintos. Sin el no avanza nada que toque CSS.
+
+### Decisiones
+
+- **Un log nunca afirma estado de git sin verificarlo.** Toda afirmacion sobre merge o branch se comprueba con `git branch --contains` antes de escribirse. El costo de la regla es un comando; el costo de obviarla es que el proximo agente actuie sobre un estado inexistente.
+- **#40 (Pets) cerrada, no priorizada.** El PO verifico `/v2/account/pets` → 404 y lo cerro el mismo. Mount skins si es account-scoped, pero es un item de #42.
+- **#39 baja de prioridad.** La idea era un tracker de instabilities por fractal, pero la GW2 API **no expone la rotacion diaria** (es lo que arreglo `27b8394`). El ingles central de la feature no tiene backing de datos. Sigue siendo un tracker util de referencia, no un planner diario.
+

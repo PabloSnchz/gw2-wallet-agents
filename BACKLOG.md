@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-29T18:00:00Z (Heartbeat #30 — VoE verification cerrado, correcciones al PO)
+> Actualizado: 2026-09-29T19:35:00Z (Heartbeat #32 — rotacion de fractales inventada corregida; rescate de rama del PO)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -12,9 +12,13 @@
 
 ## Pendientes (prioridad alta)
 
+- [x] **Rotación diaria de fractales INVENTADA (hallazgo del PO)** — ✅ CORREGIDO (Heartbeat #32, commit `27b8394` en `agents/main`). `loadToday()`/`loadTomorrow()` hardcodeaban 3 fractales T4 + 3 escalas fijas y los pintaban como los "dailies de hoy" y "de mañana" — **el panel mostraba siempre los mismos nombres, presentados como datos reales**. Verificado contra la API: `/v2/fractals` → **404**, `/v2/achievements/daily` → **503 `{"text":"API not active"}`**. La GW2 API no expone esa rotación. Ahora `rotationAvailable:false`, arrays vacíos, y se muestra un aviso explícito en vez de inventar nombres. El tracker de Solitary Throne CM **no se toca** (ese sí es real, vía `getAccountAchievements`). `js/activities.js` v3.20.1, `node --check` limpio, HTML balanceado.
+  - ⚠️ **Rescate de rama:** el commit del PO `c081496` vivía en `fix-fractals-fake-daily-data`, brakeda desde `53425b0`. Mergearla habría revertido **335 líneas de logs** y el guard `LEY_LINE_ENDPOINT_RETIRED` de `meta.js`. Se rescató con `cherry-pick -x` a una rama limpia. **Esa rama no se mergea; ya está obsoleta.**
+  - ⏳ **Abierto (COMM 019):** el nuevo `<div>` del aviso introduce `border` / `border-left` / `border-radius` en `style=` inline → viola la arquitectura CSS de 3 capas. Consultado al Reviewer (`task-57c182d1993a`). Es cosmético, no funcional.
+
 - [x] **`/v2/events` RETIRADO (meta.js Ley Line)** — ✅ RESUELTO 2026-09-29T18:20Z, commit `f533d67` en `agents/main`. Verificado en vivo: `/v2/events` y `/v2/achievements/daily` → **503 `{"text":"API not active"}`**, mientras `/v2/maps`, `/v2/worlds`, `/v2/continents` y `/v2/itemstats` → **200**. No es caída transitoria: es retiro selectivo de esos dos endpoints. **No hay endpoint sustituto** — la rotación del mapa de Ley Line Anomaly no está expuesta en la GW2 API. La propuesta de reemplazarlo por `/v2/account/worldbosses` es incorrecta (worldbosses = historial de bosses derrotados). El código ya degradaba solo (`inst._activeWaypoint || meta.chat`); el guard `LEY_LINE_ENDPOINT_RETIRED` solo evita emitir un request condenado y documenta el hallazgo. El mismo retiro aplica a `/v2/achievements/daily`, aunque hoy no lo usa ningún módulo de `js/`.
 - [ ] **Coberturable account-scoped multicuenta (idea del PO 18:00 UTC)** — 🟡 **MAYOR GAP MEDIDO.** 12 endpoints `/v2/account/*` sin tocar: `skins` (10.632), `outfits` (136), `finishers` (70), `minis` (983), `novelties` (236), `gliders` (148), `mailcarriers` (16), `mounts/skins` (488), `mounts/types` (9), `titles` (496), `dyes` (643), `home/cats` (35). La Bóveda usa ~10 de ~50 disponibles. Arrancar por `skins`; el resto es data + columnas. Subsume las Ideas 38/40/41 del PO. ⚠️ **Trampa verificada:** `?ids=all` → **HTTP 400** en `/v2/skins` (y en `/v2/items`, `/v2/achievements`), pero **200** en `/v2/currencies`. Hay que paginar en lotes. Referencia del código existente: `chunk = 100` (`meta.js:294`).
-- [ ] **Commerce delivery** — 🟢 ~3-4h, dinero directo, riesgo casi nulo. `/v2/commerce/delivery` (verificado 401 con token inválido = existe). `api-gw2.js:310` y `:341` ya leen `transactions/buys` y `/sells`; falta lo que el usuario dejó sin recoger.
+- [x] **Commerce delivery** — 🟢 **API LISTA (HB#33)**, UI pendiente. `getCommerceDelivery(token, opts)` en `js/api-gw2.js` v2.16.0, mismo patron que buys/sells (cache 60s, `inflightOnce`, inflight key por `fpToken`). Endpoint verificado en vivo: `/v2/commerce/delivery` con token falso → **401** (existe); control `/v2/commerce/bogusendpoint123` → **404** (no existe). **Falta**: render en UI (bloqueado por Reviewer, 14ª falla) y la decision sobre el `.catch` a `[]` (en delivery, vacio puede significar «no tenes nada» en vez de «no se pudo leer»). Friccion real reportada por el PO: la Boveda muestra la venta como pasada sin avisar que el dinero no se cobro.
 - [ ] **Dungeon dailies** — 🟢 ~3-4h, completa una familia ya implementada 3/4. `activities.js` ya trackea `dailycrafting`, `worldbosses` y `mapchests`; falta `dungeons` (8 mazmorras, verificado 401 = existe). Patrón ya probado, es el de menor riesgo de los tres.
 - [ ] **Legendary Armory Phase 3** — ⏳ Skeleton implemented (bac5c67, 7c88fe6, 1aaff5a). Detail modal + CSS 3-capas done. AWAITING API connection (Phase 3 commit 4). Componentes de recetas bloqueados (API GW2 no expone recetas con ingredients). Wages of Stars (110020) ya en legendary-data.js. ~15-20h remaining.
 - [ ] **inventory-dashboard.js (glow + overflow)** — 📋 DIAGNOSTICADO. 4 inline styles con box-shadow/border-radius/transition (lines 462, 473, 709, 830) violate CSS 3-layer architecture. Awaiting Reviewer validation (Reviewer DOWN — 10th timeout, platform bug).
@@ -41,6 +45,10 @@
 - [ ] **Inventory cleanup tool** — MetaForge WARDOGS competitive gap. ~15-20h.
 
 ## Completed (referencia histórica)
+
+- [x] **Convergence Achievement Tracker — DROP (no downgrade)** — El propio PO lo descartó (Heartbeat 19:00 UTC) tras aceptar mis correcciones: 2 de sus 4 IDs de logro (`9384`, `9454`) devuelven 404, y la categoría 487 ya se carga dinámicamente en `achievements.js:255` → el módulo habría sido redundante. Commit `feda750`.
+
+- [x] **Fractal Tracker multicuenta (Idea 39 del PO)** — 🟡 **DESBLOQUEADO, listo para arrancar.** El Reviewer aprobó con cambios (COMM 015, C1-C3) y la condición bloqueante C2 ya fue resuelta por el Principal (DECISIONS_LOG 2026-09-29): el bloque CM de `activities.js` se queda donde está. Previo: `27b8394` eliminó la rotación inventada, así que el módulo arranca sobre datos reales. Condiciones del Reviewer a respetar: sin badge de relics inventado, tabla de 17 instabilities como constante en el IIFE (no `localStorage`), last-win por token, y el tema nace como `fractal-tracker-theme.js` sin `style=` inline.
 
 - [x] **Suerte (MF base account-wide)** — ✅ IMPLEMENTADO (2026-09-29, `agents/main` @ `0cc5cb7`, commits `44c64a9`/`6067851`). Columna opt-in "Suerte (MF)" en el Dashboard Cartera multicuenta. `js/luck-curve.js` v1.0.0 (nuevo, tabla oficial de 300 umbrales de GW2 Wiki + `fromLuck()`), `getAccountLuck()` en api-gw2.js vía `/v2/account/luck`. **Corrección a la premisa del PO:** la Luck NO está en `/v2/currencies`; el endpoint dedicado existe desde 2019-04-08 y la mecánica es de 2013-09-03. Test funcional node TODO OK, `node --check` limpio.
 
