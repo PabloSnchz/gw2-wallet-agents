@@ -1,0 +1,31 @@
+{
+  "updated": "2026-09-29",
+  "patch": "Visions of Eternity — Code of Creation",
+  "description": "Items nuevos del juego (source: gw2treasures.com new items feed). Static JSON updated manually.",
+  "items": [
+    { "id": 107380, "source": "VoE: Code of Creation", "added": "2026-09-28T17:22:00Z", "category": "weapon" },
+    { "id": 107446, "source": "VoE: Code of Creation", "added": "2026-09-28T19:03:00Z", "category": "armor" },
+    { "id": 107320, "source": "VoE: Code of Creation", "added": "2026-09-28T21:10:00Z", "category": "weapon" },
+    { "id": 107322, "source": "VoE: Code of Creation", "added": "2026-09-28T21:10:00Z", "category": "weapon" },
+    { "id": 107325, "source": "VoE: Code of Creation", "added": "2026-09-28T21:10:00Z", "category": "weapon" },
+    { "id": 107330, "source": "VoE: Code of Creation", "added": "2026-09-28T21:10:00Z", "category": "weapon" },
+    { "id": 110020, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106555, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 106556, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 106557, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 106558, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 106559, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 107300, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 107301, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 107302, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 107303, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 107304, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "armor" },
+    { "id": 106980, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106981, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106982, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106983, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106984, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "legendary" },
+    { "id": 106770, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "misc" },
+    { "id": 106771, "source": "VoE: Code of Creation", "added": "2026-09-18T10:00:00Z", "category": "misc" }
+  ]
+}
