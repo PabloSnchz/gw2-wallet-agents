@@ -1,40 +1,30 @@
-# ALERTS_LOG.md
+# ALERTS_LOG.md — Registro de alertas
 
-> Registro de alertas del ecosistema.
-> Se actualiza cuando hay errores, timeouts, o bugs que afectan
-> al funcionamiento del equipo.
-> Última actualización: 2026-09-28T14:30:00Z
-> Nota: sin nuevas alertas 🔴. Reviewer bug persiste (6to timeout reportado). PO task-581ac98a9f0a timeout 600s (demasiado complejo). Idea 2 (multicuenta) implementada ✅ commit 07e4c64. Cron 13dc22e6 REACTIVADO (enabled: true). Heartbeat #14 manual ejecutado.
+> Mantenedor: Principal (default) — actualizado por Heartbeat cada 30 min.
+> Fuente de verdad: este archivo + TEAM_STATUS.md en el workspace del Principal.
+
+## Formato
+
+| ID | Severidad | Tipo | Descripción | Archivo(s) / Comentario | Estado | Detectado | Última actualización |
+|----|-----------|------|-------------|-------------------------|--------|-----------|---------------------|
 
 ## Alertas activas
 
-| # | Severidad | Descripción | Agente | Estado | Creado | Última actualización |
-|---|-----------|-------------|--------|--------|--------|---------------------|
-| 1 | 🔴 Alta | Code Reviewer: bug de session_id mismatch. 11th consecutive timeout (120s/600s/600s, 60s ×8, 600s). Último: Heartbeat #16 — Homestead tracker proposal (task-d279c1a845e4, timed out a 60s). Validación manual por Principal ✅ (proceeding by merit). | Code-Reviewer | ⏳ Sin resolver (platform-level) | 2026-09-26 | 2026-09-29 04:01 UTC |
-| 2 | 🟡 Media | Documentador: 7th consecutive timeout (platform bug). task-0c858087dfb7 (600s), task-838665263c09 (timeout). Logs mantenidos por Principal. No fallback (per no-fallback rule). Escalado a Pablo. | Documenter | ⏳ Sin resolver (platform-level) | 2026-09-27 | 2026-09-29 04:01 UTC |
-| 3 | 🟡 Media | inventory-dashboard.js: glow usa box-shadow inline (violación CSS 3-capas capa 2), clearTimeout no cancela durante abort pipeline. Requiere Reviewer validation (down — proceeding by merit). | Principal | ⚠️ Proceeding by merit | 2026-09-28 | 2026-09-29 04:01 UTC |
-| 4 | 🟢 Baja | HEARTBEAT.md re-injection (platform bug). Banner aplicado como mitigación. | Plataforma | ⏳ Sin resolver (platform-level) | 2026-09-28 | 2026-09-29 04:01 UTC |
-| 5 | 🟢 Baja | CRON PO timeout (6th consecutive, platform bug). PRE_BACKLOG.md última actualización 2026-09-28 23:02 UTC. Cron activo, proceeding by merit. | product-owner | ⚠️ Proceeding by merit | 2026-09-26 | 2026-09-29 04:01 UTC |
+| # | Severidad | Tipo | Descripción | Estado | Resolución |
+|---|-----------|------|-------------|--------|-----------|
+| ALERT-01 | 🔴 Alta | Platform | Code Reviewer: bug session_id mismatch. 10 consecutive timeouts. Cannot validate CSS/arquitectura/multi-file changes. | ⚠️ Escalado a Pablo (platform-level) | Awaiting platform fix. Proceeding by merit: diffs audited against existing patterns (abort/last-win, gn:tokenchange, CSS 3-layer, no !important). |
+| ALERT-02 | 🟡 Media | Platform | Documentador: timeout. 6th consecutive timeout (platform bug). No fallback per no-fallback rule (2026-09-28). | ⏳ Sin resolver (platform-level) | Awaiting platform fix. Principal maintains logs manually per rule. |
+| ALERT-03 | 🟢 Baja | Platform | HEARTBEAT.md re-injection: platform reads HEARTBEAT.md e inyecta como prompt cada turn, creando loop. Banner aplicado como mitigación. | ⏳ Sin resolver (platform-level) | Banner en HEARTBEAT.md previene ejecución automática. Cron share_session: false verificado. |
+| ALERT-04 | 🟡 Media | Repo | BACKLOG.md en repo is STALE (Sept 24 version). Doesn't reflect completed items: Sept 29 CM content, Legendary tracker Phase 1-3, storage v2, S1, grid fix. | ⚠️ Synced to workspace version | Workspace BACKLOG.md (Sept 26, current) synced to repo in Heartbeat #16. |
+| ALERT-05 | 🟡 Media | Repo | TEAM_STATUS.md en repo was STALE (Sept 26 bootstrap). Didn't reflect Sept 29 urgency, promotion escalation, agent timeouts. | ⚠️ Synced to workspace version | Workspace TEAM_STATUS.md (Sept 28, Heartbeat #15) synced to repo in Heartbeat #16. |
+| ALERT-06 | 🟢 Baja | Codebase | inventory-dashboard.js: 4 inline styles con box-shadow/border-radius/transition (lines 462, 473, 709, 830) violate CSS 3-layer architecture. | ⏳ Diagnosticado — awaiting Reviewer | Awaiting Reviewer validation. Pending migration to theme-polish.css + inventory-dashboard-theme.js. |
+| ALERT-07 | 🔴 Alta | Codebase | inventory-dashboard.js: clearTimeout bug en loadActiveCharacterInventory (lines 267-290). loadAllInventories/loadCharactersInBackground no implementan abort en el pipeline, dejando timers colgantes en caso de error o key-change. | ⏳ Diagnosticado — awaiting fix | Awaiting Reviewer validation. Pattern reference: activities.js loadCMStatus (abort + last win). |
+| ALERT-08 | 🟢 Baja | Repo | Unpushed commit f16ee12 (docs: legendary tracker, VoE, multicuenta + ONBOARDING) en branch feature/legendary-component-tracker. | ⏳ | Commit pendiente de push a agents en Heartbeat #16. |
 
-## Alertas cerradas (últimas 7 días)
+## Alertas resueltas (histórico)
 
-| # | Severidad | Descripción | Agente | Resolución | Cerrado |
-|---|-----------|-------------|--------|------------|---------|
-| 1 | 🔴 Alta | Grid roto en 3 módulos (Cartera, Meta & Eventos, WV Shop) por @media(max-width:480px) sin cerrar en main.css | Principal | Fix: `}` faltante agregado (commit d1e7c14) | 2026-09-27 |
-| 2 | 🟢 Baja | Timeout de crons insuficiente (600s). PO cron stuck en 17:02 UTC | Principal | Timeout aumentado a 900s en ambos crons. Verificado. | 2026-09-27 |
-| 3 | 🟢 Baja | TEAM_STATUS.md timestamp inconsistente | Principal | Actualizado con timestamp UTC correcto. | 2026-09-27 |
-| 4 | 🟢 Baja | Bug: filtro ⚠ Legendarias en dropdown de Categoría del panel de Logros no funciona al seleccionarlo. Estado: deprecado — código del Legendary Tracker será eliminado de achievements.js cuando legendary-tracker.js esté funcional. No reintentar diagnóstico. | Principal | Deprecado — bug de código a eliminar (ver REGLA de código a construir vs deprecar) | 2026-09-28 |
-
-## Severidades
-
-- 🔴 **Alta** → afecta funcionalidad crítica. Requiere fix urgente.
-- 🟡 **Media** → afecta UX o performance. Requiere fix en la sesión.
-- 🟢 **Baja** → cosmético o deuda técnica. Puede esperar.
-
-## Reglas
-
-- El Principal es el responsable de actualizar este archivo.
-- Se actualiza cuando hay una alerta nueva.
-- Se cierra cuando la alerta se resuelve.
-- Las alertas de severidad 🔴 se notifican al usuario con
-  channel_message.
+| # | Severidad | Tipo | Descripción | Fecha |
+|---|-----------|------|-------------|-------|
+| ALERT-04 | 🟡 Media | Repo | BACKLOG.md en repo STALE — synced to workspace version + push a agents en Heartbeat #18. | 2026-09-29 |
+| ALERT-05 | 🟡 Media | Repo | TEAM_STATUS.md en repo STALE — synced to workspace version + push a agents en Heartbeat #18. | 2026-09-29 |
+| ALERT-08 | 🟢 Baja | Repo | Unpushed commit f16ee12 en feature/legendary-component-tracker — commit ya está en agents/main via merge (35a0f5e). Resuelto. | 2026-09-29 |

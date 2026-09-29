@@ -137,3 +137,26 @@
 ### Estado actual
 - Branches en agents: main, feature/homestead-tracker, feature/legendary-component-tracker.
 - origin intacto.
+
+---
+
+## 2026-09-29T02:30 UTC — Heartbeat #18
+
+### Qué se hizo
+- Heartbeat #18 ejecutado manualmente (02:30 UTC).
+- Agent task check: Todas las task IDs verificadas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+- PO consultado via DASHBOARD_PO_IDEAS.md (mirror publico de PRE_BACKLOG.md). No hay PRE_BACKLOG.md en workspace. Sin nuevas propuestas. PO sigue en timeout (platform bug).
+- No PO proposals para enviar al Reviewer (menos de 3, Reviewer DOWN).
+- BACKLOG reviewed: próximo item — Homestead decoration tracker (PO #1) o inventory-dashboard.js fixes.
+- Sept 29 CM content: en agents/main (4b253b2). NOT en production. Promotion AWAITING Pablo.
+- Committed + pushed 3 archivos untracked al repo agents: CRON_SCHEDULE.md, DASHBOARD_PO_IDEAS.md, assets/data/new-items-feed.json.
+- Synced workspace management files to repo: TEAM_STATUS.md (Heartbeat #18 entry), CRON_SCHEDULE.md, ALERTS_LOG.md, SESSION_LOG.md, BACKLOG.md, COMMS_LOG.md.
+
+### Qué se rompió
+- Nada. Solo sync de archivos + status update.
+
+### Qué quedó pendiente
+- Promotion Sept 29 CM content a production — AWAITING Pablo approval (COMM 008 escalado).
+- inventory-dashboard.js fixes (glow/overflow + clearTimeout) — diagnosticado, awaiting user manual validation.
+- Homestead decoration tracker — próximo PO priority #1.
+- Reviewer timeout (10th, platform bug) + Documentador timeout (6th, platform bug).
