@@ -63,7 +63,7 @@ Si hay riesgo → advertir antes de generar código.
 
 ---
 
-## 🎲 Novedades 2026-09-29 — Suerte (Luck / MF base account-wide)
+## 🎲 Novedades 2026-09-29 (A) — Suerte (Luck / MF base account-wide)
 
 > 📅 La fecha del título es la de la **release del proyecto** (cuándo se escribió el código), **no** la de la mecánica ni la del endpoint. Esa confusion ya produjo un error real: ver el matiz histórico más abajo.
 
@@ -120,7 +120,7 @@ Idea del PO. **La premisa se verificó y se corrigió antes de implementar**, po
 
 ---
 
-## 📦 Novedades 2026-09-29 — `getCommerceDelivery` + criterio de manejo de error en la capa API
+## 📦 Novedades 2026-09-29 (B) — `getCommerceDelivery` + criterio de manejo de error en la capa API
 
 Commit `7d13155` en `agents/main`. **`js/api-gw2.js` v2.15.0 → v2.16.0**, `js/meta.js` v3.4.0 → v3.4.1.
 
