@@ -1,6 +1,6 @@
 # IN_PROGRESS.md — Feats en desarrollo
 
-> Actualizado: 2026-09-29 00:23 UTC
+> Actualizado: 2026-09-29 00:30 UTC
 > Mantenedor: Principal (default)
 
 ---
@@ -9,9 +9,7 @@
 
 | Rama | Item | Iniciada | Estado | Notas |
 |------|------|----------|--------|-------|
-| `chore/cleanup-promotion-references` | chore: metodología de ramas + archivos READY_FOR_PROMOTION/IN_PROGRESS | 2026-09-29 | 🟡 En revisión | AGENTS.md de 5 agentes actualizados. Archivos creados. Commit+push pendiente. |
 | `feature/legendary-component-tracker` | feat-legendary-armory Phase 3 | 2026-09-26 | 🟡 En progreso (3/4 commits) | Commit 1 (skeleton + render) ✅, Commit 2 (detail-modal) ✅, Commit 3 (CSS 3-capas) ✅, Commit 4 (API integration) ⏳. Merge a agents/main pendiente Reviewer approval. |
-| `feat/legendary-data` (archivada) | feat-legendary-armory Phase 2 | 2026-09-26 | ✅ Completado | 206 items en legendary-data.js con TP prices. Merge a agents/main (✅ merged). |
 
 ---
 
