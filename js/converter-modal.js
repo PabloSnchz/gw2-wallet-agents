@@ -1,9 +1,12 @@
 ﻿/*!
  * js/converter-modal.js — Conversor Gem ↔ Gold (Modal)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.0.0 (2026-05-04)
+ * Versión: 1.1.0 (2026-09-29)
  *
- * Extraído de app.js para independizar el conversor en un modal
+ * v1.1.0: banner "caja del Trading Post sin cobrar" (getCommerceDelivery).
+ *         Tres estados distinguibles a proposito: pendiente / vacio real /
+ *         "no se pudo leer". Sin ordenes activas el banner se dibuja igual.
+ * v1.0.0: Extraído de app.js para independizar el conversor en un modal
  * con estructura preparada para futuras tabs (Ofertas, Historial).
  *
  * Fase 1: Conversor funcional completo + tabs placeholder
@@ -35,6 +38,16 @@
       itemsById: {},
       loading: false,
       lastUpdate: 0,
+      delivery: [],
+      // Caja del Trading Post. Cuatro estados, y 'empty' NO es 'error':
+      //   'unknown' = todavia no se consulto
+      //   'pending' = hay items esperando cobro (la alerta que motiva la feature)
+      //   'empty'   = se leyo bien y no hay nada
+      //   'error'   = no se pudo leer (permiso tradingpost ausente, caida, etc.)
+      // La distincion es obligatoria: getCommerceDelivery() propaga el error a
+      // proposito (ver el contrato en js/api-gw2.js) para que un fallo no se
+      // pueda presentar como "caja vacia".
+      deliveryStatus: 'unknown',
       filters: {
         type: 'all' // 'all', 'buys', 'sells'
       }
@@ -531,6 +544,7 @@
     var isLegendaryFilter = state.ofertas.filters.rarity === 'Legendary';
 
     var html =
+      renderDeliveryBanner() +
       '<div style="margin-bottom:8px;font-size:0.75rem;color:var(--muted);line-height:1.5;">' +
         (isLegendaryFilter
           ? '💜 <strong>Legendarias más activas:</strong> ordenadas por cantidad de gente vendiendo. A más vendedores, más liquidez y precios más competitivos.'
@@ -697,9 +711,26 @@
       var buys = results[0].status === 'fulfilled' ? results[0].value : [];
       var sells = results[1].status === 'fulfilled' ? results[1].value : [];
 
-      // Obtener metadatos de items
+      // Caja del Trading Post: lo que quedo sin cobrar.
+      // A diferencia de buys/sells, getCommerceDelivery() PROPAGA el error
+      // (contrato documentado en api-gw2.js). Aca se traduce a un 4to estado
+      // explicito para que la UI distinga "no hay nada" de "no se pudo leer".
+      st.delivery = [];
+      st.deliveryStatus = 'empty';
+      try {
+        var delivery = await root.GW2Api.getCommerceDelivery(token, { nocache: !!forceNoCache });
+        st.delivery = Array.isArray(delivery) ? delivery : [];
+        st.deliveryStatus = st.delivery.length ? 'pending' : 'empty';
+      } catch (deliveryErr) {
+        st.delivery = [];
+        st.deliveryStatus = 'error';
+        console.warn(LOG, 'No se pudo leer la caja del Trading Post:', deliveryErr);
+      }
+
+      // Obtener metadatos de items (ordenes + caja)
       var itemIds = buys.concat(sells).map(function (tx) { return tx.item_id; }).filter(Boolean);
-      var uniqueIds = Array.from(new Set(itemIds));
+      var deliveryIds = st.delivery.map(function (d) { return d && d.item_id; }).filter(Boolean);
+      var uniqueIds = Array.from(new Set(itemIds.concat(deliveryIds)));
       var items = await root.GW2Api.getItemsMany(uniqueIds, { nocache: false });
       var itemsById = {};
       items.forEach(function (it) { if (it && it.id != null) itemsById[it.id] = it; });
@@ -714,6 +745,69 @@
       st.loading = false;
       renderTransacciones();
     }
+  }
+
+  /**
+   * Bloque "caja del Trading Post sin cobrar".
+   *
+   * Tres estados visibles y genuinamente distintos entre si:
+   *  - 'pending': hay items esperando. Es la alerta que motiva la feature.
+   *  - 'error':   no se pudo leer. Tambien se muestra, porque en un panel cuyo
+   *               unico proposito es avisar, un fallo silencioso es peor que
+   *               un panel vacio: el usuario creeria que no debe nada.
+   *  - 'empty':   se leyo bien y no hay nada. No se dibuja nada (silencio = OK).
+   *
+   * Este render solo escribe el atributo `data-cv-color`. El color lo aplica
+   * commerce-delivery-theme.js (capa 3); la estructura vive en main.css
+   * (capa 1) y la piel neutra en theme-polish.css (capa 2).
+   */
+  function renderDeliveryBanner() {
+    var st = state.transacciones;
+    if (st.deliveryStatus !== 'pending' && st.deliveryStatus !== 'error') return '';
+
+    if (st.deliveryStatus === 'error') {
+      return '<div class="cv-delivery" data-cv-color="error" role="status">' +
+        '<div class="cv-delivery__head">' +
+          '<span class="cv-delivery__icon" aria-hidden="true">⚠️</span>' +
+          '<span class="cv-delivery__title">No se pudo leer tu caja del Trading Post</span>' +
+        '</div>' +
+        '<p class="cv-delivery__body">Lo usual es que la API Key no tenga el permiso <code>tradingpost</code>, ' +
+        'o que la API haya caído en ese momento. Las órdenes de abajo sí son datos ya leídos y no se ven afectados.</p>' +
+        '<button id="cvDeliveryRetry" class="btn btn--ghost btn--xs">Reintentar</button>' +
+        '</div>';
+    }
+
+    // 'pending'
+    var count = st.delivery.length;
+    var totalUnits = st.delivery.reduce(function (sum, d) { return sum + (Number(d && d.quantity) || 0); }, 0);
+    var MAX_CHIPS = 12;
+
+    var chips = st.delivery.slice(0, MAX_CHIPS).map(function (d) {
+      var item = st.itemsById[d.item_id] || {};
+      var name = item.name || ('Ítem #' + d.item_id);
+      var qty = Number(d.quantity) || 0;
+      return '<span class="cv-delivery__chip" title="' + esc(name) + '">' +
+        (item.icon ? '<img src="' + esc(item.icon) + '" width="16" height="16" alt="">' : '') +
+        '<span class="cv-delivery__chip-name">' + esc(name) + '</span>' +
+        (qty > 1 ? '<em class="cv-delivery__chip-qty">×' + qty + '</em>' : '') +
+        '</span>';
+    }).join('');
+
+    var more = count > MAX_CHIPS
+      ? '<span class="cv-delivery__more">+' + (count - MAX_CHIPS) + '</span>'
+      : '';
+
+    return '<div class="cv-delivery" data-cv-color="pending" role="status">' +
+      '<div class="cv-delivery__head">' +
+        '<span class="cv-delivery__icon" aria-hidden="true">📦</span>' +
+        '<span class="cv-delivery__title">' + count + ' ítem' + (count === 1 ? '' : 's') + ' sin cobrar</span>' +
+      '</div>' +
+      '<p class="cv-delivery__body">Siguen en tu caja del Trading Post. Mientras no los retires no te abonaron: ' +
+      'la venta figura como hecha, pero el dinero no está acreditado.' +
+      (totalUnits > 1 ? ' (<strong>' + totalUnits + '</strong> unidades en total)' : '') +
+      ' Se recogen en el Trading Post de la Wilderness, o desde la pestaña Commerce de tu cuenta.</p>' +
+      '<div class="cv-delivery__chips">' + chips + more + '</div>' +
+      '</div>';
   }
 
   function getFilteredTransacciones() {
@@ -779,7 +873,11 @@
     }
 
     if (!st.buys.length && !st.sells.length) {
-      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">' +
+      // El banner va PRIMERO y se dibuja igual: "cero órdenes activas" es
+      // precisamente el caso donde la caja del TP puede seguir llena, y
+      // antes de este bloque ese estado se renderizaba como vacío de verdad.
+      container.innerHTML = renderDeliveryBanner() +
+        '<div style="text-align:center;padding:40px;color:var(--muted);">' +
         '<img src="assets/icons/155033.png" width="48" height="48" alt="" style="opacity:0.3;margin-bottom:16px;"><br>' +
         '📭 No tenés órdenes activas en el TP.<br>' +
         '<button id="cvTransaccionesRefresh" class="btn btn--ghost" style="margin-top:16px;">Refrescar</button></div>';
@@ -798,6 +896,7 @@
     var balanceSign = balance >= 0 ? '+' : '';
 
     var html =
+      renderDeliveryBanner() +
       '<div style="margin-bottom:8px;font-size:0.75rem;color:var(--muted);line-height:1.5;">' +
         '📋 <strong>Tus órdenes activas</strong> en la Compañía de Comercio. ' +
         'Compras: <span style="color:var(--color-green);">' + st.buys.length + '</span> · ' +
@@ -881,9 +980,11 @@
     var typeSel = document.getElementById('cvTransaccionesType');
     var refreshBtn = document.getElementById('cvTransaccionesRefresh');
     var retryBtn = document.getElementById('cvTransaccionesRetry');
+    var deliveryRetry = document.getElementById('cvDeliveryRetry');
     if (typeSel && !typeSel.__wired) { typeSel.__wired = true; typeSel.addEventListener('change', function () { state.transacciones.filters.type = typeSel.value || 'all'; renderTransacciones(); }); }
     if (refreshBtn && !refreshBtn.__wired) { refreshBtn.__wired = true; refreshBtn.addEventListener('click', function () { loadTransacciones(true); }); }
     if (retryBtn && !retryBtn.__wired) { retryBtn.__wired = true; retryBtn.addEventListener('click', function () { loadTransacciones(true); }); }
+    if (deliveryRetry && !deliveryRetry.__wired) { deliveryRetry.__wired = true; deliveryRetry.addEventListener('click', function () { loadTransacciones(true); }); }
   }
 
   function getSelectedTokenForCommerce() {
