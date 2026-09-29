@@ -2,6 +2,37 @@
 
 > Mantenido por: Principal (default). Mientras el Documentador estÃ© caÃ­do (platform bug timeout), el Principal mantiene esta traza. Cuando el Documentador se recupere, devuelve el manejo.
 
+## 2026-09-29T14:36 UTC — Heartbeat #27 (manual — solicitud de usuario)
+
+### Contexto
+- Heartbeat #27 ejecutado manualmente por solicitud de usuario.
+- Reviewer 11th consecutive timeout (session_id mismatch platform bug). task-dd859ed5ab5e → FAILED (60s timeout).
+- Documentador 7th consecutive timeout (platform bug). No fallback per no-fallback rule.
+- PO timeout (platform bug). Heartbeat 10:00 UTC publicado en PRE_BACKLOG.md (3 ideas consolidadas: Fractal Instability Planner, Convergence Achievement Tracker, Homestead Glyph Upgrade Fix). PO heartbeats 08:00/10:00/12:00 UTC timeout.
+
+### Qué se hizo
+- **Agent task check:** task-dd859ed5ab5e → FAILED (60s timeout, 11th consecutive, session_id mismatch platform bug). Todas las demás task IDs → 404. No hay tareas pendientes en Reviewer, Documentador, PO.
+- **PO consulted:** PRE_BACKLOG.md (heartbeat 10:00 UTC — production verification + 3 ideas consolidadas). PO heartbeats 08:00/10:00/12:00 UTC → timeout (platform bug). COMM 009 ya respondido. No nuevas propuestas desde COMM 009.
+- **PO 3+ proposals:** 3 ideas consolidadas en #25 ya enviadas al Reviewer → FAILED (timeout #11). Reviewer DOWN. Proceeding by merit — data prep (non-CSS work). CSS changes remain blocked (require Reviewer).
+- **BACKLOG reviewed:** Sept 29 CM promotion ✅ RESOLVED (origin/main @ 392c3b9). Próximos items bloqueados por Reviewer timeout (CSS changes): homestead tracker fixes, fractal instability planner, convergence tracker. Legendary Phase 3 bloqueado por API GW2.
+- **JS BOM changes detected + reverted:** 16 JS files en working directory tenían BOM (UTF-8 Byte Order Mark) removido — detectado como diff no autorizado durante sync. Revertidos con `git checkout -- js/*.js`. No son parte del heartbeat. `remove-bom.ps1` (untracked) conservado para uso futuro.
+- **Management files sync:** Updated TEAM_STATUS.md, CRON_SCHEDULE.md, SESSION_LOG.md en workspace. Sync a repo code-reviewer\repo + commit + push a agents.
+
+### Qué se rompió
+- Nada. Solo status update + sync + cleanup. Los cambios de BOM en JS fueron revertidos (no eran parte del heartbeat).
+
+### Qué quedó pendiente
+1. Reviewer (11th timeout) + Documentador (7th timeout) + PO timeout — bugs de plataforma, escalado a Pablo.
+2. Homestead Glyph Fix, Fractal Instability Planner, Convergence Achievement Tracker — AWAITING Reviewer validation (CSS changes require Reviewer). Proceeding by merit for non-CSS data prep.
+3. inventory-dashboard.js fixes — bloqueado (CSS changes require Reviewer).
+4. Legendary Armory Phase 3 — bloqueado por API GW2 (no expone recipes con ingredients).
+5. BOM removal from JS files — pendiente de Reviewer validation (touches 16 files, require audit). Listado en BACKLOG.md (verificar encoding de archivos).
+
+### Estado de agentes
+- Reviewer: TIMEOUT (session_id mismatch platform bug, 11th consecutive). task-dd859ed5ab5e → FAILED (60s). Proceeding by merit. CSS changes bloqueados.
+- Documentador: TIMEOUT (platform bug, 7th consecutive). No fallback per no-fallback rule.
+- PO: Timeout (platform bug). Heartbeat 10:00 UTC publicado en PRE_BACKLOG.md. Proceeding by merit.
+
 ## 2026-09-29T11:30 UTC — Heartbeat #26
 
 ### Contexto
