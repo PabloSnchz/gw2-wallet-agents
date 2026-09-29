@@ -1,7 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
 > Actualizado: 2026-09-28T23:00:00Z
-> Heartbeat #15 (manual): Post-PO heartbeat priority direction. Escalated to Pablo: Promote Sept 29 CM content to production (cherry-pick commits 116ac60 + 8cc5fc6, NOT full branch). Reviewer 10th timeout, Documentador 6th timeout (platform bugs). Legendary Armory A/B/C conflict: Proposición 1 (94fb7a9, Reviewer-approved) → keep; Proposición C (bac5c67) → pospuesto hasta post-deadline.
+> Heartbeat #15 (manual): Post-PO heartbeat priority direction. Sept 29 CM content en agents (cherry-pick commits 116ac60 + 8cc5fc6, NOT full branch). Reviewer 10th timeout, Documentador 6th timeout (platform bugs). Legendary Armory A/B/C conflict: Proposición 1 (94fb7a9, Reviewer-approved) → keep; Proposición C (bac5c67) → pospuesto hasta post-deadline.
 
 ## Heartbeat #15 (23:00 UTC)
 
