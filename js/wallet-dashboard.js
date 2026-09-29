@@ -1,7 +1,7 @@
 /*!
  * js/wallet-dashboard.js — Dashboard de Cartera Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.6.0 (2026-09-28) — Vista multicuenta con columnas de Personajes, Logros (AP), Raids
+ * Versión: 2.7.0 (2026-09-29) — + columna Suerte (MF base account-wide, /v2/account/luck)
  *
  * Características:
  *  - Tabla de cuentas vs divisas seleccionadas
@@ -10,6 +10,8 @@
  *  - Selector de divisas dropdown
  *  - Persistencia de selección y ordenamiento
  *  - Fix: reintento de renderizado si la tabla no existe
+ *  - Columna opcional "Suerte (MF)": MF% base account-wide + barra de progreso
+ *    al siguiente +1% (fuente: GW2 Wiki, curva de 300 niveles)
  */
 
 (function (root) {
@@ -88,14 +90,64 @@
   var SUMMARY_FIELD_LABELS = {
     'characters': 'Personajes',
     'achievements': 'Logros (AP)',
-    'raids': 'Raids'
+    'raids': 'Raids',
+    'luck': 'Suerte (MF)'
   };
   var SUMMARY_FIELD_SYMBOLS = {
     'characters': '\U0001F468',
     'achievements': '\U0001F3C6',
-    'raids': '\U0001F5E1\uFE0F'
+    'raids': '\U0001F5E1\uFE0F',
+    'luck': '\U0001F340'
   };
   var TOTAL_RAID_ENCOUNTERS = 33;
+
+  // ------------------------------------------------------------------------
+  // Suerte (Luck / magic find account-wide)
+  // El modulo window.LuckCurve trae la tabla oficial de umbrales. Si por lo
+  // que sea no estuviera cargado, caemos a un objeto neutro en vez de romper.
+  // ------------------------------------------------------------------------
+  function luckToProgress(value) {
+    var LC = root.LuckCurve;
+    if (LC && typeof LC.fromLuck === 'function') return LC.fromLuck(value);
+    var v = Number(value) || 0;
+    return {
+      value: v, mf: 0, missing: 0, nextLuck: 0,
+      capped: false, pct: 0, maxed: false, overflow: 0
+    };
+  }
+
+  function fmtLuck(n) {
+    try { return fmtInt(Math.round(Number(n) || 0)); }
+    catch(_) { return String(Math.round(Number(n) || 0)); }
+  }
+
+  function renderLuckCell(s) {
+    if (!s || typeof s.luck !== 'number') return '<td class="right">—</td>';
+    var lc = luckToProgress(s.luckTotal);
+    var pct = Math.max(0, Math.min(100, Number(s.luckPct) || 0));
+    var barColor = lc.capped ? 'rgba(76,175,80,0.85)' : 'rgba(255,193,7,0.85)';
+
+    var tip;
+    if (lc.capped) {
+      tip = 'Suerte al tope (300 pct de MF base).\nLuck total: ' + fmtLuck(lc.value);
+      if (lc.overflow > 0) {
+        tip += '\nExceso sobre el tope: ' + fmtLuck(lc.overflow) + ' (ya no otorga MF)';
+      }
+    } else {
+      tip = 'Suerte: ' + fmtLuck(lc.value) + '\n' +
+            'Faltan ' + fmtLuck(lc.missing) + ' para el siguiente +1 pct\n' +
+            'Progreso al umbral: ' + pct + ' pct';
+    }
+    tip = tip.replace(/\n/g, ' &#10; ');
+
+    var bar = '<span style="display:block;width:56px;height:4px;margin:3px 0 0 auto;border-radius:2px;background:rgba(255,255,255,0.10);overflow:hidden;">' +
+      '<span style="display:block;width:' + pct + '%;height:100%;background:' + barColor + ';"></span></span>';
+
+    return '<td class="right" title="' + esc(tip) + '">' +
+      '<span style="color:' + barColor + ';font-weight:600;">' + lc.mf + '%</span>' +
+      bar +
+      '</td>';
+  }
 
   function getAccountIcon(tag) {
     if (tag && ACCOUNT_TYPE_ICONS[tag]) return ACCOUNT_TYPE_ICONS[tag];
@@ -201,7 +253,7 @@
     if (!state.summaryFields || !state.summaryFields.length) return null;
     var nocache = !!forceNoCache;
 
-    var charP, apP, raidsP;
+    var charP, apP, raidsP, luckP;
     if (state.summaryFields.indexOf('characters') >= 0) {
       charP = root.GW2Api.getCharacterCount(token, { nocache: nocache });
     }
@@ -210,6 +262,9 @@
     }
     if (state.summaryFields.indexOf('raids') >= 0) {
       raidsP = root.GW2Api.getAccountRaids(token, { nocache: nocache });
+    }
+    if (state.summaryFields.indexOf('luck') >= 0) {
+      luckP = root.GW2Api.getAccountLuck(token, { nocache: nocache });
     }
 
     var summary = {};
@@ -227,6 +282,26 @@
         var raidsArr = await raidsP;
         summary.raids = Array.isArray(raidsArr) ? raidsArr.length : 0;
       } catch(e) { summary.raids = 0; }
+    }
+    if (luckP) {
+      // 'luck' se guarda como numero (MF%) para que sortAccounts ordene bien.
+      try {
+        var luckRaw = await luckP;
+        var lk = luckToProgress(luckRaw);
+        summary.luck = lk.mf;
+        summary.luckTotal = lk.value;
+        summary.luckMissing = lk.missing;
+        summary.luckPct = lk.pct;
+        summary.luckCapped = lk.capped;
+        summary.luckOverflow = lk.overflow;
+      } catch(e) {
+        summary.luck = 0;
+        summary.luckTotal = 0;
+        summary.luckMissing = 0;
+        summary.luckPct = 0;
+        summary.luckCapped = false;
+        summary.luckOverflow = 0;
+      }
     }
     return summary;
   }
@@ -561,12 +636,16 @@
     // KPIs de resumen multicuenta (Idea 2)
     var fields = state.summaryFields || [];
     if (accounts && fields.length) {
-      var charTotal = 0, apTotal = 0, raidTotal = 0;
+      var charTotal = 0, apTotal = 0, raidTotal = 0, luckBest = 0, luckCapped = 0;
       accounts.forEach(function(acc) {
         var s = acc.summary || {};
         charTotal += s.characters || 0;
         apTotal += s.ap || 0;
         raidTotal += s.raids || 0;
+        if (typeof s.luck === 'number') {
+          if (s.luck > luckBest) luckBest = s.luck;
+          if (s.luckCapped) luckCapped++;
+        }
       });
       fields.forEach(function(field) {
         if (field === 'characters') {
@@ -585,6 +664,13 @@
             '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
               '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Total Raids (' + fmtInt(raidTotal) + '/' + TOTAL_RAID_ENCOUNTERS + ', ' + pct + '%)</div>' +
             '<div class="wd-kpi-value">' + fmtInt(raidTotal) + '</div></div>');
+        } else if (field === 'luck') {
+          // El MF% es por cuenta (curva independiente), asi que no se suma:
+          // mostramos la mejor cuenta y cuantas llegaron al tope.
+          kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(255,193,7,0.5);">' +
+            '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Mejor MF base (' + luckCapped + '/' + accounts.length + ' al tope)</div>' +
+            '<div class="wd-kpi-value">' + luckBest + '%</div></div>');
         }
       });
     }
@@ -714,6 +800,10 @@
       // Summary cells (Idea 2)
       activeSummaryFields.forEach(function(field) {
         var s = acc.summary || {};
+        if (field === 'luck') {
+          cells.push(renderLuckCell(s));
+          return;
+        }
         var sv = 0;
         if (field === 'achievements') { sv = s.ap || 0; }
         else if (field === 'characters') { sv = s.characters || 0; }
@@ -743,7 +833,15 @@
         if (field === 'achievements') sTotal += s.ap || 0;
         else if (field === 'characters') sTotal += s.characters || 0;
         else if (field === 'raids') sTotal += s.raids || 0;
+        else if (field === 'luck') sTotal += s.luck || 0;
       });
+      if (field === 'luck') {
+        // No tiene sentido sumar MF% entre cuentas: cada una tiene su curva.
+        var cappedN = rowsAcc.filter(function(acc) { return acc.summary && acc.summary.luckCapped; }).length;
+        totalCells.push('<td class="right total-cell" title="El MF base es independiente por cuenta; no se puede sumar.">' +
+          '<strong>' + (cappedN > 0 ? cappedN + ' tope' : '—') + '</strong></td>');
+        return;
+      }
       totalCells.push('<td class="right total-cell"><strong>' + fmtInt(sTotal) + '</strong></td>');
     });
     selectedCurrencies.forEach(function(cur) {
@@ -1011,5 +1109,5 @@
 
   root.WalletDashboard = WalletDashboard;
 
-  console.info(LOG, 'ready v2.6.0 — Vista multicuenta: columnas Personajes/AP/Raids + KPIs resumen');
+  console.info(LOG, 'ready v2.7.0 — Vista multicuenta: columnas Personajes/AP/Raids/Suerte(MF) + KPIs resumen');
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
