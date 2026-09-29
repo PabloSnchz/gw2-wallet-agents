@@ -1,4 +1,4 @@
-﻿/* =======================================================================
+/* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 2.15.0 (2026-05-04) — Commerce: Listings, Prices + Transactions (Buy/Sell)
@@ -57,6 +57,7 @@
     ITEMS:        24 * 60 * 60 * 1000,       // 24 h (por id)
     CURR:          7 * 24 * 60 * 60 * 1000,  // 7 días
     WALLET:        2 * 60 * 1000,            // 2 min
+    LUCK:          10 * 60 * 1000,           // 10 min (la suerte solo sube al consumir esencia)
     ACH_ACC:       2 * 60 * 1000,            // 2 min
     ACH_META:     12 * 60 * 60 * 1000        // 12 h
   };
@@ -530,6 +531,35 @@
     });
   }
 
+  // ------------------------------------------------------------------------
+  // Suerte (Luck) account-wide — /v2/account/luck
+  // NO es una moneda de /v2/currencies: no aparece en ese endpoint.
+  // Devuelve el luck total consumido (el "cuánto tengo" crudo). El umbral de
+  // MF% se calcula aparte con window.LuckCurve.
+  // ------------------------------------------------------------------------
+  function getAccountLuck(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+    var key = 'luck';
+    var cached = getCache(key, TTL.LUCK, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withToken(CFG.API_BASE + '/v2/account/luck', token);
+    var ikey = 'if:luck:' + fpToken(token);
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        // La API devuelve [] si la cuenta nunca consumió esencia.
+        var entry = arr.find(function (x) { return x && x.id === 'luck'; });
+        var value = Number(entry && entry.value || 0);
+        if (!isFinite(value) || value < 0) value = 0;
+        putCache(key, value, token, TTL.LUCK);
+        return value;
+      });
+    });
+  }
+
   function getCurrenciesAll(opts) {
     opts = opts || {};
     var key = 'currencies_all:' + CFG.LANG;
@@ -740,6 +770,7 @@
 
     // Wallet / Currencies (fallback AA)
     getAccountWallet: getAccountWallet,
+    getAccountLuck: getAccountLuck,
     getCurrenciesAll: getCurrenciesAll,
     getAstralAcclaimBalance: getAstralAcclaimBalance,
 
