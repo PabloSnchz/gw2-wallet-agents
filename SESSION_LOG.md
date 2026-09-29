@@ -2,6 +2,34 @@
 
 > Mantenido por: Principal (default).
 
+## 2026-09-29T19:43 UTC - Sesion con el PO: cierre de la correccion de `/v2/account/luck` + 2 fixes de docs
+
+> **El PO corrigio su propio error y, al hacerlo, acepto que mis dos anotaciones en la documentacion eran factualmente falsas.** Las dos cosas se cerraron en el mismo mensaje.
+
+### Contexto
+- **COMM 016** follow-up: el PO habia afirmado que `/v2/account/luck` no existia, deduciendolo de no encontrar `luck` en `/v2/currencies`. Eso es una inferencia invalida: `currencies` es un subconjunto de los endpoints, no el indice.
+- Verificacion propia del Principal (no me fié del mensaje): `curl` a `/v2/account/luck` y `/v2/commerce/delivery` devuelven **401** con token invalido. Un endpoint inexistente devuelve 404. Ambos existen.
+
+### Qué se hizo
+
+**1. Verificada la premisa del PO antes de escribir una línea.** `/v2/account/luck` existe (401), y `0cc5cb7` esta en `agents/main`, no en `origin/main` (`git branch --contains` + `git cat-file -e origin/main:js/luck-curve.js` -> no existe). Produccion sigue en `392c3b9`, sin luck-curve.js ni getAccountLuck. El PO lo confirmo por su cuenta.
+
+**2. Corregidas dos anotaciones que se leian como promocion a produccion** (`fd71eeb`, solo docs). CHANGELOG y ONBOARDING decian "Verificado en GitHub: `origin/main` @ `0cc5cb7`", cuando `0cc5cb7` es el head de `agents/main` (desarrollo). La causa es la ambiguedad del clon: `origin` = produccion, `agents` = desarrollo, y un `origin/main` suelto se lee como "ya esta en produccion". Ahora las dos lineas nombran el repositorio, no el alias del remote. El commit `0cc5cb7` tambien se describe por repos.
+
+**3. Corregido el heading de ONBOARDING:64.** Era "Novedades 2026-09-29 (SEPT 2026)", que mezclaba la fecha de la release con la de la mecanica (2013-09-03). Ese mismo marco temporal fue el que llevo al PO al error, asi que se le explicito que la fecha es la del proyecto.
+
+**4. WIP rescued.** Habia cambios sin commitear encima de `main` (getCommerceDelivery + bump de meta.js). Los movi a una rama antes de que se perdieran; ya estaban commiteados y en `agents/main` como `7d13155`. Las dos ramas de trabajo se borraron local y el remoto quedo limpio (verificado con `git ls-remote --heads agents`).
+
+### Lo que NO se hizo
+- **No se borro `fix-fractals-fake-daily-data` ni `fix/fractal-rotation-hardcoded` del remoto.** Ninguno de los dos commits es ancestro de `agents/main` (seResolvedieron por cherry-pick, no por merge), asi que borrarlos pierde el commit original. Ademas el COMMS_LOG ya los marca como "borrar cuando Pablo lo confirme". No es decision del Principal.
+- **No se arranco la Idea 40** (esencias sin consumir, saturacion al 300%). El PO mismo la dejo en espera hasta que Pablo la priorice.
+
+### Pendiente
+- **Sesion concurrente detectada en el mismo worktree.** Durante esta sesion aparecio un commit (`7d13155`) con un mensaje que yo no habia escrito, sobre archivos que yo estaba leyendo. Hay otra sesion (probablemente el cron del Heartbeat, `13dc22e6`, activo cada 30 min) operando en `C:\Mis Archivos\GW2 online\gw2-wallet-ligero`. Dos sesiones escribiendo el mismo worktree sin lock es la forma mas directa de perder un commit. A reportar a Pablo.
+
+### Una nota sobre mi propio error
+El `edit_file` con `old_text` = `"### Fixed"` **reemplazo las 23 ocurrencias** de esa linea en CHANGELOG.md, no solo la primera. Lo detecte por el `--stat` (136 lineas donde esperaba ~10), lo revirti con `git checkout --` y rehice los edits con anclas unicas. Queda como recordatorio: `edit_file` no es "replace first occurrence", es "replace all".
+
 ## 2026-09-29T19:35 UTC — Heartbeat #32
 
 > **El PO encontró que la Bóveda le estaba mintiendo al usuario.** El panel de Actividades pintaba 3 fractales T4 y 3 escalas hardcodeadas como si fueran los dailies de hoy y los de mañana. Todos los días, los mismos nombres. Y su commit, correcto, venía en una rama que habría revertido 335 líneas de documentación si la mergeaba.
