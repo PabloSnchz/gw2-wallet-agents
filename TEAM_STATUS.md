@@ -1,7 +1,72 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T02:30:00Z
-> Heartbeat #18: Agent task check complete (all 404). PO consulted (no new proposals, PO timeout). Sept 29 CM content in agents/main (4b253b2), NOT in production. 3 untracked files committed + pushed. Reviewer 10th timeout (unchanged). Documentador 6th timeout (unchanged).
+> Actualizado: 2026-09-29T08:31:00Z
+> Heartbeat #21: Agent task check (all 404, no pending). PO consulted (PRE_BACKLOG 06:00 UTC production verification, DASHBOARD 07:37 UTC — no new proposals). BACKLOG pospuesto (Reviewer 10th timeout, platform bug). CRITICAL: Sept 29 CM promotion AWAITING Pablo approval (COMM 008 escalation still pending). Reviewer 10th timeout (unchanged). Documentador 6th timeout (unchanged). Workspace files synced to agents repo (commit 873eb8f + Heartbeat #19-21). Pending commit + push.
+
+## Heartbeat #21 (08:31 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #21 ejecutado (manual — solicitud de usuario).
+  - ✅ **Agent task check:** Verificadas todas las task IDs (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PRE_BACKLOG.md (06:00 UTC production verification, 14 commits) + DASHBOARD_PO_IDEAS.md (07:37 UTC). No hay propuestas nuevas. PO prioridades sin cambios. PO sigue en timeout (platform bug).
+  - ✅ **PO 3+ propuestas:** No hay propuestas nuevas (0 propuestas). Reviewer DOWN (10th timeout). No envío al Reviewer.
+  - ✅ **BACKLOG reviewed:** Próximo item — inventory-dashboard.js fixes (glow/overflow lines 462/473/709/830 + clearTimeout bug lines 267-290) + Homestead decoration tracker (PO #1). Ambos pospuestos (Reviewer DOWN, CSS changes require validation).
+  - 🚨 **CRÍTICO — Sept 29 CM content NOT in production:** Cherry-pick 4b253b2 en agents/main, NOT en origin/main (verified 06:00 UTC). CM lanza TODAY (Sept 29). Promotion AWAITING Pablo approval (COMM 008 escalado + channel_message). Reviewer 10th timeout (platform bug), proceeding by merit.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Unchanged.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). Unchanged. No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Pero heartbeat publicado (06:00 UTC production verification). Proceeding by merit.
+  - ⏳ **Management files:** TEAM_STATUS.md, CRON_SCHEDULE.md, SESSION_LOG.md, ALERTS_LOG.md actualizados en workspace. Pendiente sync + commit + push a agents.
+- **product-owner:** ⏳ Timeout (platform bug). Heartbeat 06:00 UTC publicado (production verification). No nuevas propuestas.
+- **code-reviewer:** ⏳ 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+- **documenter:** ⏳ 6th consecutive timeout (platform bug). No fallback. Principal maintains logs.
+
+## Heartbeat #20 (08:00 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #20 ejecutado.
+  - ✅ **Agent task check:** Todas las task IDs verificadas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** DASHBOARD_PO_IDEAS.md actualizado 07:37 UTC (production verification findings). PO heartbeat publicado 06:00 UTC. Sin propuestas nuevas. PO sigue en timeout (platform bug).
+  - ✅ **PO 3+ propuestas:** No hay nuevas propuestas. Prioridades sin cambios (Homestead tracker post-promotion). Reviewer DOWN (10th timeout, platform bug) — proceeding by merit.
+  - ✅ **BACKLOG reviewed:** Próximo item pospuesto — inventory-dashboard.js fixes (CSS 3-layer violation + clearTimeout bug) + Homestead tracker. Ambos bloqueados por Reviewer DOWN. Sept 29 CM promotion AWAITING Pablo approval.
+  - 🚨 **CRÍTICO — Sept 29 CM content NOT in production:** PO verificó (06:00 UTC): Solitary Throne CM tracker NOT_FOUND en origin/main. En agents/main (4b253b2). CM lanza TODAY (Sept 29). Promotion AWAITING Pablo approval (COMM 008 escalado + channel_message). Reviewer 10th timeout (platform bug), proceeding by merit.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Unchanged.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). Unchanged. No fallback per no-fallback rule.
+  - ❌ **PO:** Timeout (platform bug). Pero heartbeat publicado (06:00 UTC production verification). Proceeding by merit.
+  - ✅ **Management files:** TEAM_STATUS.md, CRON_SCHEDULE.md, ALERTS_LOG.md updated + synced to repo. Listos para commit + push.
+- **product-owner:** ⏳ Timeout (platform bug). Heartbeat 06:00 UTC publicado (production verification). Prioridades sin cambios.
+- **code-reviewer:** ⏳ 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+- **documenter:** ⏳ 6th consecutive timeout (platform bug). No fallback.
+
+## Heartbeat #19 (07:37 UTC)
+
+### Estado de tareas entre agentes
+- **default (Principal):** Heartbeat #19 ejecutado.
+  - ✅ **Agent task check:** jobs.json confirma solo heartbeat cron activo. COMMS_LOG: todas las task IDs verificadas (task-f14fb23553b1, task-3a4ed7100e93, task-57e27de2993f, task-838665263c09, task-0c858087dfb7). TODAS 404 — no hay tareas pendientes en Reviewer, Documentador, PO.
+  - ✅ **PO consulted:** PO heartbeat 2026-09-29T06:00 UTC (PRODUCTION VERIFICATION). PRE_BACKLOG.md verificado. PO sigue en timeout (platform bug). DASHBOARD_PO_IDEAS.md actualizado con findings.
+  - ✅ **PO 3+ propuestas:** No hay nuevas propuestas. El PO heartbeat fue production verification, no nuevas ideas. Reviewer DOWN (10th timeout, platform bug) — no envío al Reviewer.
+  - ✅ **BACKLOG reviewed:** Próximo item — inventory-dashboard.js fixes + Homestead tracker. Pospuesto per HEARTBEAT.md banner (CSS changes require Reviewer; Reviewer DOWN). Proceeding by merit pero sin aplicar cambios (awaiting user validation).
+  - ⚠️ **CRÍTICO — Sept 29 CM content NOT in production:** PO verificó en vivo (06:00 UTC): `git show origin/main:js/activities.js | findstr "9423"` → NOT_FOUND. Cherry-pick 4b253b2 existe en agents/main pero NO en origin/main (`git merge-base --is-ancestor 4b253b2 origin/main` → NOT_ON_MAIN). CM de Solitary Throne lanza HOY. Promotion AWAITING Pablo approval (COMM 008 escalado + channel_message enviado). Golden rule: Pablo decide.
+  - ❌ **Reviewer:** 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+  - ❌ **Documentador:** 6th consecutive timeout (platform bug). No fallback per no-fallback rule. Principal maintains logs.
+  - ❌ **PO:** Timeout (platform bug) — pero heartbeat publicado via PRE_BACKLOG.md. Proceeding by merit.
+- **product-owner:** ⏳ Timeout (platform bug). Heartbeat 06:00 UTC publicado en PRE_BACKLOG.md (production verification + web research). Prioridades sin cambios.
+- **code-reviewer:** ⏳ 10th consecutive timeout (session_id mismatch platform bug). Proceeding by merit.
+- **documenter:** ⏳ 6th consecutive timeout (platform bug). No fallback.
+
+### Estado de propuestas del PO (sin cambios)
+
+| # | Item | Dificultad | Tiempo | Estatus |
+|---|------|------------|--------|---------|
+| 1. NOW | Promote Sept 29 CM content to production | 🟢 Fácil | ~1h (cherry-pick) | ✅ En agents/main (4b253b2). NOT in prod (origin/main @ 07e4c64). CRÍTICO: CM launches today (Sept 29). AWAITING Pablo approval (COMM 008 escalado + channel_message). |
+| 1. AHORA | Homestead decoration tracker | 🟡 Media | ~15-20h | API confirmed. 0 refs in prod. Next priority. Reviewer DOWN, proceeding by merit. |
+| 2. PRÓXIMA | VoE content verification | 🟢 Fácil | ~2h | Verify Nexus + Solitary Throne trackers con VoE content. Post-promotion. |
+| 3. PRÓXIMA | New Items Awareness Feed | 🟢 Fácil | ✅ COMPLETED & COMMITTED (v3.20.0, agents/main). js/activities.js + assets/data/new-items-feed.json. |
+
+### Próximos pasos
+1. 🚨 **CRÍTICO — ESPERANDO Pablo: Promotion Sept 29 CM content to production** — CM launches TODAY (Sept 29). Cherry-pick 4b253b2 (o 116ac60+8cc5fc6) onto origin/main. Requires Pablo manual browser test + explicit OK. Already escalated (COMM 008 + channel_message).
+2. ⏳ **inventory-dashboard.js fixes** — Diagnosticado. Glow/overflow (CSS 3-layer violation) + clearTimeout bug. Pospuesto per HEARTBEAT.md banner (CSS changes require Reviewer validation; Reviewer DOWN).
+3. ⏳ **Homestead decoration tracker** — PO priority #1. API confirmed. Pattern exists (Home Nodes en activities.js). Reviewer DOWN, proceeding by merit.
+4. ⚠️ **Platform bugs** — Reviewer 10th timeout, Documentador 6th timeout, PO timeout (all session_id mismatch / platform bug). Escalado a Pablo.
 
 ## Heartbeat #18 (02:30 UTC)
 

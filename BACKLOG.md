@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-28T23:30:00Z
+> Actualizado: 2026-09-29T07:37:00Z (Heartbeat #19 — production verification findings from PO)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -8,7 +8,7 @@
 - [x] **Nexus of Eternity achievement tracker** — ✅ COMPLETADO. Category 487 (9349 Conqueror, 9405 Power Unleashed, 9388 Essence Collector, 9447 Weekly) loads dynamically via `/v2/achievements/categories` API dropdown. No code change needed. CM entra Sept 29. (commit 116ac60, branch feature/cm-content-sept29)
 - [x] **Solitary Throne fractal daily tracker** — ✅ COMPLETADO. 4 daily achievements: 9423 (T1), 9412 (T2), 9373 (T3), 9388 (T4). `SOLITARY_THRONE_CM_ACHIEVEMENTS` + `Fractals.loadCMStatus()` with abort/last-win pattern. Render badges in `renderFractals()`, wired into tokenchange + refresh. CM entra Sept 29. (activities.js v3.19.7, commit 116ac60, pushed to agents)
 - [x] **Nexus of Eternity raid tracker (Wing 9)** — ✅ COMPLETADO. Wing 9: Nexus of Eternity (Vloxx boss, CM Sept 29). CSS class `.raid-expansion--voe`. wing9.png icon. (commit 8cc5fc6, raid-tracker.js v1.9.0, pushed to agents)
-- [x] **Promotion to production** — ⏳ AWAITING Pablo approval. Cherry-pick 116ac60 + 8cc5fc6 onto origin/main. Golden rule: Pablo manual test + explicit OK required. Reviewer DOWN (10th timeout, platform bug), proceeding by merit.
+- [x] **Promotion to production** — 🚨 CRÍTICO: CM launches TODAY (Sept 29). Content NOT in production (verified by PO 06:00 UTC: `git merge-base --is-ancestor 4b253b2 origin/main` → NOT_ON_MAIN). Cherry-pick 4b253b2 onto origin/main. Golden rule: Pablo decides. Already escalated via channel_message (COMM 008). Reviewer 10th timeout (platform bug), proceeding by merit.
 
 ## Pendientes (prioridad alta)
 
