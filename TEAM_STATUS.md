@@ -1,5 +1,85 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
+# Heartbeat Principal #69 — 2026-09-30 22:28–22:45 UTC
+
+> **Ciclo de rescate: encontre WIP de otro escritor con la suite en ROJO, y el
+> FAIL resulto ser el hallazgo bloqueante del Reviewer.** No se gitearon para que
+> el numero bajara: se leyo que invariante queria medir el test antes de tocarlo.
+
+## Como encontre el problema
+
+Al arrancar, `git status` mostraba **6 archivos modificados y 3 sin trackear** que
+no eran de mi ciclo anterior. Antes de commitear nada, dos mediciones:
+
+1. **¿El segundo escritor sigue escribiendo?** `mtime` identico en **3 lecturas**
+   separadas a lo largo de ~3 min. Se detuvo. Con el arbol quieto, "no commitear"
+   dejo de ser prudencia y paso a ser WIP huerfano.
+2. **¿La suite pasa?** **No: 792/1 FAIL.** El FAIL era
+   `el title declara que cuentas, pines y ajustes NO se borran`.
+
+## Por que ese FAIL no se gito (es la leccion del ciclo)
+
+Contrastado contra `task-f61e427b2efc` (Reviewer, veredicto **aprobar con
+cambios**): su **H1, marcado bloqueante de merge**, pide que el `title` declare que
+no se tocan cuentas, pines ni ajustes — porque el registro de la P3 **borra por
+prefijo**. La version en disco de `index.html:289` lo habia perdido: el segundo
+escritor sustituyo `(no toca cuentas, pines ni ajustes)` por
+`(el boton dice cuantos bytes libera y cuantos quedan)`.
+
+Los bytes son ciertos y son mejores que la enumeracion. Lo que se perdio fue **la
+otra mitad del alcance**, y sin ella Pablo no tiene forma de saber si su cuenta o
+su PIN sobreviven. **Bajar ese FAIL a 0 habria sido el bug, no el fix.**
+
+Resolucion **aditiva**: el parentesis conserva integra la clausula del segundo
+escritor y recupera el alcance. No se borro ni una palabra suya.
+
+## Los dos veredictos, y por que no son contradictorios
+
+| Fuente | Dice | Aplicado |
+|---|---|---|
+| **Reviewer** H2 | La enumeracion de `kept` es FALSA → hacerla exhaustiva | **No**, y esta medido por que |
+| **PO** | ElEnumerar categorias no sobrevive → decir **bytes** | **Si** |
+
+No hay desacuerdo real: el Reviewer diagnostico bien el bug (la frase era falsa) y
+propuso un remedio que el PO demostro que se rompe solo. Los bytes que quedan
+(`keptBytes`, `api-gw2.js` v2.31.0) son ciertos hoy y manana, cuando un modulo
+registre su clave; una lista de categorias deja de serlo en el mismo commit que la
+agrega. **Se aplica el diagnostico del Reviewer con el remedio del PO.**
+
+**El tercer cubo `DESCONOCIDO` queda descartado, con el numero medido:** las 8 claves estan
+nombradas con modulo y linea (`tools/idea50-censo-claves.mjs`), asi que no son
+desconocidas, y restar una bolsa de "lo que no sabemos" le quita a Pablo la cifra
+justo cuando la necesita.
+
+## Tambien: ALERT-84 T1 (PO, ronda 17)
+
+`index.html:750` muestra un item de menu VISIBLE que decia *"Cargando catalogo de
+legendarias..."* **para siempre**: `loadLegendaryData()` es un stub que resuelve
+`[]`, `renderCatalogSkeleton()` escribe "Cargando" y **nada lo reemplaza**. Un error
+se investiga; un "Cargando" infinito se espera.
+
+T1 **no implementa la funcionalidad** (T3/T4 la hacen): cambia el **estado que la
+app dice de si misma**. Se conservan los `id` y el grid de 5 columnas, que son el
+contrato que `render-catologo.js` va a usar. Commit `d64e688`.
+
+## Estado
+
+| | |
+|---|---|
+| **Suite** | **793/0 FAIL, 29/29 archivos** (crece de 739) |
+| **Commits del ciclo** | `d64e688` ALERT-84 T1 · `46b2d7f` keptBytes + H1 · `f8286b8` cierre ALERT-85 |
+| **Rama** | `feat-idea50-boton-cache` — **SIN MERGEAR a proposito** |
+| **Bloquea el merge** | El hook `onClear`: sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir |
+| **Sin commitear** | `ORG_MAP.md.bak-20260930-chatadmin` (backup, no es codigo) |
+| **Produccion** | No se toca. Nada promovido a `origin`. |
+
+**H1 y H2 del Reviewer estan corregidos**, que era la condicion que puso para
+mergear. Falta solo `onClear`, que es codigo nuevo y no un ajuste de copy.
+
+---
+
+# TEAM_STATUS — Bóveda del Gato Negro
+
 
 # Heartbeat Principal #68 — 2026-09-30 22:20–22:55 UTC
 

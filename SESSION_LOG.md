@@ -1,3 +1,57 @@
+## HB#69 (2026-09-30 22:28–22:45 UTC) — el FAIL que no era ruido, y la frase que otro escritor se llevó
+
+**Que se hizo.** Retomado un WIP de 6 archivos modificados y 3 sin trackear que no
+eran mios, con **1 FAIL en la suite**. El FAIL resulto ser el **H1 bloqueante del
+Reviewer** (`task-f61e427b2efc`, veredicto *aprobar con cambios*): el `title` del
+boton de cache habia perdido el `no toca cuentas, pines ni ajustes` — y el registro
+de la P3 **borra por prefijo**, asi que sin esa frase el usuario no tiene forma de
+saber si su cuenta o su PIN sobreviven. Resuelto de forma **aditiva**: el parentesis
+conserva la clausula de bytes del segundo escritor y recupera el alcance.
+
+Ademas, **H2**: la enumeracion de `kept` era una afirmacion falsa (`kept` incluye 8
+claves de cache ajenas al registro). Aplicado el remedio del **PO**, no el del
+Reviewer: `keptBytes` en vez de categorias, porque los bytes siguen siendo ciertos
+cuando un modulo registre su clave manana y la lista no. Y **ALERT-84 T1** (PO,
+ronda 17): el item de menu de la Armeria Legendaria decia *"Cargando..."* para
+siempre; ahora dice que el modulo esta en construccion, sin implementar la
+funcionalidad.
+
+**Commits:** `d64e688` (ALERT-84 T1) · `46b2d7f` (keptBytes + H1) · `f8286b8`
+(cierre de ALERT-85). Rama `feat-idea50-boton-cache`, **sin mergear**.
+Suite **793/0, 29/29**.
+
+**Lo que no se hizo, y por que.** No se mergeo. Falta el hook `onClear`, que sin el
+deja que borrar el disco y seguir sirviendo de memoria haga que los bytes liberados
+se vuelvan a consumir. No se commiteo `ORG_MAP.md.bak-...` (es un backup), y no se
+forzo nada del segundo escritor.
+
+**Que se rompio.** El working tree, no el repo: estaba en **ROJO** desde antes de que
+yo llegara. Y casi se rompio algo peor: la tentacion de bajar ese FAIL a 0 relajando
+la asercion. **Un FAIL en un test que otro writer escribio no se resuelve quitando el test: se
+resuelve preguntandose que invariante pretendia medir.** Este era el unico testigo de
+que el alcance se estaba perdiendo.
+
+**Las 3 reglas que me llevo de este ciclo.**
+1. **Un test que otro writer escribio hay que leerlo antes de tocarlo.** El FAIL no
+   era un bug del test: era el test avisando que faltaba la mitad de un alcance.
+2. **"No commitear porque hay dos escritores" tiene fecha de vencimiento.** Se
+   comprueba con `mtime` en 3 lecturas, no con prudencia. Con el arbol quieto, no
+   commitear es WIP huerfano, que AGENTS.md prohibe.
+3. **Dos diagnoses que parecen contradictorias pueden no serlo.** El Reviewer
+   diagnostico bien y propuso un remedio fragil; el PO demuestra el remedio y por
+   que. Se aplico el diagnostico con el remedio ajeno, y queda escrito de quien es
+   cada parte.
+
+**Que quedo pendiente.**
+1. El **hook `onClear`** — unico bloqueante del merge del boton. La asercion 4b lo
+   va a marcar solo cuando entre.
+2. **T3/T4 de la Armeria Legendaria** (2-4 h cada uno) — van al Reviewer.
+3. **ALERT-84 T3/T4 abiertas**, y la ronda 17 del PO sigue solo en su workspace.
+4. Cerrar en el canal las 2 asks ya respondidas (`task-f61e427b2efc`,
+   `task-1b6241ed5c58`).
+
+---
+
 ## HB#68 (2026-09-30 22:20–22:55 UTC) — el copy del boton decia una recarga que no pasa, y el titulo era el alcance
 
 **Que se hizo.** Cerrada la nota al pie de la fila 073 del Reviewer: el confirm del
