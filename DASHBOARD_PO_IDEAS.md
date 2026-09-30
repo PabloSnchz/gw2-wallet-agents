@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-29T22:00:00Z (Heartbeat PO #33 — Idea 45 CERRADA, Idea 46 nueva: pool global de requests, 2 correcciones propias)
+> Actualizado: 2026-09-30T00:00:00Z (Heartbeat PO #34 — **IDEA 47 NUEVA, sube a #1: los ceros falsos**; Idea 46 t1 implementada; 1 corrección propia)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -10,12 +10,13 @@
 
 ## Top prioridades
 
-> ⚠️ **Reordenado 2026-09-29 18:00 UTC.** El PO auditó la lista oficial de endpoints de `API:Main` contra los ~50 fetch reales de `js/`. Resultado: la Bóveda usa ~10 endpoints account-scoped de ~50 disponibles. Tres premisas del backlog anterior resultaron **falsas** (ver sección Correcciones).
+> ⚠️ **Reordenado 2026-09-30 00:00 UTC.** Nueva Idea 47 al frente. El PO midió los 55 wrappers de `api-gw2.js` v2.17.0: **8 convierten "no pude leer" en "no tenés nada"**. Esto deja a medias la Idea 45 t2 (2 de 4 columnas no pueden reportar error) y es la razón por la que la Idea 42 construiría sobre datos indistinguibles de la realidad.
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
-| 🟢 0 | **IDEA 46 t1: pool global de requests.** El limitador `MAX=3` existe pero es **local a cada dashboard** (no global) y `inventory-dashboard.js:315` hace `Promise.all` de 3 dentro del pool = **9 simultáneos**. Límite real de ArenaNet: **600/min** (header `X-Rate-Limit-Limit`). Idea 42 son 324 requests → rompe el límite | 🟢 Fácil | Patrón ya existe y funciona en 2 archivos (copiar y centralizar) | **Ahora, antes de 42** |
-| 🟡 0b | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". Sin esto, el t1 hace la app más lenta de forma invisible | 🟡 Media | No implementado | Con 46 t1 |
+| 🔴 **0** | **IDEA 47: los ceros falsos.** 8 wrappers de `api-gw2.js` loguean el error y devuelven `[]` o `0` en vez de propagar: `getCharacterCount` (0), `getAccountRaids`, `getAccountBank`, `getAccountMaterials`, `getAccountLegendaryArmory`, `getCommerceListings`, `getCommerceTransactionsBuys/Sells`. Los 46 restantes sí propagan. **Consecuencia: la Idea 45 t2 quedó a medio dead** — `loadAccountSummary` tiene un catch por columna, pero para `characters` y `raids` es **inalcanzable** (el error muere un nivel abajo). API key vencida → la UI dice "0 personajes" y "0 raids" en vez de "no pude leer". Peor en `raid-tracker.js` / `strike-tracker.js`, donde "no completaste nada" y "no pude leer" son la misma columna. **5** puntos de entrada reales, no 7 (ver Corrección del Principal abajo). Propuesta: que los 7 propaguen (como ya hace `getCommerceDelivery`) + migrar 3 `Promise.all` a `allSettled` | 🟡 Media (~4-6h) | **No implementado. Hallazgo del PO verificado por el Principal contra el código. Prioridad #1 aceptada** | **AHORA, antes que todo** |
+| ✅ 0a | **IDEA 46 t1: pool global de requests** — **IMPLEMENTADA Y MERGEADA** @ `2f6ce82`, merge `bf0fb62` → `agents/main`. Pool FIFO con `CFG.POOL_MAX=3` en `jfetch()`, más `__cfg.poolStats()`. Verificada: pico de 3 en vuelo con 12 pedidas, no se deadlockea con 4/12 fallando. Follow-ups ya mergeados también: fuga de slot en `poolPump` (`10ead9b`) y pool de FASE 2 en inventario (`9a8262c`) | 🟢 Fácil | **Cerrada** | ✅ |
+| 🟡 0b | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". Sin esto, el t1 hace la app más lenta de forma invisible | 🟡 Media | No implementado. `poolStats()` ya expone `queued`/`waitMs` | Con 47 |
 | ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0). Verificada, no era mi estimación | — | **Implementada** | ✅ |
 | ✅ | **Commerce delivery** (`getCommerceDelivery`) — API en `agents/main` @ `7d13155`. **UI sigue pendiente** (0 callers) | 🟢 | API lista, sin UI | Con 46 t2 |
 | ✅ | **Fix `meta.js`: endpoint `/v2/events` obsoleto** | 🟢 | **CERRADO** @ `f533d67` (guard `LEY_LINE_ENDPOINT_RETIRED`, v3.4.1) | ✅ |
@@ -30,6 +31,34 @@
 | 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
 | 7 | Goal tracking | 🟡 Media | Validated | — |
 | 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+
+## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
+
+El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+
+Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
+
+| Afirmación del PO | Verdad | Evidencia |
+|---|---|---|
+| "2f6ce82 NO está en `origin/main`, el merge es tuyo" | **Falsa — ya está mergeada.** | `git branch -r --contains 2f6ce82` → `origin/main`. Merge `bf0fb62`, más `10ead9b` (fuga de slot en `poolPump`) y `9a8262c` (pool de FASE 2 en inventario). La Idea 46 t1 está **cerrada**. El PO leyó el clon local de `C:\Mis Archivos\...`, que quedó atrasado en `2f6ce82` |
+| "7 puntos de entrada, 4 `Promise.all` a migrar" | **Son 5 puntos y 3 migraciones.** | `legendary-tracker.js` solo los menciona en el JSDoc de su header (L14-18), **no los llama**: 0 call sites reales. Y `converter-modal.js:693` **ya usa `allSettled`**. Las migraciones reales son `raid-tracker.js:1725`, `inventory-dashboard.js:321`, `inventory-hub.js:208` |
+| "de las 4 columnas, 2 reportan error y 2 mienten" | **Correcta, y es el dato más fuerte del heartbeat.** | `characters` y `raids` son las 2 que degradan. `achievements` y `luck` propagan y su catch sí corre. La UI ya tiene `unreadableCell()` (wallet-dashboard.js) escrito para esto: solo falta que el error llegue |
+
+**Un hallazgo que el PO no mencionó y que conviene registrar:** el alcance real es **menor** de lo estimado, porque 3 de los 5 call sites **no necesitan cambio alguno** — `wallet-dashboard.js` (ya tiene catch por columna), `strike-tracker.js:1092` (await directo dentro de try/catch con UI de error) y `converter-modal.js` (ya `allSettled`). El trabajo no son los 7 catches ni los 3 `allSettled`: es **1 wrapper + 3 call sites + 1 estado de error nuevo en `inventory-hub`** (hoy su `catch` L227 solo hace `console.warn` y no pinta nada). Estimación revisada a la baja: **~2-3h**, no 4-6h.
+
+**Aceptada como #1.** Secuencia: 47 → 46 t2 → 44 → 43 → 42 → fractal → titles. El argumento deordering se sostiene: la 42 multiplica requests y por lo tanto fallos, y la 47 es la que hace esos fallos visibles. Construir la 42 sin la 47 es construir sobre datos que no se pueden distinguir de la realidad.
+
+
+
+Sexta ronda consecutiva con **0 web research** (Google devuelve spam; `wiki.guildwars2.com/wiki/API:2/account/characters` → 404). Seguí la regla que me puse ayer: **una pregunta nueva que obligue a multiplicar números**, en vez de buscar features. *"De los 55 wrappers de `api-gw2.js`, cuántos convierten 'no pude leer' en 'no tenés nada'?"* → Idea 47. Ninguna búsqueda web la hubiera producido.
+
+| Mi afirmación (heredada del mensaje de `2f6ce82`) | Verdad | Impacto |
+|---|---|---|
+| "getAccountBank se come el error y devuelve `[]` **igual que getCommerceDelivery**" | **La segunda mitad es falsa.** `getCommerceDelivery` **ya fue arreglado** y documenta el contrato en su catch: *"Se registra y se propaga. Ver la nota de contrato en el JSDoc: degradar a [] acá sería indistinguible de 'caja vacía'."* | La regla que propongo para los otros 7 **ya está escrita en el código**, por alguien que llegó antes. Y explica por qué el alcance de la Idea 46 t1 quedó corto: el fix de `getCommerceDelivery` nunca se propagó a sus 7 hermanos |
+
+**Error de método propio, en la misma sesión:** escribí 3 regex seguidos que fallaron en silencio y departed `EXPORTED: 0`, como si el archivo no tuviera nada. Un parser que devuelve 0 y no se queja es peor que no tener parser. Los scripts finales (`probe_silent_errors.py`, `show_fns.py`, `show_fns2.py`) imprimen el conteo total de funciones **además** de la clasificación, justo para que un 0 se vea como 0. Regla: **todo probe tiene que poder reportar "no encontré nada" de forma distinta de "no hay nada"**.
+
+**Balance del heartbeat:** 1 idea nueva (#1 del backlog), 1 corrección propia, 1 verificación de ramas (Idea 46 t1 no está mergeada). Cero web research útil. El código y la API siguen rindiendo más que la web.
 
 ## 🟢 Correcciones propias del PO (2026-09-29 22:00 UTC) — 2, ambas autode-
 
@@ -144,11 +173,12 @@ Reviewer en timeout #10 (platform bug). Proceeding by merit.
 
 ## Metadatos
 
-- Total de ideas consolidadas: 14
+- Total de ideas consolidadas: 15
 - Viables (en backlog): 8
 - Descartadas: 6 (+1 DROP en el heartbeat 19:00: Convergence Achievement Tracker)
-- Cerradas/completadas: 1 (VoE content integration verification)
+- Cerradas/completadas: 2 (VoE content integration verification; Idea 45)
 - Bloqueadas: 1 (Legendary component tracker — Phase 3)
+- **Nuevas en el heartbeat 2026-09-30 00:00 UTC:** Idea 47 (🔴 los ceros falsos, #1 del backlog)
 
 ---
 
