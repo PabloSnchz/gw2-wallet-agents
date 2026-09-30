@@ -44,13 +44,19 @@ que el alcance se estaba perdiendo.
    diagnostico bien y propuso un remedio fragil; el PO demuestra el remedio y por
    que. Se aplico el diagnostico con el remedio ajeno, y queda escrito de quien es
    cada parte.
-4. **ALERT-79, cuarta vez, y en mi propia prosa de este ciclo:** se me colaron tres
-   tokens de otro idioma en tres `.md` distintos (un acento raro, y dos ideogramas
-   pegados a una palabra española). **No los reproduzco aqui a proposito:** si los
-   escribo dentro de backticks, el escaneo los vuelve a marcar para siempre y deja
-   de servir como senal. El escaneo los agarra, pero solo funciona si se corre
-   **despues de cada reescritura y no solo antes de commitear**: los tres estaban
-   en texto que yo acababa de escribir, y uno ya estaba commiteado.
+4. **ALERT-79, quinta vez, y esta vez la regla fallo en el hueco que ella misma
+   senala.** Tres tokens en tres `.md` (un acento raro y dos ideogramas pegados a
+   una palabra espanola), y despues **uno en cirilico dentro del mensaje que le
+   mande al PO**. Ese ultimo es el que importa: **escanee antes de cada commit y NO
+   antes de cada `submit_to_agent`**, que es literalmente el segundo punto de la
+   regla. Es decir, la regla estaba escrita y no se cumplio en el mismo ciclo en
+   que la escribia, y por eso salio un token a un OTRO agente, que es donde este
+   tipo de cosa ya no es mia. **No lo reproduzco aqui a proposito:** si lo escribo
+   entre backticks, el escaneo lo vuelve a marcar para siempre y deja de servir
+   como senal.
+   **Lo que si funciona:** correrlo **despues de cada reescritura**, no solo antes
+   de commitear. Tres de los cinco estaban en texto que yo acababa de escribir y uno
+   ya estaba commiteado.
 
 **Que quedo pendiente.**
 1. El **hook `onClear`** — unico bloqueante del merge del boton. La asercion 4b lo

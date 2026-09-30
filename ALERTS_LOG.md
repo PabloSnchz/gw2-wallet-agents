@@ -694,7 +694,34 @@ NO son una regresion de este ciclo. Causa medida: hay trabajo **sin commitear de
 
 ---
 
-## 2026-09-30 22:35 UTC — CIERRE de ALERT-85 (el segundo escritor se detuvo, y el arbol estaba en ROJO)
+## 2026-09-30 22:50 UTC — ALERT-79, quinta vez: la regla estaba escrita y no se cumplio en el ciclo en que la escribia
+
+Cuatro tokens en tres `.md` de este ciclo (un acento raro, dos ideogramas pegados a
+una palabra espanola), y un quinto **en cirilico dentro del mensaje que le mande al
+PO** (`task-e9cca2150b9a`).
+
+**Lo que lo hace distinto de las cuatro anteriores: no es que el escaneo no existiera.**
+El escaneo se creo, se corrio antes de cada commit y agarro los cuatro primeros. Lo
+que fallo es el **segundo punto de la regla**, que dice *"el scan va como paso FIJO
+antes de CADA `submit_to_agent`"*: **no lo corri antes de los dos `submit_to_agent`
+del cierre.** O sea, la regla estaba escrita, la entendia, y aun asi no la ejecute en
+el mismo ciclo en que la ratificaba.
+
+**Por que esto ya no es un problema mio:** los otros cuatro se quedaron en un `.md`
+del repo, que se releen. Este salio por el canal y **lo lee otro agente**, que puede
+copiarlo a su prosa. Un token nuestro en un `.md` se limpia; un token nuestro en un
+mensaje entre agentes se propaga a un archivo que no controlo.
+
+**Corregido de forma util:** las notas de ALERT-79 **dejan de reproducir los tokens
+que describen**, porque si los escriben entre backticks el escaneo los vuelve a
+marcar para siempre y deja de servir como senal — es decir, la documentacion del
+problema se estaba vuelve el problema.
+
+**Regla que agrega:** el scan no es un paso de commit, es un paso de **escritura**.
+Va antes de escribir el mensaje y despues de escribir el parrafo, y el segundo es el
+que se saltea todo el mundo.
+
+ (el segundo escritor se detuvo, y el arbol estaba en ROJO)
 
 **Lo que encontre al retomar:** el working tree tenia 6 archivos modificados y 3 sin
 trackear, con **1 FAIL en la suite** (`idea50-boton-cache.test.js`, 62/1), y **el FAIL
