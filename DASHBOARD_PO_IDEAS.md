@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T08:00:00Z (Heartbeat PO — **IDEA 49G: el sharding de logros ya mergeado (`f98da49`) cierra `ach_meta` pero NO cierra la cuota**; **IDEA 52: `raid-tracker.js` tiene 5 de 30 encuentros rotos**; 49 Tramo C verificada 22/22)
+> Actualizado: 2026-09-30T08:15:00Z (Heartbeat PO — **ALERT-41 (Strike Tracker) pasa de BLOQUEADO a DECIDIBLE: 14 de 15 strikes tienen un logro de clear verificado en la API pública**; **IDEA 55: 9 sitios con el token se evaden de la capa `GW2Api` (sin caché, sin retry, sin pool)**; Idea 52 v1.10.1 mergeada)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -9,6 +9,13 @@
 ---
 
 ## Top prioridades
+
+> 🆕 **Reordenado 2026-09-30 08:15 UTC.** Dos cosas cambian de status: **(1) ALERT-41 deja de estar bloqueado** — el "límite honesto" que yo mismo escribí a las 06:30 (que `/v2/achievements` no dice cuál logro es el clear) **era falso**: el campo es `requirement`, y solo viene poblado con `lang=es`. **(2) Aparece la Idea 55.** Y una corrección: **8 de los 17 ids de logro que anoté a las 06:30 no existen**; los de la tabla nueva están todos verificados hoy contra la API viva.
+
+| # | Idea | Dificultad | Estado | ETA |
+|---|------|-----------|--------|-----|
+| 🔴 **0** | **ALERT-41 RESUELTA: el Strike Tracker se puede re-apuntar a logros, con evidencia pública y sin token.** Escaneé el catálogo entero de `/v2/achievements` (ids 1..9999, lotes de 200 con comas): **8.349 achievements, 96 con "encuentro de incursión" en el `requirement`**. **14 de los 15 strikes del módulo tienen un clear inequívoco**: `old_lions_court` **6797** (*"Completa el encuentro de incursión de la vieja Corte del León"*), `shiverpeaks_pass` **4979**, `voice_claw` **5207**, `fraenir` **5233**, `boneskinner` **5194**, `whisper_of_jormag` **5118**, `cold_war` **5299**, `aetherblade_hideout` **6354**, `xunlai_jade_junkyard` **6084**, `kaineng_overlook` **6243**, `harvest_temple` **6513**, `cosmic_observatory` **7163**, `temple_of_febe` **7116**, `guardians_glade` **9218**. **Único sin clear: `forging_steel`** — el nuevo `vloxx`, un apido de wiki donde la API usa otro nombre (`5957 Reunión en el Ojo`). **Lo que falta NO es un dato: es elegir cuál de los 2-4 candidatos por strike es el clear, leyendo el `requirement`. Son 30 minutos con la lista de 96 del script, sin adivinar y sin el token de Pablo.** Corregí también que **`old_lions_court` NO tiene "0 logros"** (tiene el 6797) y que mi lista tenía 12 de 15 (faltaban `voice_claw`, `fraenir`, `forging_steel`) | 🟢 | **Decidible hoy. La lista de 96 está en `_hb55_strikeclear.js`** | **AHORA (30 min de mapeo)** |
+| 🔴 **0.5** | **IDEA 55: 9 sitios con el token se evaden de la capa `GW2Api`** (de 40 `fetch` crudos a `api.guildwars2.com`, 9 son account-scoped). Todos sin caché, sin `fetchWithRetry`, sin pool: `characters.js:410/420/445`, `activities.js:391/396/745`, `activities-theme.js:488`, `achievements.js:1022`, `meta.js:230/238`, `inventory-dashboard.js:276/284`. **Los dos que duelen:** (a) **`characters.js:410` baja los 364 KB de `/v2/account/achievements` crudo en CADA cambio de cuenta** (`wireGlobal:1392`), y ese mismo payload **ya está cacheado** en `achievements.js:1058` y `activities.js:902` → la app lo baja dos veces, una cacheada y otra no; (b) **`wv-purchase-detail.js:978-980` recorre 27 cuentas en serie con `nocache:true`** debajo de un toast de 1.5 s → **~13 s de UI congelada sin progreso**, y el Wallet Dashboard ya tiene `computeEta` de la Idea 48B. **Tramo 1 🟢:** `characters.js:410` → `GW2Api.getAccountAchievements` (el wrapper ya existe). **Tramo 2 🟢:** sacar el `await` del loop + ETA. **Tramo 3 🟡:** migrar los 9 (cierra parte de la Idea 47: el contrato de error viene gratis con la capa) | 🟢 t1 / 🟢 t2 / 🟡 t3 | **No implementado. Medido sobre el código** | **AHORA (t1: 1 línea)** |
 
 > ⚠️ **Reordenado 2026-09-30 08:00 UTC.** El **Tramo C de la 49 ya está MERGEADO** (`f98da49`, `api-gw2.js` v2.21.0: sharding `ach_meta_v3:<lang>:<id//200>`). Pero **no cierra la cuota**: `ach_acc` son 27 keys (una por cuenta, porque `kLS` mete el fingerprint del token en el nombre) y pesan lo mismo. **Aparece la Idea 49G.** También entra la **Idea 52**: `raid-tracker.js` tiene **5 de 30 encuentros rotos**, en el módulo que todos creían sano.
 >
