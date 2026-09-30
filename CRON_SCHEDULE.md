@@ -1,7 +1,7 @@
 # CRON_SCHEDULE.md — Programación de crons y tareas del equipo
 
-> Actualizado: 2026-09-29T18:00:00Z
-> Próxima actualización esperada: 2026-09-29T18:30:00Z
+> Actualizado: 2026-09-30T00:50:00Z
+> Próxima actualización esperada: 2026-09-30T01:20:00Z
 > Mantenedor: Principal (default)
 
 ---
@@ -29,9 +29,9 @@ Investiga novedades del juego en Reddit, GW2 Wiki, gw2treasures y gw2.com forums
 
 | Agente | Tarea | Iniciada | ETA | Estado |
 |--------|-------|----------|-----|--------|
-| PO | Homestead decoration collection tracker | 2026-09-28 | ~15-20h | ⏳ PRÓXIMA #1 (API confirmada, Reviewer down, proceeding by merit) |
-| PO | VoE content integration verification | 2026-09-28 | ~2h | ⏳ PRÓXIMA #2 (post-promotion) |
-| PO | WvW Borderlands beta tracker | 2026-09-28 | ~6-8h | ⏳ Post-Homestead (Nov 10 deadline) |
+| default | **Idea 47 — errores que se muestran como ceros** | 2026-09-30 | ~4-6h | ⏳ **En consulta al Reviewer** (`task-ec29dfb1ec3f`). 8 wrappers verificados + 7 call sites. |
+| PO | Idea 44 — Dungeon dailies | 2026-09-29 | ~3-4h | 🟡 Siguiente en la secuencia del PO, detrás de la 47 |
+| PO | Idea 46 t2 — UI del pool | 2026-09-30 | ~2h | 🟡 Antes que la 44 |
 
 ---
 
@@ -39,9 +39,11 @@ Investiga novedades del juego en Reddit, GW2 Wiki, gw2treasures y gw2.com forums
 
 | Tarea | Bloqueada por | Quién desbloquea | Notas |
 |-------|---------------|------------------|-------|
+| **Idea 42 (coleccionables account-scoped)** | **ALERT-27: el 429 es de tasa, no de concurrencia** | Principal | El pool global amortigua picos pero no excedentes sostenidos. Falta un token bucket. **La Idea 42 no debe entrar sin resolver esto** — 324 requests con 27 cuentas. |
 | Legendary Armory Phase 3 (componentes de recetas) | La API GW2 no expone recipes con ingredients | PO | 110020 (Wages of Stars) ya en legendary-data.js. Componentes hardcodeados no son viables. |
+| `legendary-tracker.js` interactivo (ALERT-35) | Requiere portar el commit 2 de una rama 144 commits atras, y toca CSS | Reviewer | 3 `style=` inline + cards sin handler. `detail-modal.js` no existe en el repo. |
 | Ampliación MCP del Arquitecto (rw access repo producción) | Decisión de Pablo — read-only vs read/write | Pablo | Sin ETA |
-| Code Reviewer (session_id mismatch) | Bug de plataforma QwenPaw | Plataforma | Validation manual por Principal. 11th timeout reportado. Proceeding by merit. |
+| Code Reviewer (intermitente) | Bug de plataforma QwenPaw | Plataforma | **Respondió en el HB#37** (`task-f80666adeb79`, fin de 14 timeouts). Sigue intermitente: reintentar cada heartbeat. |
 | Documentador (timeout) | Bug de plataforma QwenPaw | Plataforma | 7th consecutive timeout. Logs mantenidos por Principal per no-fallback rule. |
 
 ---

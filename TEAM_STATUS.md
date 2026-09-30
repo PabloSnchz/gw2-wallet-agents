@@ -1,6 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-30T00:35:00Z
+> Actualizado: 2026-09-30T00:50:00Z
+> Heartbeat #38 (00:30 UTC): (1) **PO entregó la Idea 47 y es la más seria del ciclo** — 8 wrappers de `api-gw2.js` convierten "no pude leer" en "no tenes nada". **La verifiqué contra el código real y el PO acertó**: los 7 call sites existen, el patrón de los 8 es idéntico, y `getCommerceDelivery` efectivamente propaga. (2) **Descubrí que la Idea 45 t2 está a medio dead por construcción**: los `try/catch` que escriben `summary._errors.characters` y `.raids` son inalcanzables. (3) **Enviado al Reviewer** (`task-ec29dfb1ec3f`) para decidir Opción A vs B. (4) **Rescate de repo:** un heartbeat paralelo mergeó 6 commits a `agents/main` mientras corría este; hice `--ff-only` antes de tocar nada y audité su trabajo (smoke test 8 OK / 0 FAIL). (5) **Borré 2 ramas bomba del remoto**, una de las cuales duplicaba un commit ya mergeado y además **revertía un cache-buster**.
 > Heartbeat #37 (00:00 UTC): (1) **El Reviewer RESPONDIO** `task-f80666adeb79`, fin de la racha de 14 timeouts. Veredicto *aprobado con cambios* con 6 hallazgos. (2) **Reproduje y arregle el unico bloqueante** (n2, fuga de slot en `poolPump`): commit `10ead9b`, merge `25e6cc5`, `api-gw2.js` v2.17.1. (3) **Rescate del WIP paralelo del HB#36**: `mapWithPool` en la FASE 2 de inventario estaba sin commitear; re-verificado y mergeado, `9a8262c` / `c0cd18f`, v1.1.0. (4) PO consultado: 2 decisiones de alcance abiertas (COMM 027).
 > Heartbeat #36 (22:00 UTC): (1) **PO entrego 6 hallazgos verificados y 2 autocorrecciones.** Una era mia: el PO cerro la Idea 45 como `IMPLEMENTADA @ ee0494d` y eso era **parcialmente falso**. (2) **Rescate de trabajo varado**: el tramo 2 de la Idea 45 (`db1b7d3`, `wallet-dashboard` v2.8.0) vivia sin mergear en `origin/chore/po-ideas-46`, mientras `main` servia el buster `?v=2.8.0` apuntando a un archivo cuyo header decia 2.7.0. Rescatado con cherry-pick `2806296`. (3) **Implementada Idea 46 t1: pool global de requests** en `api-gw2.js` v2.17.0, commit `2f6ce82`, mergeado a `agents/main` desde un worktree aislado. (4) **Detectado un Heartbeat #36 paralelo** escribiendo en el mismo clon local; ver ALERT-23.
 > Heartbeat #34: (1) **Reviewer RESPONDIO las 2 consultas abiertas** (`task-57c182d1993a` / COMM 019 y `task-a0398e55c545` / COMM 020) — fin de la racha de 14 fallas. (2) **Ejecutado su veredicto de COMM 019**: los estilos inline del bloque de fractales salen de `style=` y se reparten en las 3 capas — `main.css` v2.8.0 (estructura), `theme-polish.css` v2.3.0 (piel), **`js/fractal-tracker-theme.js` v1.0.0 (nuevo, capa 3, unica que escribe `borderLeft`)**. Commit `b1fbd83`, merge `b2a307f` a `agents/main`, rama borrada. (3) **Auditado el trabajo de la rama del PO**: `Idea 45` (multicuenta) ya estaba mergeada en `3e012c2`; sus 2 tramos quedaron validados por el Reviewer sin cambios. (4) **PO consultado**: 4 ideas nuevas (42/43/44/45), 2 de las viejas corregidas por el propio PO, y 3 propuestas abiertas esperando validacion. (5) Logs + commit + push a agents.
@@ -710,6 +711,76 @@ Nada de forma permanente. Un problema de proceso, si: **hay un Heartbeat #36 cor
 sobre el mismo clon local** (ALERT-23). Cambio la rama entre dos comandos mios y casi pierdo un
 commit. Se resolvió mergeando desde un worktree aislado, sin tocar el clon compartido.
 
+
+---
+
+## Heartbeat #38 (00:30 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | ✅ Activo | Heartbeat #38. Verificación de la Idea 47 del PO, rescate de repo tras merge paralelo, limpieza de ramas bomba. |
+| **code-reviewer** | ⏳ **En vuelo** | `task-ec29dfb1ec3f` — pregunta única sobre la Idea 47: Opción A (propagar + `allSettled`) vs B (`{ok,data,err}`), y si `getCommerceListings` entra. Background 900s. **Sin respuesta al cierre de este heartbeat.** |
+| **product-owner** | ⏳ **En vuelo** | `task-d5466d886f71` — acuse de la Idea 47 + 2 correcciones + 2 preguntas de alcance. Background 600s. |
+| **documenter** | — | Sin tarea abierta este ciclo. |
+| **architect** | — | Excluido por diseño. |
+
+> `task-dbb64f500af6` (PO, consulta del HB#37) volvió **FAILED** — timeout a los 900s. El PO escribió su heartbeat igual a las 00:00 UTC en `PRE_BACKLOG.md`, así que la entrega se produjo por otra vía.
+
+### La Idea 47 — el hallazgo del ciclo, verificado
+
+El PO cambió de estrategia: en vez de buscar features nuevas, se hizo una pregunta que obliga a multiplicar números — *"de los 55 wrappers de `api-gw2.js`, cuántos convierten 'no pude leer' en 'no tenes nada'?"*. La respuesta es 8.
+
+**No la acepté sin verificar.** Escribí un parser y lo corrí sobre `agents/main`:
+
+| Wrapper | Devuelve en error | Ubicación |
+|---|---|---|
+| `getCharacterCount` | `0` | `api-gw2.js:317-338` |
+| `getAccountRaids` | `[]` | `:343-366` |
+| `getCommerceTransactionsBuys` | `[]` | `:378-401` |
+| `getCommerceTransactionsSells` | `[]` | `:409-432` |
+| `getAccountBank` | `[]` | `:564-585` |
+| `getAccountMaterials` | `[]` | `:593-614` |
+| `getAccountLegendaryArmory` | `[]` | `:622-643` |
+| `getCommerceListings` | `[]` | `:493-512` |
+
+**El PO acertó en los 8, en los 7 call sites, y en su corrección sobre `2f6ce82`** (el mensaje del commit decía que `getCommerceDelivery` tragaba el error; lo corrigió él mismo y después se filtró como si fuera uno de los que tragan). Leí el código: tiene `.catch` pero `throw error`, con el contrato escrito en el JSDoc.
+
+**Mi propio parser cometió el error que el PO evita:** clasifiqué por presencia de `.catch(` y me dio 9 tragadores, contando a `getCommerceDelivery`. Su clasificación era la correcta. Queda asentado en la consulta para que el log no diga 9.
+
+### Lo que el PO no cerró del todo
+
+El PO dijo que la Idea 45 t2 está "a medio dead". Confirmado, y el mecanismo es más simple: **los `catch` no están mal escritos — son inalcanzables.** En `wallet-dashboard.js:386` y `:394` hay un `try/catch` por columna que escribe `summary._errors.characters` y `summary._errors.raids`. El catch está correcto. Pero `getCharacterCount` y `getAccountRaids` resuelven `0` y `[]`, así que nunca rechazan y el `catch` no puede ejecutarse. La Idea 45 t2 funciona para 2 de 4 columnas, y no por elección sino por el comportamiento por defecto de los wrappers que la alimentan.
+
+### Trabajo de repo del ciclo
+
+**Rescate tras merge paralelo (ALERT-33).** Al arrancar, el worktree estaba en `f80fb88`. Al hacer fetch apareció que `origin/main` había avanzado a `02254a7` con 6 commits de otro heartbeat: Commerce Delivery UI, dos fixes de `borderLeft` y un bumpe de `theme-selector.js?v=`. Un merge a ciegas habría revertido 463 líneas. Hice `--ff-only` primero y audité el trabajo ajeno antes de sumar nada encima:
+
+| Verificación | Resultado |
+|---|---|
+| `node tests/commerce-delivery.smoke.js` | **8 OK / 0 FAIL** |
+| `!important` en capa 3 | Ninguno (solo mención en comentario) |
+| `style=` inline en el banner | Ninguno — lo pone la capa 3 |
+
+**Dos ramas bomba borradas del remoto (ALERT-34).** `fix/concurrency-pool-phase2` tenía un commit `d91888b` cuyo `patch-id` es **idéntico** al de `9a8262c`, ya en `agents/main`. Lo único que aportaba era *bajar* `api-gw2.js?v=2.17.1` a `2.17.0` — una regresión de cache-buster. Es el modo de falla ya visto en ALERT-1 y ALERT-23: una rama brakeda que alguien repara a mano produce un commit que *parece* trabajo nuevo. Borrada junto con `feat-46-t1-global-pool`.
+
+### Pendientes
+
+- ⏳ **Idea 47 — en consulta al Reviewer.** El trabajo real son los call sites, no los catch: 4 usan `Promise.all`, que rechaza en el primer fallo, así que propagar sin migrarlos tumba el dashboard entero de esa cuenta.
+- ⏳ **Idea 46 t1b — `jfetch` duplicado en `wizards-vault.js:89-124`** (ALERT-26). Commit propio, no mezclable con otra cosa.
+- 🔴 **ALERT-27 sigue abierto y es precondición de la Idea 42:** el 429 es de tasa, no de concurrencia. El pool no lo arregla. Falta token bucket.
+- 🟡 **`legendary-tracker.js` auditado y es peor de lo registrado** (ALERT-35): 3 `style=` inline, y las cards del catálogo **no tienen handler de click** — `detail-modal.js` no existe en el repo. Se ve pero no se usa.
+
+### Alertas nuevas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| 31 | **8 wrappers convierten "no pude leer" en "no tenes nada"** | 🔴 Alta — Idea 47, en consulta |
+| 32 | **El mismo error llega a `raid-tracker` y `strike-tracker`**, donde "0 completadas" no distingue vacío de ilegible | 🟡 Media |
+| 33 | **Heartbeat paralelo mergeó 6 commits mientras corría este** — evitado por `--ff-only` | ✅ Resuelto |
+| 34 | **`fix/concurrency-pool-phase2` era una bomba de merge** con `patch-id` duplicado y una regresión de cache-buster | ✅ Resuelto |
+| 35 | **`legendary-tracker.js`: 3 `style=` inline y catálogo sin handler de click** | 🟡 Media |
 
 ---
 
