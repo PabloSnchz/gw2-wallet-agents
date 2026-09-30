@@ -1,7 +1,80 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T16:55:00Z (Heartbeat PO 14 — 🔴 **me contradije: recomendé la 49D 4 h después de bloquearla yo misma; la 49D NO se implementa. La forma correcta es un barrido **acotado por prefijo** al estilo de `purgeLegacyAchMeta()`, no detección de huerfanas**; Idea 49 p1 corregida: campo `modes` declarado "no disponible", nunca `lm: true`; tres defectos del canal medidos)
+> Actualizado: 2026-09-30T20:00:00Z (Heartbeat PO ronda 16 — 🔴 **IDEA 63: cambiar de cuenta deja la lista de personajes VACÍA y sin una sola palabra, y la causa puede ser un filtro o una página que ni vos pusiste. 194 días, desde el commit que creó el módulo.** Entra también la ronda 15, que estaba solo en el workspace del PO)
 > Mantenedor: PO (product-owner)
+
+---
+
+## ACTUALIZACION 2026-09-30 20:00 UTC — Heartbeat PO ronda 16 — 🔴 IDEA 63: cambiar de cuenta te puede dejar Personajes en blanco, y no hay forma de saber por qué
+
+Quinceava ronda con 0 web research útil (Reddit 403 por 15ª vez, `gw2treasures/feeds` 404 por 3ª). La pregunta fue **"¿qué sobrevive a un F5?"** — inventario de lo que la app guarda. El de forwards ya lo conocía; el relevante era el reverso.
+
+### El hallazgo
+
+**13 filtros en 3 módulos. Los 3 sobreviven al cambio de cuenta. En 2 de los 3, si el filtro vacía la lista, no hay ni una palabra.**
+
+| Módulo | Filtros | ¿Se limpian al cambiar de cuenta? | Si vacían la lista, ¿qué se ve? |
+|---|---|---|---|
+| **Personajes** `characters.js:102` | 4 | **NO** | 🔴 **nada** — `renderCards` (`:1227`) itera una lista vacía |
+| **Buscador unificado** `app.js:1045-1049` | 5 | **NO** | 🔴 **nada** — `app.js:527-531` vacía contenedores y `return` |
+| **Logros** `achievements.js:850-895` | 4 | **NO** | 🟢 *"No hay logros que coincidan con los filtros"* (`:674`) |
+
+Los 3 handlers de `gn:tokenchange` que encontré no tocan filtros: `characters.js:1469-1479`, `achievements.js:1100-1107`, y el de `app.js` (no revisado entero — marcado como probable en el PRE_BACKLOG).
+
+**Logros es el único que lo hace bien, y por qué lo hace bien es el dato útil:** su vacío nombra la causa. Eso convierte "algo falló" en "yo lo filtré". Los otros dos no pueden ni eso.
+
+### El agravante: la página también sobrevive, y da el vacío SIN NINGÚN FILTRO
+
+- `state.pagination.page` solo se resetea en los 3 handlers de filtro (`characters.js:1045/1051/1057`).
+- El handler de tokenchange (`:1469`) **no lo toca**. `loadCharacters()` **tampoco**.
+- `renderList()` `:1103` → `slice((page-1)*20, +20)`.
+
+**Flujo real, sin un filtro activo:** cuenta A con 30 personajes → Pablo va a **página 2** → cambia a la cuenta B con 12 → `slice(20,40)` sobre 12 = **vacío**. Y `renderPagination()` `:1389` marca activo `i === page` = 2, pero con `total=12` solo existe la página 1 → **ningún botón de página aparece activo**.
+
+Umbral: ">20 personajes después de filtrar". Las cuentas de Pablo son veteranas. Es lo normal.
+
+### Por qué es peor que el `0%` de Suerte
+
+Misma clase (dato silenciosamente incorrecto), pero `0%` **puede ser verdad**, así que Pablo duda. **Un panel en blanco no es un estado válido** de una cuenta con personajes: no hay nada que dudar. No puede distinguir entre las 4 causas — y la única que es culpa de la app es la que gana.
+
+### Desde cuándo
+
+`git log -S`: filtros, paginación y tokenchange entran **en el mismo commit** `0a3d25a` (**2026-03-20**), el que creó el módulo. **No es una regresión: nunca estuvo bien. 194 días.** Y `findstr` de "sin resultados"/"no hay personajes" en `characters.js` → 0 apariciones: el estado vacío nunca existió.
+
+### Tramos
+
+| | Alcance | Dif | Nota |
+|---|---|---|---|
+| **T1** | Reset de `state.filters` + `page = 1` en los handlers de tokenchange (3 líneas) | 🟢 | Cierra el bug de datos. **No va al Reviewer**: estado local de UI, `ALERT-48` no aplica |
+| **T2** | Estado vacío con texto + botón limpiar en Personajes y Buscador unificado | 🟢 | **Reutilizar el patrón que ya funciona** (`achievements.js:674`), no inventar uno. El botón ya existe en `app.js:1051`, no en `characters.js` |
+| **T3** | Persistir filtros **por cuenta**, como ya hace el Wallet Dashboard con `sort`/`selectedCurrencies`/`summaryFields` (`wallet-dashboard.js:358/374/398`) | 🟡 | **Decisión de Pablo, no del PO.** El patrón ya está aceptado en el producto y el buscador no lo tiene. **Bloqueada por T1+T2**: con chip visible + botón limpiar, persistir es seguro |
+| T4 | `perPage` fijo en 20 sin selector | 🟡 | Anotada, **NO se propone**. Feature, no fricción |
+
+### Secuencia
+
+**63 T1 → 63 T2 → [decisión de Pablo] → 63 T3**
+
+49G y 62 siguen en cola detrás, y 62 T1 es de una línea.
+
+---
+
+## ACTUALIZACION 2026-09-30 18:55 UTC — Heartbeat PO ronda 15 — 🟡 IDEA 62: el 85% de tu caché vence cada 2 minutos, y ya tenés un botón que fuerza la recarga
+
+> **Entra acá ahora.** Estaba solo en el workspace del PO (alertado en el HB#64 del Principal: *"tu ronda 15 NO está en el mirror"*). Resumen; el detalle está en el PRE_BACKLOG del PO.
+
+Medido en `api-gw2.js:320-339`: **5 claves con TTL de 2 minutos** (`ach_acc`, `bank`, `materials`, `wallet`, `comm_prices`) = **la cuota entera y sobra**. La más cara es `ach_acc` = **11.88 MB**.
+
+**El argumento que cierra la idea:** `achievements.js:834` ya tiene `loadAll({nocache:true})` en el botón de refrescar → `getCache` devuelve `null` y se re-descarga. **El TTL de 2 min no es el mecanismo de frescura: es un piso de ancho de banda.** Subirlo a 30 min no saca ninguna capacidad que hoy tengas.
+
+**El costo real no es el de disco:** al vencer el TTL, `getCache` (`:623-635`) **no borra la entrada**, y `putCache` (`:636-640`) **re-hace `JSON.stringify` de los 440 KB y re-escribe la clave entera**. Cada vencimiento paga **440 KB de stringify por cuenta, por ciclo**.
+
+| | | Dif |
+|---|---|---|
+| **62 T1** | `ACH_ACC` 2 min → 30 min (una línea, `:361`), y `BANK` igual (`:348`) — su comentario *"inventario cambia poco"* está **en el mismo renglón** que un TTL de 2 min | 🟢 ~15 min |
+| **62 T2** | *Stale-while-revalidate*: `getCache` devuelve lo vencido **y** dispara el refetch en background. Hoy la expiración **castiga** con una espera; con esto no se nota. **Ojo:** `getCache` es **síncrono** y tiene 4 call sites que usan el valor de retorno → hay que decidir si el refetch lo dispara `getCache` o el caller | 🟡 ~2 h |
+| **62 T3** | Mostrar *"actualizado hace X"* con el `entry.ts` que **ya se guarda** (`putCache:637`) | 🟢 |
+
+**No la mezclo con la 49G, y el motivo importa:** 49G achata lo que se guarda (11.88 MB → ~1.37 MB, ataca el costo de F5); 62 deja de repetirlo (ataca los repetidos + el stringify). **Mi recomendación: 62 T1 primero, porque es una línea y el efecto se ve en la segunda visita.**
 
 ---
 
