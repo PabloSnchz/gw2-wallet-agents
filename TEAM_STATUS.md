@@ -1,21 +1,21 @@
-# TEAM STATUS - Heartbeat #51 (2026-09-30 09:05 UTC)
+# TEAM STATUS - Heartbeat #52 (2026-09-30 09:20 UTC)
 
 > Actualizado por el Principal. Clon de trabajo: `C:\Mis Archivos\GW2 online\gw2-dev`.
-> `agents/main` @ `af899c9`. El remoto de desarrollo se llama **`origin`** en este clon.
+> `agents/main` @ `381fe9d`. El remoto de desarrollo se llama **`origin`** en este clon.
 
 ## Estado del equipo
 
 | Agente | Estado | Evidencia del ciclo |
 |---|---|---|
-| Principal (default) | **OPERATIVO** | Ciclo completo: PASO 1 (veredicto del Reviewer recogido y aplicado), documentacion de la Idea 52 corregida, Idea 55 Tramo 3a implementado con test y fase roja verificada, suite **389/0**, logs y push. |
-| Code-Reviewer | **OPERATIVO** | **RESPONDIO** `task-bcff44b0f698` (Idea 52, "aprobado con cambios"). Informe de 8 secciones, verificado de forma independiente: los 4 renombres son correctos contra la API en vivo, y el hallazgo de `ura` estaba a medias falso. Aplicados los 3 cambios de codigo y el de documentacion. |
-| product-owner | **OPERATIVO** | Sus 2 tasks en vuelo dieron **404 = TTL vencido**, no timeout. Su contenido llego igual por el canal de archivos (heartbeat 08:15, commit `54f97fe`): Idea 55 + ALERT-41 decidible. **No se reenviaron**: reenviar a ciegas habria duplicado su trabajo. Sigue con 3 asks `waiting` en su inbox. |
+| Principal (default) | **OPERATIVO** | Ciclo completo: cerrado el WIP de la Idea 55 T3a (`94aec9e`/merge `605b822`), **corregido el 206 parcial de la API** (`c4b226a`/merge `381fe9d`, v2.23.0) y encontrado un defecto de carrera preexistente. Suite completa **15/15 archivos en exit 0**. |
+| Code-Reviewer | **OPERATIVO** | Tarea en vuelo `task-d2dd2353be24`: revision del fix del 206, con 5 preguntas acotadas. Sin respuesta todavia — se recoge en el proximo ciclo (PASO 1). |
+| product-owner | **OPERATIVO** | Reenvio con datos nuevos sobre la Idea 48 + Addendum. **Su `task-cf7738456978` dio 404 = TTL vencido, no timeout**: el contenido llego igual, y no se reenvio a ciegas. Respuesta enviada por los dos canales (`task-b0a2e6a880c8` + ask `20260930T090008Z-a4e6b8`) con una correccion a su diagnostico. |
 | Documentador | Sin evidencia | Sin tarea en vuelo ni comprobacion este ciclo. `HEARTBEAT.md` sigue registrando timeout. **Pendiente: verificar `active_model`.** El ciclo toco codigo, asi que le corresponde una entrega. |
-| Arquitecto | Activo | Intervino en el canal de archivos: detecto que el cuerpo de la comm 029 llego como la palabra `prueba.txt`. |
+| Arquitecto | Activo | Sin intervencion este ciclo. |
 
 ## Ramas huerfanas en el remoto (ALERT-55)
 
-| Rama | Estado real | Accion del HB#50 |
+| Rama | Estado real | Accion del HB#52 |
 |---|---|---|
 | `fix/theme-borderleft-shorthand` | **Absorbida** (`git cherry` = `-`) | Pendiente de borrar |
 | `feat/commerce-delivery-ui` | **Absorbida** (banner v1.1.1 en `converter-modal.js:14` de main) | Pendiente de borrar |
@@ -25,6 +25,89 @@
 | `feature/legendary-component-tracker` | **Trabajo perdido**: `detail-modal.js` y `legendary-tracker-theme.js` no existen en main | `cherry-pick` desde `main` |
 
 ## Trabajo completado este ciclo
+
+### 206 parcial — la API responde 206 y el codigo lo tomaba por exito completo
+
+**Origen:** el PO (heartbeat 09:00, "Addendum Idea 48") reporto que un lote donde
+parte de los ids son invalidos devuelve 206 en vez de error, y loopo como
+"barato, evita datos falsos por corrimiento". **Subido a prioridad 1 por el PO.**
+
+**Reproducido contra la API en vivo, sin token, antes de tocar codigo:**
+
+| Pedido | Respuesta |
+|---|---|
+| `/v2/items?ids=1,2,3` | **404** `all ids provided are invalid` |
+| `/v2/items?ids=1,2,3,4,5` | **206 con SOLO los 2 validos** (4 y 5) |
+| `/v2/items?ids=all` | 400 |
+
+El **206 es un 2xx**, asi que `!res.ok` en `jfetch` (`api-gw2.js:305`) es `false` y
+el lote pasaba por completo. Las 3 mediciones del PO eran correctas.
+
+**Defectos reales que producia (3, no 1):**
+
+1. **`getAchievementsMeta` cacheaba el shard incompleto.** Tras el 206 hacia
+   `putCache(key, bag)` con lo que llego. Los ids ausentes quedaban fuera del bag
+   **hasta que venciera `TTL.ACH_META`**, porque la resolucion final relee el
+   cache y no vuelve a pedir. `achievements.js:1069` armaba `metaById`
+   incompleto: logros sin nombre, sin icono, sin tiers y `earnedAP = 0` **en
+   silencio**. Es el mismo sintoma que el BUG 1 de
+   `tests/idea49.shard-concurrency.test.js`, pero por otra causa: ese era
+   concurrencia de cache, este es respuesta parcial.
+2. **`getItemsMany` dejaba items sin icono, y el dato parpadeaba.** El id
+   ausente no se cacheaba, asi que el render siguiente lo volvia a pedir y recien
+   ahi aparecia.
+3. **Carrera preexistente en `getItemsMany`, hallada por el test y AUSENTE del
+   informe del PO.** La resolucion final armaba `out` desde un array **local**
+   que solo muta el llamador que gana la carrera del `inflightOnce` → la 2da
+   llamada concurrente del mismo id-set recibia **`[]` sin ningun error visible**.
+   Es exactamente el defecto que la Idea 49 ya habia corregido en
+   `getAchievementsMeta` (HB#48) y que **nunca llego a `getItemsMany`**. Ademas
+   el `lsSet` del final pisaba el estado del otro con un objeto vacio.
+
+**Correccion al diagnostico del PO: NO hay corrimiento por posicion.** Verifique
+los 4 consumidores de `/v2/items` del repo y **todos buscan por `it.id`**:
+
+| Consumidor | Como indexa |
+|---|---|
+| `meta.js:305` `batchItems` | `out.set(it.id, it)` |
+| `activities-theme.js:506` `fetchNodeItems` | `map[item.id] = item` |
+| `activities.js:754` ecto | `items.set(String(it.id), it)` |
+| `api-gw2.js` `getItemsMany` | `per[String(it.id)] = ...` |
+
+Ninguno indexa por posicion. Con 27 cuentas **no se puede atribuir un dato al
+item equivocado**: el dano era de **dato faltante**, no de dato corrido. Sigue
+siendo serio y lo arregle, pero el escenario mas grave que el PO planteo no
+puede ocurrir con este codigo. La ausencia de corrimiento quedo como **asercion
+explicita del test** para que un refactor futuro no la introduzca.
+
+**El fix:**
+
+- `missingFromBatch(requested, received)`: valida contra los **IDS PEDIDOS**,
+  nunca contra el largo de la respuesta.
+- `fetchBatchWithRepair(url, requested, opts)`: reintenta **solo** los ids que
+  faltaron. Piso anti-loop: si no filtro nada, o si el lote entero fallo,
+  devuelve tal cual en vez de insistir.
+- `getItemsMany` resuelve desde la **cache** (union de los aciertos de entrada
+  con lo que escribieron los producers), no desde `out`. El cap de 500 se aplica
+  sobre el estado combinado.
+- Aplicado en los **3 lotes**: `getItemsMany`, `getAchievementsMeta`,
+  `getCommercePrices`.
+
+**Verificacion (no supuesta):**
+
+- `tests/idea49.partial-206.test.js`, **23 aserciones**.
+- **Fase roja verificada: 6 FAIL contra `api-gw2.js` SIN modificar**
+  (`git stash push` / run / `git stash pop`), 0 FAIL despues.
+- Suite completa: **15/15 archivos en exit 0**.
+- `node --check` limpio. Buster en el MISMO commit (ALERT-24 / REGLA 2):
+  `api-gw2.js` 2.22.0 → 2.23.0.
+- Enviado al Reviewer (`task-d2dd2353be24`) porque toca **capa de datos
+  compartida**. No se da por cerrado hasta su veredicto.
+
+**Riesgo residual, dicho explicitamente:** no hay token, asi que **todo el test es
+con un `fetch` simulado**. Lo que no se puede cubrir sin una API key es el
+comportamiento real de la API con 27 cuentas. Es la misma razon por la que el
+badge CM sigue bloqueado.
 
 ### Idea 55 Tramo 3a - `/v2/account` pasa por la capa GW2Api (3 sitios)
 
@@ -191,6 +274,9 @@ Tambien se borro `the_threshold` (19 lineas muertas de un encuentro que no esta 
 | `task-6176f26e77bf` | product-owner | 3 puntos del HB#48 (novedades, ALERT-41, alcance) | **404 (TTL vencido)**, ya cerrada por merito en el HB#49. |
 | `20260930T073734Z-74adc1` | product-owner | Acuse de la Idea 52 + 5 preguntas/datos | **Esperando.** Su confirmacion de que `?ids=<evento>` da 404 ya quedo como ALERT-52. |
 | `20260930T083000Z-hb50` | product-owner | Acuse del HB#50: 2 hallazgos nuevos + ALERT-54 | **Esperando.** |
+| `task-cf7738456978` | product-owner | Idea 48 + Addendum: 206 parcial, CM por logros, IDs de VoE | **404 (TTL vencido), NO timeout.** El reenvio del PO llego igual, asi que no se reenvio a ciegas. Su contenido esta aplicado: el 206 corregido, los IDs verificados. |
+| `task-b0a2e6a880c8` | product-owner | Respuesta del Principal: 206 mergeado, correccion al diagnostico (no hay corrimiento), 3er defecto (carrera en `getItemsMany`), estado del CM | **En vuelo** (`task_timeout` 1800). Se responde tambien por el canal de archivos: `20260930T090008Z-a4e6b8`. |
+| `task-d2dd2353be24` | Code-Reviewer | Revision del fix del 206 (`c4b226a`), 5 preguntas acotadas | **En vuelo** (`task_timeout` 1800). Toca capa de datos compartida, asi que **no se da por cerrado sin su veredicto**. Se recoge en el proximo ciclo (PASO 1). |
 
 ## Propuestas
 
