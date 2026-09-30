@@ -1,7 +1,31 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.28.0 (2026-09-30) — Idea 57 Tramo 4: el idioma del throw de FORMA es parte del contrato
+ * Versión: 2.29.0 (2026-09-30) — Idea 49G: `ach_acc` en forma compacta
+ *   v2.29.0: NO cambia lo que Pablo ve. Cambia lo que se guarda en DISCO.
+ *   El Tramo C compacto la metadata de logros a 0.81 MB, pero `ach_acc` son
+ *   27 keys, una por cuenta, con el fingerprint del token en el nombre: el
+ *   sharding no las toca, y son la otra mitad de la cuota. Medido con la forma
+ *   que el codigo REALMENTE lee (tools/idea49g-medir-honesto.mjs):
+ *
+ *       API cruda tal cual        123 KB/cuenta   3.24 MB  (+0.81 = 4.05)
+ *       podada a {id,cur,max,done}  103 KB        2.72 MB  (+0.81 = 3.53)
+ *       ESTA forma compacta         20 KB         0.53 MB  (+0.81 = 1.34)
+ *
+ *   No es "entra raspando" contra "entra": es un techo de ~2.700 logros por
+ *   cuenta contra uno de ~6.900. Y la medicion del BACKLOG (4.10 MB, punto de
+ *   quiebre 2.700) media una forma con `bits: [1..12]` que la API no manda y
+ *   que ademas no lee nadie, asi que esa cifra queda desactualizada.
+ *
+ *   Se compacta AL ESCRIBIR y se expande AL LEER: los 4 consumidores
+ *   (achievements.js, characters.js, activities.js) siguen recibiendo el mismo
+ *   array de objetos y NO se toco ninguno. `bits` no se guarda (no hay ni una
+ *   lectura en todo js/); `max` NO se puede podar porque `computeProgress` lo
+ *   usa cuando la metadata no trae tiers.
+ *   Test: tests/idea49g.ach-acc-compacta.test.js, 25 aserciones, con fase roja
+ *   verificada (3 FAIL contra el archivo sin el fix) antes de tocar una linea.
+ *   Suite completa 588/0.
+ *
  *   v2.28.0: NO cambia lo que Pablo ve. Cambia el TEXTO de un throw.
  *   El mensaje de un guard de FORMA es contrato, no decoracion, porque dos
  *   consumidores lo leen por texto: `raid-tracker.js:1749` y
@@ -1329,6 +1353,100 @@
     });
   }
 
+  // Idea 49G: forma compacta de `ach_acc` en disco.
+  //
+  // QUE RESUELVE
+  //   El Tramo C (v2.22.0) compacto la METADATA de logros a 0.81 MB, pero
+  //   `ach_acc` son 27 keys, una por cuenta, con el fingerprint del token en el
+  //   nombre: el sharding no las toca. Medido con la forma que el codigo
+  //   REALMENTE lee (tools/idea49g-medir-honesto.mjs, 3000 logros, 27 cuentas):
+  //
+  //       API cruda tal cual   123 KB/cuenta   3.24 MB   (+0.81 = 4.05, aire 0.93)
+  //       podada a {id,cur,max,done}  103 KB     2.72 MB
+  //       ESTA forma compacta   20 KB          0.53 MB   (+0.81 = 1.34, aire 3.64)
+  //
+  //   O sea: no es la diferencia entre "entra raspando" y "entra". Es la
+  //   diferencia entre un techo a ~2.700 logros por cuenta y uno a ~6.900.
+  //   La medicion del BACKLOG (4.10 MB, punto de quiebre 2.700) uso una forma
+  //   con `bits: [1..12]` que la API no manda y que ademas NADIE lee.
+  //
+  // POR QUE NO SE TOCA EL CONTRATO DEL WRAPPER
+  //   Hay 4 consumidores y TODOS leen campos del objeto, no la lista entera:
+  //     achievements.js:1073  a.id
+  //     achievements.js:189   r.current, r.max, r.done  (computeProgress)
+  //     achievements.js:221   r.current, r.done         (earnedAP)
+  //     characters.js:449     a.done, a.current
+  //     activities.js:908     a.done, a.id
+  //   Cambiar el formato de la CACHE es barato si el del WRAPPER no cambia:
+  //   se compacta al escribir y se expande al leer, asi que los tres modulos
+  //   siguen recibiendo el mismo array de objetos y no se toca ninguno.
+  //   Cambiar el contrato habria sido editar 3 modulos enteros por un ahorro
+  //   de disco que se puede conseguir sin eso.
+  //
+  // QUE SE PODE PODAR Y QUE NO
+  //   `bits` NO se guarda: es el campo mas caro por byte (0.52 MB en 27 cuentas
+  //   solo con el) y no hay ni una lectura de `.bits` en TODO js/.
+  //   NO SE PODE `max`: `computeProgress` lo usa cuando la metadata NO trae
+  //   tiers (`if (!target && max) target = max`), o sea que sin el los logros
+  //   sin tiers calcularian el porcentaje contra el current.
+  //   NO SE PUEDE perder `done` ni `current`: los leen los 4 consumidores.
+  //
+  // EL FORMATO
+  //   "C:<id>,<id>,...|P:<id>:<cur>:<max>,...". Las listas separada por una
+  //   coma y el `:` de los triples no aparece nunca dentro de un numero, asi
+  //   que no hace falta escapar nada. El prefijo `v1:` versiona la entrada: si
+  //   hay que cambiar el formato otra vez, la version vieja se detecta y se
+  //   vuelve a pedir en vez de intentar expandir algo incompatible.
+  function encodeAchAcc(data) {
+    // Un array vacio es un caso REAL (una cuenta sin logros) y tiene que
+    // seguir siendo distinguible de "no hay nada cacheado": por eso se
+    // devuelve la string, no null.
+    if (!Array.isArray(data)) return data;  // forma rara: se guarda tal cual
+    var done = [], prog = [];
+    for (var i = 0; i < data.length; i++) {
+      var a = data[i];
+      if (!a || a.id == null) continue;
+      if (a.done) { done.push(a.id); continue; }
+      prog.push(a.id + ':' + (Number(a.current) || 0) + ':' + (Number(a.max) || 0));
+    }
+    return 'v1:C:' + done.join(',') + '|P:' + prog.join(',');
+  }
+
+  function decodeAchAcc(stored) {
+    if (typeof stored !== 'string') return stored;  // version vieja: array crudo
+    if (stored.indexOf('v1:C:') !== 0) return stored;
+    var sep = stored.indexOf('|P:');
+    var comp = stored.slice(4, sep === -1 ? stored.length : sep).split(',');
+    var tail = sep === -1 ? '' : stored.slice(sep + 3);
+    var out = [];
+    var i, ids;
+    for (i = 0; i < comp.length; i++) {
+      ids = parseInt(comp[i], 10);
+      if (!isNaN(ids)) out.push({ id: ids, done: true });
+    }
+    if (tail) {
+      var prog = tail.split(',');
+      for (i = 0; i < prog.length; i++) {
+        var parts = prog[i].split(':');
+        var id = parseInt(parts[0], 10);
+        if (isNaN(id)) continue;
+        out.push({
+          id: id,
+          current: Number(parts[1]) || 0,
+          max: Number(parts[2]) || 0,
+          done: false
+        });
+      }
+    }
+    // Orden estable: la API viene ordenado por id y las vistas asumen ese
+    // orden (achievements.js:657 ordena por porcentaje, pero
+    // characters.js:449 suma en el orden que sea). Reconstruirlo aqui evita
+    // que un cuenta con muchos repetibles vea los logros reordenados entre
+    // una lectura de cache y una de red.
+    out.sort(function (x, y) { return x.id - y.id; });
+    return out;
+  }
+
   // ========================================================================
   // Achievements (cuenta + metadatos)
   // ========================================================================
@@ -1337,14 +1455,14 @@
     if (!token) return Promise.reject(new Error('Falta access_token'));
     var key = 'ach_acc';
     var cached = getCache(key, TTL.ACH_ACC, token, opts.nocache);
-    if (cached) return Promise.resolve(cached);
+    if (cached) return Promise.resolve(decodeAchAcc(cached));
 
     var url = withToken(CFG.API_BASE + '/v2/account/achievements', token);
     var ikey = 'if:ach_acc:' + fpToken(token);
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        putCache(key, data, token, TTL.ACH_ACC);
+        putCache(key, encodeAchAcc(data), token, TTL.ACH_ACC);
         return data;
       });
     });
