@@ -121,7 +121,7 @@ Ahora es visible y contable:
 
 **Se eliminaron todos los estilos inline (`.style.*`) de los dos dashboards multi-cuenta y se migraron a la arquitectura CSS de 3 capas.**
 
-| Dashboard | Archivo | Clases CSS新增 | Estilos inline eliminados |
+| Dashboard | Archivo | Clases CSS nuevas | Estilos inline eliminados |
 |-----------|---------|----------------|--------------------------|
 | Cartera | `wallet-dashboard.js` | `.wd-kpi-amber`, `.wd-kpi-purple`, `.wd-kpi-green`, `.wd-kpi-blue`, `.wd-dropdown`, `.wd-dd-item`, `.wd-dd-opt`, `.wd-table-wrap` | Dropdown, 4 KPIs, tabla |
 | Inventario | `inventory-dashboard.js` | `.id-kpi-blue`, `.id-kpi-green`, `.id-kpi-amber`, `.id-kpi-red`, `.id-badge`, `.id-dropdown`, `.id-dd-item`, `.id-dd-opt`, `.id-grid`, `.id-skel`, `.id-tablewrap` | Badge, dropdown, 4 KPIs, grid, skeleton, tablewrap |

@@ -12,6 +12,8 @@
  * - Global (welcomeSeen)
  * 
  * v1.0.2: Agregados métodos exportData() e importFromData() para sincronización con GitHub Gist
+ * v1.0.3: Botón "Limpiar caché" de la barra de utilities (Idea 50, Tramo siguiente a F y P3).
+ *          Llama a `GW2Api.__cacheClear` con dryRun -> confirm -> borrado real.
  */
 
 (function(root) {
@@ -484,16 +486,74 @@
   }
   
   // =======================================================================
+  // 2b. LIBERAR LA CACHÉ DE LA API  (Idea 50, Tramo siguiente a F y P3)
+  // =======================================================================
+  //
+  // Por que vive acá y no en `api-gw2.js`: el borrado YA existe y ya esta
+  // probado (`GW2Api.__cacheClear`, ver `tests/idea50f.cacheclear-real.test.js`).
+  // Lo que faltaba era el BOTON, y el boton es UI. Este modulo ya es el dueño de
+  // los botones de la barra de utilities (Backup / Restaurar), ya tiene el
+  // `confirm()` de accion destructiva y el `toast` de resultado, y ya tiene el
+  // guard `__settingsWired` que evita el doble binding. Agregar un modulo
+  // propio seria un `<script>` mas y un segundo lugar con el mismo patron.
+  //
+  // El flujo es dryRun -> confirm -> borrado real, y el orden NO es estetico:
+  //   1. `__cacheClear({dryRun:true})` NO borra nada y dice cuantas claves y
+  //      cuantos bytes se liberarian. Es lo unico que permite que el `confirm()`
+  //      sea una PREGUNTA y no una DCHECK.
+  //   2. Si `removed` es 0 no se pregunta: un confirm que anuncia "0 claves" es
+  //      una mentira, y el peor caso de un boton destructivo es el que pide
+  //      permiso para no hacer nada.
+  //   3. Recien ahi se borra de verdad.
+  //
+  // Lo que NO hace, a proposito: `location.reload()`. `__cacheClear` tambien
+  // vacia la cache de sesion (`__mem`), asi que la siguiente lectura sale de la
+  // red sola. Recargar es un cambio de comportamiento mas grande (tira el
+  // estado de la vista) y no hace falta para que el boton cumpla: queda
+  // planteada para el Reviewer, no resuelta por mi.
+  function fmtBytes(n) {
+    if (!n || n < 0) return '0 B';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+  function clearApiCache() {
+    var api = window.GW2Api;
+    if (!api || typeof api.__cacheClear !== 'function') {
+      if (window.toast) window.toast('error', 'La capa de API no está disponible', { ttl: 3000 });
+      return;
+    }
+    // 1. La pregunta primero. En `dryRun` no se toca ni disco ni sesion.
+    var dry = api.__cacheClear({ dryRun: true });
+    if (!dry || !dry.removed) {
+      if (window.toast) window.toast('warning', 'No hay caché de la API para liberar', { ttl: 2500 });
+      return;
+    }
+    var msg = '¿Liberar la caché de la API?\n\n' +
+      '• Se borrarán ' + dry.removed + ' claves (' + fmtBytes(dry.bytes) + ')\n' +
+      '• Se conservan ' + dry.kept + ' claves: cuentas, pines, tema y ajustes\n\n' +
+      'La próxima carga volverá a descargar los datos.';
+    if (!confirm(msg)) return;   // 2. Cancelar NO borra nada: el dryRun no habia borrado nada
+    // 3. Ahora si.
+    var res = api.__cacheClear();
+    if (window.toast) {
+      window.toast('success', 'Caché liberada: ' + (res ? res.removed : 0) + ' claves (' +
+        fmtBytes(res ? res.bytes : 0) + ')', { ttl: 3500 });
+    }
+  }
+
+  // =======================================================================
   // 3. INICIALIZACIÓN
   // =======================================================================
   
   function init() {
-    console.info(LOG, 'Settings Manager v1.0.2 inicializado');
+    console.info(LOG, 'Settings Manager v1.0.3 inicializado');
     
     // Buscar botones en el DOM (se ejecuta después de que index.html cargue)
     function bindButtons() {
       var exportBtn = document.getElementById('exportSettingsBtn');
       var importBtn = document.getElementById('importSettingsBtn');
+      var clearCacheBtn = document.getElementById('clearCacheBtn');
       
       if (exportBtn && !exportBtn.__settingsWired) {
         exportBtn.__settingsWired = true;
@@ -515,6 +575,14 @@
               alert('Error: ' + err.message);
             }
           });
+        });
+      }
+      
+      if (clearCacheBtn && !clearCacheBtn.__settingsWired) {
+        clearCacheBtn.__settingsWired = true;
+        clearCacheBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          clearApiCache();
         });
       }
     }

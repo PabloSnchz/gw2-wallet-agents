@@ -279,6 +279,17 @@
     <img src="assets/icons/2015716.png" width="16" height="16" alt="Sincronizar">
     Sincronizar
   </button>
+
+  <!-- Botón Limpiar caché de la API (Idea 50, Tramo siguiente a F y P3).
+       `an-util-link--btn` es el reset de boton que YA existe en main.css:517 y
+       que los 3 botones de arriba repiten con style inline. No se agrega CSS
+       nuevo, y este boton no es una copia mas de ese style inline. -->
+  <button id="clearCacheBtn" class="an-util-link an-util-link--btn"
+          type="button"
+          title="Liberar la caché de la API (no toca cuentas, pines ni ajustes)"
+          aria-label="Limpiar la caché de la API">
+    <span aria-hidden="true">⛁</span> Limpiar caché
+  </button>
   
   <span class="an-sep">|</span>
   
@@ -972,7 +983,7 @@
 
   <!-- Cuentas + Utilidades -->
   <script defer src="js/accounts-panel.js?v=2.0.2"></script>
-  <script defer src="js/settings-manager.js?v=1.0.2"></script>
+  <script defer src="js/settings-manager.js?v=1.0.3"></script>
   <script defer src="js/gist-sync.js?v=1.1.0"></script>
 
   <!-- Bienvenida -->
