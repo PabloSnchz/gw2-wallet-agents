@@ -534,3 +534,35 @@ al elegir canal, no al esperar el veredicto.
 > garantiza el *recogido*. Se arreglan en lugares distintos — uno escribiendo en
 > `sent/`, otro no llamando a `submit_to_agent` — asi que learn la regla de uno
 > no previene el otro.
+
+
+---
+
+## ALERT-77 — cerrado en el mismo ciclo — un invariante redactado describe mas de lo que el codigo promete
+
+**Donde:** el recambio del Tramo 3 de la Idea 61, escrito por el Principal.
+
+**Que:** el invariante decia *"si y solo si NADIE escribe por afuera"*. La
+mitad `si` es cierta; la mitad **`solo` es falsa**, y lo mas grave es que
+**"si y solo si" suena a invariante y no lo es**: es un contrato mas fuerte que
+el que el codigo entrega, disfrazado de propiedad. `_resyncMirrors` existe
+justamente para tolerar escritores externos, asi que el espejo se mantiene
+AUNQUE alguien escriba por afuera. Un invariante escrito mas fuerte que la
+realidad no falla hoy: **falla el dia que alguien lo lea y construya sobre el**,
+que es exactamente cuando el costo es maximo.
+
+**El dato que lo desarma** (y que habia que medir, no suponer): lo que hay que
+forbidar no es el escritor crudo de la legacy — que HOY es el que escribe, y sin
+el se pierde la lista de cuentas — sino el **LECTOR CRUDO de la `gn:`**, que es
+el unico que se saltaria el espejo. Medido: 0 de los 4 pares.
+
+**Corolario, mas general que este caso:** antes de escribir "si y solo si" en un
+test o en un `.md`, hay que poder nombrar **la parte del codigo que garantiza la
+segunda mitad**. Si no se puede nombrar, no es un invariante: es una Esperanza.
+La mitad que si se puede nombrar queda escrita como esta: *"el espejo se mantiene
+para todo lector que pase por `Storage`, haya o no escritor crudo"* — y eso es
+cierto sin mirar nada mas, porque `Storage.get` lee la legacy primero.
+
+**Cerrado en el mismo ciclo:** el Tramo 3 se reescribio con la forma verdadera
+y mergeado (`905dc77` / `5c80ae5`). La idea queda abierta como norma, no como
+incidente.

@@ -1,6 +1,6 @@
 # IN_PROGRESS.md — Feats en desarrollo
 
-> Actualizado: 2026-09-30 (Heartbeat #62 — clon canónico corregido, ALERT-71)
+> Actualizado: 2026-09-30 (Heartbeat #65 — Tramo 3 de la Idea 61 mergeado y rama borrada; el item que sigue es **P3**, que bloquea el botón de `cacheClear`)
 > Mantenedor: Principal (default)
 >
 > **Clon canónico:** `C:\Mis Archivos\GW2 online\gw2-dev`, rama `main`, remoto de
@@ -15,6 +15,13 @@
 > inexistente. Es exactamente el camino que lleva al incidente de produccion del
 > 30-09 (un `push origin main` desde el clon viejo manda desarrollo a produccion).
 > Corregido contra el repo, no de memoria. Ver ALERT-71.
+
+
+### Cerradas en este ciclo
+
+| Rama (borrada) | Item | Commits | Estado |
+|---|---|---|---|
+| `idea61t3-espejo-4pares` | Idea 61 Tramo 3 (recambiado por el Reviewer) | `905dc77` / merge `5c80ae5` | **MERGEADO y borrada.** El botón de `cacheClear` NO esta acá: **P3** es lo que lo bloquea |
 
 ---
 
