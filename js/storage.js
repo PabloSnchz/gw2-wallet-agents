@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * storage.js v1.0.1 — Centralización de localStorage
+ * storage.js v1.1.0 — Centralización de localStorage
  * 
  * Único punto de acceso a localStorage en toda la app.
  * 
@@ -187,6 +187,37 @@
     'gn:meta:hecho_hoy':           'gn_meta_hecho_hoy:',
   };
 
+  // ── MIRROR_MAP: la legacy SIGUE siendo la fuente de verdad ────
+  //
+  // Estas claves tienen un problema que FALLBACK_MAP no puede resolver por si
+  // solo. Un modulo escribe la legacy a pelo (localStorage.setItem) y otro lee
+  // la gn: con Storage.get. Como _migrateOne arranca con
+  // `if (hasRaw(newKey)) return`, la gn: queda con la foto del PRIMER arranque
+  // y no se refresca nunca: no esta desactualizada, esta CONGELADA. Y no hay
+  // forma de notarlo, porque Storage.get devuelve un array bien formado.
+  //
+  // El caso caro es gn:account:keys: es la lista de cuentas, y la gn: es la
+  // que sube el Gist (settings-manager.js). Con la foto congelada, el backup
+  // sube una lista vieja; y al importar en un navegador nuevo, el import
+  // escribe la gn: mientras app.js lee la legacy -> la app arranca vacia.
+  //
+  // DECLARACION, no heuristica: para estas claves la legacy manda. Se lee
+  // primero, se escribe en las dos, y al arrancar la gn: se resincroniza
+  // desde la legacy. Las claves que NO estan aca siguen el comportamiento
+  // anterior (la gn: es la nueva, la legacy es solo el fallback de la
+  // migracion) — que es el correcto para las que ya no tienen escritor crudo.
+  const MIRROR_MAP = {
+    'gn:account:keys':            'gw2_keys',
+    'gn:account:selected':        'gw2_selected_key_v1',
+    'gn:activities:home:nodes':   'gn_home_nodes_marked',
+    'gn:activities:toggles':      'gn_activities_toggles',
+  };
+
+  /** Nombre de la legacy espejo de una gn:, o null si no es una clave espejo. */
+  function mirrorOf(key) {
+    return Object.prototype.hasOwnProperty.call(MIRROR_MAP, key) ? MIRROR_MAP[key] : null;
+  }
+
   // ── Utilidades internas ────────────────────────────────────
   function safe(fn, fallback, context) {
     try { return fn(); } catch (e) {
@@ -216,6 +247,15 @@
     STORAGE_KEYS: STORAGE_KEYS_PUBLIC,
 
     get: function (key, fallback) {
+      // Clave espejo: la legacy es la fuente de verdad, asi que se lee PRIMERO.
+      // Sin esto, el que lee la gn: ve la foto del primer arranque.
+      var mir = mirrorOf(key);
+      if (mir) {
+        var mRaw = safe(function () { return localStorage.getItem(mir); }, null, 'getMirror');
+        if (mRaw !== null) {
+          try { return JSON.parse(mRaw); } catch (_) { return mRaw; }
+        }
+      }
       var raw = safe(function () { return localStorage.getItem(key); }, null, 'get');
       if (raw !== null) {
         try { return JSON.parse(raw); } catch (_) { return raw; }
@@ -232,6 +272,11 @@
     },
 
     getRaw: function (key, fallback) {
+      var mir2 = mirrorOf(key);
+      if (mir2) {
+        var mRaw2 = safe(function () { return localStorage.getItem(mir2); }, null, 'getRawMirror');
+        if (mRaw2 !== null) return mRaw2;
+      }
       var raw = safe(function () { return localStorage.getItem(key); }, null, 'getRaw');
       if (raw !== null) return raw;
       var oldKey = FALLBACK_MAP[key];
@@ -246,10 +291,19 @@
     set: function (key, value) {
       var str = typeof value === 'string' ? value : JSON.stringify(value);
       safe(function () { localStorage.setItem(key, str); }, null, 'set');
+      // Clave espejo: se escribe en las DOS. El import del Gist entra por aca,
+      // y si solo escribiera la gn: la app arrancaria sin cuentas en un
+      // navegador limpio (no existe la legacy y app.js la lee a pelo).
+      var mir = mirrorOf(key);
+      if (mir) safe(function () { localStorage.setItem(mir, str); }, null, 'setMirror');
     },
 
     remove: function (key) {
       safe(function () { localStorage.removeItem(key); }, null, 'remove');
+      // Clave espejo: si se borra solo la gn:, la legacy revive el valor en el
+      // siguiente arranque por el resync. Se borran las dos.
+      var mir = mirrorOf(key);
+      if (mir) safe(function () { localStorage.removeItem(mir); }, null, 'removeMirror');
     },
 
     has: function (key) {
@@ -356,6 +410,36 @@
       });
       if (failed.length) console.warn('[Storage] Migración falló para:', failed);
       if (migrated.length) console.info('[Storage] Migradas', migrated.length, 'claves (modo: ' + MIGRATION_MODE + '):', migrated.join(', '));
+      Storage._resyncMirrors();
+    },
+
+    /* _resyncMirrors: la gn: CONGELADA se refresca desde su legacy.
+     *
+     * _migrateOne arranca con `if (hasRaw(newKey)) return`, y migrate() corre en
+     * CADA arranque. O sea que para una gn: que ya existe, la migracion no la
+     * vuelve a tocar nunca: se queda con la foto del primer arranque mientras un
+     * modulo sigue escribiendo la legacy a pelo. Para las claves de MIRROR_MAP
+     * eso es exactamente la condicion de congelacion, asi que la foto se
+     * refresca aqui, en el mismo arranque, y solo si la legacy EXISTE.
+     *
+     * "Solo si la legacy existe" y no "si difieren": si la legacy no esta, no se
+     * borra la gn:. Una gn: sola puede ser legitima (navegador nuevo, la legacy
+     * todavia no se creo) y borrarla seria perder el dato.
+     */
+    _resyncMirrors: function () {
+      var refreshed = [];
+      Object.keys(MIRROR_MAP).forEach(function (gn) {
+        var legacy = MIRROR_MAP[gn];
+        var oldVal = safe(function () { return localStorage.getItem(legacy); }, null, 'resync');
+        if (oldVal === null) return;
+        if (oldVal === safe(function () { return localStorage.getItem(gn); }, null, 'resync')) return;
+        try { localStorage.setItem(gn, oldVal); } catch (_) { return; }
+        refreshed.push(gn);
+      });
+      if (refreshed.length) {
+        console.info('[Storage] Claves resincronizadas desde su legacy:', refreshed.join(', '));
+      }
+      return refreshed;
     },
 
     _migrateOne: function (oldKey, newKey, migrated, failed) {
@@ -379,7 +463,7 @@
 
     init: function () {
       Storage.migrate();
-      console.info('[Storage] storage.js v1.0.1 inicializado. Prefijo:', PREFIX, '| Modo:', MIGRATION_MODE);
+      console.info('[Storage] storage.js v1.1.0 inicializado. Prefijo:', PREFIX, '| Modo:', MIGRATION_MODE);
     },
   };
 
