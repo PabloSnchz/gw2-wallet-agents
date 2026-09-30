@@ -1,89 +1,96 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
-> Actualizado: 2026-09-30T10:10:00Z (Heartbeat #54)
+> Actualizado: 2026-09-30T10:10:00Z (Heartbeat #55)
 > Mantenedor: Principal (default)
 
 ## Titular del ciclo
 
-**La Idea 56 del PO esta implementada y NO mergeada, a proposito.** `getAccountRaids` convertia una
-respuesta con una forma no soportada en `[]`, y `[]` es indistinguible de "no completaste nada": en el
-Strike Tracker es "0 de 15 completados". Es capa de datos, y ALERT-48 (que abrio el Reviewer en el HB#48)
-dice que eso no va "por merito": va con veredicto. Rama `feat-idea56-forma-raids`, commit `6178a8f`,
-consultado al Reviewer como `task-b20623f46caa`.
+**La Idea 56 del PO está APROBADA, mergeada y con sus 3 follow-ups cerrados.** El Reviewer respondió
+`task-b20623f46caa` con veredicto **APROBADO** (sin bloqueantes), verificado de forma independiente: corrió
+los tests él mismo (20/0 post-fix, 8/12 contra `HEAD~1`, suite 352/0) y revisó los 5 call sites uno por
+uno. Confirmó que el caso `null` **no es teórico** — es lo que produce un `200` con body vacío, y antes
+daba "0 encuentros completados" en los 3 módulos.
+
+Este heartbeat cerró los 3 follow-ups que dejó:
+
+| Follow-up | Qué era | Estado |
+|---|---|---|
+| **F1** (media) | La pista "verificá que la API key tenga permiso `progression`" se imprimía **incondicionalmente**. Con el guard de FORMA el permiso puede estar perfecto: era el bucle hostil de ALERT-32. | ✅ **`4c95774` / merge `72cc8af`** |
+| **F2** (media) | `getCharacterCount` (`api-gw2.js:536`) tenía **el mismo bug, una función arriba**. BACKLOG/ALERT-31 lo listaban como "propagado" por Idea 47 y no lo estaba. | ✅ **`979bfa6` / merge `23b1565`** (v2.24.1) |
+| **F3** (baja) | `docs/ONBOARDING.md` no documentaba el contrato de **dos capas** (RED + FORMA). Era lo que el Reviewer pidió para que el próximo no lo "normalice" y lo degrade de vuelta. | ✅ En el mismo commit que F1 |
+
+**Corrección de recuento que sale de F2:** son **siete** los wrappers que degradaban por forma, no seis.
+El "cinco propagados" de la Idea 47 no incluía a `getCharacterCount`. El relato de la v2.24.0 queda
+corregido en el header del propio archivo.
 
 ## En curso
 
-| Que | Donde | Estado |
+| Qué | Dónde | Estado |
 |---|---|---|
-| **Idea 56 — guard de FORMA en `getAccountRaids`** | rama `feat-idea56-forma-raids` (`6178a8f`) | **PROVISIONAL.** Test 20 aserciones, **12 FAIL contra el archivo sin modificar**, suite completa **352/0**. Verificado contra los 5 call sites antes de tocar nada. **NO mergeado: esperando `task-b20623f46caa`.** |
-| Revision del guard | Code-Reviewer, `task-b20623f46caa` | En vuelo, timeout 1800s. Pregunta acotada: (1) el `throw` desde dentro del `.then` cae en el `.catch` de red, ¿confunde la clasificacion del error? (2) ¿algun call site degrada a `[]` hoy **a proposito**? (3) el `console.warn` que pidio el PO, ¿se pierde con el catch que ya existia? |
-| **Idea 53 — Strike Tracker por logros (14/15)** | sin empezar | Proxima. Es la mas valiosa de la cola: hace que el modulo funcione y hoy muestra 0 de 15. Mismo criterio que la 56: badge que se dibuja, quiere veredicto antes. |
-| CM de Convergencia por logros (9394/9435/9422) | sin empezar | 3 lineas, reusa `activities.js:870`. Detras de la 53. |
+| **Idea 53 — Strike Tracker por logros (14/15)** | sin empezar | Próxima. La más valiosa de la cola: hace que el módulo funcione y hoy muestra 0 de 15. Mismo criterio que la 56: quiere veredicto antes de mergear. |
+| CM de Convergencia por logros (9394/9435/9422) | sin empezar | 3 líneas, reusa `activities.js:870`. Detrás de la 53. |
+| **ALERT-55** — 6 ramas sin mergear en `origin` | `origin/*` | **ABIERTA.** 2 se pueden borrar ya (absorbidas, `git cherry` da `-`). 3 tienen trabajo real y están 110–201 commits atrás: el rescate correcto es `cherry-pick` sobre rama nueva desde `main`, **no `merge`**. No se toca en este ciclo. |
 
 ## Completado en este ciclo
 
-- **Idea 56, primera parte** (`6178a8f`, sin mergear): el guard, el test, y la verificacion de los 5 call
-  sites. `api-gw2.js` v2.24.0 + buster en `index.html:940`.
-- **Correccion del PO sobre el 206, ACEPTADA y escrita.** El PO mostro que no hay perdida hoy: las 3 rutas
-  con `fetch` crudo piden listas limpias, y los ids que "faltan" en un rango dan 404 probados de a uno.
-  El ALERT-57 baja de "bug abierto" a "trampa real corregida", y lo que queda es **deuda** (esas 3 rutas
-  no tienen `fetchBatchWithRepair`). Ver BACKLOG.
-- **Rescate del contenido del PO sin mergear su rama.** `po/hb56-forma-raids` **borra 382 lineas** si se
-  mergea: 2 alertas de ALERTS_LOG, 4 lineas de BACKLOG y el directorio `tests/` entero (`_run-all.js` y 8
-  tests). Es porque branched antes de que el HB#51-53 llegara a `main`, no porque quiera borrar nada. Se
-  rescue **solo** su bloque de `DASHBOARD_PO_IDEAS.md` con `git apply`. **La rama no se mergea.**
+- **F2 — `getCharacterCount` deja de degradar a `0`.** Commit `979bfa6`, merge `23b1565`, `api-gw2.js`
+  v2.24.1 + buster en `index.html:940`. Su JSDoc (`:528`) ya decía "no degrada a 0": el catch de RED
+  cumplía el contrato y el camino de FORMA no. Test `tests/idea60b.forma-charcount.test.js`,
+  **21 aserciones, 12 FAIL contra el archivo sin el fix** (verificado con `git stash push` + `pop`).
+- **F1 — la pista de permiso deja de ser incondicional.** Commit `4c95774`, merge `72cc8af`, en
+  `raid-tracker.js` y `strike-tracker.js`. El mensaje real **no se pierde** (ya viaja en
+  `error.message`); lo que se quita es la pista enganosa, y solo en la rama de FORMA. El otro texto de
+  permiso ("Seleccioná una API Key…") queda intacto: es un caso distinto y legítimo, no hubo request.
+  Test `tests/idea56.f1-hint-permiso.test.js`, **23 aserciones, 5 FAIL sin el fix**.
+- **F3 — `ONBOARDING.md` documenta el contrato de dos capas.** Tabla de cómo distinguir RED de FORMA en
+  el consumidor, y la advertencia de no reintroducir el `Array.isArray(x) ? x : []` por costumbre.
+- **037 cerrada.** `task-b20623f46caa` → `completed`, veredicto APROBADO. Era la regla del PASO 1 del
+  ciclo: sin recogerla, el Reviewer figuraba caído mientras estaba trabajando.
 
-## Pendiente que requiere a Pablo (sin cambios respecto del HB#49)
+## Pendiente que requiere a Pablo
 
-- **Body crudo de `/v2/account/raids` con una API key** (permiso `progression`). Bloquea ALERT-41 y el CM
-  real de strikes. Sin eso, la Idea 53 es el unico camino que no depende de un dato que no tengo. **Con el
-  guard de la 56, el modo de fallo paso a ser visible**: si la API responde con otra forma, la consola lo
-  dice en vez de fingir "0 de 15".
-- **Decision de producto sobre `vloxx` / Nexus of Eternity:** el ala no esta en `/v2/raids`. ¿Se saca el
-  ala 9 del grid, o queda como espera?
-- **Decision de producto sobre los 5 encounters no cableados:** 30 -> 35 cambia el KPI que Pablo ve.
-- **Promocion a produccion:** la mantiene `PROMOTIONS.md`. **El equipo no propone promover.**
+- **Promoción de `agents/main` a producción** (rama `po/hb56-forma-raids` y el resto del trabajo de
+  Ideas 47/49/52/56): `gw2-wallet-ligero` está CONGELADA. Solo entra con pedido literal tuyo que nombre
+  el feature. Nada se propone desde el equipo.
+- **ALERT-41 / ALERT-54**: hacen falta tu token real para el body crudo de `/v2/account/raids`, y una
+  decisión de producto sobre el ala 9 (`vloxx` tiene `li: 1` y la API no lo expone: el 100% de Legendaria
+  Imbuida es inalcanzable por diseño).
+- **ALERT-53**: agregar los 5 eventos no cableados sube el KPI de 30 a 35. Cambia lo que vos ves: es tuyo.
 
 ## Alertas
 
-| # | Severidad | Estado |
-|---|---|---|
-| **ALERT-60** (nueva) | Baja, Data | 🔶 **PROVISIONAL.** Un `catch` que devuelve un valor por defecto borra la diferencia entre "no lo pude leer" y "no hay nada". Commit `6178a8f`, **sin mergear**. |
-| ALERT-59 | Alta, Repo | ABIERTA. El clon tiene dos escritores. Se le pidio al PO por el canal de archivos no commitear en este clon mientras el Principal este en `main`. **Este ciclo ocurrio de nuevo**: rescate su rama con `git apply` en vez de merge. |
-| ALERT-58 / ALERT-57 | Alta, Data | ✅ RESUELTAS (HB#52 / HB#53). |
-| ALERT-56 | Media, Test | ABIERTA como regla. **Volvio a pegar en este ciclo**: un FAIL del test de la 56 era del mock (el texto `[]` parsea a un array valido y tiene que pasar el guard), no del codigo. |
-| ALERT-54 | Media, Producto | ABIERTA. `vloxx` tiene `li: 1` y `/v2/raids` no lo expone: el 100% de Legendaria Imbuida es inalcanzable por diseno. Decision de Pablo. |
-| ALERT-52 | Media, Platform | ABIERTA. Trampa para la Idea 53: los ids de encuentro no se resuelven uno a uno contra `/v2/raids`. |
-| ALERT-53 | Baja, Datos | ABIERTA, no bloqueante. Huecos menores de `raid-tracker`. No tocados para no ampliar el diff. |
-| ALERT-41 | Alta, Datos | ABIERTA. Bloqueada por el token de Pablo. |
-| ALERT-48 | Proceso | Vigente. Un cambio de capa de datos sin veredicto es PROVISIONAL, y su `task_id` se sigue hasta el final del ciclo, no hasta el siguiente. |
+| Alerta | Estado |
+|---|---|
+| **ALERT-60** | ✅ **CERRADA.** Era el `Array.isArray(data) ? data : []` de `getAccountRaids` que degradaba una forma no soportada a `[]`. Mergeada y aprobada. **Corolario ya incorporado:** con F2 son **siete** los wrappers, y el recuento de "cinco propagados" que estaba en BACKLOG/ALERT-31 era falso. |
+| ALERT-59 | ABIERTA. El clon tiene dos escritores. Se le pidió al PO por el canal de archivos que no commitee en este clon mientras el Principal esté en `main`. **Este ciclo pasó de nuevo**: su rama se rescató con `git apply`, no con merge. |
+| ALERT-58 / ALERT-57 | ✅ RESUELTAS (HB#52 / HB#53). |
+| ALERT-56 | ABIERTA como regla. **Volvió a pegar dos veces este ciclo**: 4 FAIL míos en el test de F1 eran mis propias regex mal construidas, y un FAIL del de la 56 era del mock (el texto `[]` parsea a un array válido y tiene que pasar el guard). **Un FAIL se diagnostica antes de tocarse.** |
+| ALERT-55 | ABIERTA. 6 ramas sin mergear; 3 con trabajo real. Rescate por `cherry-pick`, no por `merge`. |
+| ALERT-54 / ALERT-52 / ALERT-53 / ALERT-41 | ABIERTAS, no bloqueantes. Decisiones de producto o bloqueadas por tu token. |
+| ALERT-48 | Vigente. Un cambio de capa de datos sin veredicto es PROVISIONAL y su `task_id` se sigue **hasta el final del ciclo**, no hasta el siguiente. Esta vez se cumplió: la 037 se recogió y cerró. |
 
 ## Propuestas y veredictos
 
 | Propuesta | De | Veredicto |
 |---|---|---|
-| **Idea 56** (guard de forma) | PO | En revision (`task-b20623f46caa`). Implementada pero **no mergeada**. |
-| **Idea 53** (Strike Tracker por logros, 14/15) | PO | Aceptada en principio, **sube de prioridad**: es la que hace que el modulo funcione. Propia, encolada. |
-| **CM de Convergencia** (9394/9435/9422) | PO | Aceptada, despues de la 53 y con veredicto del Reviewer (es codigo de baldia que se dibuja). |
-| **CM real de strikes** | PO | **BLOQUEADO** por el token. Con el guard de la 56 ya no es riesgoso esperar. |
-| Autocorreccion del alcance del 206 | PO | **ACEPTADA.** El fix es correcto pero mas defensivo de lo necesario; no hay perdida hoy. |
-| Idea 49 Tramo C | PO | ✅ Mergeada y validada (HB#48, `f09eb7c`). |
-| Idea 52 | PO | ✅ Mergeada (HB#49, `ab39823`). |
-| Idea 48 Tramos A y B | PO | ✅ Cerrada (HB#43). |
-| Idea 55 Tramo 3a | PO | ✅ Mergeada (HB#52, `605b822`). |
-| Idea 47 | PO | ✅ Cerrada (HB#41, `110b049`). |
+| **Idea 56** (guard de FORMA) | PO | ✅ **APROBADO** (`task-b20623f46caa`). Mergeado con sus 3 follow-ups. **Cerrada.** |
+| **Idea 60B** (mismo guard en `getCharacterCount`) | follow-up del Reviewer | ✅ Mergeado, v2.24.1. |
+| **Idea 53** (Strike Tracker por logros, 14/15) | PO | Aceptada en principio, **sube de prioridad**: es la que hace que el módulo funcione. Próxima. |
+| **CM de Convergencia** (9394/9435/9422) | PO | Aceptada, después de la 53 y con veredicto del Reviewer. |
+| **CM real de strikes** | PO | 🔴 **BLOQUEADO** por el token. Con el guard de la 56 ya no es riesgoso esperar. |
+| Autocorrección del alcance del 206 | PO | ✅ **ACEPTADA.** El fix es correcto pero más defensivo de lo necesario; no hay pérdida hoy. Lo que queda es deuda en 3 rutas con `fetch` crudo. |
+| Idea 49 Tramo C / Idea 52 / Idea 55 Tramo 3a / Idea 48 / Idea 47 | PO | ✅ Mergeadas y validadas (HB#48 / HB#49 / HB#52 / HB#43 / HB#41). |
 
-## Verificacion de este ciclo
+## Verificación de este ciclo
 
 ```
-node --check js/api-gw2.js                    -> limpio
-node tests/idea56.forma-raids.test.js          -> 8 pass / 12 FAIL  (archivo SIN modificar)
-node tests/idea56.forma-raids.test.js          -> 20 pass / 0 FAIL  (con el fix)
-node tests/_run-all.js                         -> 352 aserciones, 0 archivos fallados
-git diff --stat index.html                     -> 1 linea (Set-Content habia metido BOM y
-                                                   habia inflado el diff a 133 lineas; corregido
-                                                   con Python binario)
+tests/idea60b.forma-charcount.test.js   -> 21 pass / 0 FAIL   (con el fix)
+  mismo test, git stash sobre api-gw2   ->  9 pass / 12 FAIL  (SIN el fix)
+tests/idea56.f1-hint-permiso.test.js    -> 23 pass / 0 FAIL   (con el fix)
+  mismo test, git stash sobre los 2 js  -> 10 pass /  5 FAIL  (SIN el fix)
+suite completa (18 archivos)            -> 473 aserciones, 0 FAIL
+node --check raid-tracker.js strike-tracker.js -> limpio
+git push origin HEAD:main               -> origin/main = 72cc8af
 ```
 
-**Rama `feat-idea56-forma-raids` SIN pushear a proposito:** no se pushea un cambio de capa de datos sin
-el veredicto. Se pushea al `main` en cuanto el Reviewer responda, mergeado en el mismo ciclo.
+Las 4 ramas del fix se borraron después del merge, en el mismo ciclo.
