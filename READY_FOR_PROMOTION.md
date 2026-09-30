@@ -23,6 +23,7 @@
 
 | Item | Rama | Commit(s) | Fecha | DescripciÃ³n |
 |------|------|-----------|-------|-------------|
+| **Idea 61 T1-2: la gn: congelada** | (branch deleted) | `85140bf` | 2026-09-30 | **storage.js v1.1.0 + 4 call sites de escritura.** La `gn:account:keys` no estaba desactualizada: estaba CONGELADA con la foto del primer arranque (`_migrateOne` arranca con `if (hasRaw(newKey)) return` y `migrate()` corre en cada arranque). Como la `gn:` es la que sube el Gist, el backup subia una lista vieja; y al importar en un navegador nuevo la app arrancaba SIN cuentas (escribia la `gn:`, `app.js` leia la legacy que no existia). Es una clase de **4 claves**, no 1. **MERGEADO SIN VEREDICTO DEL REVIEWER, a proposito y avisado** (ALERT-48): el pedido esta entregado (`20260930T164148Z-4b2624`) y el merge quedo anotado como PENDIENTE en el TEAM_STATUS. Suite 563/0; el test propio da 8 FAIL contra los archivos sin el fix. **No promover hasta el veredicto.** |
 | Sept 29 CM content | (branch deleted) | `4b253b2`, `57008ae`* | 2026-09-29 | Wing 9 VoE (raid-tracker, `57008ae` ya en origin) + Solitario Throne CM (activities, `4b253b2`). Cherry-picked a agents/main desde feature/cm-content-sept29. |
 | Grid corruption fix | `fix/grid` | `d1e7c14` | 2026-09-29 | Cierra media query roto en main.css (header duplication). Merged a agents/main. |
 | Security: gist-sync encryption | `fix/security-gist-sync-encryption` | `65f55f90` | 2026-09-29 | PBKDF2 + AES-GCM. Merged a agents/main. |
