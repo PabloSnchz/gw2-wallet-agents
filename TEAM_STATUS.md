@@ -1,16 +1,16 @@
-# TEAM STATUS - Heartbeat #49 (2026-09-30 07:40 UTC)
+# TEAM STATUS - Heartbeat #50 (2026-09-30 08:30 UTC)
 
 > Actualizado por el Principal. Clon de trabajo: `C:\Mis Archivos\GW2 online\gw2-dev`.
-> `agents/main` @ `ab39823`. El remoto de desarrollo se llama **`origin`** en este clon.
+> `agents/main` @ `88a7721`. El remoto de desarrollo se llama **`origin`** en este clon.
 
 ## Estado del equipo
 
 | Agente | Estado | Evidencia del ciclo |
 |---|---|---|
-| Principal (default) | **OPERATIVO** | Ciclo completo. Merge `ab39823` + push verificados contra `git ls-remote`: el remoto quedo en `ab39823`, sin branches duplicados. |
+| Principal (default) | **OPERATIVO** | Ciclo completo. Recogido el veredicto del Reviewer de la Idea 52, aplicado el cambio 1 (clave `"ura"` duplicada), test con fase roja verificada, merge `88a7721`, logs actualizados y push. |
 | Code-Reviewer | **OPERATIVO** | Tarea enviada este ciclo (`task-bcff44b0f698`, Idea 52). Sin respuesta todavia — se recoge en el proximo ciclo (PASO 1). |
-| product-owner | **OPERATIVO** | Entrego 4 heartbeats seguidos (04:00, 06:00, 06:30, 08:00) con Ideas 49, 50, 52, 53. La Idea 52 se implemento este ciclo. Pregunta abierta `20260930T073734Z-74adc1`. |
-| Documentador | Sin evidencia | Sin tarea en vuelo y sin comprobacion este ciclo. `HEARTBEAT.md` sigue registrando timeout. **Pendiente: verificar `active_model`.** |
+| product-owner | **OPERATIVO** | Sigue entregando. Su `task-4a1f7c2be910` (031) dio **404** = TTL vencido, no timeout; su contenido llego igual por el canal de archivos y ya esta aplicado. Acuse nuevo saliente (034) con 2 hallazgos que no estaban en su informe. |
+| Documentador | Sin evidencia | Sin tarea en vuelo ni comprobacion este ciclo. `HEARTBEAT.md` sigue registrando timeout. **Pendiente: verificar `active_model`.** El ciclo toco codigo, asi que le corresponde una entrega. |
 | Arquitecto | Activo | Intervino en el canal de archivos: detecto que el cuerpo de la comm 029 llego como la palabra `prueba.txt`. |
 
 ## Trabajo completado este ciclo
@@ -58,25 +58,49 @@ Los renombres se emparejaron **por ala, no por nombre**, porque los nombres no s
 
 | Task | Agente | Que | Estado |
 |---|---|---|---|
-| `task-bcff44b0f698` | Code-Reviewer | Revision del diff de la Idea 52 (14 renombres de id) | **En vuelo.** Recoger en el proximo ciclo con PASO 1. |
-| `20260930T073734Z-74adc1` | product-owner | Acuse de la Idea 52 + 5 preguntas/datos | **Esperando.** |
+| `task-bcff44b0f698` | Code-Reviewer | Revision del diff de la Idea 52 | **RESUELTO** (HB#50). APROBAR CON CAMBIOS. Cambio 1 aplicado; resto validado sin accion. |
+| `task-4a1f7c2be910` | product-owner | Acuse del HB#48 del PO | **404 (TTL vencido).** No reenviada: el contenido llego por el canal de archivos y ya estaba aplicado. |
+| `task-6176f26e77bf` | product-owner | 3 puntos del HB#48 (novedades, ALERT-41, alcance) | **404 (TTL vencido)**, ya cerrada por merito en el HB#49. |
+| `20260930T073734Z-74adc1` | product-owner | Acuse de la Idea 52 + 5 preguntas/datos | **Esperando.** Su confirmacion de que `?ids=<evento>` da 404 ya quedo como ALERT-52. |
+| `20260930T083000Z-hb50` | product-owner | Acuse del HB#50: 2 hallazgos nuevos + ALERT-54 | **Esperando.** |
 
 ## Propuestas
 
 | # | Idea | Origen | Estado |
 |---|---|---|---|
-| 52 | 4 renombres de id en raid-tracker | PO 06:30 | **IMPLEMENTADA** en `ab39823` |
+| 52 | 4 renombres de id en raid-tracker | PO 06:30 | **IMPLEMENTADA** en `ab39823`, **corregida** en `88a7721` (v1.10.1) |
 | 53 | Strike Tracker: re-apuntarlo a logros | PO 06:30 | Abierta, **decision de producto**. El PO mismo ofrece borrar el modulo si el mapeo no verifica |
 | 50 | La cuota de localStorage no se libera nunca (49D/E/F) | PO 06:00 | Abierta. **49D (barrido de huerfanas, ~30 lineas) es la que mas rinde** |
 | 49G | `ach_acc` en forma compacta | PO 08:00 | Abierta, verde-media. Unica pieza que cierra la cuota de verdad |
+| 54 | `vloxx` infla `liTotal`: el 100% de LI es inalcanzable | **nueva, del HB#50** | **ALERTA abierta, no es propuesta.** Decision de producto (PO): borrar el ala 9, o excluir los fantasmas del calculo de LI |
 
 ## Alertas
 
-- **ALERT-51 (nueva, RESUELTA):** `raid-tracker.js` — 5 de 30 encuentros con id inexistente, 1 clave de datos mal (`ura_guardian`), 1 bloque muerto (`the_threshold`). Ver detalle abajo.
+- **ALERT-54 (nueva, ABIERTA):** `vloxx` tiene `li: 1` y `/v2/raids` no lo expone -> **`liTotal` cuenta un encuentro que jamas se va a reportar, y el 100% de Legendaria Imbuida es inalcanzable por diseno.** Es la misma clase de defecto que vino a matar la Idea 52, y quedo vivo dentro del fix que la ataco. No se toco: decidir el ala 9 es producto.
+- **ALERT-51 (HB#49, RESUELTA y reabierta en parte):** el fix de la Idea 52 creo la clave `"ura"` DUPLICADA en `REWARDS_DATA` y `BOSS_DETAILS` (bug introducido, efecto visual cero). Resuelta en `88a7721` con test anti-duplicadas. `raid-tracker.js` — 5 de 30 encuentros con id inexistente, 1 clave de datos mal (`ura_guardian`), 1 bloque muerto (`the_threshold`). Ver detalle abajo.
 - **ALERT-52 (nueva, ABIERTA):** `/v2/raids?ids=<id-de-evento>` devuelve **404**. Ver abajo — es una trampa para la Idea 53.
 - **ALERT-53 (nueva, ABIERTA, baja):** huecos de datos menores en el mismo modulo.
 - **ALERT-50 (de HB#48):** sigue mitigada por procedimiento. La regla se aplico: `git status -sb` + `git log --oneline -1` en la misma llamada antes de commitear, y el hash verificado en la rama esperada despues.
 - **ALERT-49 (de HB#48):** resuelta en `f09eb7c`.
+
+### ALERT-54 ƒ?" `vloxx` vuelve el 100% de Legendaria Imbuida inalcanzable
+
+**Severidad: media. Estado: ABIERTA (HB#50). Sin cambio de codigo: es decision de producto.**
+
+`liTotal` cuenta los encounters con `li === 1`. `vloxx` (el ala del CM de Sept 29, Nexus of Eternity) tiene
+`li: 1` y **`/v2/raids` no lo expone** (medido contra el catalogo real, no supuesto). O sea que el
+denominador del KPI suma un encuentro que la API jamas va a reportar: **el 100% de LI no es alcanzable**.
+
+Es exactamente la clase de defecto que la Idea 52 vino a eliminar, y quedo vivo **dentro del propio fix
+que la ataco**: el commit `2de8f35`cerro 5 tarjetas que no se podian marcar y dejo, en la misma capa y en
+el mismo archivo, un KPI que promete algo que no puede cumplir. Lo anoto el Reviewer.
+
+Lo que ya estaba bien: el test de la Idea 52 valida que `vloxx` no esta en el catalogo y lo declara
+`FANTASMA_CONOCIDO` con la explicacion, y falla si la lista de fantasmas **crece**. Lo que faltaba era que
+el KPI de LI lo sintiera.
+
+Como se cierra: si Pablo decide borrar el ala 9, `liTotal` baja y el 100% vuelve a ser alcanzable. Si se
+conserva, hay que sacar `li: 1` del encuentro o excluir los fantasmas del calculo. **No se decide solo.**
 
 ### ALERT-51 — 5 de 30 encuentros con un id que la API no tiene
 

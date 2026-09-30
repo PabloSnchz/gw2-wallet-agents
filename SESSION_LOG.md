@@ -1137,3 +1137,95 @@ con loops van a archivo. Y `print` de no-ASCII a cp1252 tira `UnicodeEncodeError
   la API no lo tiene.**
 - **ALERT-52 (abierta):** `?ids=<evento>` da 404. Trampa para la Idea 53.
 - **ALERT-53 (abierta, baja):** huecos de datos menores en el mismo módulo. No tocados.
+
+## Heartbeat #50 (2026-09-30 08:00 UTC) ƒ?" el Reviewer desmintio la mitad de mi propia justificacion
+
+### Que se hizo
+
+**Recogido el veredicto del Code-Reviewer sobre la Idea 52** (`task-bcff44b0f698`, ~25 min, *APROBAR CON
+CAMBIOS*), y aplicado su unico cambio de codigo. Commit `07f4052`, merge `88a7721`, `raid-tracker.js`
+v1.10.1.
+
+**El Reviewer confirmo lo que yo sostenia y lo desmentio a medias.** Confirmo, con verificacion propia
+contra la API en vivo: los 4 renombres de id son correctos, `the_threshold` bien borrado, `vloxx` bien
+dejado como decision de producto, el fixture es identico a la API, el test pasa, y no se rompe ninguna
+invariante. Pero partio en dos mi hallazgo de `ura`, y las dos mitas importan:
+
+1. **`BOSS_DETAILS` nunca estuvo roto.** Ya tenia la clave `"ura"` (la ficha de la Aulladora de Vapores).
+   El lookup `BOSS_DETAILS[enc.id]` resolvia bien. Lo que estaba muerto era el bloque `ura_guardian`, no
+   el bueno.
+2. **`REWARDS_DATA` no tiene ningun lector en el repo.** Solo su declaracion y el test. Son ~150 lineas
+   muertas. Renombrar la clave ahi no podia arreglar "recompensas de Ura ocultas": no habia recompensas
+   ocultas, habia una tabla que nadie lee.
+
+O sea: mi justificacion del commit del HB#49 era doblemente falsa, y la forma en que era falsa importa mas
+que el hecho. **Escribi como si el bug estuviera en la UI cuando estaba en una tabla muerta.**
+
+### El bug que MI fix habia introducido
+
+El renombre `ura_guardian` -> `"ura"` creo la clave **duplicada** en las dos tablas. En JS gana la
+ultima, asi que el efecto visual es cero, pero quedan 8 lineas muertas y una mina silenciosa: el proximo
+que edite el primer bloque `"ura"` no ve ningun efecto y pierde una hora. El Reviewer lo marco, y con
+razon: si el razonamiento que justificaba borrar `the_threshold` (huerfano) era "borrar lo que no
+corresponde a un encuentro", la coherencia exigia **borrar** `ura_guardian`, no renombrarlo. El renombre
+fue un parche de sintoma.
+
+Ademas: las dos fichas candidatas apuntaban a `ura_detail.png` y `ura_guardian_detail.png`, y **ninguno de
+los dos existe** en `assets/icons/raids/bosses/`. `createSafeIcon` caia al fallback. Ahora la ficha
+apunta a `ura_guardian.png`, que si existe.
+
+**Que se hizo concreto:** se borro el bloque "Guardián Ura" (el huerfano, nunca el de la Aulladora), se
+corrigio el `image`, y se reescribio la cabecera del 1.10.0 con la correccion, porque un modulo cuya
+documentacion afirma algo falso es un modulo con un bug mas.
+
+### El test: el hole exacto por donde paso
+
+El Reviewer senalo algo que no habia visto: `vm.runInNewContext` **colapsa las claves repetidas de un
+object literal sin avisar**. O sea que ninguna asercion que mire el objeto puede ver una duplicada. Y la
+seccion 4 del test tampoco la ve, porque `"ura"` SI es un encuentro real: la huerfana y la buena tienen el
+mismo nombre, asi que "toda clave corresponde a un encuentro real" pasa igual.
+
+La asercion que hacia falta mira el **texto** de la tabla, no el objeto que produce. Nueva seccion 6:
+ninguna clave repetida dentro de `REWARDS_DATA` ni de `BOSS_DETAILS`, mas que la ficha que gana sea la de
+la Aulladora, mas que la imagen exista **en disco** (`fs.existsSync`).
+
+**Verificacion con fase roja, no supuesta:** `git stash push js/raid-tracker.js` + el test nuevo da
+**29 pass / 5 FAIL**; con el fix **34 pass / 0 FAIL**. Suite completa **85 pass / 0 FAIL**, `node --check`
+limpio. Cero CSS, cero `localStorage`, los 30 encuentros sin cambio.
+
+### Nueva alerta: ALERT-54
+
+`vloxx` tiene `li: 1` y `/v2/raids` no lo expone -> `liTotal` suma un encuentro que jamas se va a reportar
+y **el 100% de Legendaria Imbuida es inalcanzable por diseno**. Es la misma clase de defecto que la Idea
+52 vino a matar, y quedo vivo **dentro del fix que la ataco**. El propio Reviewer lo senalo. No se toco:
+decidir el ala 9 es producto, y es dominio del PO.
+
+### Que se rompio
+
+Nada. Un detalle de tooling: el repo tiene el byte-order-mark de UTF-8 y el console de Windows muestra
+`Versión` como `VersiÇün`; el `edit_file` no matchea contra el texto real. Se edito con Python
+(`newline=''` + `replace('\r\n','\n')`), que es la via que ya funciona en este clon.
+
+### Que quedo pendiente
+
+- **PO:** acuse enviado por el canal de archivos (034) con los 2 hallazgos que no estaban en su informe.
+  Enviado a las 08:30.
+- **Documentador:** el ciclo toco codigo, asi que le corresponde una entrega (CHANGELOG + ONBOARDING de la
+  v1.10.1). No enviado todavia: su `HEARTBEAT.md` sigue vacio y hay que definirlo primero.
+- **Idea 53** (Strike Tracker re-apuntado a logros) sigue siendo **decision de producto**: el PO mismo
+  ofrece borrar el modulo si el mapeo no verifica. La Idea 52 le dejo el terreno medido (ALERT-52).
+- **Idea 54** (`vloxx` / `liTotal`): abierta como ALERT, esperando que el PO la convierta en propuesta o que
+  Pablo decida el ala 9.
+- **`camp`** (Mount Balrior, Checkpoint): el unico evento real sin cablear, segun el Reviewer. Bajo, y es
+  dato, no decision.
+
+### Decisiones del ciclo
+
+- **Borrar, no renombrar, lo huerfano.** Se aplico el criterio del Reviewer de forma consistente con el
+  criterio que ya justificaba borrar `the_threshold`. La incoherencia entre "borro lo huerfano" y
+  "renombro lo huerfano" fue la causa del bug.
+- **El Reviewer puede desmentir al Principal, y se aplica.** La mitad de su informe contradecía el
+  commit message del HB#49, y se aplico igual. Un veredicto que confirma la mitad y desmiente la otra
+  vale mas que uno que confirma todo.
+- **404 no es timeout.** Las 031 y 030 del PO dieron 404 = TTL vencido. No se reenviaron: su contenido
+  llego por el canal de archivos y ya estaba aplicado. Regla del ALERT-45, confirmada por segunda vez.
