@@ -1,6 +1,19 @@
 /*!
  * js/characters.js — Panel de Personajes y Localización
- * v2.4.0 (2026-09-30)
+ * v2.4.1 (2026-09-30)
+ *
+ * CAMBIOS v2.4.1 (Idea 55 Tramo 3a):
+ * - loadAccountData() ya no hace `fetch` crudo de /v2/account. Usa
+ *   GW2Api.getAccountInfo(token), que ya existia (api-gw2.js:393) y ya
+ *   consumian wallet-dashboard.js:445, wv-purchase-detail.js:1025/1118 e
+ *   inventory-dashboard.js:333. O sea que el mismo payload se bajaba 3 veces
+ *   SIN cache (esta, achievements.js y accounts-panel.js) y 5 veces CON cache,
+ *   del mismo endpoint, en la misma sesion.
+ * - El contrato de error NO cambio: antes `if (accountRes.ok)` era un skip
+ *   (si fallaba, se seguia al resto de la carga). El wrapper RECHAZA, asi que
+ *   la llamada va en su propio try/catch y el guard de exito paso a ser
+ *   `if (accountInfo)`. Sin ese catch, el rechazo se comia el try externo y
+ *   PvP/WvW quedaban sin leer -> las 3 filas del header en '-'.
  *
  * CAMBIOS v2.4.0 (Idea 55 Tramo 1):
  * - loadAccountData() ya no hace `fetch` crudo de /v2/account/achievements.
@@ -467,13 +480,21 @@
       }
 
       console.log(LOG, 'Solicitando account info...');
-      var accountRes = await fetch('https://api.guildwars2.com/v2/account?access_token=' + encodeURIComponent(token));
-      console.log(LOG, 'Account info - status:', accountRes.status);
-
-      if (accountRes.ok) {
-        var accountInfo = await accountRes.json();
+      // Idea 55 Tramo 3a: /v2/account pasa por la capa GW2Api.
+      // Antes era `fetch` crudo, sin cache, sin retry y sin pool, y ademas se
+      // pedia DOS veces por carga de cuenta: wallet-dashboard.js:445 y
+      // wv-purchase-detail.js:1025 ya usaban este mismo wrapper. El catch
+      // local preserva el contrato viejo: `if (accountRes.ok)` era un skip
+      // (si el endpoint fallaba, se seguia al resto), y el wrapper RECHAZA.
+      var accountInfo = null;
+      try {
+        accountInfo = await root.GW2Api.getAccountInfo(token);
         console.log(LOG, 'Account info respuesta:', accountInfo);
+      } catch (accErr) {
+        console.warn(LOG, 'Account info no disponible, se sigue sin rango WvW:', accErr);
+      }
 
+      if (accountInfo) {
         if (state.wvwRanksList.length === 0) {
           var wvwRanksRes = await fetch('https://api.guildwars2.com/v2/wvw/ranks?ids=all');
           if (wvwRanksRes.ok) {
