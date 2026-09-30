@@ -800,3 +800,82 @@ assert**, porque da una garantia falsa.
 iguales" (que sigue en pie por archivo), ni un problema de codigo de producto:
 `PROMOTIONS.md` y `TEAM_STATUS.md` tenian CRLF en el working tree tambien, y el
 repo los tiene en LF, asi que los dos se corrigieron con el mismo fix.
+
+## ALERT-88 — Un veredicto que nombra lineas de un arbol que ya no existe
+
+**Estado:** abierta. Mergeado igual, y el resultado es correcto. Lo que queda es
+la forma del veredicto, que es lo que casi me costo trabajo de mas.
+
+**Que paso.** El veredicto del Reviewer sobre la Idea 50 (`task-f61e427b2efc`,
+APROBADO CON CAMBIOS) tiene dos bloqueantes: H1, el `title`; H2, la linea de
+`kept` que enumeraba categorias. **Los dos YA ESTABAN APLICADOS** en `46b2d7f`,
+un commit ~4 h ANTERIOR al veredicto. Mergeado `950ea64` sobre `main` sin tocar
+codigo: no habia nada que cumplir.
+
+**La prueba, que es un detalle y por eso la guardo.** El Reviewer cita
+`settings-manager.js:543` con el texto
+
+    '• Se conservan ' + dry.kept + ' claves: cuentas, pines, tema y ajustes'
+
+Hoy la linea 543 es un comentario, y esa linea es la **567**, que ya dice
+
+    '• Se conservan ' + dry.kept + ' claves (' + fmtBytes(dry.keptBytes) + ')'
+
+Lei el archivo DESPUES de que el commit existiera y aun asi VIO el texto viejo.
+**Lo que se aplica no es lo que se nombra.** Sin el numero de linea el
+veredicto habria sido lo mismo de correcto y de accionable; el numero de linea
+es lo que permitio leer un arbol sin leerlo.
+
+**Por que no es un reclamo por el resultado.** Los 2 bloques son los que pidio,
+y H2 quedo mejor de lo que pidio: la enumeracion de categorias se cambio por
+`keptBytes`, que sigue siendo cierto cuando manana un modulo registre su clave
+(una lista de categorias deja de serlo en el mismo commit que la cambia). El
+merge no estaba en riesgo.
+
+**REGLA.** *Un veredicto tiene que llevar el commit al que se aplica en la
+primera linea.* Sin eso no hay forma de distinguir "esto ya esta" de "esto
+falta", y el segundo caso se resuelve tocando codigo que ya funciona o —peor—
+revirtiendo un arreglo mejor por un pedido que se callo. Corolario para el que
+lee: **antes de aplicar un veredicto, `git log -1 --format=%cI <commit>` y
+comparar con el `replied_utc` de la respuesta.** Si el commit es anterior, el
+veredicto habla de un arbol que ya no esta: releer el archivo, no el informe.
+
+**Lo que si aprovecho del veredicto, y es H3.** El inventario de 6-7 modulos
+del Reviewer era MAS COMPLETO que el mio, y la diferencia resulto real. Medi
+`tools/idea50-censo-claves.mjs` clasificando cada clave por la FORMA de lo que
+se escribe en vez de por su nombre: **3 familias que el nombre no delata** estan
+en `homestead-tracker.js` (`gn:homestead:decorations|categories|glyphs`, las
+tres `{ts, data}`). Mi criterio las contaba como "dato de usuario" — o sea
+PROTEGIDAS por una frase que el boton no dice. Con las dos: 11, no 8.
+
+**Y el hallazgo que va contra el numero que yo iba a publicar:**
+`homestead-tracker.js` **no lo carga `index.html`** (ni el `<script>`, ni el
+panel `homesteadTrackerBody`, ni la ruta en `router.js`: los tres ausentes). Es
+codigo muerto — la novena verificacion del PO. Sus 3 claves **no ocupan disco
+hoy**, asi que el headline sigue siendo **8 familias en 3 modulos**, y las 3
+restantes quedan NOMBRADAS con el motivo en vez de restadas en silencio: si el
+modulo se carga manana aparecen +3 y el numero tiene que saltar a la vista.
+
+Es la regla de las unidades, aplicada a un caso que no habia considerado: un
+numero de "familias de cache" tiene que declarar **si se escriben hoy**, no solo
+cuantas hay en el codigo. El censo ahora separa `CACHE_POR_FORMA` y excluye del
+headline lo que esta en modulo muerto, nombrandolo.
+
+**Correcciones aplicadas.** Criterio por forma en el censo; filtro de salida
+`startsWith('CACHE')` en vez de `=== 'CACHE'` (un `===` hacia desaparecer las 3
+del titulo SIN que ningun assert lo notara — un numero que baja y nadie mira);
+`tests/alert86.censo-clasificacion.test.js`, 29 aserciones, **fase roja 7 FAIL
+contra `3bdafca`** (3 del criterio + 4 de las citas). Suite **822 / 0 FAIL,
+30 de 30 archivos**.
+
+**Citas de linea sin unidad (PO, HB#69).** Las 3 citas de `index.html` en el
+test de ALERT-84 eran ciertas en `main@d328969` y falsas en la rama: el boton de
+cache suma 11 lineas antes de todo lo demas (750 -> 761, 528 -> 539,
+988 -> 999). `router.js:125` no se movio. El contraste que lo prueba esta en el
+mismo commit: `settings-manager.js:550` cita `index.html:289`, que SI es cierto
+en la rama. Mismo repo, dos citas, una correcta y otra no: **no era una regla
+del equipo, era si estabas mirando el archivo del commit o el de `main`.** El
+merge las dejaba falsas para siempre. Corregidas a las de este arbol, y las dos
+citas (test y `legendary-tracker.js`) **declaran que arbol son**. La cita nueva
+no es decorativa: el test verifica que `index.html:761` siga siendo el item de
+menu, asi que si un merge futuro las mueve, el test lo dice en vez de mentir.
