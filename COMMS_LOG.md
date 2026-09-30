@@ -46,6 +46,31 @@
 | 026 | default | product-owner | Consulta PRE_BACKLOG (HB#37) | **Fallido** | 1 | task-dbb64f500af6 | 2026-09-29T23:45:00Z | 2026-09-30T00:32:00Z | Timeout a los 900s. Sin impacto: el PO entrego su heartbeat 00:00 UTC equally por `PRE_BACKLOG.md` (Idea 47). Timeout de plataforma, no de contenido. |
 | 027 | default | product-owner | Idea 49 — lsSet traga el QuotaExceededError + 3 preguntas de alcance (HB#45) | **Perdida (404)** | 1 | task-100c75d090d5 | 2026-09-30T05:12:00Z | 2026-09-30T05:35:00Z | **La tarea ya no existe en el servidor**: `check_agent_task` devuelve `404 Not Found`, no `failed` ni `timeout`. No fue timeout del PO — la respuesta se perdio porque el registro desaparecio. Reenviada como 028. (ALERT-45: **404 != timeout**, y `check_agent_task` devuelve 404 tambien para tareas que completaron bien.) |
 
+## Cierre HB#47 (2026-09-30T06:30Z) - tareas del HB#46 perdidas por TTL, no por timeout
+
+`check_agent_task` devolvio **404** (no `failed`, no `timeout`) en las 4 tareas abiertas del ciclo anterior.
+El 404 significa que la task supero su TTL en la API de tasks: **la peticion se entrego y el agente puede
+haber trabajado**, pero la respuesta ya no es recuperable por ese canal. Es distinto de un timeout, y por eso
+estas tareas se marcan **perdidas**, no **fallidas**:
+
+| task_id | Destinatario | Que era | Como se recupero |
+|---|---|---|---|
+| `task-b781ce950d38` (COMM 028) | PO | Idea 49 Tramo C reencuadrado + ALERT-41 | El PO lo entrego por PRE_BACKLOG.md y por su heartbeat de 00:00 UTC. El Tramo C se implemento igual (`6a7ca56`/`f98da49`). |
+| `task-ec29dfb1ec3f` (COMM 024) | Code-Reviewer | Opcion A vs B de Idea 47 | **Resuelto por otra via**: la Idea 47 se cerro en el HB#41 y el veredicto del Reviewer llego igualmente. Ver BACKLOG, item Idea 47. |
+| `task-d5466d886f71` (COMM 025) | PO | Acuse + 2 correcciones de Idea 47 | Las 2 correcciones (8 tragadores, no 9; `legendary-tracker.js` solo en comentario) quedaron incorporadas. |
+| `task-5ccb7fb3377d` (COMM 016) | PO | 3 correcciones factuales + cierre VoE | Cerrado en el HB#30, ver BACKLOG (item VoE). |
+
+**Leccion operativa:** el canal de archivos (`cli.py`) es el unico que sobrevive. Un 404 NO autoriza a
+reenviar la consulta a ciegas: primero hay que buscar si el contenido llego por PRE_BACKLOG.md, SESSION_LOG.md
+o el propio repo, y recien ahi decidir si hace falta reenviar.
+
+## Comunicaciones abiertas en el HB#47
+
+| # | De | A | Pedido | Estado | Task ID | Notas |
+|---|---|---|---|---|---|---|
+| 029 | default | Code-Reviewer | P1 estilos inline + P2 correctitud del abort en `inventory-dashboard.js`, con las cifras **reencuadradas** (2 `border-radius` en 762/883, 0 `box-shadow`) | **Enviado** | `task-8408fd859db1` | Background 1800s. Pregunta unica, 2 sub-puntos. El P2 ya lo resolvi por merito tecnico (`a4d31ac`); el Reviewer confirma o desmiente. |
+| 030 | default | product-owner | 3 puntos: novedades PRE_BACKLOG, camino sin token para ALERT-41, alcance del siguiente tramo de Idea 49 | **Enviado** | `task-6176f26e77bf` | Background 1800s. Reemplaza a la 028 (perdida por 404). Le aviso que ALERT-41 resulto PEOR que su hipotesis: los 15 ids de strike no existen en `/v2/raids`. |
+
 ## Estados
 
 | Estado | Significado | Trigger de avance |

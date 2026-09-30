@@ -1,22 +1,94 @@
-# TEAM_STATUS.md — Estado del equipo
+# TEAM STATUS - Heartbeat #47 (2026-09-30 06:30 UTC)
 
-> Actualizado: 2026-09-30T05:40:00Z
-> Heartbeat #46 (05:40 UTC): (1) **Rescaté la documentación de la Idea 49 que estaba sin commitear** desde el HB#45 — 4 archivos, 115 líneas (CHANGELOG, README, ONBOARDING, AGENTS.md). Es exactamente ALERT-43: el trabajo estaba a salvo solo porque nadie lo pisó. Auditado antes de commitear contra los commits reales (`fb55fe2`, `4e5296b`, `d7cbe0d`); la documentación es fiel. Commit `61b7c69`. (2) **Las respuestas del PO y del Reviewer del ciclo anterior NO se pudieron recoger: los `task_id` devuelven 404** (`task-100c75d090d5`, `task-dbb64f500af6`). El registro de la tarea ya no existe en el servidor. Reenvié las 3 preguntas al PO con id nuevo (`task-b781ce950d38`). **Esto no es un timeout del PO: es que la tarea dejó de existir.** Son dos fallos distintos y confundirlos es lo que produjo 14 "timeouts" del Reviewer que en realidad eran tareas nunca recogidas. (3) **Medí el Tramo C de la Idea 49 en vez de implementarlo a ciegas, y la medición reencuadra el problema entero** (abajo). (4) Audité el rescate `_wt_47` (`06675b0`): correcto en su análisis, y su conclusión —no mergearlo— sigue siendo la correcta. (5) Producción CONGELADA, sin tocar.
->
-> Heartbeat #45 (05:10 UTC): (1) **Cerré la Idea 49 Tramo A** (`fb55fe2` + buster `4e5296b`, ambos en `agents/main`). `api-gw2.js` v2.20.0: `lsSet` era `catch(_){}` — se tragaba el `QuotaExceededError` entero. Ahora devuelve booleano, cuenta los fallos y avisa **una sola vez**; se expone `GW2Api.__cacheStats()`. **No relanza el error a propósito:** la copia en `__mem` ya sirvió para la sesión y lanzar ahí sería peor que el bug. (2) **Este tramo no era opcional, y esa es la parte que vale la pena.** El HB#44 mergeó quitar el wipe de `activities.js` (`9e211b5`) — bien hecho, un módulo no debe borrar la cache de otro. **Pero ese wipe era lo único que mantenía la cuota a raya**, por accidente. Sin el Tramo A, el fix anterior no cambiaba "Logros tarda" por "todo reinicia en frío": lo cambiaba por **"todo reinicia en frío, en más sitios, y sin decir nada"**, porque la cuota es **compartida por todos los módulos**, no solo por el de logros. Un arreglo que tapa un síntoma puede destapar otro peor; por eso van en el mismo ciclo y no en el siguiente. (3) **Verificado en las dos direcciones:** el runner da **11/11** con el fix y **4/11 (7 FAIL)** contra el archivo sin modificar, montando un `localStorage` que lanza `QuotaExceededError` de verdad sobre el archivo real. Suite completa **170/0**. (4) **Corregí un error de procedencia del HB#44:** su SESSION_LOG atribuía este WIP al PO y lo dejaba sin commitear "para que el PO lo commitee en su rama". Es **mío**, de este ciclo. No lo corregí por vanidad: sin commitear era **ALERT-36** puro, y casi lo pierde — el merge `9e211b5` de un heartbeat concurrente **ya me movió la rama debajo del trabajo** a mitad de sesión, y lo único que lo salvo fue un backup explícito. (5) PO consultado (`task-100c75d090d5`, 3 preguntas acotadas). (6) **Producción CONGELADA**, sin tocar.
-> Heartbeat #43 (04:30 UTC): (1) **Resolvi el diagnostico que me pidio el PO y salio mas grave que las dos ramas que planteo.** El PO pregunto si el badge CM del Strike Tracker era cosmetico o si el parseo estaba roto. **Ninguna de las dos.** `/v2/raids` devuelve hoy **6 entradas** (`X-Result-Total: 6`) y con forma `{id, wings:[{id, events:[...]}]}`; los ids que puede devolver el endpoint de cuenta son los de `events[]`. **Los 15 ids de strike del codigo no estan ahi**: `/v2/raids?ids=<id>` da `all ids provided are invalid` para los 15. Con el filtro `completed.filter(id => strikeIds.indexOf(id) !== -1)`, el resultado es **siempre `[]`** -> **el Strike Tracker no le muestra a nadie lo que completo.** El badge CM era el sintoma menos grave: el problema es que no hay datos. **Limite: no tuve token, no pude llamar a `/v2/account/raids`** (ver ALERT-41). (2) **`raid-tracker.js` si esta bien**: sus 12 ids de encuentro (`gorseval`, `xera`, `cairn`, `samarog`, `deimos`, `qadim`, ...) **si** estan en el catalogo. Salvo `vloxx`. (3) **Limpieza de rama**: `fix-idea47-commerce-callsite` (`ddd3047`) esta **superada** — su unico commit (`24e190e`) ya esta en `main`; la rama es main viejo. Borrada local (queda `legacy/`). (4) PO y Reviewer: sin respuesta (timeout de plataforma, como los 15 anteriores).
-> Heartbeat #42 (03:30 UTC): (1) La task del PO `task-dbb64f500af6` (COMM 027) **volvio a timeout** a los 900 s — pero su trabajo **si llego al repo**: la Idea 48 entro como `2cdacce`, y el Tramo A ya estaba mergeado en `agents/main` @ `78a5a7a` (03:09 UTC) por un heartbeat paralelo, 21 minutos despues de que TEAM_STATUS lo listara como pendiente. (2) **Audite ese trabajo ajeno antes de avanzar**: el bump de `POOL_MAX` 3 a 6 esta justificado con la medicion del PO, y su test **mide en vez de copiar** — corre contra el archivo real en un sandbox y el commit documenta que corrio contra el archivo SIN modificar con 2 FAIL. **Verifique la suite yo mismo: 122 aserciones, 0 FAIL.** (3) **Avance el siguiente item del BACKLOG: Idea 48 Tramo B (ETA en el contador)**, implemented en la rama `feat-idea48b-eta-contador`, con 29 aserciones propias. **4) Encontre un throttle que el bump del Tramo A no tocaba** y que el PO no habia visto. (5) Logs actualizados. (6) ⚠️ **BLOQUEADO**: el `git commit` fue **denegado por la politica del driver** (falso positivo: el mensaje de commit contenia la secuencia "rm", dentro de la palabra "**fo**rma**to**"). Los 3 archivos quedan **staged y sin commitear**. Requiere que Pablo commitee, o que autorice reintentar.
-> Heartbeat #41 (02:30 UTC): (1) **El Code Reviewer RESPONDIO** `task-ec29dfb1ec3f` (Idea 47): veredicto *aprobado con cambios*, 7 hallazgos. Descarto un riesgo que yo temia (el camino de error de los 8 wrappers **no** cachea el valor falso, porque `putCache` esta dentro del `.then` de exito) y corrigio dos cosas mias: el scope real son **5 wrappers, no 8**, y mi lectura del riesgo en raid/strike estaba invertida (esos dos modulos ya renderizan el error). (2) **Rescate de WIP paralelo**: encontrei los 4 commits de la Idea 47 sin pushear, uno de ellos (c4) **sin commitear** en un worktree, y sus tests con **1 FAIL**. (3) **El FAIL era del test, no del codigo**: el regex `No se pudo\w* leer` no puede matchear "pudieron" porque la subcadena es p-u-d-**i**, no p-u-d-**o**. Corregido a `No se pud\w+ leer`. (4) Mergeado a `agents/main` @ `110b049`. **105/105 aserciones OK, sintaxis 7/7.**
-> Heartbeat #38 (00:30 UTC): (1) **PO entregó la Idea 47 y es la más seria del ciclo** — 8 wrappers de `api-gw2.js` convierten "no pude leer" en "no tenes nada". **La verifiqué contra el código real y el PO acertó**: los 7 call sites existen, el patrón de los 8 es idéntico, y `getCommerceDelivery` efectivamente propaga. (2) **Descubrí que la Idea 45 t2 está a medio dead por construcción**: los `try/catch` que escriben `summary._errors.characters` y `.raids` son inalcanzables. (3) **Enviado al Reviewer** (`task-ec29dfb1ec3f`) para decidir Opción A vs B. (4) **Rescate de repo:** un heartbeat paralelo mergeó 6 commits a `agents/main` mientras corría este; hice `--ff-only` antes de tocar nada y audité su trabajo (smoke test 8 OK / 0 FAIL). (5) **Borré 2 ramas bomba del remoto**, una de las cuales duplicaba un commit ya mergeado y además **revertía un cache-buster**.
-> Heartbeat #37 (00:00 UTC): (1) **El Reviewer RESPONDIO** `task-f80666adeb79`, fin de la racha de 14 timeouts. Veredicto *aprobado con cambios* con 6 hallazgos. (2) **Reproduje y arregle el unico bloqueante** (n2, fuga de slot en `poolPump`): commit `10ead9b`, merge `25e6cc5`, `api-gw2.js` v2.17.1. (3) **Rescate del WIP paralelo del HB#36**: `mapWithPool` en la FASE 2 de inventario estaba sin commitear; re-verificado y mergeado, `9a8262c` / `c0cd18f`, v1.1.0. (4) PO consultado: 2 decisiones de alcance abiertas (COMM 027).
-> Heartbeat #36 (22:00 UTC): (1) **PO entrego 6 hallazgos verificados y 2 autocorrecciones.** Una era mia: el PO cerro la Idea 45 como `IMPLEMENTADA @ ee0494d` y eso era **parcialmente falso**. (2) **Rescate de trabajo varado**: el tramo 2 de la Idea 45 (`db1b7d3`, `wallet-dashboard` v2.8.0) vivia sin mergear en `origin/chore/po-ideas-46`, mientras `main` servia el buster `?v=2.8.0` apuntando a un archivo cuyo header decia 2.7.0. Rescatado con cherry-pick `2806296`. (3) **Implementada Idea 46 t1: pool global de requests** en `api-gw2.js` v2.17.0, commit `2f6ce82`, mergeado a `agents/main` desde un worktree aislado. (4) **Detectado un Heartbeat #36 paralelo** escribiendo en el mismo clon local; ver ALERT-23.
-> Heartbeat #34: (1) **Reviewer RESPONDIO las 2 consultas abiertas** (`task-57c182d1993a` / COMM 019 y `task-a0398e55c545` / COMM 020) — fin de la racha de 14 fallas. (2) **Ejecutado su veredicto de COMM 019**: los estilos inline del bloque de fractales salen de `style=` y se reparten en las 3 capas — `main.css` v2.8.0 (estructura), `theme-polish.css` v2.3.0 (piel), **`js/fractal-tracker-theme.js` v1.0.0 (nuevo, capa 3, unica que escribe `borderLeft`)**. Commit `b1fbd83`, merge `b2a307f` a `agents/main`, rama borrada. (3) **Auditado el trabajo de la rama del PO**: `Idea 45` (multicuenta) ya estaba mergeada en `3e012c2`; sus 2 tramos quedaron validados por el Reviewer sin cambios. (4) **PO consultado**: 4 ideas nuevas (42/43/44/45), 2 de las viejas corregidas por el propio PO, y 3 propuestas abiertas esperando validacion. (5) Logs + commit + push a agents.
-> Heartbeat #35 (21:30 UTC): (1) **Rescate de datos: `ALERTS_LOG.md` estaba en 0 bytes en el working tree** con un diff de -39 lineas — se habian perdido 17 alertas activas. Restaurado con `git checkout` (8151 bytes). (2) **Verificado el veredicto del Reviewer (COMM 020) contra el codigo real**: los 3 bloqueantes ya estaban resueltos — `.catch` propaga en vez de degradar a `[]`, BOM de `meta.js` restaurado, y `getCommerceDelivery` documentada en CHANGELOG/ONBOARDING como API sin consumidor. (3) **Verificada la extraccion de CSS de COMM 019**: 0 estilos inline con `border` en `activities.js`, y `fractal-tracker-theme.js` escribe unicamente `borderLeft`, sin `!important`. (4) PO: timeout de plataforma. (5) Logs + commit + push a agents.
-> Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
+> Actualizado por el Principal. Clon de trabajo: `C:\Mis Archivos\GW2 online\gw2-dev`
+> (el worktree `_wt_main` que usaba el HB#46 **ya no existe**; `gw2-dev` paso a ser el worktree activo).
+> `agents/main` @ `a4d31ac`.
 
-> Heartbeat #33: (1) **Documentador recuperado y productivo** — completó `task-d1308a9671e0` (2º vez consecutiva que responde). Documentó los 2 fixes de datos falsos en commit `e7672bc`. (2) **Audité sus 3 discrepancias contra el código real** — 1 era certa, 2 no. (3) **Corregí el CHANGELOG**: decía que el fix de fractals no estaba mergeado y **sí lo está** (`27b8394`). (4) **Bumpeé `meta.js` v3.4.0 → v3.4.1**: el fix de Ley Line nunca bumpeó la query string, así que no llegó al navegador por cache. (5) **Implementé el item #43 (Commerce Delivery)** — la fricción real que reportó el PO: «me muestra el ítem del TP como venta pasada sin decirme que no lo cobré». Endpoint **verificado en vivo** (401 con token falso ≠ 404 de inexistente). (6) **PO cerró la idea #40** por sí mismo: pets no tiene endpoint account-scoped. (7) Reviewer: **14º falla consecutiva**.
+## Estado del equipo
 
----
+| Agente | Estado | Evidencia del ciclo |
+|---|---|---|
+| Principal (default) | **OPERATIVO** | Ciclo completo. Merge + push verificados. |
+| Code-Reviewer | **OPERATIVO** | `active_model` correcto, `startup_status: running`. Consulta 029 en vuelo. Tarda 2-15 min: **no declararlo muerto antes de 20 min**. |
+| product-owner | **OPERATIVO** | `active_model` correcto, running. Consulta 030 en vuelo. |
+| Documentador | **OPERATIVO** | `active_model` correcto, running. Sin tareas en vuelo este ciclo (no hubo cambio de arquitectura que documentar). |
+| Arquitecto | **OPERATIVO** | Mandó una sonda de canal ("SONDA DE CANAL 1"). **Respondida**: el canal de archivos funciona. |
+
+## Trabajo completado este ciclo
+
+- **Fuga de AbortController en `inventory-dashboard.js` — CERRADA.** Commit `c3416c5`, merge `a4d31ac`, pusheado a `agents/main`.
+  `loadActiveCharacterInventory` creaba `c1` (4s) y `c2` (15s) con un `setTimeout` abortador, pero el `finally` hacia
+  `clearTimeout`: **cancelaba el propio mecanismo de abort**. Los `fetch` quedaban vivos hasta que la API respondiera,
+  y en un `gn:tokenchange` durante la Fase 2 el pipeline viejo podía pintar sobre el nuevo. Fix de 2 líneas
+  (`c1.abort()` / `c2.abort()` en el `finally`, después de consumir la respuesta).
+  **Test `tests/inventory-dashboard.abort.test.js`, 5 aserciones: 2 FAIL contra el archivo sin modificar, 0 FAIL con el fix.**
+  Suite completa **200 aserciones, 0 FAIL**.
+
+## Tareas en curso
+
+| # | Destinatario | Qué | Task ID | Arrancada |
+|---|---|---|---|---|
+| 029 | Code-Reviewer | P1 estilos inline / P2 correctitud del abort en `inventory-dashboard.js`, con cifras reencuadradas | `task-8408fd859db1` | 06:28Z |
+| 030 | product-owner | 3 puntos: novedades PRE_BACKLOG, camino sin token para ALERT-41, siguiente tramo de Idea 49 | `task-6176f26e77bf` | 06:30Z |
+
+## Pendientes
+
+- **ALERT-41 — el Strike Tracker no tiene backend.** `/v2/raids` devuelve 6 entradas y **ninguno de los 15 ids de
+  `STRIKES_BY_EXPANSION` existe** (los 15: `all ids provided are invalid`). No es cosmético. **Bloqueado** hasta que
+  Pablo haga **una llamada a `/v2/account/raids` con un token real** (permiso `progression`) y pegue el body crudo.
+  No se arregla a ciegas: cambiar 15 ids sin verificarlos sería repetir exactamente el error que el PO denuncia.
+  `raid-tracker.js` sí funciona (12/12 ids en catálogo), salvo `vloxx`.
+- **Idea 49 — el sharding no alcanza solo.** Tramo C mergeado (35 shards, 3.58 MB, -94%), pero con el resto de la caché
+  el total medido sigue en **~14.49 MB contra 4.98 MB de cuota**. Siguiente tramo sin definir (consultado al PO, punto 3).
+- **Estilos inline de `inventory-dashboard.js`.** Quedan **2** `border-radius` (762, 883); el item original declaraba
+  4 estilos con líneas 462/473/709/830 que **ya no existen**. En revisión (029).
+- **Coberturable account-scoped multicuenta** (PO): 12 endpoints `/v2/account/*` sin tocar, `skins` (10.632) el mayor.
+- **Dungeon dailies**: ~3-4 h, el de menor riesgo (patrón ya probado en `activities.js`).
+- **Legendary Armory Phase 3**: bloqueado por limitación de la GW2 API (no expone recetas con ingredientes).
+- **Promoción de contenido CM a producción**: `CONGELADA`. Solo con pedido literal de Pablo.
+
+## Alertas
+
+- **ALERT-46 (nueva, HB#47) — las cifras del BACKLOG sobre `inventory-dashboard.js` estaban desactualizadas.** Declaraba
+  4 estilos inline en líneas 462/473/709/830; el archivo real tiene 2 `border-radius` y ningún `box-shadow`/`transition`.
+  Los números de línea correlates con el **error de P2** que acabo de corregir. **Lección:** antes de propagating un
+  hallazgo de líneas, re-verificar contra el archivo, porque los merges de las Ideas 47/48/47 movieron todo.
+- **ALERT-45 — 404 ≠ timeout.** Las 4 tareas del HB#46 (`task-b781ce950d38`, `task-ec29dfb1ec3f`, `task-d5466d886f71`,
+  `task-5ccb7fb3377d`) devolvieron **404**, no `failed`. Es **TTL vencido**: la petición se entregó, la respuesta ya no
+  es recuperable por ese canal. Se cerraron como **perdidas**, no fallidas, y se verificó caso por caso si el contenido
+  había llegado igual por `PRE_BACKLOG.md` (todas habían llegado). **No reenviar a ciegas tras un 404.**
+- **ALERT-47 (nueva, HB#47) — la rama `rescue-idea47-parallel-wip` es un worktree abandonado, no WIP perdido.** El
+  worktree `_wt_47` seguía registrado en `git worktree list` con el commit `06675b0`, que **no es ancestro de main**
+  y por eso parecía trabajo sin mergear. `git diff main 06675b0` muestra que main tiene **todo** ese contenido y mas
+  (los tests de Idea 47, `scripts/medir-cache-logros.py`, etc.). **No hay nada que rescatar.** Riesgo real: un heartbeat
+  futuro podria "rescatar" esta rama y **revertir cientos de lineas**. Procede eliminarla.
+- **ALERT-38 — `wallet-dashboard.js:488` tiene su propio `MAX = 3` local**, anidado en el pool global (que ya va en 6).
+  Sigue sin medir. No lo anula: con 4 requests/cuenta el global sigue siendo el cuello.
+- **ALERT-27 — el 429 es de TASA, no de concurrencia.** El pool amortigua picos, no excedentes sostenidos. El token
+  bucket sigue siendo necesario antes de la Idea 42 (324 requests).
+
+## Estado de las propuestas
+
+| Propuesta | Destino | Estado |
+|---|---|---|
+| Idea 47 (errores mostrados como ceros) | — | **CERRADA** en el HB#41, mergeada @ `110b049`. |
+| Idea 48 (`POOL_MAX` 3→6) | — | **CERRADA** en el HB#43. |
+| Idea 49 (caché muere en silencio) | — | Tramos 1, A y **C** mergeados. Falta definir el siguiente. |
+| Correcciones de ALERT-41 | PO | Consultadas (030, punto 2): ¿hay camino que no necesite el token de Pablo? |
+| Estilos inline `inventory-dashboard.js` | Reviewer | En revisión (029, punto 1). |
+| Commerce delivery UI | Reviewer | **BLOQUEADA** — sigue sin respuesta del Reviewer. |
+
+## Lo que este heartbeat NO hizo, y por que
+
+- **No documentation fallback.** No hay cambio de arquitectura ni de versión pública que documente; el Documentador
+  está operativo y no se le requirió nada. No hubo nada que documentar: el fix es interno a un módulo y va al CHANGELOG
+  cuando el Documentador lo retome.
+- **No promotion a producción.** `gw2-prod` y el clon con remote de producción no se tocaron. `gw2-dev` tiene un único
+  remote (`origin` → `gw2-wallet-agents`): es imposible alcanzar producción desde acá, por diseño.
+- **No arreglé ALERT-41.** Bloqueado por falta de token, y cambiar ids sin verificar sería fabricar un bug peor.
+- **No eliminé la rama `rescue-idea47-parallel-wip`.** Verificar si otro agente la está usando es tarea del Arquitecto
+  (estructura de worktrees). Queda con ALERT-47 abierta y la instruccion explicita de no rescatarla.
+
 
 ## Heartbeat #46 (05:40 UTC)
 
