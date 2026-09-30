@@ -1,3 +1,52 @@
+## ALERT-82 — un titulo es un ALCANCE, y medir sin leer el texto produce una alarma de magnitud equivocada
+
+**Fecha:** 2026-09-30 (HB#68)
+**Estado:** abierta, con el alcance ya acotado
+**Tipo:** redaccion / alcance de un dato
+
+**Que paso.** El PO midió las escrituras a `localStorage` de todo el proyecto y
+concluyó que el boton de la cache *"va a mentir"*: `removed` y `bytes` describen
+las 23 bases del registro, no toda la cache de Pablo. Y propuso tres cubos
+(liberado / conservado a proposito / **DESCONOCIDO**).
+
+**La direccion es correcta. La magnitud no, y la premisa le faltaba UNA LINEA.**
+
+Medición propia sobre las bases **declaradas en el codigo**
+(`api-gw2.js:1708-1716` y `wizards-vault.js:615`), no sobre el grep:
+
+| | lineas |
+|---|---|
+| escrituras fuera del registro | **36** |
+| de esas, dato del usuario (se conservan a proposito) | **29** |
+| de esas, **cache real** en otros modulos | **7** |
+
+El PO habia estimado **13** de cache. Las 7 reales estan en
+`characters.js` (MAPS, POIS, PROF_ICONS, RACE_ICONS), `activities.js` (PSNA) y
+`app.js` (LS_CURR x2) — **modulos que no son "la API"**, y el boton se titula
+exactamente *"Liberar la caché de la API"*.
+
+**La regla.** **El titulo de una accion es parte del alcance del numero que esa
+accion muestra.** Medir cuantas escrituras quedan fuera del registro, sin leer
+el texto donde el numero aparece, produce una alarma sobre el subconjunto
+equivocado: aca daba una magnitud ~2x y mezclaba dato de usuario con cache.
+
+Corolario, y es el que mas cuesta: **el "quedan 36 escrituras fuera" no es por si
+mismo un defecto.** 29 de esas 36 son *dato del usuario* y el boton las conserva
+a proposito. Un numero de escrituras fuera del registro **no dice si el registro
+es correcto**: hay que clasificarlas por lo que la clave **representa**, y esa
+clasificacion no sale de ningun grep.
+
+**Lo que se hizo con esto.** No se corrigio el codigo. Se mando al Reviewer como
+**pregunta de criterio** (el titulo ya acota el alcance, o hace falta el tercer
+cubo) y al PO como la **decision que le corresponde**: si Pablo espera que el
+boton libere toda su cache o la de la API. **Esa no es una decision tecnica y no
+la tomo yo.**
+
+**Como se evita repetirlo.** Antes de declarar que un numero "miente", leer el
+**titulo y el copy** donde se muestra, y clasificar las escrituras por
+representacion. `grep localStorage.setItem` no distingue `gh_token_encrypted`
+de `PROF_ICONS_CACHE_KEY`.
+
 # ALERTS_LOG.md — Registro de alertas
 
 ## ALERT-64 (2026-09-30 15:55 UTC, HB#57) — OBSERVACION, no bloquea

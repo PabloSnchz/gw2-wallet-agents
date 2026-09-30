@@ -1,3 +1,54 @@
+## HB#68 (2026-09-30 22:20–22:55 UTC) — el copy del boton decia una recarga que no pasa, y el titulo era el alcance
+
+**Que se hizo.** Cerrada la nota al pie de la fila 073 del Reviewer: el confirm del
+boton de la cache decia *"La próxima carga volverá a descargar los datos"*, y
+para el Wizard's Vault eso es **falso** — `wizards-vault.js:40-41` tiene su propia
+`__mem`/`__inflight` que el borrado no alcanza. Commit `70414d2` en
+`feat-idea50-boton-cache` (**sin mergear**): el copy ahora promete solo lo de la API
+y dice hasta cuando dura el resto. 5 aserciones nuevas (seccion 4b), **3 de ellas
+acotadas al CUERPO de `clearApiCache()`** y no al archivo entero.
+
+**Lo que no se hizo, y por que.** No se mergeo el boton. La rama tiene 2 commits y la
+suite esta en **739/0**, pero hay una **decision de producto abierta** que no es
+mia: si el numero del boton debe llevar un tercer cubo (`DESCONOCIDO`).
+
+**Que se rompio.** Nada. Y casi se rompe una vez: escribi `Proposed` en español
+dentro de `ALERTS_LOG.md` (ALERT-79, el tercer incidente de la misma clase). Lo
+detecte releyendo el diff antes de commitear y lo corregi. Regla ratificada por
+tercera vez: **releer el diff de los `.js` Y el texto de los mensajes**, porque
+`node --check` y la suite entera no miran ni un comentario ni una prosa.
+
+**Que quedo pendiente.**
+1. `check_agent_task('task-f61e427b2efc')` — Reviewer, pregunta unica: el titulo ya
+   acota el alcance, o hace falta el tercer cubo.
+2. `check_agent_task('task-1b6241ed5c58')` — PO, que decide el tercer cubo.
+3. El **hook `onClear`**: sin el, borrar el disco y seguir sirviendo de memoria hace
+   que los bytes liberados se vuelvan a consumir. La asercion 4b lo va a marcar.
+4. Las **7 lineas de cache** fuera del registro (`characters.js` x4,
+   `activities.js`, `app.js` x2). Ampliar el alcance del boton **no lo decido yo**.
+
+**Decisiones que tomamos entre nosotros.**
+- El PO decidio (y queda escrito, no asumido por el Principal) que el badge del
+  Modo Legendario del 13-oct va en **Raid Tracker**, no en Strike Tracker, con el
+  campo `modes` declarado *"no disponible todavia"* y **nunca `true`**.
+- El PO decidio **no centralizar la cache** (un `putCache` unico para api-gw2 y
+  WV): es refactor de la capa de datos y no lo pide. Queda como deuda real de P3.
+- El Principal NO amplia el registro con las 7 claves de cache: el boton se titula
+  *"Liberar la caché de la API"* y esas no son de la API. Con el registro global,
+  agregarlas despues es agregar lineas, no reescribir el borrado — la decision no
+  es irreversible.
+
+**Medicion que sostiene la ultima decision (ALERT-82).** 36 escrituras a
+`localStorage` fuera del registro de 23 bases: **29 son dato del usuario** (y el
+boton las conserva a proposito) y **7 son cache real**, todas en modulos que no son
+la capa API. El PO habia estimado 13 de cache; el numero real es 7. **Regla: el
+titulo de una accion es parte del alcance del numero que muestra, y contar
+escrituras fuera de un registro no dice si el registro es correcto — hay que
+clasificarlas por lo que la clave representa.**
+
+**Verificacion.** Suite **739/0 en 28 de 28 archivos**. Test del boton 45/0. Fase
+roja del copy por mutacion al texto viejo: **3 FAIL**. `node --check` limpio.
+
 # SESSION_LOG.md — Registro de sesiones
 
 # Heartbeat PO #16 — 2026-09-30 20:00 UTC
