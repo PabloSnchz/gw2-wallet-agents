@@ -1,6 +1,22 @@
 /*!
  * js/activities.js — Panel de Actividades (Objetivos / Home Nodes)
- * v3.20.2 (2026-09-29) - Fix: estilos del bloque de fractales extraidos a theme-polish.css
+ * v3.20.3 (2026-09-30) - Fix: activate() ya no borra la cache de logros de otro modulo
+ *
+ * CAMBIOS v3.20.3:
+ * - activate() llamaba a cleanAchievementsCache(), que borra TODAS las claves
+ *   localStorage con prefijo 'ach_'. Esa es exactamente la familia que escribe
+ *   api-gw2.js putCache() para los logros: ach_acc:<fp> (TTL 2 min) y
+ *   ach_meta_v2:es:<ids> (TTL 12 h, la cara). router.js invoca
+ *   Activities.activate() en cada navegacion a #/activities, asi que abrir el
+ *   panel dejaba sin cache de logros a TODAS las cuentas y la pagina de Logros
+ *   arrancaba en frio (~433 requests) aunque acabas de cargar.
+ * - cleanActivitiesCache() SE CONSERVA: borra prefijos 'psna:' y
+ *   ACTIVITIES_CACHE_KEYS, que son datos de este mismo modulo. La regla
+ *   aplicada es "un modulo no borra la cache de otro".
+ * - cleanAchievementsCache() sigue definida, para cuando se quiera llamar a
+ *   proposito. No se borro ninguna funcion.
+ * - Sin cambio de UI: no toca CSS ni estructura. tests/idea49.activities-cache-wipe.test.js
+ *
  *
  * CAMBIOS v3.20.2:
  * - El bloque de fractales escribia sus estilos en `style=` inline, mezclando las
@@ -1155,8 +1171,23 @@
   // =======================================================================
   async function activate() {
     console.log(LOG, '🚀 activate() llamado');
+    // cleanActivitiesCache() SI se queda: borra prefijos 'psna:' y
+    // ACTIVITIES_CACHE_KEYS, que son datos de ESTE modulo. Entrar al panel
+    //Activities puede querer datos frescos de hoy.
     cleanActivitiesCache();
-    cleanAchievementsCache();
+    // cleanAchievementsCache() NO se llama aqui, y antes si. Era un bug:
+    // borra toda clave que empiece con 'ach_', y esa es justo la familia que
+    // api-gw2.js putCache() escribe para logros (ach_acc:<fp>, TTL 2 min, y
+    // ach_meta_v2:es:<ids>, TTL 12 h). Router llama a activate() en cada
+    // navegacion a #/activities, asi que abrir el panel dejaba sin cache de
+    // logros a TODAS las cuentas y la pagina de Logros arrancaba en frio
+    // cada vez. Medido: la metadata sola son ~3.6 MB por id-set de cuenta
+    // (35 chunks de 200 ids x 536 B reales).
+    // La regla que se aplica: un modulo no borra la cache de otro. Limpiar la
+    // cache es trabajo de una accion explicita del usuario, no de entrar a un
+    // panel. La funcion sigue existiendo para cuando haga falta llamarla a
+    // proposito.
+    // Ver tests/idea49.activities-cache-wipe.test.js
     state.active = true;
     ensurePanel().removeAttribute('hidden');
     state.homeNodesRendered = false;
