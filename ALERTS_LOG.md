@@ -1,5 +1,44 @@
 # ALERTS_LOG.md — Registro de alertas
 
+## ALERT-64 (2026-09-30 15:55 UTC, HB#57) — OBSERVACION, no bloquea
+
+**El test del Tramo 3 detecto que mi JSDoc no declaraba lo que hace.** La
+aserción exigía que `getAccountLuck` quedara SIN JSDoc (decisión de diseño de
+aquel momento). Cuando escribí el bloque de código sin él, el test falló. La
+causa real: estaba escribiendo la *razón* del comportamiento, no su
+*contrato*.
+
+Un test que falla contra el código que uno acaba de escribir está haciendo su
+trabajo. Si lo hubiera "arreglado" relajando la aserción a "puede tener JSDoc",
+el test habría pasado con un contrato mentiroso — que es exactamente el bug que
+ese archivo existe para evitar.
+
+**Regla:** cuando un test reciente te contradiga después de un cambio tuyo, la
+primera hipótesis es que el test tiene razón. Antes de tocar la aserción,
+escribí la frase que el JSDoc debería contener y fijate si el código la cumple.
+
+## ALERT-65 (2026-09-30 15:55 UTC, HB#57) — sobre "no te contestaron"
+
+Refuerza ALERT-63 con el caso cerrado. El Arquitecto reportó que el PO tenía
+**5 mensajes míos sin responder**. Causa: `ask` con `to: default` en vez de
+`to: product-owner` — se quedaban en mi propio inbox.
+
+Un mensaje enviado a uno mismo es **indetectable después**: existe, está bien
+formado, y aparece en un índice que el remitente lee. El único síntoma es que el
+otro no contesta, que es lo que el equipo viene atribuyendo a un timeout del
+Reviewer.
+
+Ocurrió hoy **dos veces, en direcciones opuestas**: 3 mensajes al PO que nunca
+llegaron, y el Tramo 2 al Reviewer que el Reviewer no había leído todavía
+(`last_read` 14:59:48Z, enviado 15:06:55Z).
+
+**Regla:** cuando alguien diga "no te contestaron", la primera verificación es si
+el mensaje **llegó**, no si el otro está vivo. Y no declarar a un agente muerto
+antes de los 20 minutos: el Reviewer tarda 2–15 min en una revisión real.
+
+**Deuda de CLI (ya registrada):** `ask` debería rechazar un envío a uno mismo.
+
+
 > Mantenedor: Principal (default) — actualizado por Heartbeat cada 30 min.
 > Fuente de verdad: este archivo + TEAM_STATUS.md en el workspace del Principal.
 
@@ -160,3 +199,109 @@ PO en mitad de su heartbeat es peor que el riesgo que mitiga.
 | **ALERT-50** | 🟡 Media | Repo / Proceso | **Un commit de un agente cayo dentro de la rama de otro, en un worktree compartido, y nadie lo noto.** En el HB#48, el commit del PO (`0b9721d`, el dashboard de las 08:00) quedo dentro de `fix/idea49c-shard-races` porque el Principal cambio de rama mientras el PO trabajaba en el mismo clon. Benigno en este caso: era un `.md`, y el contenido era correcto. | **RESUELTA en el acto (HB#48)** | Los dos lo detectaron y lo resolvieron sin drama, que es exactamente por que funciona el canal de archivos. **REGLA: antes de commitear en un clon compartido, `git status -sb` y `git branch --show-current` en la MISMA llamada.** Si la rama no es la que uno cree, el commit va a la rama equivocada y el `git log` de la otra la muestra como si nunca hubiera existido. Corolario barato: `git log --oneline -1` inmediatamente despues de commitear, y verificar que el hash aparece en la rama esperada. Es la generalizacion de ALERT-43: alli el trabajo sin commitear casi se pierde; aqui el commit se guardo en el lugar equivocado. El riesgo real no es este caso, es el proximo en que el commit cruzado sea de codigo. |
 | **ALERT-55** | **Alta** | Repo / Proceso | **6 ramas sin mergear en `origin`, y al menos 3 contienen trabajo real que NO esta en `main`.** `git ls-remote --heads` las muestra todas; ninguna es ancestro de `main`. El detalle importa mas que el numero, porque **3 de las 6 estan enteramente absorbidas** y **3 tienen contenido perdido**. **ABSORBIDAS (el trabajo ya esta en main, las ramas solo están atrasadas):** `fix/theme-borderleft-shorthand` (`git cherry` da `-`: el patch ya esta) y `feat/commerce-delivery-ui` (su fix de CSS igual, y el banner de la v1.1.1 esta en `converter-modal.js:14` de main). **CON TRABAJO PERDIDO, verificado archivo por archivo contra `main`:** **(1) `feature/homestead-tracker` + `fix/homestead-glyph-data`** (la segunda contiene a la primera): `getHomesteadDecorationDetails`, `getAccountHomesteadDecorations` y `getHomesteadGlyphs` **no existen en `js/api-gw2.js` de main**; la ruta `#/account/homestead` **no esta en `js/router.js`**; `index.html` **no carga `homestead-tracker.js`**. La normalizacion de glyphs (`normalizeGlyphs`) tampoco esta en `js/homestead-tracker.js` de main. Son ~160 lineas de `api-gw2.js` y el fix de schema que el PO ya dio por bueno (COMM 010/012). **(2) `feature/legendary-component-tracker`:** `js/detail-modal.js` y `js/legendary-tracker-theme.js` **NO EXISTEN EN MAIN** (fichero completo, no un diff), e `index.html` de main solo carga `legendary-tracker.js?v=1.0.0`, sin el detail modal ni el theme de la capa 3. Son las Fases 2B y 3 del tracker. **(3) `docs-estructura-20260930`:** `ORG_MAP.md` tiene 103 lineas de diferencia contra main (una rama nace de un commit viejo, asi que el diff grande no es trabajo perdido: esto hay que leerlo, no contarlo). | **ABIERTA (HB#50)** | **Ninguna rama se borra ni se mergea en este ciclo**, y la razon es el orden de las operaciones, no la duda: las ramas que tienen trabajo perdido estan **110 a 201 commits atras** de `main`, y `api-gw2.js` cambio **481 lineas** desde su base. Un merge a ciegas de `homestead-tracker` revierte el sharding de la Idea 49 y arrastra elarranque del modulo. **El rescate correcto es por `cherry-pick` sobre una rama nueva desde `main`, no `merge`**, y uno por uno: (a) `homestead` (API + router + index + fix de glyphs, 2 commits), (b) `legendary` Phase 2B/3 (2 archivos que no existen), (c) `ORG_MAP` (revisar a mano, el diff es ruido de base). **Las 2 ramas absorbidas se pueden borrar YA, con seguridad verificada.** **REGLA que sale de aca:** `git cherry main <rama>` decide si un commit esta en main **por contenido**, no por hash; un `git diff main <rama>` grande NO prueba trabajo perdido, porque la rama nace vieja. Es el ALERT-47 con una segunda vuelta. |
 | **ALERT-54** | Media | Producto / Datos | **`vloxx` infla el KPI de Legendaria Imbuida: el 100% de LI es inalcanzable por diseno.** `vloxx` es el ala del CM de Sept 29 (Nexus of Eternity). `/v2/raids` **no lo expone** (medido contra la API en vivo, no supuesto), asi que esa tarjeta nunca se va a poder marcar. Pero el calculo de `liTotal` (`raid-tracker.js`) cuenta los encounters con `li === 1`, y `vloxx` lo tiene: el denominador suma un encuentro que la API jamas va a reportar. Es exactamente la clase de defecto que vino a matar la Idea 52 ("el modulo promete algo que no puede cumplir"), y quedo vivo dentro del propio fix que la ataco. No se toca en esta iteracion: decidir el ala 9 es producto (borrar el ala, o esperar a que GW2 la publique), no un fix de dato. | **ABIERTA (HB#50)** | Anotada, sin cambio de codigo. Cuando Pablo decida el ala 9 se cierra sola: si `vloxx` se borra, `liTotal` baja y el 100% vuelve a ser alcanzable. Si se conserva, hay que sacar `li: 1` del encuentro o excluir los fantasmas del calculo de LI. **Medicion que la sostiene:** el propio test de la Idea 52 ya valida que `vloxx` no esta en el catalogo (`tests/idea52.raid-encounter-ids.test.js`, seccion 3) y lo declara `FANTASMA_CONOCIDO` con la explicacion. Lo que faltaba era que el KPI de LI lo sintiera. |
+| **ALERT-63** | 🔴 Alta | Proceso / Comunicacion | **La ALERT-62 se repitio al revés: 3 mensajes con `to: default` en vez de `to: product-owner`. El PO nunca recibio la respuesta de Pablo sobre `getAccountLuck`, que era la decision de diseno que bloqueaba el Tramo 2 de la Idea 57.** La ALERT-62 fue "escribir el `inbox/` del otro a mano y queda invisible". Esta es la direccion opuesta y mas insidious: el mensaje se mando **por el CLI, con cuerpo largo y bien formado, y salio bien escrito**. Los 3 quedaron en `default/inbox/` y en `default/sent/`, con el prefijo `__default__default__` en el nombre del archivo, que es la unica señal. **Lo que lo causo:** `_po_send.py ask <agente> ...` con el parametro `<agente>` en `default` en vez de `product-owner`. El script no valida que el destinatario sea otro agente: `cli.py ask` acepta cualquier string. Los 3.tenian `vence` en ~13:17Z y el `overdue` los reporto como "a default", que es la senal que se leyo tarde. **Por que importa mas que la 62:** un mensaje que se autoenvia no le falta a nadie de forma visible —yo lo "mande" y quedo en mi inbox—, asi que el unico sintoma es que el otro no contesta, que es exactamente el sintoma que el equipo viene atribuyendo a un timeout del Reviewer. **REGLA: un ask que se manda a uno mismo es un ask que no salio. Verificar el prefijo del archivo, o el campo `to`, antes de contar con que el mensaje fue entregado.** | **CORREGIDA (HB#56)** | Los 3 reenviados al inbox real del PO por `cli.py ask product-owner` y verificados uno por uno contra `product-owner/inbox/` (los tres presentes con `to: product-owner` y cuerpo integro: 6831, 3913 y 3615 chars). El test que faltaba no es de codigo: es que `_po_send.py` tiene que fallar si el destinatario es el propio remitente. No se parchea en este ciclo; queda como el mismo item de deuda que la ALERT-62 (es diseno del CLI, no nuestro). |
+
+## ALERT-62 — escribir el `inbox/` del otro a mano deja el mensaje INVISIBLE: `waiting`/`overdue` leen `sent/`, no el `inbox/`
+
+**Severidad:** media. **Origen:** heartbeat Principal, 2026-09-30 ~10:57 UTC. **Estado:** corregido en el
+indice; la causa de raiz es de diseno del CLI y queda como deuda.
+
+### Que paso
+
+Para responderle al PO (HB#12) escribi `product-owner/inbox/20260930T104000Z__default__product-owner__po207.json`
+**a mano**, con el `write_file` de la herramienta de archivos, en vez de usar el comando del CLI que lo manda.
+El archivo quedo bien formado y con el JSON valido: `cli.py inbox` del PO lo habria leido perfecto.
+
+Pero el PO **nunca lo vio**, y `cli.py overdue` seguia reportando 5 mensajes vencidos mio que yo ya habia
+cerrado. Dos bugs, en realidad:
+
+### Bug 1 (el que importa): el par enviado/recibido son DOS archivos, y solo uno es el indice
+
+`agentlink.py` guarda el MISMO mensaje en dos lugares:
+
+```
+<remitente>/sent/<id>.json         <- indice propio
+<destinatario>/inbox/<id>.json     <- lo que lee el destinatario
+```
+
+Y las funciones de consulta leen **solo el del remitente**:
+
+```python
+def awaited(agent):        # agentlink.py:112
+    for p in glob.glob(os.path.join(BASE, _dir(agent), 'sent', '*.json')):
+def overdue(agent):        # agentlink.py:124
+    return [(p, m) for p, m in awaited(agent) if (m.get('deadline_utc') or '') <= now]
+```
+
+Escribi solo el del destinatario. Resultado: el watchdog de los dos lados cree que la pregunta **nunca
+existo**, y yo la creia mandada. **La asimetria es la trampa**: si hubiera escrito solo el `sent/`, el PO
+no lo habria visto y yo si lo habria creido enviado. Ninguno de los dos casos se detecta solo.
+
+**Corregido** en el indice (`default/sent/`) en los 6 mensajes afectados: 4 pasados a `done`, 1 mas
+`done` con nota, y los 2 nuevos registrados. Verificado: `cli.py waiting` muestra 1 pendiente con
+deadline 13:00Z.
+
+### Bug 2: `overdue` no refresca, y por eso el cierre parecia no funcionar
+
+Cerré los 4 mensajes en el inbox del PO y volvi a correr `overdue`: seguian los 5. Tarde varios
+minutos en mirar **de donde lee** en vez de reintentar. `overdue` no estaba cacheado: leia `sent/`, que
+yo no habia tocado. **La leccion es la de siempre y la seguí perdiendo**: cuando una herramienta dice
+lo que uno espera que diga, el siguiente paso es leer la herramienta, no repetir el comando.
+
+### El hallazgo que si es recuperable
+
+`20260930T080656Z__default__product-owner__e30dbd.json` estaba en `sent/` con `state: waiting` y
+deadline 08:31Z, **vencido hace 2 horas**, y **no existia en el inbox del PO**. Es decir: hay al menos
+un mensaje mio que el PO jamas recibio, del HB#50. No se reenvia: su contenido (los 2 hallazgos del 206
+y de la clasificacion de wrappers) **ya esta aplicado y mergeado** en `979bfa6` / `4c95774`, asi que
+mandarlo ahora seria un acuse de algo que el PO no pidio. Se cerro con nota.
+
+### Recurrencia: la ALERT-62 volvio, en la direccion opuesta (HB#56)
+
+Tres horas despues de escribir la ALERT-62, el mismo bug ocurrio al reves y nadie lo vio. La
+ALERT-62 fue "escribir el `inbox/` del otro a mano y el mensaje queda invisible". Esta vez el
+mensaje se mando **por el CLI**, con cuerpo largo (6831 chars), con `_po_send.py` que existe
+justamente para eso, y quedo bien escrito. En `default/inbox/`. Con `to: default`.
+
+Los tres eran para el PO y los tres eran importantes: la respuesta de Pablo sobre el criterio de
+UI de `getAccountLuck` (la decision que bloqueaba el Tramo 2 de la Idea 57), la Idea 49 del LM del
+raid y su addendum con la medicion de 8.349 logros. El PO no recibio ninguno.
+
+Lo unico que lo delata es el **prefijo del nombre del archivo**: `__default__default__` en vez de
+`__default__product-owner__`. `cli.py inbox` los 组imprime como "preguntas esperando" sin marcar
+que estan dirigidas a uno mismo, y `cli.py overdue` los lista como "a default", que es la senal
+que se leyo tarde.
+
+La causa concreta es una sola: `_po_send.py ask <agente> ...` con `<agente>` en `default`. El
+script no valida nada, y `cli.py ask` acepta cualquier string como destinatario. Un `ask` a uno
+mismo no es un error que el sistema pueda detectar despues: el mensaje existe, esta bien formado,
+y esta en un indice que el remitente lee. El unico sintoma es que el otro no contesta — que es
+justo el sintoma que este equipo viene atribuyendo a un timeout del Reviewer.
+
+**Corregido en el HB#56:** los tres reenviados con `cli.py ask product-owner` y verificados uno
+por uno en `product-owner/inbox/`.
+
+**Por que se agrega como ALERT-63 y no como nota de la 62:** la 62 dice "escribir el `inbox/` del
+otro a mano deja el mensaje invisible". Esta dice "mandar por el CLI tampoco alcanza, porque el CLI
+no valida a quien le mandas". Son dos modos de falla del mismo par de archivos, y el segundo es el
+que no tiene defensa propia: el primero se ve en el nombre del archivo, el segundo no se ve en
+ningun lado salvo en el prefijo.
+
+**Lo que sigue faltando (misma deuda que la 62, y por eso no se arregla aca):** el CLI deberia
+rechazar un `ask` cuyo destinatario sea el propio remitente, o al menos marcarlo. Es una linea.
+Mientras tanto la regla para nosotros es: **despues de mandar, verificar el prefijo del archivo
+creado.**
+
+### Deuda (NO la arreglo, es del CLI, y es decision de Pablo)
+
+`agentlink.py` deberia, en vez de duplicar el mensaje en dos archivos, tener **un** archivo con un campo
+`delivered_to`, o **`send()` como unico camino de escritura** con `inbox/` derivado. Hoy el
+`write_file` a mano es un camino valido en apariencia y roto en silencio. Dos opciones, y la segunda es
+la que importa:
+
+1. Que `send()` sea el unico escritor y `inbox/` se symlinkee o se deduplique.
+2. **Que exista un comando de reconciliacion**: `cli.py verify` que compare `*/sent/` contra
+   `*/inbox/`, reporte los pares desbalanceados y proponga la reparacion. Sin el, esto se repite.
+
+Mientras tanto, la regla para nosotros: **mandar por el CLI, nunca escribir el `inbox/` del otro a
+mano.** Si hay que escribirlo a mano, registrar en `sent/` en el MISMO minuto, o el mensaje no existe.
