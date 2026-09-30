@@ -59,8 +59,22 @@ const body = iLoad === -1 ? '' : src.slice(iLoad, iNext === -1 ? iLoad + 6000 : 
 
 ok(/root\.GW2Api\.getAccountAchievements\(token\)/.test(body),
    'loadAccountData() llama a root.GW2Api.getAccountAchievements(token)');
-ok(/if \(a\.done\) total \+= a\.current;/.test(body),
-   'la suma de AP conserva la forma original (a.done -> a.current)');
+// La INTENCION de esta asercion es que la suma no haya cambiado de SEMANTICA:
+// sigue filtrando por `a.done` y sigue leyendo `a.current`. Lo que no debe
+// permitirse es que alguien la cambie por, por ejemplo, sumar todos los logros.
+//
+// Por eso antes era un regex contra el texto EXACTO (`+= a.current;`), y por eso
+// fallaba con el fix del NaN (Idea 78) que envuelve el valor en Number(...)||0.
+// Un test que exige la forma literal no puede distinguir "cambio la semantica"
+// de "arregle el mismo calculo", asi que ataba el fix sin proteger el motivo.
+//
+// Ahora se exigen las DOS mitades por separado: el filtro por `done` y la
+// lectura de `current`. Y ademas la conversion, que es el contrato NUEVO:
+// la GW2 API omite `current` en un completado sin tiers y sin convertir, la
+// fila muestra NaN. Ver tests/idea78-puntos-logros-nan.test.js, que es el
+// archivo que cubre ese bug con su propio round-trip.
+ok(/if \(a\.done\)/.test(body) && /total \+= \(?Number\(a\.current\)/.test(body),
+   'la suma de AP filtra por a.done y convierte a.current (mismo calculo, sin NaN)');
 
 // El wrapper tiene que existir y tener el mismo contrato: mismo endpoint.
 const apiSrc = fs.readFileSync(path.join(ROOT, 'js', 'api-gw2.js'), 'utf8');

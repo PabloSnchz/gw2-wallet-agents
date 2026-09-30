@@ -447,7 +447,13 @@
       try {
         var achData = await root.GW2Api.getAccountAchievements(token);
         var total = 0;
-        (achData || []).forEach(function(a) { if (a.done) total += a.current; });
+        // `Number(a.current) || 0` y no `a.current` a pelo: la API omite
+        // `current` en un logro completado SIN tiers (ej. {id:202, done:true},
+        // literal de la wiki de /account/achievements). Sumar `undefined` sobre
+        // un numero da NaN, y el NaN se propaga a TODOS los logros que se
+        // sumen despues: la fila muestra "NaN" en vez de la cuenta. Con la
+        // guarda, un ausente cuenta 0 y el resto del total sigue siendo real.
+        (achData || []).forEach(function(a) { if (a.done) total += (Number(a.current) || 0); });
         state.accountAchievements = total;
         console.log(LOG, 'Puntos de logros:', total);
       } catch (achErr) {
