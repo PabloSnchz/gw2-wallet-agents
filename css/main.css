@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bóveda del Gato Negro — Main CSS v2.8.0
+   Bóveda del Gato Negro — Main CSS v2.9.0
    Layout + estructura + tipografía
    Todos los colores usan variables CSS (definidas en css/themes/*.css)
    ========================================================================== */
@@ -1473,4 +1473,115 @@ th.sortable:hover{ background:var(--bg-2) }
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+/* ==================== Caja del Trading Post (converter-modal) ===============
+ * Estructura del banner "caja del TP sin cobrar". CAPA 1 = layout, sin bordes.
+ *
+ * Por qué existe: getCommerceDelivery() ya estaba implementado en
+ * js/api-gw2.js (v2.16.0) pero sin un solo consumidor — código muerto
+ * (hallazgo transversal #10). Este bloque es su vista, y responde a una
+ * fricción real reportada por el PO: un ítem que quedó en la caja hace
+ * semanas figurando como venta hecha, sin ninguna señal de que el dinero
+ * nunca se cobró.
+ *
+ * El `borderLeft` de color NO está acá: lo aplica
+ * js/commerce-delivery-theme.js (capa 3). El borde neutro tampoco: vive en
+ * theme-polish.css (capa 2). Este archivo pone estructura y nada más.
+ */
+.cv-delivery {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.cv-delivery__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-delivery__icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.cv-delivery__title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.cv-delivery__body {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.cv-delivery__body strong {
+  color: var(--tx-1);
+}
+
+.cv-delivery__body code {
+  font-family: monospace;
+  font-size: 0.72rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--bg-1);
+}
+
+.cv-delivery__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cv-delivery__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 200px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  background: var(--bg-1);
+  color: var(--tx-1);
+}
+
+.cv-delivery__chip img {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+
+.cv-delivery__chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-delivery__chip-qty {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.cv-delivery__more {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.cv-delivery .btn--xs {
+  align-self: flex-start;
 }

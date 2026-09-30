@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Bóveda del Gato Negro — Theme Polish v2.3.0
+   Bóveda del Gato Negro — Theme Polish v2.4.0
    Componentes genéricos + piel unificada
    Todos los colores usan variables CSS (definidas en css/themes/*.css)
    ========================================================================== */
@@ -1531,4 +1531,13 @@ aside.col-side .panel-head img {
 .fractals-cm,
 .fractals-tomorrow {
   border-top: 1px solid var(--bd-1);
+}
+
+/* Caja del Trading Post — piel unificada del banner (capa 2).
+ * El borde neutro y el radio van acá; el `borderLeft` de color lo pone
+ * js/commerce-delivery-theme.js (capa 3). La estructura (padding, flex, gap,
+ * tipografía) vive en main.css (capa 1). */
+.cv-delivery {
+  border: 1px solid var(--bd-1);
+  border-radius: 8px;
 }
