@@ -1,6 +1,16 @@
-﻿/*!
+/*!
  * js/characters.js — Panel de Personajes y Localización
- * v2.3.0 (2026-03-24)
+ * v2.4.0 (2026-09-30)
+ *
+ * CAMBIOS v2.4.0 (Idea 55 Tramo 1):
+ * - loadAccountData() ya no hace `fetch` crudo de /v2/account/achievements.
+ *   Usa GW2Api.getAccountAchievements(token), que es el mismo wrapper que
+ *   consumen achievements.js:1058 y activities.js:902. Antes la app bajaba
+ *   los ~364 KB de ese payload DOS veces por cambio de cuenta: una por la
+ *   capa (cacheada) y otra aqui (sin cache, sin retry, fuera del pool).
+ * - El fallo de ese endpoint sigue SIN abortar el resto de loadAccountData:
+ *   conserva su propio catch local, igual que antes hacia el `if (achRes.ok)`.
+ *   Ver el bloque en loadAccountData() para el porqué.
  *
  * CAMBIOS v2.3.0:
  * - Agregado ícono al título del panel (156678.png)
@@ -407,13 +417,28 @@
   // =======================================================================
   async function loadAccountData(token) {
     try {
-      var achRes = await fetch('https://api.guildwars2.com/v2/account/achievements?access_token=' + encodeURIComponent(token));
-      if (achRes.ok) {
-        var achData = await achRes.json();
+      // Idea 55 Tramo 1: este endpoint ya lo expone la capa como
+      // GW2Api.getAccountAchievements(token), con cache, TTL, inflightOnce,
+      // pool y fetchWithRetry. El fetch crudo de antes descargaba los ~364 KB
+      // de /v2/account/achievements en CADA cambio de cuenta (wireGlobal ->
+      // gn:tokenchange) sin cache y sin retry, y ademas duplicaba el payload:
+      // achievements.js:1058 y activities.js:902 piden exactamente el mismo
+      // dato por la capa, o sea que la app bajaba dos veces el objeto mas caro
+      // del codebase, una cacheada y otra no.
+      //
+      // El catch es PROPIO y no el del try de loadAccountData: antes, un fallo
+      // de este endpoint (achRes.ok === false) solo saltaba el bloque y
+      // seguia con PvP y WvW. Sin este catch local, el rechazo del wrapper
+      // abortaria el resto de la funcion y las tres filas del header quedarian
+      // en '—'. Es el contrato de error del modulo, y por eso se preserva.
+      try {
+        var achData = await root.GW2Api.getAccountAchievements(token);
         var total = 0;
-        achData.forEach(function(a) { if (a.done) total += a.current; });
+        (achData || []).forEach(function(a) { if (a.done) total += a.current; });
         state.accountAchievements = total;
         console.log(LOG, 'Puntos de logros:', total);
+      } catch (achErr) {
+        console.warn(LOG, 'No se pudieron leer los logros de la cuenta', achErr);
       }
 
       console.log(LOG, 'Solicitando PvP stats...');
