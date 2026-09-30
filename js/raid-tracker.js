@@ -1,7 +1,17 @@
 /*!
  * js/raid-tracker.js — Seguimiento de Raids Semanales
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.9.0 (2026-09-30) — allSettled defensivo en raids + LI (Idea 47 c1)
+ * Versión: 1.10.0 (2026-09-30) — 5 encuentros con id que la API no tiene (Idea 52)
+ *
+ * 1.10.0 - La API devuelve el id real del encuentro; 4 de los 30 ids del modulo
+ *   no existian en /v2/raids, asi que esas tarjetas NUNCA se podian marcar.
+ *   Renombrados: siege_the_stronghold->escort, desmina->soulless_horror,
+ *   dhuum->voice_in_the_void, gates_of_ahdashim->gate (por ala, contra el
+ *   catalogo medido). Ademas ura_guardian no era el id de ningun encuentro
+ *   (el de Ura es "ura"): sus recompensas y su ficha nunca se mostraban.
+ *   Se borro "the_threshold", clave muerta sin encuentro. Total de encuentros
+ *   sin cambio: 30. La correspondencia esta en tests/idea52.raid-encounter-ids.test.js
+ * 1.9.0 - allSettled defensivo en raids + LI (Idea 47 c1)
  */
 
 (function (root) {
@@ -46,7 +56,7 @@
       expansion: "Heart of Thorns",
       icon: "assets/icons/raids/wing3.png",
       encounters: [
-        { id: "siege_the_stronghold", name: "Escolta de Glenna", nameEn: "Siege the Stronghold", type: "evento", li: 1, icon: "assets/icons/raids/bosses/siege_the_stronghold.png" },
+        { id: "escort", name: "Escolta de Glenna", nameEn: "Siege the Stronghold", type: "evento", li: 1, icon: "assets/icons/raids/bosses/siege_the_stronghold.png" },
         { id: "keep_construct", name: "Ensamblaje de la Fortaleza", nameEn: "Keep Construct", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/keep_construct.png" },
         { id: "twisted_castle", name: "Castillo retorcido", nameEn: "Twisted Castle", type: "evento", li: 1, icon: "assets/icons/raids/bosses/twisted_castle.png" },
         { id: "xera", name: "Xera", nameEn: "Xera", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/xera.png" }
@@ -72,10 +82,10 @@
       expansion: "Path of Fire",
       icon: "assets/icons/raids/wing5.png",
       encounters: [
-        { id: "desmina", name: "Horror sin alma", nameEn: "Soulless Horror", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/desmina.png" },
+        { id: "soulless_horror", name: "Horror sin alma", nameEn: "Soulless Horror", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/desmina.png" },
         { id: "river_of_souls", name: "Río de Almas", nameEn: "River of Souls", type: "evento", li: 1, icon: "assets/icons/raids/bosses/river_of_souls.png" },
         { id: "statues_of_grenth", name: "Estatuas de Grenth", nameEn: "Statues of Grenth", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/statues_of_grenth.png" },
-        { id: "dhuum", name: "Dhuum", nameEn: "Dhuum", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/dhuum.png" }
+        { id: "voice_in_the_void", name: "Dhuum", nameEn: "Dhuum", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/dhuum.png" }
       ]
     },
     {
@@ -97,7 +107,7 @@
       expansion: "Path of Fire",
       icon: "assets/icons/raids/wing7.png",
       encounters: [
-        { id: "gates_of_ahdashim", name: "Puertas de Ahdashim", nameEn: "Gates of Ahdashim", type: "evento", li: 0, icon: "assets/icons/raids/bosses/gates_of_ahdashim.png" },
+        { id: "gate", name: "Puertas de Ahdashim", nameEn: "Gates of Ahdashim", type: "evento", li: 0, icon: "assets/icons/raids/bosses/gates_of_ahdashim.png" },
         { id: "adina", name: "Adina", nameEn: "Adina", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/adina.png" },
         { id: "sabir", name: "Sabir", nameEn: "Sabir", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/sabir.png" },
         { id: "qadim_the_peerless", name: "Qadim el Simpar", nameEn: "Qadim the Peerless", type: "jefe", li: 1, icon: "assets/icons/raids/bosses/qadim_the_peerless.png" }
@@ -199,13 +209,13 @@
         { id: 91520, name: "Mochila de Deimos", icon: "assets/icons/raids/rewards/deimos_backpack.png" }
       ]
     },
-    "desmina": {
+    "soulless_horror": {
       drops: [
         { id: 79722, name: "Insight legendaria", icon: "assets/icons/raids/rewards/legendary_insight.png" },
         { id: 79921, name: "Fragmento de fe ascendido", icon: "assets/icons/raids/rewards/ascended_fragment.png" }
       ]
     },
-    "dhuum": {
+    "voice_in_the_void": {
       drops: [
         { id: 79722, name: "Insight legendaria", icon: "assets/icons/raids/rewards/legendary_insight.png" },
         { id: 79921, name: "Fragmento de fe ascendido", icon: "assets/icons/raids/rewards/ascended_fragment.png" },
@@ -252,7 +262,7 @@
         { id: 91525, name: "Mochila de Qadim el sin par", icon: "assets/icons/raids/rewards/qadim_peerless_backpack.png" }
       ]
     },
-    "ura_guardian": {
+    "ura": {
       drops: [
         { id: 79722, name: "Insight legendaria", icon: "assets/icons/raids/rewards/legendary_insight.png" },
         { id: 79921, name: "Fragmento de fe ascendido", icon: "assets/icons/raids/rewards/ascended_fragment.png" }
@@ -416,7 +426,7 @@
       wiki: "https://wiki.guildwars2.com/wiki/Matthias_Gabrel",
       image: "assets/icons/raids/bosses/matthias_detail.jpg"
     },
-    "siege_the_stronghold": {
+    "escort": {
       description: [
         "• Escolta de Glenna es un evento donde hay que proteger a un NPC mientras destruye puertas.",
         "• Aparecen oleadas de enemigos que atacan a Glenna.",
@@ -568,7 +578,7 @@
       wiki: "https://wiki.guildwars2.com/wiki/Deimos",
       image: "assets/icons/raids/bosses/deimos_detail.jpg"
     },
-    "desmina": {
+    "soulless_horror": {
       description: [
         "• Desmina invoca esclavos que deben ser eliminados.",
         "• Los esclavos lanzan niebla que daña al grupo.",
@@ -625,7 +635,7 @@
       wiki: "https://wiki.guildwars2.com/wiki/Statues_of_Grenth",
       image: "assets/icons/raids/bosses/statues_of_grenth_detail.png"
     },
-    "dhuum": {
+    "voice_in_the_void": {
       description: [
         "• Dhuum es el jefe final del ala 5, requiere mecánicas complejas.",
         "• Tiene múltiples fases con mecánicas complejas.",
@@ -701,7 +711,7 @@
       wiki: "https://wiki.guildwars2.com/wiki/Qadim",
       image: "assets/icons/raids/bosses/qadim_detail.jpg"
     },
-    "gates_of_ahdashim": {
+    "gate": {
       description: [
         "• Puertas de Ahdashim es el evento de apertura del ala 7.",
         "• Hay que destruir las puertas mientras se protege a los NPC aliados.",
@@ -777,7 +787,7 @@
       wiki: "https://wiki.guildwars2.com/wiki/Qadim_the_Peerless",
       image: "assets/icons/raids/bosses/qadim_the_peerless_detail.png"
     },
-    "ura_guardian": {
+    "ura": {
       description: [
         "• Guardián Ura es el primer encuentro del ala 8.",
         "• Tiene mecánicas de luz y oscuridad.",
@@ -795,25 +805,6 @@
       video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       wiki: "https://wiki.guildwars2.com/wiki/Ura_Guardian",
       image: "assets/icons/raids/bosses/ura_guardian_detail.png"
-    },
-    "the_threshold": {
-      description: [
-        "• El Límite es un evento de transición.",
-        "• Hay que cruzar una zona peligrosa mientras se lucha contra enemigos.",
-        "• También hay que activar mecanismos para avanzar.",
-        "• Si el grupo se separa, el daño aumenta.",
-        "• Es un encuentro de coordinación y movimiento."
-      ],
-      strategy: [
-        "• TANQUE: Proteger al grupo de los enemigos grandes.",
-        "• DPS: Matar enemigos rápidamente.",
-        "• APOYO: Curar a los jugadores en la zona peligrosa.",
-        "• TODOS: Mantenerse juntos.",
-        "• CRÍTICO: No separarse del grupo."
-      ],
-      video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      wiki: "https://wiki.guildwars2.com/wiki/The_Threshold",
-      image: "assets/icons/raids/bosses/the_threshold_detail.png"
     },
     "greer": {
       description: [
@@ -1364,7 +1355,7 @@
             { name: "Mochila de Deimos", type: "Mochila", icon: "assets/icons/raids/bosses/deimos_backpack.png" }
           ],
           // Ala 5
-          "dhuum": [
+          "voice_in_the_void": [
             { name: "Silla del Último Juez amortajada", type: "Silla", icon: "assets/icons/raids/bosses/Silla_del_Último_Juez_amortajada.png" },
             { name: "Cofre de Armadura de Dhuum", type: "Infusión cosmética", icon: "assets/icons/raids/bosses/Cofre_de_armadura_de_Dhuum.png" }
           ],
