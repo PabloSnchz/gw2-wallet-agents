@@ -4,11 +4,14 @@
  * ALERT-84 (PO, ronda 17, 2026-09-30): "Armería Legendaria" es un item de menu
  * VISIBLE que decia "Cargando catálogo de legendarias..." PARA SIEMPRE.
  *
- * LA CADENA, medida sin suposiciones:
- *     index.html:750  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
+ * LA CADENA, medida sin suposiciones. Las lineas de `index.html` son de ESTE
+ * arbol (post-boton-de-cache, que suma 11 lineas antes de todo lo demas): las
+ * de `main@d328969` son 750/528/988, 11 menos. Una cita de linea sin el arbol
+ * al que pertenece es una cita SIN UNIDAD (ALERT-84, hallazgo del PO):
+ *     index.html:761  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
  *     router.js:125   ruta registrada;  :1562  la resuelve
- *     index.html:528  el <section id="legendaryArmoryPanel"> existe
- *     index.html:988  <script legendary-tracker.js> se carga
+ *     index.html:539  el <section id="legendaryArmoryPanel"> existe
+ *     index.html:999  <script legendary-tracker.js> se carga
  *     legendary-tracker.js  loadLegendaryData() es un STUB: resuelve []
  *     legendary-tracker.js  renderCatalogSkeleton() escribe "Cargando ..." y
  *                           NADA lo reemplaza

@@ -177,8 +177,9 @@
   //
   // Lo que cambia aqui NO es la funcionalidad (T3/T4 la implementan) sino el
   // ESTADO que la app dice de si misma. El item de menu es visible
-  // (`index.html:750`), la ruta esta registrada (`router.js:125`) y el panel
-  // existe (`index.html:528`): desde el momento en que eso es cierto, el
+  // (`index.html:761` de ESTE arbol; en `main@d328969` es 750, 11 menos: el boton
+  // de cache suma 11 lineas antes), la ruta esta registrada (`router.js:125`) y
+  // el panel existe (`index.html:539`): desde el momento en que eso es cierto, el
   // esqueleto dejo de ser una etapa interna y paso a ser una PROMESA, y no hay
   // forma de retractarla porque no existe el estado "todavia no".
   //

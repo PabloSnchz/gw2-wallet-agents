@@ -153,12 +153,27 @@ for (const file of files) {
     }
     const esCache = CACHE_PATRON.some(p => p.test(r));
     const esMeta = META_PATRON.some(p => p.test(r));
+    // SEGUNDO CRITERIO, por FORMA (ALERT-86). El de arriba decide por el NOMBRE
+    // de la clave, y hay cache cuyo nombre no dice "cache": las 3 de
+    // `homestead-tracker.js` son `gn:homestead:decorations|categories|glyphs` y
+    // se escriben como `{ts, data}` — la misma forma que la capa de API. Un
+    // nombre asi no matchea ningun patron y caia en DATO, o sea: contadas como
+    // dato de usuario y PROTEGIDAS por una frase que el boton no dice. El
+    // Reviewer (H3) y este script midieron 11 familias; la diferencia eran
+    // exactamente estas 3. Los dos criterios se ORDEAN: por forma no se declara
+    // cache, porque `JSON.stringify(data.schedule)` tambien es un objeto.
+    const ventana = lineas.slice(i, i + 6).join('\n');
+    const formaCache = /JSON\.stringify\(\s*\{[^}]*\bts\s*:/.test(ventana);
     filas.push({ archivo: file, linea: i + 1, expr, clave: r,
-      clase: esCache ? 'CACHE' : esMeta ? 'META' : 'DATO' });
+      clase: esCache ? 'CACHE' : esMeta ? 'META' : formaCache ? 'CACHE_POR_FORMA' : 'DATO' });
   });
 }
 
-const caches = filas.filter(f => f.clase === 'CACHE');
+// `CACHE_POR_FORMA` cuenta con las de `CACHE`: un filtro que se queda solo con
+// la clase exacta hace DESAPARECER un numero del titulo sin que ningun assert
+// lo note. Por eso el filtro es `startsWith('CACHE')` y no `=== 'CACHE'`.
+const caches = filas.filter(f => f.clase.startsWith('CACHE'));
+const soloPorForma = filas.filter(f => f.clase === 'CACHE_POR_FORMA');
 const metas = filas.filter(f => f.clase === 'META');
 const datos = filas.filter(f => f.clase === 'DATO');
 const capas = filas.filter(f => f.clase === 'CAPA');
@@ -186,6 +201,14 @@ console.log('');
 console.log('  CHECK: ' + caches.length + ' filas (call sites), ' + unicas +
   ' familias unicas. El numero del titulo es el de FAMILIAS: dos call sites');
 console.log('         que escriben la misma clave son una clave, no dos.');
+if (soloPorForma.length) {
+  console.log('');
+  console.log('  ' + soloPorForma.length + ' de esas familias NO se reconocen por el');
+  console.log('  NOMBRE de la clave (ALERT-86: se perdian por clasificar solo por nombre):');
+  for (const f of soloPorForma) {
+    console.log('    ' + f.clave + '   (' + f.archivo + ':' + f.linea + ')');
+  }
+}
 console.log('');
 console.log('META de cache (el marcador de frescura, ~10 B, no crece): ' + metas.length);
 metas.forEach(f => console.log('  ' + f.clave + '   (' + f.archivo + ':' + f.linea + ')'));
@@ -210,11 +233,30 @@ if (sinResolver.length) {
   console.log('   Un numero que excluye lo que no supo leer no es un total.');
   console.log('');
 }
+// ALERT-86: de las 11 que salen, 3 estan en un modulo que `index.html` NO
+// carga. Cache de codigo muerto no ocupa disco HOY, asi que contarlo sin
+// decirlo hace que el headline prometa mas de lo que hay. El headline usa las
+// que se ESCRIBEN; las de modulo muerto se nombran aparte, con el motivo.
+const html = fs.readFileSync(path.join(JS, '..', 'index.html'), 'utf8');
+const muertos = soloPorForma.filter(f => !html.includes(f.archivo));
+const escritas = unicas - muertos.length;
+const modulosEscritos = [...new Set(caches.filter(f => !muertos.includes(f)).map(f => f.archivo))].sort();
+
 console.log('PARA EL DASHBOARD (una linea, con unidad):');
-console.log('  "' + unicas + ' familias de clave de cache escritas fuera del registro de ' +
-  'cacheClear, en ' + modulos.length + ' modulos"' +
+console.log('  "' + escritas + ' familias de clave de cache escritas fuera del registro de ' +
+  'cacheClear, en ' + modulosEscritos.length + ' modulos"' +
   (sinResolver.length ? '   [INCOMPLETO: ' + sinResolver.length + ' sin resolver]' : ''));
 console.log('  (+ ' + metas.length + ' marcador(es) de frescura, ~10 B, no crece con cuentas)');
+if (muertos.length) {
+  console.log('');
+  console.log('  LAS ' + muertos.length + ' QUE EL NUMERO DE ARRIBA NO CUENTA, y por que:');
+  for (const f of muertos) console.log('    ' + f.clave + '   (' + f.archivo + ':' + f.linea + ')');
+  console.log('    Cache de codigo MUERTO: `index.html` no carga ' + [...new Set(muertos.map(f => f.archivo))].join(', ') +
+    ', asi que');
+  console.log('    la clave no ocupa disco hoy. No se la resta por poco: se la nombra,');
+  console.log('    porque el dia que ese modulo se cargue aparecen +' + muertos.length +
+    ' sin que nadie mire este script. Con ellas el total serian ' + unicas + '.');
+}
 console.log('');
 console.log('  SI el numero difiere de otro censo, la diferencia TIENE NOMBRE.');
 console.log('  El del PO (8) sumo el marcador de frescura como clave de cache, y conto');
