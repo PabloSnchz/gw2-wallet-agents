@@ -12,7 +12,7 @@
 
 | agente | ID | rol | heartbeat | estado actual |
 |--------|----|-----|-----------|---------------|
-| Principal | `default` | Dev senior. Propone, implementa, mergea a `main`, pushea. Único que mergea. | Activo. Cron `13dc22e6` `*/30 * * * *` UTC, `share_session: false`, timeout 900s. `agent.json`: `every 30m`, `enabled: true` | Activo. Heartbeat #37 (2026-09-30 00:00 UTC). Modelo `kilo-auto/free` |
+| Principal | `default` | Dev senior. Propone, implementa, mergea a `main`, pushea. Único que mergea. | Activo. Cron `13dc22e6` `*/30 * * * *` UTC, `share_session: false`, timeout 900s. `agent.json`: `every 30m` pero `enabled: **false**` — el `agent.json` NO lo corre; el mecanismo vivo es el cron (verificado 2026-09-30 contra `jobs.json` y `agent.json`) | Activo. Heartbeat #37 (2026-09-30 00:00 UTC). Modelo `kilo-auto/free` |
 | Code Reviewer | `Code-Reviewer` (⚠️ ver nota 1) | Revisor crítico. NO escribe código, NO commitea. Valida propuestas antes de aplicarse. | Desactivado por diseño. `agent.json`: `enabled: false`, `every 6h` | Operativo con intermitencia. Racha de 14 timeouts rota en HB#37: respondió `task-f80666adeb79`, veredicto "aprobado con cambios" con 6 hallazgos |
 | Documentador | `documenter` | Documenta `CHANGELOG.md` / `README.md` / `ONBOARDING.md`. Hace commit y push de docs. | ⚠️ A CONFIRMAR. `agent.json` dice `enabled: true`, `every 4h`, timeout 900s. `CRON_SCHEDULE.md` solo lista 2 heartbeats (Principal y PO) | Operativo con caídas. 7 timeouts consecutivos en su historial; recuperado en HB#30 y HB#33 |
 | Product Owner | `product-owner` | Alterego de Pablo como usuario. Detecta fricciones, propone features, prioriza. NO escribe código de producción. | Activo. NO es un cron de QwenPaw: `agent.json` con `every 2h`, `enabled: true`, timeout 300s (equivalente a `0 */2 * * *`) | Activo y productivo. Última entrega en vuelo al cierre de HB#37 |
@@ -192,7 +192,7 @@ Telegram, DingTalk, Feishu, QQ, Slack, Matrix, WeChat, etc.) están `disabled`.
 | chat | agente | session id | para qué |
 |------|--------|-----------|----------|
 | Desarrollo — Bóveda del Gato Negro | `default` | `1790264876233-s66k3aw` | Trabajo de código, features, fixes, implementaciones |
-| Admin — Ecosistema multi-agente | `default` | `1790305907439-1wpuw3u` | Administración del ecosistema: agentes, crons, MCPs, permisos, organización. Es donde nace este ORG_MAP |
+| ~~Admin — Ecosistema multi-agente~~ | `default` | `1790305907439-1wpuw3u` | **RETIRADO 2026-09-30.** No era un agente: era un chat manual de Pablo dentro de `default`. La administración del ecosistema (agentes, crons, MCPs, permisos, organización) la hace hoy el **Arquitecto** (`architect`), como director de estructura. Aquí nació este ORG_MAP |
 | Mapa organizacional del ecosistema | `default` | `1790728294420-wa11wi8` | Creación de ORG_MAP.md (esta sesión) |
 | Resumen del estado actual del ecosistema | `architect` | `1790447070263-lhuuzna` | Pablo ↔ Arquitecto. Asesoramiento y auditoría |
 | Completada Phase 2 Armería Legendaria | `architect` | `1790580926601-8j8fw51` | Pablo ↔ Arquitecto |
