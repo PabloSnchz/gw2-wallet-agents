@@ -1,7 +1,7 @@
 /*!
  * js/legendary-tracker.js — Armería Legendaria
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.0.0 (2026-09-28) — Skeleton Phase 1
+ * Versión: 1.0.1 (2026-09-30) — Skeleton Phase 1, estado honesto (ALERT-84)
  *
  * Módulo que reemplaza al filtro Legendario dentro de Logros (achievements.js).
  * Proporciona un catálogo completo de armas/armaduras/trinketes legendarios
@@ -23,7 +23,9 @@
   'use strict';
 
   var LOG = '[LegendaryTracker]';
-  var VER = '1.0.0';
+  // 1.0.1 (ALERT-84 T1): el estado que la app dice de si misma. La funcionalidad
+  // sigue sin implementar — esto NO es la T3 del PO.
+  var VER = '1.0.1';
 
   // ========================================================================
   // 1. CONFIGURACIÓN / ESTADO
@@ -163,13 +165,34 @@
     console.log(LOG, 'mode changed to:', mode);
   }
 
+  // ALERT-84 (PO, ronda 17). Estas dos funciones se llamaban "skeleton" y decian
+  // "Cargando catalogo de legendarias..." PARA SIEMPRE. La cadena era:
+  //
+  //     doRefresh() -> loadLegendaryData()  // stub, resuelve [] en microsegundos
+  //                 -> renderCatalogSkeleton()
+  //
+  // El stub resuelve, no rechaza, y no hay timeout ni reintento: el ciclo
+  // termina y lo que queda painted es la palabra "Cargando". Un error se
+  // investiga; un "Cargando" infinito se espera.
+  //
+  // Lo que cambia aqui NO es la funcionalidad (T3/T4 la implementan) sino el
+  // ESTADO que la app dice de si misma. El item de menu es visible
+  // (`index.html:750`), la ruta esta registrada (`router.js:125`) y el panel
+  // existe (`index.html:528`): desde el momento en que eso es cierto, el
+  // esqueleto dejo de ser una etapa interna y paso a ser una PROMESA, y no hay
+  // forma de retractarla porque no existe el estado "todavia no".
+  //
+  // Se conservan los `id` (`legendaryCatalogGrid`, `legendaryProgressList`) y el
+  // grid de 5 columnas: son el contrato que `render-catologo.js` (Phase 3
+  // Commit 1, todavia no cableado) va a usar cuando T3/T4 lo enganchen. Lo que
+  // no se conserva es la palabra "Cargando".
   function renderCatalogSkeleton() {
     var content = $('#legendaryModeContent');
     if (!content) return;
 
     content.innerHTML = ''
       + '<div class="legendary-catalog" id="legendaryCatalogGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">'
-      +   '<p class="status muted">Cargando catálogo de legendarias…</p>'
+      +   '<p class="status muted">Armería legendaria: módulo en construcción. El catálogo todavía no está implementado.</p>'
       + '</div>';
   }
 
@@ -179,7 +202,7 @@
 
     content.innerHTML = ''
       + '<div class="legendary-progress" id="legendaryProgressList">'
-      +   '<p class="status muted">Cargando tu progreso de legendarias…</p>'
+      +   '<p class="status muted">Armería legendaria: módulo en construcción. El seguimiento de progreso todavía no está implementado.</p>'
       + '</div>';
   }
 
