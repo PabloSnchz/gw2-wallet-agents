@@ -236,6 +236,146 @@ section('5. 49D — el barrido de huerfanas no puede borrar gw2_keys');
            'La 49D queda BLOQUEADA, y la razon es esta, no una regla de estilo.');
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   6. EL ESPEJO, POR LOS 4 PARES (Idea 61 Tramo 3, recambiado por el Reviewer)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ALERT-76: con el espejo mergeado, "las dos claves tienen el mismo largo" es
+   tautologico — Storage.set escribe las dos. Y la unica asercion que quedaba
+   sobre el espejo era un REGEX sobre el texto de MIRROR_MAP: una red que no
+   puede romperse porque no mira comportamiento.
+
+   Este test no verifica un fix. Es una RED que hoy esta en verde y mañana tiene
+   que SEGUIR en verde: si alguien saca el espejo de `set`, o de `get`, o del
+   resync del arranque, el FAIL tiene que aparecer aca y no en produccion.
+
+   Y aca esta el invariante bien escrito, que no es el que habia propuesto:
+
+     NO es "si y solo si NADIE escribe por afuera". _resyncMirrors existe PARA
+     TOLERAR escritores externos: si un modulo escribe la legacy a pelo, el
+     espejo se refresca igual en el siguiente arranque. O sea que el espejo se
+     mantiene AUNQUE alguien escriba por afuera, y la palabra "solo" describe
+     algo que el codigo no promete.
+
+     Lo que si es cierto por construccion: el espejo se mantiene para todo
+     LECTOR que pase por Storage, haya o no escritor crudo, porque Storage.get
+     lee la legacy primero (storage.js:252-258). Y lo que hay que FORBIDAR no
+     es el escritor crudo de la legacy — que HOY es el que escribe, y sin el la
+     lista de cuentas se pierde — sino el LECTOR CRUDO de la gn:, que es el
+     unico que se saltaria el espejo. De ahi el conteo de la pieza 2.
+   */
+section('6. el espejo, en comportamiento, para los 4 pares de MIRROR_MAP');
+
+{
+  const src = fs.readFileSync(path.join(JS, 'storage.js'), 'utf8');
+
+  /* --- los 4 pares, leidos de MIRROR_MAP (no de MIGRATION_PREFIXES) --- */
+  const mM = src.indexOf('const MIRROR_MAP = {');
+  const pares = [...src.slice(mM, mM + 1200)
+    .matchAll(/'(gn:[^']+)':\s*'([^']+)'/g)].map(m => ({ gn: m[1], legacy: m[2] }));
+
+  ok(pares.length === 4,
+     'MIRROR_MAP declara 4 pares espejo',
+     'declarados ' + pares.length + ': ' + pares.map(p => p.gn).join(', '));
+
+  // Un valor de escritura por par. Uno es string a proposito: `set` tiene dos
+  // ramas (`typeof value === 'string'` o no) y probando solo una de las dos, la
+  // otra queda sin cubrir.
+  const VAL = {
+    'gn:account:keys':          [{ value: 'k1', label: 'Main' }, { value: 'k2' }],
+    'gn:account:selected':      'k2',
+    'gn:activities:home:nodes': { v: [1, 2, 3] },
+    'gn:activities:toggles':    { t: 'raid' },
+  };
+  const NUEVO = {
+    'gn:account:keys':          [{ value: 'k1' }, { value: 'k9' }],
+    'gn:account:selected':      'k9',
+    'gn:activities:home:nodes': { v: [4, 5] },
+    'gn:activities:toggles':    { t: 'strike' },
+  };
+  const crudo = v => (typeof v === 'string' ? v : JSON.stringify(v));
+
+  for (const { gn, legacy } of pares) {
+    const v = VAL[gn], nv = NUEVO[gn];
+
+    /* --- 6.1 set escribe en las DOS --- */
+    let ls = nuevoLS();
+    let S = cargarStorage(ls);
+    S.init();
+    S.set(gn, v);
+    ok(ls.getItem(gn) === crudo(v) && ls.getItem(legacy) === crudo(v),
+       'set(' + gn + ') escribe en las dos claves',
+       'gn:=' + ls.getItem(gn) + ' legacy=' + ls.getItem(legacy));
+
+    /* --- 6.2 remove borra en las DOS --- */
+    S.remove(gn);
+    ok(ls.getItem(gn) === null && ls.getItem(legacy) === null,
+       'remove(' + gn + ') borra las dos: si no, la legacy revive en el resync',
+       'gn:=' + ls.getItem(gn) + ' legacy=' + ls.getItem(legacy));
+
+    /* --- 6.3 SESION: el lector por Storage ve la NUEVA, sin reiniciar ---
+     * A un escritor crudo de la legacy, cambia la legacy a pelo y se mira lo
+     * que devuelve Storage.get. Esto es lo que ve la app hoy mismo.
+     */
+    S.set(gn, v);
+    ls.setItem(legacy, crudo(nv));
+    const leido = S.get(gn);
+    ok(JSON.stringify(leido) === JSON.stringify(nv),
+       'get(' + gn + ') lee la legacy primero, en sesion, sin arrancar',
+       'devolvio ' + JSON.stringify(leido) + ' y la legacy tiene ' + crudo(nv));
+
+    /* --- 6.4 DISCO: en el siguiente arranque la gn: se refresca ---
+     * _resyncMirrors corre SOLO desde init(). Asi que "lo que ve un lector" y
+     * "lo que quedo escrito" son DOS hechos distintos, y por eso son DOS
+     * aserciones: si solo midieras el disco, estarias probando un arranque; si
+     * solo midieras la sesion, no estarias probando que la foto se refresca.
+     */
+    const antesDelBoot = ls.getItem(gn);
+    const S2 = cargarStorage(ls);
+    S2.init();
+    ok(ls.getItem(gn) === crudo(nv),
+       'init() resincroniza la gn: EN DISCO desde la legacy',
+       'antes del arranque la gn: era ' + antesDelBoot +
+       ' y quedo ' + ls.getItem(gn) + ' con legacy ' + crudo(nv));
+  }
+
+  /* ── pieza 2: lo que el audit cuenta, exigido en 0 ───────────────────────
+   * NO se reimplementa el barrido: se corre el audit y se mira lo que dice.
+   * Misma norma que la seccion 4.
+   */
+  const r = require('child_process').spawnSync(
+    process.execPath, [path.join(ROOT, 'tools', 'audit-61-congeladas.mjs')],
+    { encoding: 'utf8' });
+  const salida = (r.stdout || '') + (r.stderr || '');
+  const mEsc = salida.match(/ESCRITORES CRUDOS \(legacy espejo\):\s*(\d+)/);
+  const mGNR = salida.match(/LECTORES CRUDOS \(gn: espejo\):\s*(\d+)/);
+  ok(!!mEsc && !!mGNR,
+     'el audit imprime el agregado de los pares espejo',
+     'salida: ' + salida.slice(-300));
+  ok(mEsc && parseInt(mEsc[1], 10) === 0,
+     'nadie escribe a pelo la legacy de un par espejo, fuera de Storage',
+     'el audit encuentra ' + (mEsc && mEsc[1]));
+  ok(mGNR && parseInt(mGNR[1], 10) === 0,
+     'nadie LEE a pelo la gn: de un par espejo (el que se saltaria el espejo)',
+     'el audit encuentra ' + (mGNR && mGNR[1]));
+
+  /* ── pieza 3: LA QUE SOSTIENE A LAS OTRAS DOS ───────────────────────────
+   * Si una gn: de MIRROR_MAP no estuviera en MIGRATION_PREFIXES, el audit la
+   * seguiria mirando (arma sus pares de MIRROR_MAP) pero la MIGRACION no la
+   * traeria nunca, y el par empezaria a existir solo en un lado. Sin esta
+   * asercion, las dos de arriba vigilan un conjunto que puede menguar en
+   * silencio: el recuento bajaria y el `=== 0` seguiria en verde.
+   */
+  const mP = src.indexOf('MIGRATION_PREFIXES = [');
+  const legacyDeMigracion = new Set(
+    [...src.slice(mP, mP + 4000).matchAll(/\{\s*from:\s*'([^']+)'[^}]*to:\s*'([^']+)'/g)]
+      .map(m => m[1]));
+  const huerfanas = pares.filter(p => !legacyDeMigracion.has(p.legacy)).map(p => p.gn);
+  ok(huerfanas.length === 0,
+     'toda gn: de MIRROR_MAP tiene su legacy en MIGRATION_PREFIXES',
+     'sin contraparte de migracion: ' + huerfanas.join(', '));
+}
+
 console.log('\n' + '='.repeat(64));
 console.log('TOTAL: ' + pass + ' pass, ' + fail + ' FAIL');
 if (fail) {
