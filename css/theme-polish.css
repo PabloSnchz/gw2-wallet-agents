@@ -1417,6 +1417,14 @@ aside.col-side .panel-head img {
 .id-status-msg.error {
   color: var(--color-red);
 }
+
+/* Aviso de lectura incompleta (Idea 47 commit 1). Capa 2: borde unificado.
+   Solo borderLeft, como el resto de los avisos por color. */
+.inv-read-error {
+  border-left: 3px solid var(--color-red);
+  background: var(--bg-1);
+  border-radius: 8px;
+}
 .id-timestamp {
   color: var(--tx-3);
   font-family: monospace;

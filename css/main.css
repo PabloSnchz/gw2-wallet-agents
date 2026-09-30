@@ -1585,3 +1585,21 @@ th.sortable:hover{ background:var(--bg-2) }
 .cv-delivery .btn--xs {
   align-self: flex-start;
 }
+
+/* === Aviso de lectura incompleta (Idea 47 commit 1) ===
+   Un error que se muestra como un 0 es indistinguible de "no tenes nada".
+   inventory-hub lo usa cuando una fuente (banco/materiales/armeria) no se pudo
+   leer: el numero de abajo es de ESTA carga, no de la cuenta.
+   Capa 1 (main.css): solo estructura. Sin borde ni box-shadow — el borderLeft
+   semantico va por tema, como el resto de la app. */
+.inv-read-error {
+  text-align: center;
+  padding: 14px;
+  margin-bottom: 16px;
+  color: var(--color-red);
+  font-size: 0.8rem;
+}
+.inv-read-error small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}

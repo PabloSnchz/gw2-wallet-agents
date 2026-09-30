@@ -1,7 +1,7 @@
-﻿/*!
+/*!
  * js/raid-tracker.js — Seguimiento de Raids Semanales
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.8.0 (2026-04-23) — Modal con tabs funcionando + LI disponibles (ID 70)
+ * Versión: 1.9.0 (2026-09-30) — allSettled defensivo en raids + LI (Idea 47 c1)
  */
 
 (function (root) {
@@ -1722,11 +1722,32 @@
       startTimers();
 
       try {
-        var [completed, liAvailable] = await Promise.all([
+        // allSettled en vez de Promise.all. OJO: este bloque NO cambia el
+        // comportamiento observable hoy, y no pretende.
+        //   - Si getAccountRaids falla, el `throw` de abajo reproduce exactamente
+        //     lo que hacia Promise.all: cae al catch que renderiza
+        //     "Error al cargar datos de raids". La columna de LI NO sobrevive a
+        //     un fallo de raids; para eso habria que renderizar en parcial, que
+        //     es un cambio de comportamiento y no entra en el commit 1.
+        //   - La unica ganancia real es defensiva: un rechazo inesperado de
+        //     loadLiAvailable ya no puede tumbar la carga de raids, y LI conserva
+        //     el valor previo en vez de volverse null (updateLiDisplay() le
+        //     llama .toLocaleString(), que revienta con null).
+        var settled = await Promise.allSettled([
           root.GW2Api.getAccountRaids(token, { nocache: !!forceNoCache }),
           loadLiAvailable(token)
         ]);
-        
+        if (settled[0].status === 'rejected') throw settled[0].reason;
+        // loadLiAvailable ya tiene su propio catch y devuelve 0, asi que en la practica
+        // esto no rechaza. Si alguna vez lo hiciera, conservamos el valor previo en vez
+        // de dejar null: updateLiDisplay() llama .toLocaleString() sobre este valor.
+        if (settled[1].status === 'rejected') {
+          console.warn(LOG, 'No se pudo leer la disponibilidad de LI:', settled[1].reason);
+        }
+
+        var completed = settled[0].value;
+        var liAvailable = settled[1].status === 'fulfilled' ? settled[1].value : state.liAvailable;
+
         state.completedEncounters = Array.isArray(completed) ? completed : [];
         state.liAvailable = liAvailable;
         

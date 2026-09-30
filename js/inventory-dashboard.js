@@ -1,7 +1,7 @@
 /*!
  * js/inventory-dashboard.js — Dashboard de Inventario Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.1.0 (2026-09-29)
+ * Versión: 1.2.0 (2026-09-30) — allSettled en FASE 1 + error por fuente (Idea 47 c1)
  *
  * Cambios v1.1.0:
  *  - FASE 2 de la carga (loadCharactersInBackground) pasa de `accounts.map()` a un pool de
@@ -318,20 +318,34 @@
             var token = k.value;
             var label = k.label || ('Key ' + fpToken(token));
             var fp = fpToken(token);
-            Promise.all([
+            // allSettled (no Promise.all): si el banco falla, los materiales y el
+            // accountInfo de ESA cuenta siguen siendo datos validos. Con Promise.all
+            // un unico rechazo caia al catch de abajo y descartaba los tres.
+            // getAccountInfo ya degrada a null (tiene su propio catch), lo que el codigo
+            // de abajo convierte en el error de "cuenta sin acceso al juego".
+            // Antes este string era 'account does not have game access' (ingles, sin
+            // contexto). Ahora nombra QUE no se pudo leer, que es lo que el tooltip muestra.
+            Promise.allSettled([
               root.GW2Api.getAccountBank(token, { nocache: !!forceNoCache }),
               root.GW2Api.getAccountMaterials(token, { nocache: !!forceNoCache }),
               root.GW2Api.getAccountInfo(token, { nocache: !!forceNoCache }).catch(function() { return null; })
             ])
               .then(function(results) {
-                var bankData = Array.isArray(results[0]) ? results[0] : [];
-                var materialsData = Array.isArray(results[1]) ? results[1] : [];
-                var accountInfo = results[2];
-                
-                // Si getAccountInfo falló (devuelve null), la cuenta no tiene acceso al juego
+                var bankData = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
+                var materialsData = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+                var accountInfo = results[2].status === 'fulfilled' ? results[2].value : null;
+
+                // Distinguir "no pude leer" de "no tenes nada": cada rejection se
+                // nombra, en vez de dejar un 0 indistinguible de una cuenta vacia.
                 var error = null;
-                if (!accountInfo) {
-                  error = 'account does not have game access';
+                var unread = [];
+                if (results[0].status === 'rejected') unread.push('banco');
+                if (results[1].status === 'rejected') unread.push('materiales');
+                if (!accountInfo) unread.push('cuenta sin acceso al juego');
+                if (unread.length) error = 'No se pudo leer: ' + unread.join(', ');
+                if (results[0].status === 'rejected' || results[1].status === 'rejected') {
+                  console.warn(LOG, 'Error reading inventory for', label,
+                    results[0].reason || results[1].reason);
                 }
                 
                 out.push({
