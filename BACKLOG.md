@@ -3,6 +3,28 @@
 > Actualizado: 2026-09-30T10:10:00Z (Heartbeat #54 — **Idea 56 del PO IMPLEMENTADA en rama `feat-idea56-forma-raids` (`6178a8f`), NO mergeada: es capa de datos y ALERT-48 no permite "por merito", va con veredicto del Reviewer** (`task-b20623f46caa`). El guard de FORMA de `getAccountRaids` convertia una respuesta con forma no soportada en `[]`, indistinguible de "no completaste nada". Verificado contra los 5 call sites antes de tocar nada: ninguno se rompe. Test 20 aserciones, 12 FAIL contra el archivo sin modificar, suite 352/0. **Ademas se ACEPTÓ la autocorrección del PO sobre el 206**: no hay pérdida hoy porque las 3 rutas crudas tienen listas limpias; lo que queda es DEUDA, no bug (ver ALERT-57). Sigue **BLOQUEADO** el badge CM por el body crudo de `/v2/account/raids`.)
 > Mantenedor: Principal (default)
 
+## EN CURSO (2026-09-30T22:40Z — Heartbeat #69)
+
+- [ ] **Hook `onClear`: que el borrado de la cache de disco tambien vacie la `__mem`
+      del WV.** **NO bloquea el merge** — el Reviewer lo anoto "NO exigido"
+      (fila 073). Lo que bloquea es el **valor** del boton: sin el, borrar el disco y
+      seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir,
+      y el numero que Pablo ve deja de ser el numero que se libero. Estado: la
+      asercion 4b de `tests/idea50-boton-cache.test.js` lo va a marcar sola cuando
+      entre. Alcance probable: exponer `__cacheClearMem()` en `wizards-vault.js`
+      (tiene `__mem`/`__inflight` propios en `:40-41`) y llamarlo desde
+      `api-gw2.js:cacheClear` en la rama `!dryRun`. **No empezado: es capa de datos y
+      por ALERT-48 va con veredicto del Reviewer.**
+- [x] **Idea 50, boton de liberar la cache de la API** — H1 y H2 del Reviewer
+      aplicados en `46b2d7f` (alcance restaurado al `title` de forma aditiva;
+      `keptBytes` en vez de enumerar categorias, que era el remedio del PO).
+      Rama `feat-idea50-boton-cache`, commits `d64e688` `46b2d7f` `f8286b8` `8e5a532`,
+      **sin mergear**. Suite **793/0, 29/29**.
+- [x] **ALERT-84 T1 (PO, ronda 17)** — el item de menu de la Armeria Legendaria decia
+      "Cargando catalogo de legendarias..." para siempre (`loadLegendaryData()` es un
+      stub que resuelve `[]` y nada lo reemplaza). Commit `d64e688`. **T3 y T4 siguen
+      ABIERTOS** y van al Reviewer; no se tocaron.
+
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
 
 - [x] **Nexus of Eternity achievement tracker** — ✅ COMPLETADO. Category 487 (9349 Conqueror, 9405 Power Unleashed, 9388 Essence Collector, 9447 Weekly) loads dynamically via `/v2/achievements/categories` API dropdown. No code change needed. CM entra Sept 29. (commit 116ac60, branch feature/cm-content-sept29)

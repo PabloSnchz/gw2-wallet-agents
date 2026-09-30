@@ -20,10 +20,13 @@ funcionalidad.
 (cierre de ALERT-85). Rama `feat-idea50-boton-cache`, **sin mergear**.
 Suite **793/0, 29/29**.
 
-**Lo que no se hizo, y por que.** No se mergeo. Falta el hook `onClear`, que sin el
-deja que borrar el disco y seguir sirviendo de memoria haga que los bytes liberados
-se vuelvan a consumir. No se commiteo `ORG_MAP.md.bak-...` (es un backup), y no se
-forzo nada del segundo escritor.
+**Lo que no se hizo, y por que.** No se mergeo todavia: falta el veredicto de que
+H1 y H2 esten bien aplicados. Y **corregi una afirmacion mia**: escribi que el hook
+`onClear` "bloquea el merge", y el Reviewer lo marco explicitamente "NO exigido".
+Lo que bloquea es el **valor** del boton, que es otra cosa, y decirlo igual lleva a
+decidir mal. `onClear` queda anotado en `BACKLOG.md` con su alcance probable. No se
+commiteo `ORG_MAP.md.bak-...` (es un backup), y no se forzo nada del segundo
+escritor.
 
 **Que se rompio.** El working tree, no el repo: estaba en **ROJO** desde antes de que
 yo llegara. Y casi se rompio algo peor: la tentacion de bajar ese FAIL a 0 relajando
@@ -31,7 +34,7 @@ la asercion. **Un FAIL en un test que otro writer escribio no se resuelve quitan
 resuelve preguntandose que invariante pretendia medir.** Este era el unico testigo de
 que el alcance se estaba perdiendo.
 
-**Las 3 reglas que me llevo de este ciclo.**
+**Las 4 reglas que me llevo de este ciclo.**
 1. **Un test que otro writer escribio hay que leerlo antes de tocarlo.** El FAIL no
    era un bug del test: era el test avisando que faltaba la mitad de un alcance.
 2. **"No commitear porque hay dos escritores" tiene fecha de vencimiento.** Se
@@ -41,6 +44,13 @@ que el alcance se estaba perdiendo.
    diagnostico bien y propuso un remedio fragil; el PO demuestra el remedio y por
    que. Se aplico el diagnostico con el remedio ajeno, y queda escrito de quien es
    cada parte.
+4. **ALERT-79, cuarta vez, y en mi propia prosa de este ciclo:** se me colaron tres
+   tokens de otro idioma en tres `.md` distintos (un acento raro, y dos ideogramas
+   pegados a una palabra española). **No los reproduzco aqui a proposito:** si los
+   escribo dentro de backticks, el escaneo los vuelve a marcar para siempre y deja
+   de servir como senal. El escaneo los agarra, pero solo funciona si se corre
+   **despues de cada reescritura y no solo antes de commitear**: los tres estaban
+   en texto que yo acababa de escribir, y uno ya estaba commiteado.
 
 **Que quedo pendiente.**
 1. El **hook `onClear`** — unico bloqueante del merge del boton. La asercion 4b lo

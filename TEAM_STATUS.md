@@ -69,12 +69,16 @@ contrato que `render-catologo.js` va a usar. Commit `d64e688`.
 | **Suite** | **793/0 FAIL, 29/29 archivos** (crece de 739) |
 | **Commits del ciclo** | `d64e688` ALERT-84 T1 · `46b2d7f` keptBytes + H1 · `f8286b8` cierre ALERT-85 |
 | **Rama** | `feat-idea50-boton-cache` — **SIN MERGEAR a proposito** |
-| **Bloquea el merge** | El hook `onClear`: sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir |
+| **Bloquea el merge** | **Nada.** El Reviewer escribio que `onClear` esta "NO exigido"; H1 y H2 eran la condicion y ya estan. Ver la fila siguiente |
+| **Lo que si queda pendiente** | El hook `onClear` no bloquea el merge pero si el **valor** del boton: sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir, y el numero que Pablo ve deja de ser el que se libero. Anotado en `BACKLOG.md` |
 | **Sin commitear** | `ORG_MAP.md.bak-20260930-chatadmin` (backup, no es codigo) |
 | **Produccion** | No se toca. Nada promovido a `origin`. |
 
 **H1 y H2 del Reviewer estan corregidos**, que era la condicion que puso para
-mergear. Falta solo `onClear`, que es codigo nuevo y no un ajuste de copy.
+mergear. Correccion a lo que escribi mas arriba en este mismo ciclo: **`onClear`
+NO bloquea el merge** — el Reviewer lo marco "NO exigido". Lo que bloquea es el
+valor del boton, que es distinto de bloquear el merge, y no conviene escribir dos
+cosas distintas como si fueran una.
 
 ---
 
