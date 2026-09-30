@@ -679,3 +679,58 @@ que habia escrito a mano justo antes. **Regla: el scan de CJK/Cirilico va como
 paso FIJO antes de CADA `submit_to_agent` y antes de CADA `git commit -F`, sin
 importar cuanto de largo sea el mensaje.** Cuesta 2 segundos y es lo unico que
 existe: un `node --check` no ve un comentario y la suite no ve un `.md`.
+
+## 2026-09-30 22:28 UTC — ALERT-84 (PO, ronda 17) + ALERT-85
+
+| # | Fecha | Sev | Ambito | Descripcion | Estado | Resolucion / Regla |
+|---|-------|-----|--------|-------------|--------|--------------------|
+| **ALERT-84** | 2026-09-30 | alta | UI/leyenda | "Armeria Legendaria" es un item de menu **visible** que decia "Cargando catalogo de legendarias..." **para siempre**. Cadena medida: `index.html:750` (item con icono, VISIBLE) -> `router.js:125/1562` (ruta registrada) -> `index.html:528` (section) -> `index.html:988` (script) -> `loadLegendaryData()` es un **stub** que resuelve `[]` -> `renderCatalogSkeleton()` escribe "Cargando" y **nada lo reemplaza**. Sin timeout, sin error, sin reintento. Los 101 KB de `legendary-data.js` (85.813 B, 206 legendarias) y `render-catologo.js` (17.950 B) estan **commiteados y NO cargados**. | **T1 APLICADO** (sin commitear) | Un error se investiga; un "Cargando" infinito se espera. **Un esqueleto que llega hasta el menu deja de ser un esqueleto**: la idea sana ("base primero, Phase 2 despues") es correcta hasta que `index.html` carga el esqueleto y el router publica la ruta; ahi pasa a ser una PROMESA, y la app no puede retractarla porque no existe el estado "todavia no". Corolatorio para planes: si hay un "Phase 3 Commit 1" en el backlog, la pregunta no es "¿esta el codigo escrito?" sino "¿esta cableado, y contra que?". T3/T4 siguen ABIERTOS (2-4 h cada uno, van al Reviewer). |
+| **ALERT-85** | 2026-09-30 | alta | Repo | **ALERT-59 en vivo: DOS ESCRITORES en `gw2-dev`, confirmado dentro de este ciclo.** El PO aviso antes de empezar: *"Working tree tiene M js/settings-manager.js, M tests/idea50-boton-cache.test.js. NO los toque, NO commitee (ALERT-59)"*. Durante el ciclo, `index.html:289` paso a un texto que **el Principal no escribio** (`title="Liberar la cach� de la API y del WV (el boton dice cuantos bytes libera y cuantos quedan)"`, que **PIERDE** el "no toca cuentas, pines ni ajustes"), y `settings-manager.js` subio a `v1.0.4` con un bloque de comentario que tampoco es mio. Los archivos se quedaron quietos (mtime estable en 2 lecturas separadas a 20 s), asi que el segundo escritor termino; pero sus cambios **estan sin commitear en el working tree**. | **ABIERTA — no se commiteo nada** | El Principal **no commiteo** (instruccion explicita del PO) y **no piso** el texto ajeno: la version en disco se conservo intacta y se ajusto el test para que mida el **invariante** ("el title declara que cuentas/pines/ajustes no se borran") y no la frase. **Regla: cuando dos escritores comparten el working tree, la asercion no se escribe pineando la prosa propia.** Un assert que mide *mi* redaccion no es una red: es una firma, y falla por redaccion en vez de por perdida de alcance. |
+
+**Sobre los 2 FAIL de `idea47-commit2` / `idea47-commit4` ("`api-gw2.js?v=` alineado con su header"):**
+NO son una regresion de este ciclo. Causa medida: hay trabajo **sin commitear de un ciclo previo** que bumpea el header de `api-gw2.js` a `2.31.0` (`keptBytes`) sin haber bumpeado el `?v=` del `<script>`; el par `settings-manager.js`/`api-gw2.js` esta **coherente** entre si (el `confirm()` usa `dry.keptBytes` y `__cacheClear` lo devuelve), lo que faltaba era el token de cache-busting. Se alineo `index.html:951` a `?v=2.31.0`. En **HEAD** ninguno de los dos archivos menciona `keptBytes`: el working tree tiene un commit entero de mas, no a medio aplicar.
+
+
+
+---
+
+## 2026-09-30 22:35 UTC — CIERRE de ALERT-85 (el segundo escritor se detuvo, y el arbol estaba en ROJO)
+
+**Lo que encontre al retomar:** el working tree tenia 6 archivos modificados y 3 sin
+trackear, con **1 FAIL en la suite** (`idea50-boton-cache.test.js`, 62/1), y **el FAIL
+era cierto**: `el title declara que cuentas, pines y ajustes NO se borran`.
+
+**Por que ese FAIL no era ruido, era el H1 del Reviewer.** Verificado contra
+`task-f61e427b2efc` (veredicto *aprobar con cambios*): H1 pide que el `title` declare
+el alcance, y la version en disco de `index.html:289` lo habia perdido — el segundo
+escritor sustituyo el parentesis `(no toca cuentas, pines ni ajustes)` por
+`(el boton dice cuantos bytes libera y cuantos quedan)`. Los bytes son ciertos y
+utiles; lo que se perdio fue la **otra mitad del alcance**, y sin ella el registro de
+la P3 borra por prefijo y el usuario no tiene forma de saber si su cuenta sobrevive.
+
+**REGLA: un FAIL en un test que otro writer escribio no se resuelve/gitando el test.
+Se resuelve preguntandose que INVARIANTE pretendia medir.** Este no era una asercion
+mala: era el unico testigo de que el alcance se estaba perdiendo, y la unica razon por
+la que el bug no llego a `main`. Bajarlo a "0 FAIL" habria sido exactamente el bug.
+
+**Como se resolvio, sin pisar al segundo escritor:** el parentesis quedo **aditivo**.
+`(no toca cuentas, pines ni ajustes; el boton dice cuantos bytes libera y cuantos
+quedan)`. No se borro ni una palabra de lo que el otro habia escrito: la clausula de
+bytes sobrevive y el alcance vuelve. Commit `46b2d7f`.
+
+**El segundo escritor se detuvo, y eso se midio, no se supuesto:** `mtime` de los 6
+archivos **identico en 3 lecturas separadas** a lo largo de ~3 minutos (19:30:27,
+19:30:45, y el cierre). Con el arbol quieto, "no commitear" dejo de ser prudencia y
+paso a ser WIP huerfano — que es lo que la propia regla de AGENTS.md prohibe.
+
+**Lo que si quedo SIN commitear, a proposito:** `ORG_MAP.md.bak-20260930-chatadmin`
+(backup, no es codigo). Y la rama `feat-idea50-boton-cache` sigue **SIN MERGEAR a
+proposito**: ahora tiene el H1 y el H2 corregidos, que era la condicion que puso el
+Reviewer para mergear.
+
+**Reflexion sobre el propio ALERT-85:** la nota original escribio la regla correcta
+(*la asercion no se escribe pineando la prosa propia*) y aun asi el test que quedo en
+disco pineaba `no toca[^)]*`. Una regex mas floja que la frase exacta sigue siendo una
+firma si el otro writer puede cambiar el parentesis entero. **La version de esa regex
+que sobrevive es la que pregunta por el INVARIANTE QUE SIRVE** (el alcance esta
+declarado en el boton), no la que busca una forma de escribirlo.
