@@ -25,5 +25,5 @@ _(vacío — ningún feat esperando aprobación en este momento)_
 | Fecha | Decisión |
 |-------|----------|
 | 2026-09-30 | `57008ae` (Raid Tracker — ala 9 "Nexus of Eternity", boss Vloxx): **AUTORIZADO** en producción. Autorización retroactiva; Pablo lo revisó. No tocar. |
-| 2026-09-30 | `392c3b9` (Solitary Throne CM daily tracker): **PENDIENTE**. No revertir ni modificar hasta instrucción de Pablo. |
+| 2026-09-30 | `392c3b9` (Solitary Throne CM daily tracker): **AUTORIZADO** en producción. Autorización retroactiva de Pablo. No modificar ni revertir sin nueva instrucción. |
 | 2026-09-30 | `07e4c64` (Idea 2 — wallet-dashboard columnas Personajes/AP/Raids): **REVERTIDO** de producción. Autorizado por Pablo y revertido con `a1a53c4`. Sigue en `agents/main`. |

@@ -4,6 +4,10 @@
 > Fuente: los 5 `AGENTS.md` de los workspaces + `agent.json` de cada agente +
 > `git remote -v` de los 3 repos + `qwenpaw cron list` / `qwenpaw chats list` / `qwenpaw channels list`.
 > Verificado contra el código real el 2026-09-30.
+> Actualizado el 2026-09-30 tras la migración de clones y la corrección de los
+> 5 drivers MCP. Cambios: topología de clones, worktrees, permisos reales
+> (de "regla de honor" a enforcement), y el rol del Arquitecto como director
+> de la estructura del ecosistema.
 > Los `AGENTS.md` no están versionados: viven en los workspaces, no en el repo.
 
 ---
@@ -16,7 +20,7 @@
 | Code Reviewer | `Code-Reviewer` (⚠️ ver nota 1) | Revisor crítico. NO escribe código, NO commitea. Valida propuestas antes de aplicarse. | Desactivado por diseño. `agent.json`: `enabled: false`, `every 6h` | Operativo con intermitencia. Racha de 14 timeouts rota en HB#37: respondió `task-f80666adeb79`, veredicto "aprobado con cambios" con 6 hallazgos |
 | Documentador | `documenter` | Documenta `CHANGELOG.md` / `README.md` / `ONBOARDING.md`. Hace commit y push de docs. | ⚠️ A CONFIRMAR. `agent.json` dice `enabled: true`, `every 4h`, timeout 900s. `CRON_SCHEDULE.md` solo lista 2 heartbeats (Principal y PO) | Operativo con caídas. 7 timeouts consecutivos en su historial; recuperado en HB#30 y HB#33 |
 | Product Owner | `product-owner` | Alterego de Pablo como usuario. Detecta fricciones, propone features, prioriza. NO escribe código de producción. | Activo. NO es un cron de QwenPaw: `agent.json` con `every 2h`, `enabled: true`, timeout 300s (equivalente a `0 */2 * * *`) | Activo y productivo. Última entrega en vuelo al cierre de HB#37 |
-| Arquitecto | `architect` | CTO externo. Asesor de Pablo, auditor del ecosistema, dueño del dashboard. NO habla con agentes salvo pedido explícito de Pablo. | Desactivado por diseño. `agent.json`: `enabled: false`, `every 6h` | Activo. Se activa cuando Pablo abre QwenPaw |
+| Arquitecto | `architect` | **Director de la ESTRUCTURA** (decisión de Pablo, 2026-09-30) y dueño del dashboard. Topología de clones, paths, permisos, worktrees, crons. Es el consultado del equipo. NO toca producción. | Desactivado por diseño. `agent.json`: `enabled: false`, `every 6h` | Activo. Se activa cuando Pablo abre QwenPaw |
 | QA Agent (builtin) | `QwenPaw_QA_Agent_0.2` | Helper de preguntas y respuestas sobre QwenPaw, su configuración y su documentación. | Sin heartbeat | No operativo: `active_model: null`. No aparece en ningún `AGENTS.md`. Fuera del mapa del equipo |
 
 Nota 1: el `AGENTS.md` del Reviewer y el del Arquitecto se refieren a él como
@@ -39,7 +43,7 @@ comunicarse entre agentes. SIEMPRE `submit_to_agent` (background).** Motivo:
 | Product Owner | Principal | `submit_to_agent` (background) | Entregar hallazgos e ideas, pedir correcciones factuales | Flujo más frecuente del ecosistema. Hay decenas de sesiones `product-owner:to:default:*` |
 | Product Owner | Code Reviewer | `submit_to_agent` (background) | Validar viabilidad técnica de propuestas 🟡/🔴 (regla de su `AGENTS.md`) | ⚠️ A CONFIRMAR: no hay evidencia de ejecuciones. En la práctica el PO consulta al Principal |
 | Documentador | Code Reviewer | `submit_to_agent` (background) | Gate obligatorio: sin aprobación del Reviewer no commitea docs | Depende del mismo bug. Si el Reviewer cae, el Documentador no commitea y reporta a Pablo |
-| Arquitecto | Code Reviewer | `submit_to_agent` (background) | Delegar auditoría técnica, SOLO si Pablo lo pide | Excepción acotada a la regla "el Arquitecto no habla con agentes" |
+| Arquitecto | Code Reviewer | `submit_to_agent` (background) | Delegar auditoría técnica | Bajo demanda. Invertido el 2026-09-30: el Arquitecto pasó de asesor aislado a consultado del equipo |
 | Cualquier agente | Pablo | canal `console` (único canal habilitado) | Reportes, escalados, `channel_message` | Directo, sin intermediarios |
 | Pablo | Principal | `chat_with_agent` en foreground al `default`, desde la CLI o el Console | Tareas de desarrollo | Ver sección 6 |
 
@@ -71,7 +75,7 @@ Workarounds documentados:
 |---------|---------------|----------------|
 | `AGENTS.md` (raíz del repo) | Principal | todos |
 | `AGENTS_SYNC.md` | Principal | todos |
-| `ORG_MAP.md` | Principal (este documento) | todos |
+| `ORG_MAP.md` | **Arquitecto** (estructura: paths, permisos, topología de clones) y Principal (contenido operativo) | todos |
 | `CHANGELOG.md` | Documentador | todos |
 | `README.md` | Documentador | todos |
 | `ONBOARDING.md` | Documentador | todos |
@@ -115,28 +119,37 @@ Reglas transversales de escritura:
 
 | path local | remotes | aclaración crítica |
 |------------|---------|--------------------|
-| `C:\Mis Archivos\GW2 online\gw2-wallet-agents` | `origin` → `gw2-wallet-agents.git` | Ahí el remote de DESARROLLO se llama `origin`. `git push agents` falla |
-| `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` | `agents` → `gw2-wallet-agents.git` (desarrollo) y `origin` → `gw2-wallet-ligero.git` (producción) | Push por defecto a `agents`. Solo a `origin` cuando Pablo lo pide |
-| `C:\Mis Archivos\GW2 online\gw2-agents-dashboard` | `origin` → `gw2-agents-dashboard.git` | Repo del Arquitecto |
+| `C:\Mis Archivos\GW2 online\gw2-dev` | `origin` → `gw2-wallet-agents.git` (DESARROLLO) | **Único clon con el que trabaja el equipo.** Es el que exponen los 5 drivers MCP |
+| `C:\Mis Archivos\GW2 online\gw2-prod` | `origin` → `gw2-wallet-ligero.git` (PRODUCCIÓN) | Clon de producción. **No está en el MCP de ningún agente.** Nadie trabaja acá en el flujo normal; solo promoción controlada por Pablo |
+| `C:\Mis Archivos\GW2 online\gw2-agents-dashboard` | `origin` → `gw2-agents-dashboard.git` | Repo del Arquitecto. Único agente con escritura |
+| ~~`C:\Mis Archivos\GW2 online\gw2-wallet-agents`~~ | — | **RETIRADO** (2026-09-30). Ruta peligrosa: quedaba a un `git remote -v` de distancia de producción. Sus 4 commits sin pushear se rescataron a `gw2-dev` y se pushearon |
+| ~~`C:\Mis Archivos\GW2 online\gw2-wallet-ligero`~~ | — | **VETADO.** El clon de producción original. Último clon peligroso del sistema; se retira al cerrar la migración |
 
-El término "origin" en los `AGENTS.md` es ambiguo: a veces significa el remote
-git local `origin` (que en el clon de `agents` apunta a DESARROLLO) y a veces
-significa PRODUCCIÓN (`gw2-wallet-ligero`). Verificar siempre con
-`git remote -v` antes de pushear.
+En `gw2-dev`, el remote `origin` apunta a DESARROLLO, no a producción. La
+producción es el repo `PabloSnchz/gw2-wallet-ligero` en GitHub, alcanzable solo
+desde `gw2-prod`, que ningún agente tiene en su MCP. Aun así, `git remote -v`
+es obligatorio antes de cada push: si el destino no es el esperado, se para.
 
 ### Refspec de push
 
-Correcto: `git push agents HEAD:main` o `git push agents main`.
-Incorrecto: `git push agents agents/main` — crea un branch literal duplicado.
-Verificar después con `git ls-remote --heads agents`.
+Correcto: `git push origin HEAD:main` o `git push origin main`.
+Incorrecto: `git push origin origin/main` — crea un branch literal duplicado.
+Verificar después con `git ls-remote --heads origin`.
 
 ### Worktrees
 
-El trabajo activo ocurre en worktrees para no ensuciar el clon principal:
-`C:\Users\psanc\.qwenpaw\workspaces\default\_wt_main` es el worktree de
-`main` de `gw2-wallet-agents`. Los logs se editan en el worktree y se commitean
-desde ahí. Nunca usar `Set-Content` de PowerShell sobre los `.md` del repo: mete
-BOM y reescribe finales de línea, inflando el diff.
+El trabajo activo ocurre en worktrees para no ensuciar el clon principal.
+Los worktrees del Principal están en `C:\Users\psanc\.qwenpaw\workspaces\default\`:
+
+| worktree | rama | clon base |
+|----------|------|-----------|
+| `_wt_main` | `fix-idea47-commerce-callsite` | `gw2-dev` |
+| `_wt_47` | `rescue-idea47-parallel-wip` | `gw2-dev` |
+
+Migrados del clon retirado a `gw2-dev` el 2026-09-30. Comprobado con
+`git rev-parse --git-common-dir`: ambos apuntan a `gw2-dev/.git`, ya no al
+clon legacy. Nunca usar `Set-Content` de PowerShell sobre los `.md` del repo:
+mete BOM y reescribe finales de línea, inflando el diff.
 
 ---
 
@@ -146,7 +159,7 @@ BOM y reescribe finales de línea, inflando el diff.
 |---------|---------------------|--------------------|
 | `agent.json` de cada agente (en su workspace) | Principal, y Pablo desde el Console. Requiere avisar antes por efecto secundario | Regla de honor. Cualquier agente tiene `write_file` sobre su propio workspace |
 | `skill.json` de cada agente | Principal / Pablo | Regla de honor |
-| MCP `mi-repo-boveda` (paths) | Principal / Pablo | Regla de honor. Los args se editan en `agent.json` |
+| MCP `mi-repo-boveda` (paths) | **Arquitecto** (dirección de estructura) / Pablo | **Enforcement real.** La configuración real está en `workspaces\<agente>\drivers\mcp\mi-repo-boveda.yaml`, NO en `agent.json` |
 | Crons de QwenPaw (`qwenpaw cron *`) | Principal. Regla de los `AGENTS.md`: pausar un cron es excepcional, y si queda pausado más de 1h se escala a Pablo | Enforcement parcial: el cron corre en el servicio, no en el agente |
 | `HEARTBEAT.md` | Principal | Regla de honor |
 | Permisos del driver / tool policy | Pablo, desde el Console | Enforcement real |
@@ -163,24 +176,56 @@ BOM y reescribe finales de línea, inflando el diff.
   (Telegram, Discord, Slack, Feishu, DingTalk, etc.) están `disabled`.
 - Los heartbeats vienen de `agent.json` o de crons registrados en el servicio.
   Un agente no puede disparar uno que no existe.
+- GitHub: `gw2-wallet-ligero` (producción) tiene `protected: true`.
+  `gw2-wallet-agents` (desarrollo) no está protegido, a propósito.
+- **El MCP `mi-repo-boveda` ya no expone ningún clon de producción.** Esto antes
+  no era cierto: ver abajo.
 
-**Regla de honor** (nada lo impide técnicamente, solo la regla escrita):
+### La contradicción que se corrigió el 2026-09-30
 
-- El MCP `mi-repo-boveda` es `@modelcontextprotocol/server-filesystem`: no
-  distingue lectura de escritura por path. Los 5 agentes tienen
-  `C:\Mis Archivos\GW2 online\gw2-wallet-agents` en sus args, así que los 5
-  **pueden escribir en el repo agents**. Lo único que los frena es la sección
-  "Permisos" de su `AGENTS.md`.
-- Por eso la prohibición de escribir en `gw2-wallet-ligero` (producción) es
-  regla de honor. El único freno real es que el agente no tenga el remote
-  configurado, y sí lo tiene (el clon de `ligero` tiene `origin` = producción),
-  así que puede pushear.
-- La regla "el Arquitecto es el único que escribe el dashboard" también es
-  regla de honor: los 4 agentes operativos tienen el path del dashboard en su
-  MCP.
+Hasta esa fecha, la prohibición de tocar producción era **regla de honor, no un
+candado**. Los 5 drivers tenían el clon de producción en sus args, así que los
+5 agentes podían escribir y pushear a producción. La regla escrita y el permiso
+real se contradecían, y la contradicción es la causa de la mayoría de los
+incidentes de este ecosistema.
 
-Consecuencia práctica: un AGENTS.md sin enforcement es una declaración de
-intenciones, no un candado. La única defensa real es no darle el path.
+| agente | clon en los args (antes) | política | riesgo real |
+|--------|------------------------|----------|-------------|
+| `default` (Principal) | `gw2-wallet-ligero` (**PROD**) + dev + los 4 workspaces ajenos | `default_effect: allow` | **Máximo.** Escribía en producción y en el workspace de cualquier agente |
+| `documenter` | `gw2-wallet-ligero` (**PROD**) + su workspace | `default_effect: allow` | Escribía en producción |
+| `product-owner` | `gw2-wallet-ligero` (**PROD**) + su workspace | `default_effect: allow` | Escribía en producción |
+| `architect` | `gw2-wallet-ligero` (**PROD**) + su workspace | solo lectura | Podía **leer** producción |
+| `code-reviewer` | sin driver MCP | — | No podía leer el repo |
+
+`agent.json` prometía otra cosa en los cuatro primeros. La sección `mcp.clients`
+del `agent.json` es **decorativa**: editarla no cambia nada en runtime.
+
+**Corrección aplicada.** Los 5 `drivers\mcp\mi-repo-boveda.yaml` se reescribieron
+con backup `*.bak-20260930`. El Code Reviewer no tenía driver: se creó.
+
+| agente | `gw2-dev` | dashboard | su workspace | política |
+|--------|-----------|-----------|---------------|----------|
+| `default` (Principal) | escritura | no | escritura | `default_effect: allow` |
+| `code-reviewer` | lectura | no | lectura | `default_effect: deny` + allow-list de 8 tools de lectura |
+| `documenter` | escritura | no | escritura | `default_effect: allow` |
+| `product-owner` | escritura | no | escritura | `default_effect: allow` |
+| `architect` | lectura | lectura | lectura | solo lectura |
+
+Ningún clon de producción aparece en ninguno de los 5.
+
+### Cómo verificar un permiso MCP (regla para el futuro)
+
+**Para saber el permiso real, mirar el proceso, no el archivo de config.**
+
+```
+Get-CimInstance Win32_Process | Where-Object CommandLine -match 'server-filesystem'
+```
+
+`list_allowed_directories` sirve como verificación de segunda capa: si lo que
+reporta no coincide con lo que dice el `agent.json`, gana el proceso.
+
+Lección general que sigue vigente: un `AGENTS.md` sin enforcement es una
+declaración de intenciones. La defensa real es no darle el path.
 
 ---
 
@@ -218,18 +263,24 @@ Principal. No confundir.
 
 1. El equipo **NUNCA propone** promover a `origin`. Ni en `TEAM_STATUS.md`, ni
    en `SESSION_LOG.md`, ni en escalados, ni en ninguna comunicación.
-2. `origin` (producción, `gw2-wallet-ligero`) es dominio exclusivo de Pablo. Él
-   decide cuándo y qué promover.
+2. `origin` (producción = `PabloSnchz/gw2-wallet-ligero` en GitHub) es dominio
+   exclusivo de Pablo. Él decide cuándo y qué promover.
 3. Si un agente piensa "esto está listo para producción", **no lo dice**. No
    es su rol evaluarlo. Su trabajo termina en `agents`.
-4. Cuando Pablo lo pide explícitamente, el equipo hace cherry-pick de los
-   commits concretos a `origin/main`. Paso a paso registrado en los logs.
+4. Cuando Pablo lo pide explícitamente, la promoción se hace con **PR contra
+   `main` de producción**, nunca push directo. Queda registrado en los logs.
+5. Refuerzo técnico: el clon de producción no está en el MCP de ningún agente,
+   y GitHub marca producción como `protected: true`. Son dos barreras
+   complementarias — la primera impide el error, la segunda impide el abuso.
+   La regla escrita sola no alcanzaba.
+6. `PROMOTIONS.md` es el registro vivo de las decisiones de promoción y es lo
+   que consume la tab "Promociones" del dashboard.
 
 ### 7.2 Autonomía
 
-- En `gw2-wallet-agents`: autonomía total. Features, refactors, experimentos.
+- En `gw2-dev` (desarrollo): autonomía total. Features, refactors, experimentos.
   No hace falta validar con Pablo. Si algo se rompe, se arregla o se revierte.
-- En `gw2-wallet-ligero`: cero. Solo cuando Pablo lo pide.
+- En `gw2-prod` / producción: cero. Solo cuando Pablo lo pide.
 - En `gw2-agents-dashboard`: solo el Arquitecto.
 
 ### 7.3 Fallbacks
@@ -286,6 +337,15 @@ Datos que no se pudieron confirmar contra una fuente y quedan marcados:
    de que se haya ejecutado. En la práctica el PO consulta al Principal.
 4. **QA Agent**: `active_model: null`, no está en ningún `AGENTS.md`. No se
    sabe si entra al mapa o se desregistra.
-5. **Promoción pendiente**: si hay algo esperando aprobación de Pablo para
-   `origin`, no se incluyó aquí a propósito. Ese estado vive en
-   `READY_FOR_PROMOTION.md`, que es del Principal.
+5. **`READY_FOR_PROMOTION.md` vs `PROMOTIONS.md`**: dos archivos que pretenden
+   registrar el mismo estado. `PROMOTIONS.md` es el que consume la tab
+   "Promociones" del dashboard. Decidir si `READY_FOR_PROMOTION.md` se borra o
+   se degrada a índice sin estado. Mientras conviven, pueden contradecirse.
+6. **Ruleset de producción sin verificar**: se confirmó `protected: true` en
+   `gw2-wallet-ligero`, pero falta verificar en Settings → Rules que exija PR,
+   que exija aprobación de PabloSnchz y que no tenga bypass habilitado.
+7. **`06675b0` (rama `rescue-idea47-parallel-wip`)**: sigue sin integrar a
+   `main`. `git cherry` dice que su contenido no está. Son 2 tests que main no
+   tiene. El equipo tiene que decidir si se integran o se descartan.
+8. **Ramas `legacy/*` en `gw2-dev`**: 4 ramas preservadas de la migración.
+   Definir su destino una vez que se confirme que no falta nada.
