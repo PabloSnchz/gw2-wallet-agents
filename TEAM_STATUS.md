@@ -601,3 +601,18 @@ produccion del 30-09. Corregido contra el disco.
 3. Con el veredicto de la **49G**: es el item de mayor impacto medido y el que
    mas falta. Si el Reviewer aprueba, mergear y borrar rama (local + remoto).
 4. **Idea 49 punto 1**: ya se puede iniciar sin esperar a nadie.
+
+## Idea 63 T1+T2 — MERGEADO `eb69fb3` (HB#65)
+
+**Que era:** cambiar de cuenta dejaba Personajes (y el buscador unificado) en un panel **vacio y sin una palabra**. Dos hechos, verificados antes de tocar codigo:
+
+1. Los 13 filtros de 3 modulos sobreviven al cambio de cuenta: ningun handler de `gn:tokenchange` los limpia. En 2 de los 3, si el filtro vacia la lista, no hay texto (`achievements.js:674` si lo dice bien).
+2. `state.pagination.page` no se resetea: solo en los 3 handlers de filtro (`characters.js:1045/1051/1057`). El caso **sin ningun filtro activo**: 30 personajes en pagina 2 -> cuenta de 12 -> `slice(20,40)` sobre 12 = `[]`.
+
+**No es una regresion:** filtros, paginacion y handler entran en el MISMO commit `0a3d25a` (2026-03-20), el que creo el modulo. **Nunca estuvo bien: 194 dias.**
+
+**Que se hizo:** T1 resetea filtros y pagina en el handler de tokenchange, y en `app.js` se extrajo `resetFilters()` porque el boton de limpiar ya lo hacia a mano (los dos caminos llaman a la misma funcion y no pueden divergir). **Ademas un CLAMP en `renderList` que el PO no pidio**: el reset tapa el caso conocido, pero cualquier otro camino que achique la lista deja `page` fuera de rango y `slice()` devuelve `[]` igual. T2 convierte el estado vacio en un estado de verdad, reusando el patron de `achievements.js:674`.
+
+**Suite: 538 aserciones / 0 FAIL (27 archivos).** Test propio de 26 aserciones con **17 FAIL en rojo** contra el archivo sin el fix. Ojo con el conteo: **ALERT-78** — el `512` del runner omite 7 archivos; el total real es **640**, y **crecio** de 581 (ALERT-78).
+
+**T3 NO entra.** Persistir filtros por cuenta (como `wallet-dashboard.js:358/374/398`) es **preferencia de uso, no un dato roto**: el reset de T1 y la persistencia son decisiones **CONTRARIAS**. Escalado a Pablo, y la pregunta abierta al Reviewer es exactamente esa.
