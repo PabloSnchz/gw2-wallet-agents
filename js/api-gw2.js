@@ -1,7 +1,66 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.24.1 (2026-09-30) — el mismo guard en getCharacterCount
+ * Versión: 2.25.0 (2026-09-30) — Idea 57 Tramo 1: los 11 sitios que degradan por FORMA declaran su contrato
+ *   v2.25.0: NO cambia el comportamiento de ninguna funcion. Instala una
+ *   REGLA y pone los contratos en el sitio donde se Incumplen.
+ *
+ *   Que estaba mal, y por que no lo habia visto nadie: el conteo vivia en un
+ *   comentario a mano. La cabecera de la v2.24.1 decia "son SIETE los wrappers
+ *   que degradaban por forma" y el numero real era ONCE. Es el mismo tipo de
+ *   error que el conteo de "8 tragadores" de la Idea 47: un total escrito a
+ *   mano en un comentario, que nadie vuelve a contar y que un fix incremental
+ *   desactualiza sin avisar. Acertar el numero no era la tarea; reemplazar el
+ *   numero por una regla, si.
+ *
+ *   La regla (tests/idea57.forma-contracts.test.js): todo sitio que hace
+ *   `Array.isArray(x) ? x : []` tiene que DECLARAR su contrato con una etiqueta
+ *   `FORMA: degrada` o `FORMA: propaga`. El test recorre el archivo y no
+ *   necesita una lista mantenida a mano, asi que un wrapper NUEVO cae en el
+ *   FAIL sin que nadie tenga que acordarse de actualizar nada. Ese es el
+ *   punto: hasta la v2.24.1 los dos guards se encontraron de rebote, como
+ *   follow-up de un review. Los dos primeros no salieron de un test. El decimo
+ *   wrapper existia porque nadie escribio la regla, no porque nadie lo
+ *   encontrara.
+ *
+ *   Reparto de los 11, verificado a mano en este commit:
+ *     - 2 ya PROPAGAN: getAccountRaids (v2.24.0) y getCharacterCount (v2.24.1).
+ *       No se contaron; el test lo verifica explicitamente para que una
+ *       reversa silenciosa a `? data : []` no pase.
+ *     - 2 son `fetchBatchWithRepair` (un helper de lote con 3 call sites).
+ *     - 7 degradan y su JSDoc dice "propaga, no degrada a []": buys, sells,
+ *       delivery, bank, materials, armory, y el caso de getAccountLuck. El
+ *       `catch` de RED cumple la promesa en las seis primeras; el camino de
+ *       FORMA no. En la septima (getAccountLuck) no hay ni catch ni warn.
+ *     - 1 degrada LEGITIMAMENTE: getCommerceListings, porque es el catalogo
+ *       global del mercado y `[]` es un estado normal (Idea 47, decidido con
+ *       el Reviewer). Se declara igual, para que "degrada a proposito" y
+ *       "degrada por costumbre" queden escritas y no inferidas.
+ *
+ *   El mas caro de los once es `getAccountLuck`, y no por el codigo: por lo
+ *   que muestra. Aca el valor degradado no es `[]`, es `0`, y `0` ES UN VALOR
+ *   VERDADERAMENTE POSIBLE (la API devuelve `[]` si la cuenta nunca consumio
+ *   esencia, y ahi 0 es la respuesta correcta). En el Strike Tracker `[]` es
+ *   obviamente falso para cualquiera que haya estado ahi; un "0%" en la
+ *   columna "Suerte (MF)" se cree en buena fe. El comentario del codigo
+ *   declaraba legitimo el valor que es indistinguible del fallo. Es la razon
+ *   por la que el Tramo 2 NO es un refactor cosmetico: es un dato que se
+ *   cree y es falso.
+ *
+ *   Lo que NO se hizo, a proposito:
+ *     - NO se toco ninguna funcion. Esto es capa de datos: ALERT-48 exige
+ *       veredicto del Reviewer antes de tocar comportamiento, y la migracion
+ *       de los 7 al guard de la v2.24.0 es exactamente eso (Tramo 2).
+ *     - NO se agrego un helper central (expectArray). Meteria una dependencia
+ *       nueva en once funciones de una capa que hoy no tiene dependencia
+ *       entre wrappers, a cambio del mismo resultado que da un `if` leido en
+ *       el sitio donde falla.
+ *     - NO se corrigio el conteo "a mano". Siete->once escrito a mano seria
+ *       el mismo error otra vez, un commit mas tarde.
+ *
+ *   Test: tests/idea57.forma-contracts.test.js (18 aserciones; 11 FAIL contra
+ *   el archivo sin los contratos declarados).
+ *
  *   v2.24.1: F2 del Code-Reviewer sobre la v2.24.0 (`task-b20623f46caa`,
  *   veredicto APROBADO con 3 follow-ups). `getCharacterCount` degrada a `0`
  *   ante una forma no soportada, y su JSDoc de la línea :528 ya decía "no
@@ -16,6 +75,10 @@
  *   Con esto son SIETE los wrappers que degradaban por forma, no seis: el
  *   "cinco propagados" de la Idea 47 no incluía a este. El relato de la
  *   v2.24.0 queda corregido acá.
+ *   ⚠️ ESTE CONTEO QUEDO DESACTUALIZADO en la v2.25.0 y no se corrige: son
+ *   ONCE sitios, no siete. La v2.25.0 lo deja escrito a proposito, porque un
+ *   numero corregido a mano en un comentario es el mismo error que la v2.25.0
+ *   acaba de demostrar. El conteo que vale es el del test.
  *   v2.24.0: `getAccountRaids` degradaba a `[]` ante una forma de respuesta
  *   que no soportamos, y `[]` es indistinguible de "no completaste nada". En
  *   el Strike Tracker eso es `state.completedStrikes = []` -> "0 de 15
@@ -371,6 +434,12 @@
   // en el catalogo, la API lo va a seguir tirando, y hay que devolver algo.
   function fetchBatchWithRepair(url, requested, opts) {
     return fetchWithRetry(url, opts).then(function (data) {
+      // FORMA: degrada (interino, Idea 57 T2). Una respuesta con una forma
+      // que no soportamos entra como `[]` y sale como "0 de N". Quien llama
+      // (getItemsMany, getAchievementsMeta, getCommercePrices) la trata como
+      // exito: sin este aviso no hay forma de distinguir "el lote vino vacio"
+      // de "no supe leer el lote". El `catch` de RED si propaga, asi que el
+      // unico camino que traga el error es este.
       var arr = Array.isArray(data) ? data : [];
       var left = missingFromBatch(requested, arr);
       if (!left.length) return arr;
@@ -666,6 +735,13 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
+        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
+        // no. Es el mismo bug que la v2.24.0 corrigio en getAccountRaids, una
+        // funcion mas arriba, y que la v2.24.1 corrigio en getCharacterCount.
+        // El call site (converter-modal.js:734) usa allSettled y ya tiene
+        // `buysStatus = 'error'`: migrar al guard es seguro y no rompe nada.
+        // Migracion = Tramo 2 de la Idea 57 (capa de datos, va al Reviewer).
         var tx = Array.isArray(data) ? data : [];
         putCache(key, tx, token, ttl);
         return tx;
@@ -698,6 +774,12 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
+        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
+        // no. Ver el bloque equivalente en getCommerceTransactionsBuys. El
+        // call site (converter-modal.js:735) usa allSettled y ya tiene
+        // `sellsStatus = 'error'`: migrar al guard es seguro.
+        // Migracion = Tramo 2 de la Idea 57.
         var tx = Array.isArray(data) ? data : [];
         putCache(key, tx, token, ttl);
         return tx;
@@ -750,6 +832,14 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de esta funcion es el mas explicito del
+        // archivo: "Por eso aca el error se PROPAGA", con un parrafo entero
+        // sobre por que `[]` mentiria en un panel cuyo unico proposito es
+        // avisar. El `catch` de RED cumple esa promesa; el camino de FORMA
+        // no. Es la brecha mas grande entre lo documentado y lo hecho que
+        // queda en la capa API. El call site (converter-modal.js:763) ya
+        // tiene try/catch con `deliveryStatus = 'error'`.
+        // Migracion = Tramo 2 de la Idea 57.
         var delivery = Array.isArray(data) ? data : [];
         putCache(key, delivery, token, ttl);
         return delivery;
@@ -795,6 +885,13 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. ESTA SI es una decision, y esta justificada en el
+        // JSDoc de arriba (Idea 47): este endpoint devuelve el catalogo GLOBAL
+        // del mercado, no algo de la cuenta, asi que `[]` es un estado NORMAL
+        // y frecuente. Propagar apagaria el convertidor en un momento en que
+        // la API funciona bien, porque los call sites hacen
+        // `.catch(function(){ return []; })`. Si alguna vez hay que distinguir,
+        // el camino es un estado mas en el call site, NO propagar desde aca.
         var ids = Array.isArray(data) ? data : [];
         putCache(key, ids, null, TTL.COMM_LISTINGS);
         return ids;
@@ -835,6 +932,14 @@
             // concat, asi que un id faltante no corren a nadie: el dato
             // incorrecto no puede aparecer, solo el ausente.
             return fetchBatchWithRepair(url, slice, opts).then(function (data) {
+              // FORMA: degrada. A diferencia de las sisters de commerce, el
+              // `catch` NO propaga (solo avisa y sigue): por diseno, porque
+              // `out` se arma por `concat` y un lote caido no puede correr a
+              // los demas. El costo es que un fallo de forma de UN lote se ve
+              // como un item sin precio, sin distinguirlo de "no hay precio".
+              // Migracion = Tramo 2 de la Idea 57, y es la unica de las nueve
+              // cuya decision requiere tocar el `catch` tambien, no solo la
+              // guarda: por eso necesita el veredicto del Reviewer.
               var prices = Array.isArray(data) ? data : [];
               putCache(key, prices, null, TTL.COMM_PRICES);
               out = out.concat(prices);
@@ -872,6 +977,13 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
+        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
+        // no. El call site (inventory-hub.js:216, inventory-dashboard.js:331)
+        // usa Promise.allSettled y ya arma `state.readErrors` con
+        // "banco": migrar al guard no rompe nada y enciende la superficie de
+        // error que hoy solo se enciende por RED.
+        // Migracion = Tramo 2 de la Idea 57.
         var bank = Array.isArray(data) ? data : [];
         putCache(key, bank, token, TTL.BANK);
         return bank;
@@ -902,6 +1014,10 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
+        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
+        // no. Call sites con allSettled y `readErrors` ya armados, igual que
+        // el banco. Migracion = Tramo 2 de la Idea 57.
         var materials = Array.isArray(data) ? data : [];
         putCache(key, materials, token, TTL.MATERIALS);
         return materials;
@@ -932,6 +1048,10 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
+        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
+        // no. Call site con allSettled y `readErrors` ya armados
+        // (inventory-hub.js:218). Migracion = Tramo 2 de la Idea 57.
         var armory = Array.isArray(data) ? data : [];
         putCache(key, armory, token, TTL.ARMORY);
         return armory;
@@ -981,6 +1101,31 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
+        // FORMA: degrada. Y ESTE ES EL PEORO DE LOS ONCE, por una razon que
+        // no aplica a los otros: aca el valor degradado no es `[]`, es `0`.
+        // Y `0` ES UN VALOR VERDADERAMENTE POSIBLE. La API devuelve `[]` si
+        // la cuenta nunca consumio esencia, y en ese caso el resultado
+        // correcto ES 0. El comentario de abajo declara legitimo el valor
+        // que es indistinguible del fallo: el codigo documenta la confusion
+        // en vez de resolverla.
+        //
+        // Lo que Pablo ve (wallet-dashboard.js:451): la columna "Suerte (MF)"
+        // mostrando "0%". Cero por ciento es una lectura que se cree en buena
+        // fe. Compare con el caso de raids, donde `[]` es obviamente falso
+        // para cualquiera que haya estado ahi: aca no hay nada obviamente
+        // falso, hay un numero plausible. Es peor.
+        //
+        // ALCANZABLE, no teórico: `jfetch` devuelve `null` ante un 200 con
+        // body vacío (api-gw2.js:408). O sea que la API contestando 200 sin
+        // cuerpo produce "0% de suerte" sin error visible. Y esta funcion no
+        // tiene console.warn ni rethrow: es la unica de las once donde el
+        // fallo no deja ni rastro en la consola.
+        //
+        // Migracion = Tramo 2 de la Idea 57, y es la que mas justificacion
+        // necesita: la forma correcta NO es un guard que lance (el modulo
+        // entero pediria una columna de error mas), sino distinguir el
+        // `null` de forma del `[]` legitimo y propagar SOLO el primero. Va al
+        // Reviewer.
         var arr = Array.isArray(data) ? data : [];
         // La API devuelve [] si la cuenta nunca consumió esencia.
         var entry = arr.find(function (x) { return x && x.id === 'luck'; });
