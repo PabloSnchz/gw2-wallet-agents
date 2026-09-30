@@ -572,7 +572,8 @@ Los demás logs del ecosistema también se mantienen actualizados:
 
 | Archivo | Mantenedor | Frecuencia | Notas |
 |---------|-----------|-----------|-------|
-| TEAM_STATUS.md | Principal | Cada heartbeat (30 min) | Estado del equipo |
+| TEAM_STATUS.md | Principal | Cada heartbeat (30 min) | Estado del equipo. **SE SOBREESCRIBE en cada heartbeat** (ver TEAM_STATUS_HB60.md). |
+| TEAM_STATUS_HB60.md | Principal | Cuando se sobreescribe el TEAM_STATUS | **El heartbeat anterior, entero y sin editar.** El HB#61 lo creo: sobreescribir TEAM_STATUS.md producia diffs de 468 lineas por commit de logs, lo que oculta el cambio real. Mover el contenido viejo a un archivo aparte deja el diff limpio y el historico consultable. |
 | SESSION_LOG.md | Principal | Cada heartbeat (30 min) | Mientras el Documentador tenga timeout (bug plataforma). Excepción al flujo normal donde el Documentador lo mantiene. |
 | CRON_SCHEDULE.md | Principal | Cada heartbeat (30 min) | 📌 NUEVO — programa de crons y tareas para el dashboard |
 | COMMS_LOG.md | Principal | Cuando hay comunicaciones | Verificado — existe ✅ |

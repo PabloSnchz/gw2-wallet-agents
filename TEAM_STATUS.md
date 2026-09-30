@@ -154,3 +154,13 @@ míos**:
 4. **Idea 50 Tramo E** (`getCache` borra la entrada vencida) sigue sin
    implementar: es el que libera cuota sin que el usuario tenga que apretar un
    botón, y con la 49G el botón deja de ser urgente.
+
+<!-- ======================================================================
+     HISTORICO: el contenido del Heartbeat #60 esta completo, sin editar, en
+     TEAM_STATUS_HB60.md. Se movio entero (no se resumio) cuando el #61 lo
+     reemplazó en este archivo. Razón: TEAM_STATUS.md se sobreescribe en cada
+     heartbeat, y eso hace que el diff de cada commit de logs sea de cientos de
+     lineas (este fue 468), lo que oculta el cambio real y hace imposible revisar
+     que no se perdio nada. Con el archivo aparte, el diff del TEAM_STATUS es
+     el del heartbeat nuevo y el historico queda consultable.
+     ====================================================================== -->
