@@ -1,7 +1,8 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.17.0 (2026-09-29) — Pool global de requests (Idea 46 t1)
+ * Versión: 2.17.1 (2026-09-30) — Pool global de requests (Idea 46 t1)
+ *   v2.17.1: poolPump ya no pierde el slot si un task tira sincrónico.
  *
  * Cambios v2.17.0:
  *  - NUEVO pool global de concurrencia en el unico punto de estrangulacion
