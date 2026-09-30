@@ -22,6 +22,17 @@
  *   seccion 5 del test, que recorre las DOS vias de escritura.
  *   Test: tests/idea50f.cacheclear-real.test.js (24 aserciones; 8 FAIL contra el
  *   archivo sin el fix, verificado en rojo antes de tocar el codigo).
+ *   P4 del Code-Reviewer, aplicado en el mismo commit porque el cambia la
+ *   FIRMA y cambiar una firma despues del merge es mas caro que nacer con ella:
+ *   `cacheClear(opts)` acepta `{dryRun: true}` y devuelve
+ *   `{removed, kept, bytes, dryRun}` sin borrar nada. `bytes` es lo que le dice
+ *   al usuario si vale la pena apretar el boton: `kept` dice que NO se toco, y
+ *   no dice si vale la pena tocar. En `dryRun` tampoco se vacia `__mem`, porque
+ *   la pregunta es "cuanto borraria" y vaciar la cache de sesion antes de
+ *   responder ya seria borrar. Y `removed` ahora cuenta lo BORRADO (la
+ *   diferencia de `localStorage.length` antes y despues) en vez de las llamadas
+ *   a `lsDel`, que se traga la excepcion y hacia que el numero fuera una
+ *   intencion y no un hecho. Sigue con 0 callers: el boton es el Tramo siguiente.
  *   Ojo con el inventario: `getItemsMany` cachea en `items_cache_v1:<lang>`
  *   (`api-gw2.js:1511` lee, `:1581` escribe) con `lsSet` DIRECTO, sin pasar por
  *   `putCache()`. Un inventario hecho solo sobre `var key = ...` no la ve.
@@ -1701,21 +1712,39 @@
   // pasa por aqui). Que un "limpiar cache" se coma la lista de cuentas es el
   // modo de fallo mas caro que puede tener este boton, asi que la garantia se
   // mide y no se promete.
-  function cacheClear() {
-    var removed = 0, kept = 0;
-    try { __mem.clear(); __inflight.clear(); } catch (_) {}
+  // P4 del Code-Reviewer: la funcion NACIO con `dryRun` y no lo gana despues.
+  // Sigue con 0 callers (el boton es el Tramo siguiente), pero cambiar la firma
+  // despues del merge es mas caro que nacer con ella: el boton va a necesitar
+  // preguntar cuanto se libera ANTES de un confirm(), y `kept` no sirve para
+  // eso — `kept` dice que NO se toco, y no dice si vale la pena tocar.
+  function cacheClear(opts) {
+    var dryRun = !!(opts && opts.dryRun);
+    var removed = 0, kept = 0, bytes = 0;
+    // En `dryRun` NO se toca ni la cache de sesion: la pregunta es "cuanto
+    // borraria", y vaciar `__mem` antes de responder ya seria borrar.
+    try { if (!dryRun) { __mem.clear(); __inflight.clear(); } } catch (_) {}
     try {
       // Se recopila primero y se borra despues: `removeItem` durante el
       // recorrido muta `localStorage.length` y `key(i)`, y borrando en vivo
       // se saltean claves.
       var doomed = [];
-      for (var i = 0; i < localStorage.length; i++) {
+      var before = localStorage.length;
+      for (var i = 0; i < before; i++) {
         var k = localStorage.key(i);
-        if (isCacheKey(k)) doomed.push(k); else kept++;
+        if (!isCacheKey(k)) { kept++; continue; }
+        doomed.push(k);
+        try { bytes += (localStorage.getItem(k) || '').length; } catch (_) {}
       }
-      doomed.forEach(function (k) { lsDel(k); removed++; });
+      if (dryRun) {
+        removed = doomed.length;   // nada se borra: esto es lo que se borraria
+      } else {
+        doomed.forEach(function (k) { lsDel(k); });
+        // `removed` cuenta lo BORRADO y no las llamadas a `lsDel`: `lsDel` se
+        // traga la excepcion, asi que contar llamadas da un numero que miente.
+        removed = before - localStorage.length;
+      }
     } catch (_) { /* localStorage puede no existir (modo privado): no es un error */ }
-    return { removed: removed, kept: kept };
+    return { removed: removed, kept: kept, bytes: bytes, dryRun: dryRun };
   }
 
   // ========================================================================

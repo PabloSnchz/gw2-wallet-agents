@@ -211,5 +211,56 @@ ok(uniq.indexOf('items_cache_v1:') !== -1,
 ok(EXACT.indexOf('wallet') !== -1 && EXACT.indexOf('luck') !== -1,
   'wallet y luck estan en la allowlist: no arrancan porach_ ni por commerce_, y son las que mas cuota gastan');
 
+// ── 6. P4 del Reviewer: `dryRun` y `bytes` ───────────────────────────────
+// Por que esta seccion y no es "una asercion mas": el boton del Tramo
+// siguiente necesita responder "¿cuanto se libera?" ANTES de un confirm().
+// Con la firma vieja `cacheClear()` no habia forma de preguntarlo sin borrar,
+// y `kept` no sirve: `kept` es una garantia de que NO se toco, no una medida
+// de si vale la pena tocar. La funcion sigue con 0 callers, asi que la
+// unica forma de que esto se rompa en silencio es que alguien la llame antes
+// de que exista el boton.
+console.log('\n[6] P4: cacheClear({dryRun}) responde sin borrar');
+const d = mount();
+const dapi = d.sandbox.GW2Api;
+// Se puebla con contenido de tamano CONOCIDO para que `bytes` sea un hecho
+// y no un "> 0" que pasaria siempre.
+d.store.set('wallet', 'x'.repeat(100));
+d.store.set('luck', 'y'.repeat(50));
+d.store.set('ach_acc', 'z'.repeat(25));
+d.store.set('gn:account:keys', 'KEEP');   // no es de esta capa: no se cuenta
+const bytesEsperados = 100 + 50 + 25;
+
+const dry = dapi.__cacheClear({ dryRun: true });
+eq(d.store.has('wallet'), true, 'dryRun NO borra `wallet`');
+eq(d.store.has('luck'), true, 'dryRun NO borra `luck`');
+eq(d.store.has('ach_acc'), true, 'dryRun NO borra `ach_acc`');
+eq(dry.removed, 3, 'dryRun dice cuantas borraria (3)');
+eq(dry.bytes, bytesEsperados, 'dryRun mide los bytes exactos (' + bytesEsperados + ')');
+eq(dry.dryRun, true, 'el resultado dice que fue dryRun');
+eq(dry.kept, 1, 'la clave de cuentas se cuenta como kept, no como cache');
+
+// Y el `dryRun` tiene que ser indistinguible del borrado real en lo que
+// informa, salvo por `dryRun`. Si difirieran, el boton confirmaria una cifra
+// y ejecutaria otra.
+const wet = dapi.__cacheClear();
+eq(wet.removed, 3, 'el borrado real borra las 3');
+eq(wet.bytes, bytesEsperados, 'el borrado real informa los mismos bytes que el dryRun');
+eq(wet.dryRun, false, 'el resultado dice que fue real');
+eq(d.store.has('wallet'), false, 'el borrado real SI borra `wallet`');
+eq(d.store.has('gn:account:keys'), true, 'el borrado real NO toca `gn:account:keys`');
+
+// `removed` tiene que ser un HECHO. Con la firma vieja contaba llamadas a
+// `lsDel`, y `lsDel` se traga la excepcion: un numero que no se puede
+// desmentir es una intencion. Se comprueba que coincida con lo que la store
+// perdio de verdad.
+const f = mount();
+f.store.set('wallet', 'a');
+f.store.set('luck', 'b');
+f.store.set('gn:theme', 'c');
+const antes = f.store.size;
+const resReal = f.sandbox.GW2Api.__cacheClear();
+eq(resReal.removed, antes - f.store.size, 'removed es la diferencia real de localStorage.length, no la cuenta de llamadas');
+eq(f.store.size, 1, 'solo sobrevive la clave que no es de esta capa');
+
 console.log('\n' + (fail === 0 ? 'TODO OK' : 'HAY FALLOS') + ' — ' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);
