@@ -12,6 +12,14 @@
  * - Global (welcomeSeen)
  * 
  * v1.0.2: Agregados métodos exportData() e importFromData() para sincronización con GitHub Gist
+ * v1.0.4: El `confirm()` del botón deja de ENUMERAR qué conserva y pasa a
+ *   decir los BYTES que quedan (`keptBytes` de `__cacheClear`). Motivo medido:
+ *   el `kept` incluye 8 familias de clave de cache de otros módulos que no
+ *   están en el registro, así que el número arrastraba cache mientras la frase
+ *   al lado la negaba; y una enumeración de categorías deja de ser cierta en
+ *   el mismo commit en que un módulo registra su clave. El conteo de bytes
+ *   sobrevive a eso. Test: tests/idea50-boton-cache.test.js, sección 4c (11
+ *   aserciones; 7 FAIL contra el archivo sin el fix).
  * v1.0.3: Botón "Limpiar caché" de la barra de utilities (Idea 50, Tramo siguiente a F y P3).
  *          Llama a `GW2Api.__cacheClear` con dryRun -> confirm -> borrado real.
  */
@@ -538,10 +546,26 @@
       if (window.toast) window.toast('warning', 'No hay caché de la API para liberar', { ttl: 2500 });
       return;
     }
-    var msg = '¿Liberar la caché de la API?\n\n' +
+    // La PREGUNTA nombra el mismo alcance que el `title` del boton
+    // (`index.html:289`): API **y WV**. El registro de la P3 son las 18 bases de
+    // la capa API MAS las 5 de `wizards-vault.js:615-618`, asi que decir "de la
+    // API" y borrar el WV es el mismo delta sin declarar que H1, en el unico
+    // texto que Pablo lee antes de confirmar. La ultima linea ya nombraba el WV
+    // (por su `__mem`), y esa mencion podia leerse como "el WV no se toca": lo
+    // que no se toca es su CACHE DE SESION. Las dos cosas quedan separadas.
+    var msg = '¿Liberar la caché de la API y del WV?\n\n' +
       '• Se borrarán ' + dry.removed + ' claves (' + fmtBytes(dry.bytes) + ')\n' +
-      '• Se conservan ' + dry.kept + ' claves: cuentas, pines, tema y ajustes\n\n' +
-      'La API volverá a descargar los datos. Lo que otros módulos ya tienen en memoria (el WV) se conserva hasta que recargues la página.';
+      // La segunda linea NO enumera QUE se conserva. La version anterior decia
+      // "cuentas, pines, tema y ajustes", y eso era una afirmacion sobre las
+      // CATEGORIAS que hoy es FALSA por lo mismo que el numero: el `kept` del
+      // dryRun incluye las 8 claves de cache de otros modulos que no estan en
+      // el registro (characters.js, activities.js, app.js), asi que el numero
+      // arrastraba cache mientras la frase la negaba. Y la enumeracion no
+      // sobrevive: los BYTES siguen siendo ciertos cuando manana un modulo
+      // registre su clave; una lista de categorias deja de serlo en el mismo
+      // commit. El tamano es el dato que Pablo puede comparar con la cuota.
+      '• Se conservan ' + dry.kept + ' claves (' + fmtBytes(dry.keptBytes) + ')\n\n' +
+      'La API volverá a descargar los datos, y el WV también. Lo que otros módulos ya tienen en memoria (incluido el WV) se conserva hasta que recargues la página.';
     if (!confirm(msg)) return;   // 2. Cancelar NO borra nada: el dryRun no habia borrado nada
     // 3. Ahora si.
     var res = api.__cacheClear();
@@ -556,7 +580,7 @@
   // =======================================================================
   
   function init() {
-    console.info(LOG, 'Settings Manager v1.0.3 inicializado');
+    console.info(LOG, 'Settings Manager v1.0.4 inicializado');
     
     // Buscar botones en el DOM (se ejecuta después de que index.html cargue)
     function bindButtons() {

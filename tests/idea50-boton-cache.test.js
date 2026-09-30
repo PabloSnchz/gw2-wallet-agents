@@ -154,8 +154,39 @@ ok(/class="an-util-link an-util-link--btn"/.test(btnHtml),
 ok(!/\sstyle=/.test(btnHtml),
   'sin style inline: los 3 botones de al lado si lo llevan, y esta clase ya lo reemplaza');
 ok(/aria-label=/.test(btnHtml), 'tiene aria-label: el texto visible no alcanza solo');
-ok(html.indexOf('settings-manager.js?v=1.0.3') !== -1,
-  'el <script> sube a v=1.0.3: sin bump, el navegador sirve el .js viejo desde su cache');
+
+// H1 del Code-Reviewer (veredicto sobre `b43743b`): el registro de la P3 son
+// las 18 bases de la capa API **MAS** las 5 de `wizards-vault.js:615-618`. O
+// sea que el boton borra la cache del WV —la mas pesada en disco— y el texto
+// decia "la cache de la API". Un titulo que SUBdeclara es peor que uno que
+// sobredeclara: el usuario cree que el WV sobrevive y no sobrevive.
+//
+// Estas dos aserciones muerden por construccion (leen el archivo real), no por
+// coincidencia: si manana `wizards-vault.js` se desregistra, siguen verdes
+// porque el TEXTO no cambio, y eso es lo correcto — lo que hay que asertar es
+// que el copy nombra lo que el registro nombra, y el test del registro (P3) es
+// el que detecta el desregistro. Lo que esta asertado aca es que el copy no
+// vuelva a quedarse corto.
+ok(/title="Liberar la caché de la API y del WV/.test(btnHtml),
+  'el title declara el WV: el boton borra las 5 bases de wizards-vault.js:615-618');
+ok(/aria-label="Liberar la caché de la API y del WV"/.test(btnHtml),
+  'el aria-label declara lo mismo que el title (Code-Reviewer H1)');
+// Y que el alcance siga declarado EN ALGUN LADO del boton: el `title` tiene que
+// decir que NO se tocan cuentas, pines ni ajustes, porque el registro de la P3
+// borra por prefijo y un titulo que solo dice "API y WV" deja al usuario sin
+// saber si su cuenta o su PIN sobreviven.
+//
+// ALERTA propia de este ciclo: primero escribi esta asercion pineando la FRASE
+// exacta que yo habia puesto en el title. No es el invariante — el invariante es
+// "el title declara que las cuentas no se tocan", y hay mas de una forma de
+// decirlo. Con la frase pineada, el test no falla cuando el alcance se pierde:
+// falla cuando cambia la redaccion, que es otra cosa. Un assert que mide mi
+// prosa no es una red, es una firma.
+const titleDeclaraIntactos = /\(\s*no toca[^)]*\)/i.test(btnHtml);
+ok(titleDeclaraIntactos,
+  'el title declara que cuentas, pines y ajustes NO se borran (el registro borra por prefijo)');
+ok(html.indexOf('settings-manager.js?v=1.0.4') !== -1,
+  'el <script> sube a v=1.0.4: sin bump, el navegador sirve el .js viejo desde su cache');
 
 const css = fs.readFileSync(path.join(ROOT, 'css', 'main.css'), 'utf8');
 ok(/\.an-util-link--btn\s*\{/.test(css),
@@ -173,6 +204,13 @@ const src = fs.readFileSync(path.join(ROOT, 'js', 'settings-manager.js'), 'utf8'
 const bindBody = (src.match(/function bindButtons\(\)\s*\{[\s\S]*?\n    \}/) || [''])[0];
 ok(/clearCacheBtn && !clearCacheBtn\.__settingsWired/.test(bindBody),
   'usa el guard __settingsWired igual que export/import: sin el, el MutationObserver lo bindea N veces');
+// El bump no se acepta por costumbre: se aserta que la v del HTML es la MISMA
+// que la del log de version del modulo. Si uno sube y el otro no, el boton
+// nuevo NO llega al navegador y el test queda verde probando el viejo.
+const smVersion = (src.match(/Settings Manager v([\d.]+) inicializado/) || [])[1];
+const htmlVersion = (html.match(/settings-manager\.js\?v=([\d.]+)/) || [])[1];
+eq(smVersion, htmlVersion,
+  'la v del HTML y la del log del modulo son la misma (' + smVersion + ' vs ' + htmlVersion + '): si difieren, el navegador sirve el .js viejo y este test pasa probando el viejo');
 
 // ── 3. CANCELAR NO BORRA NADA ─────────────────────────────────────────────
 // El `dryRun` es lo que hace que esto sea cierto. Si alguien saca el dryRun
@@ -210,7 +248,8 @@ ok(/3\.4 KB/.test(msg),
   'y anuncia los bytes medidos por el dryRun: 1000+500+2000 = 3500 B; 3500/1024 = 3.418 -> 3.4 KB');
 ok(msg.indexOf('Se conservan 2 claves') !== -1,
   'y dice cuantas conserva: el `kept` es la garantia, y tiene que ser visible');
-ok(/¿Liberar la caché de la API\?/.test(msg), 'la pregunta es una pregunta de cache, no generica');
+ok(/¿Liberar la caché de la API y del WV\?/.test(msg),
+  'la pregunta declara el mismo alcance que el title: API y WV (Code-Reviewer H1)');
 
 // ── 4b. EL COPY NO PROMETE MAS DE LO QUE PASA ────────────────────────────
 // El Reviewer senalo (nota al pie de la fila 073) que `cacheClear` solo vacia
@@ -236,6 +275,13 @@ ok(msg.indexOf('La API volverá a descargar') !== -1,
   'lo que promete es "la API volvera a descargar los datos", que es lo unico que pasa de verdad');
 ok(/hasta que recargues la página/.test(msg),
   'y dice HASTA CUANDO: el alcance del dato esta escrito, no es una promesa abierta');
+// H1, segunda mitad: la ultima linea decia "Lo que otros módulos ya tienen en
+// memoria (el WV) se conserva", lo que se leia como "el WV no se toca". Lo que
+// no se toca es la CACHE DE SESION del WV (`wizards-vault.js:40-41`), no su
+// cache en disco, que el boton SI borra. Con el WV nombrado en la pregunta,
+// la ambiguedad es directamente incorrecta.
+ok(/incluido el WV/.test(msg),
+  'la linea final distingue la cache de SESION (intacta) de la de DISCO (borrada)');
 const okT = a.toasts.filter(t => t.kind === 'success');
 eq(okT.length, 1, 'un unico toast de exito');
 ok(okT.length === 1 && okT[0].msg.indexOf('3 claves') !== -1,
@@ -252,6 +298,94 @@ press(a2, 'cifra chica');
 ok(/\b2 B\b/.test(a2.confirmMsgs[0] || ''),
   'con 2 bytes, el confirm dice "2 B": la cifra viene del dryRun y no de una constante, y no se infla a KB');
 eq(a2.store.size, 1, 'y se borraron esas 2, no otras');
+
+// ── 4c. LA LINEA DE "CONSERVADAS" NO AFIRMA CATEGORIAS ───────────────────
+// El PO lo encontro midiendo el censo de las escrituras a localStorage que
+// NO pasan por la capa de API (rama feat-idea50-boton-cache, b43743b):
+// hay 8 CLAVES de cache en 4 modulos que el boton conserva, porque ninguna
+// esta en el registro: characters.js (`characters:cached:<hash>`, la lista
+// de personajes POR CUENTA), activities.js (`psna:schedule`,
+// `psna:lastUpdate`), app.js (`gw2_currencies_cache_v1`, dos call sites
+// = una clave) y los catalogos singleton de characters.js.
+//
+// El `kept` del dryRun las INCLUYE (no estan en el registro, caen en la
+// rama de "conservada"), asi que el numero de la pantalla arrastra 8 claves
+// de cache mientras la oracion al lado AFIRMA que no hay ninguna. El
+// falsehood no es el texto: es que el numero significa otra cosa que la
+// frase que lo acompana.
+//
+// La enumeracion de categorias tampoco sobrevive: el conteo de BYTES sigue
+// siendo cierto cuando manana characters.js registre su clave; "cuentas,
+// pines, tema y ajustes" deja de serlo en el mismo commit. Por eso el fix es
+// el de los bytes y no el de una categoria nueva.
+console.log('\n[4c] la linea de conservadas no afirma categorias, dice los bytes');
+// Se acota al CUERPO de `clearApiCache`: si el texto viviera en otra funcion
+// el grep pasaria por construccion, que es el modo de falla del Tramo 3 de la
+// Idea 61 (ALERT-76).
+ok(clearApiBody !== '', 'el cuerpo de clearApiCache se pudo acotar');
+const keptLine = (msg.split('\n').find(l => /Se conservan/.test(l)) || '');
+ok(keptLine !== '', 'el confirm tiene una linea de "Se conservan"');
+// (a) el dato accionable: los bytes que quedan, en la misma unidad que los
+// que se borran. Sin esto el numero no es comparable con la cuota (~4.98 MB).
+ok(/\(([\d.]+)\s*(B|KB|MB)\)/.test(keptLine),
+  'la linea dice los BYTES que quedan, en la misma unidad que los que se borran (' + JSON.stringify(keptLine) + ')');
+// (b) la regla general, no la lista de palabras de HOY: una enumeracion
+// ("a, b, c y d") es una afirmacion sobre QUE se conserva, y eso es
+// exactamente lo que deja de ser cierto cuando el registro cambia. Se
+// detecta por la coma, asi que mañana "ajustes, cuentas y tema" tambien
+// falla, y "wizards-vault y el tema" tambien.
+const keptLineAfterParen = keptLine.replace(/\([^)]*\)/g, '');
+ok((keptLine.match(/,/g) || []).length === 0,
+  'y NO enumera categorias: la oracion tiene que seguir siendo cierta cuando el registro cambie');
+// (c) el byte count se REALIZA sobre lo que queda, no se inventa. En la
+// seccion 4 lo conservado son 'gn:account:keys' y 'gn:theme', 4 + 4 = 8 B.
+ok(/\b8 B\b/.test(keptLine),
+  'y el numero es el MEDIDO: 2 claves conservadas de 4 B cada una = 8 B, no una constante');
+// (d) el `keptBytes` existe en el retorno de `cacheClear`: si el boton lo
+// calculo por su cuenta seria una segunda medicion del mismo hecho, y las
+// dos podrian diferir.
+const clearSrc = fs.readFileSync(path.join(ROOT, 'js', 'api-gw2.js'), 'utf8');
+const cacheClearBody = (clearSrc.match(/function cacheClear\(opts\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+ok(/keptBytes/.test(cacheClearBody), 'cacheClear devuelve `keptBytes`: una sola medicion, no dos');
+ok(/keptBytes\s*\+=\s*\(localStorage\.getItem\(k\)\s*\|\|\s*''\)\.length/.test(cacheClearBody),
+  'y lo acumula en la RAMA DE LAS CONSERVADAS, que es donde hoy solo hay kept++');
+ok(/return\s*\{[^}]*keptBytes/.test(cacheClearBody),
+  'y viaja en el RETORNO: el boton lo lee de la medicion, no lo recalcula');
+// La razon por la que el costo es cero: el `getItem` de las conservadas es un
+// recorrido extra SOLO si se agrega uno. Se aserta que NO se agrega un
+// recorrido: la suma va dentro del loop que ya existe, con el MISMO patron
+// try/catch que las borradas (una excepcion de lectura no puede abortar el
+// conteo entero).
+ok((cacheClearBody.match(/for \(var i = 0; i < before; i\+\+\)/g) || []).length === 1,
+  'la medicion va DENTRO del loop que ya recorria las claves: cero recorridos extra');
+// El patron de las dos ramas tiene que ser EL MISMO. Esto no es estetica: si
+// la de las conservadas no estuviera en su `try`, un `getItem` que tirara
+// (cuota llena, modo privado) abortaria el `catch` EXTERNO del `for` y
+// `keptBytes` quedaria en 0 mientras `kept` ya valia 40: el numero que se
+// muestra seria "0 B" con 40 claves en pantalla, que es la clase de mentira
+// que este tramo existe para quitar. Por eso se comparan las dos ramas y no
+// se mira el total de ocurrencias del token (eso contaria COMENTARIOS).
+const keptRead = (cacheClearBody.match(/try \{ keptBytes \+= \(localStorage\.getItem\(k\) \|\| ''\)\.length; \} catch \(_\) \{\}/g) || []);
+const delRead = (cacheClearBody.match(/try \{ bytes \+= \(localStorage\.getItem\(k\) \|\| ''\)\.length; \} catch \(_\) \{\}/g) || []);
+eq(keptRead.length, 1, 'la rama de las conservadas lee el valor CON try propio');
+eq(delRead.length, 1, 'y la de las borradas tambien: el patron es identico, no parecido');
+// Y la consecuencia observable: si la lectura de las conservadas puede fallar
+// sin abortar el conteo, `kept` y `keptBytes` tienen que seguir de acuerdo.
+const throwRead = mount({ accept: true });
+throwRead.store.set('wallet', 'w'.repeat(1000));
+throwRead.store.set('gn:account:keys', 'KEEP');
+throwRead.store.set('gn:theme', 'KEEP');
+// Se rompe `getItem` SOLO para una clave: el boton tiene que seguir booting.
+const realGet = throwRead.sandbox.localStorage.getItem;
+throwRead.sandbox.localStorage.getItem = function (k) {
+  if (k === 'gn:theme') throw new Error('lectura negada');
+  return realGet.call(this, k);
+};
+press(throwRead, 'getItem tira');
+ok(throwRead.confirmMsgs.length === 1,
+  'una excepcion al leer UNA clave conservada no aborta el conteo entero: el confirm se dispara igual');
+ok(/\d+ B/.test((throwRead.confirmMsgs[0] || '').split('\n').find(l => /Se conservan/.test(l)) || ''),
+  'y la linea de conservadas sigue teniendo bytes, no un 0 pelado');
 
 // ── 5. SIN NADA QUE LIMPIAR NO SE PREGUNTA ────────────────────────────────
 console.log('\n[5] no hay cache: no se pregunta y no se promete nada');

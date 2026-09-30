@@ -1,6 +1,16 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
+ * Versión: 2.31.0 (2026-09-30) — `keptBytes`: lo que QUEDA, en la misma unidad
+ *   que lo que se libera. `cacheClear` ya recorria todas las claves y solo
+ *   contaba las de la rama "borrada"; sumar `(localStorage.getItem(k)||'').length`
+ *   en la rama de "conservada" no agrega ningun recorrido. Lo usa el `confirm()`
+ *   del botón (`settings-manager.js:clearApiCache`) para decir "se conservan N
+ *   claves (X MB)" en vez de enumerar categorías: el conteo de bytes sigue siendo
+ *   cierto cuando un módulo registre su clave mañana, y la enumeración no.
+ *   Test: tests/idea50-boton-cache.test.js, sección 4c.
+ *   Censo con unidad: node tools/idea50-censo-claves.mjs → 8 FAMILIAS de clave
+ *   de cache en 3 módulos, fuera del registro, + 1 marcador de frescura.
  * Versión: 2.30.0 (2026-09-30) — Idea 50 P3: el registro de bases de los OTROS módulos
  *   v2.30.0: **NO cambia lo que Pablo ve** (`cacheClear` sigue con 0 callers y el
  *   botón sigue sin existir). Lo que cambia es que el borrado ya puede alcanzar
@@ -1825,7 +1835,7 @@
   // eso — `kept` dice que NO se toco, y no dice si vale la pena tocar.
   function cacheClear(opts) {
     var dryRun = !!(opts && opts.dryRun);
-    var removed = 0, kept = 0, bytes = 0;
+    var removed = 0, kept = 0, bytes = 0, keptBytes = 0;
     // En `dryRun` NO se toca ni la cache de sesion: la pregunta es "cuanto
     // borraria", y vaciar `__mem` antes de responder ya seria borrar.
     try { if (!dryRun) { __mem.clear(); __inflight.clear(); } } catch (_) {}
@@ -1841,7 +1851,30 @@
       var bases = collectCacheBases();
       for (var i = 0; i < before; i++) {
         var k = localStorage.key(i);
-        if (!isCacheKey(k, bases)) { kept++; continue; }
+        if (!isCacheKey(k, bases)) {
+          kept++;
+          // `keptBytes`: lo que QUEDA en disco, en la misma unidad que `bytes`.
+          // Es lo que hace que el boton pueda decir "quedan 3.1 MB" al lado de
+          // "se liberan 4.9 MB": los dos numeros son comparables con la cuota,
+          // que es lo unico accionable para Pablo. `kept` solo dice que NO se
+          // toco, y no si vale la pena tocar.
+          //
+          // Por que NO hay una tercera categoria ("DESCONOCIDO"): porque un
+          // numero al que se le resta una bolsa de "lo que no sabemos" deja de
+          // ser accionable, y ademas el dato NO es desconocido — MEDIDO sobre
+          // las escrituras a localStorage que no pasan por esta capa: 8 CLAVES
+          // en 4 modulos (characters.js `characters:cached:<hash>`, que es la
+          // unica que CRECE con el numero de cuentas; activities.js
+          // `psna:schedule` y `psna:lastUpdate`; app.js
+          // `gw2_currencies_cache_v1` —dos call sites, una clave—; y los
+          // catalogos singleton de characters.js). Esas 8 caen en la rama de
+          // "conservada" porque ninguna esta en el registro, asi que `kept` ya
+          // las incluye: el numero de la pantalla arrastra cache que la frase
+          // al lado niega. Los BYTES no tienen ese problema: sobreviven a que
+          // manana `characters.js` registre su clave.
+          try { keptBytes += (localStorage.getItem(k) || '').length; } catch (_) {}
+          continue;
+        }
         doomed.push(k);
         try { bytes += (localStorage.getItem(k) || '').length; } catch (_) {}
       }
@@ -1854,7 +1887,7 @@
         removed = before - localStorage.length;
       }
     } catch (_) { /* localStorage puede no existir (modo privado): no es un error */ }
-    return { removed: removed, kept: kept, bytes: bytes, dryRun: dryRun };
+    return { removed: removed, kept: kept, bytes: bytes, keptBytes: keptBytes, dryRun: dryRun };
   }
 
   // ========================================================================
