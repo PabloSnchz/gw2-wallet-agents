@@ -1,3 +1,4 @@
+# SESSION_LOG.md — Registro de sesiones
 # SESSION_LOG.md
 
 ## 2026-09-30T03:30 UTC — Heartbeat #42
@@ -786,3 +787,36 @@ Nada. `node --check` limpio en `api-gw2.js`, `meta.js` y `activities.js`.
 - **#40 (Pets) cerrada, no priorizada.** El PO verifico `/v2/account/pets` → 404 y lo cerro el mismo. Mount skins si es account-scoped, pero es un item de #42.
 - **#39 baja de prioridad.** La idea era un tracker de instabilities por fractal, pero la GW2 API **no expone la rotacion diaria** (es lo que arreglo `27b8394`). El ingles central de la feature no tiene backing de datos. Sigue siendo un tracker util de referencia, no un planner diario.
 
+## Heartbeat #43 (2026-09-30 04:30 UTC) — El Strike Tracker no tiene backend posible
+
+### Lo que empezo esto
+El PO (Idea 48 de `PRE_BACKLOG.md`) reporto que el badge CM del Strike Tracker es decorativo: `cm: true` es una constante del archivo de datos, y el progreso real viene de `/v2/account/raids`. Planteo dos ramas y me pidio **una sola cosa**: una llamada de diagnostico para decidir si era cosmetico o grave, porque el codigo no deja ver cual era.
+
+### El diagnostico
+No tengo token, asi que no pude llamar a `/v2/account/raids`. Fui al otro lado del contrato: el wiki dice que ese endpoint devuelve ids de encuentro que **"se resuelven contra `/v2/raids`"**. Pregunte entonces que hay para resolverse.
+
+- `/v2/raids` -> **6 entradas**, `X-Result-Total: 6`. No ~26.
+- La forma cambio: `{id, wings:[{id, events:[{id,type}]}]}`. Antes era plano.
+- Los ids resolubles son los de `events[]` (29).
+- **Los 15 ids de `STRIKES_BY_EXPANSION` no estan.** Probe los 15 uno por uno contra `/v2/raids?ids=<id>`: los 15 responden `all ids provided are invalid`.
+
+`strike-tracker.js:1106` hace `completed.filter(id => strikeIds.indexOf(id) !== -1)`. Con ids que no existen, `indexOf` da `-1` siempre y el resultado es **siempre `[]`**. El parseo esta perfecto. Los datos no existen.
+
+### Por que esto no es lo que el PO temia
+El PO planteo la rama 2 como "objetos en vez de strings, el `.filter` esta roto, y **ningun** strike aparece completado". La conclusion practical coincide, pero el mecanismo es otro: el `.filter` sobre strings funciona bien; lo que no existe son los ids. La consecuencia es la misma y es igual de grave, pero el fix no es tocar el parseo.
+
+Y el badge CM era el sintoma **menos** grave. No es que el CM sea decorativo: es que el modulo completo no tiene datos que mostrar. Arreglar el badge sin arreglar esto seria dejar un modulo que dice "0 de 15" y parece un bug de conteo.
+
+### Lo que si esta bien
+`raid-tracker.js` **funciona**: sus 12 ids de encuentro (`gorseval`, `xera`, `cairn`, `samarog`, `deimos`, `conjured_amalgamate`, `qadim`, `adina`, `sabir`, `qadim_the_peerless`, `decima`, `ura`) estan todos en el catalogo. Salvo `vloxx` (Nexus of Eternity), que tampoco esta — o sea que el ala del CM de Sept 29 tampoco se puede marcar. Ojo: esto **no** significa que el contenido de Solitary Throne / Nexus este mal. El tracker de logros de Solitary Throne va por `getAccountAchievements`, que es otro endpoint y otro camino.
+
+### Lo que NO hice, y por que
+No arregle nada. Corregir esto no es mecanico: hay que decidir que son los ids correctos, o si el Strike Tracker quedo sin endpoint posible y hay que quitarlo o cambiarlo de semantica. Es decision de producto, y encima **no la puedo verificar sin un token**. Un fix a ciegas sobre 15 ids sería exactamente el error que el PO denuncia en su propia idea.
+
+### Lo que si hice
+- **`fix-idea47-commerce-callsite` borrada local.** Su unico commit (`ddd3047`) es main viejo; el contenido real (`24e190e`) ya esta en `main` hace 3 heartbeats. Verificado con `git merge-base --is-ancestor` antes de borrar, no despues.
+- `rescue-idea47-parallel-wip` **la dejo**: es un rescate sin revisar, con base vieja y tests que nunca corrieron. Mergearla seria un merge a ciegas (ya esta escrito por que, en BACKLOG).
+- ALERT-41 y TEAM_STATUS actualizados.
+
+### Repetible
+Un catalogo de ids pegado en el codigo envejece sin que nadie lo note. Los ids de `raid-tracker.js` seellen bien contra la API; los de `strike-tracker.js`, no. **Regla: antes de confiar en ids hardcodeados, contrastarlos contra `/v2/raids` en vivo.** Un `curl` de 2 segundos que habria detectado esto hace meses.
