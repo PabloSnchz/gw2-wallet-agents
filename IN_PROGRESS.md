@@ -1,9 +1,20 @@
 # IN_PROGRESS.md — Feats en desarrollo
 
-> Actualizado: 2026-09-30 (deploy-testables-2026-09-30)
+> Actualizado: 2026-09-30 (Heartbeat #62 — clon canónico corregido, ALERT-71)
 > Mantenedor: Principal (default)
 >
-> **Clon canónico:** `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` (tiene los 2 remotes: `origin`=produccion, `agents`=desarrollo). Existe un clon duplicado en `C:\repo` SIN remote `agents` y 5 commits atras — **no commitear ahi** (ALERT-17).
+> **Clon canónico:** `C:\Mis Archivos\GW2 online\gw2-dev`, rama `main`, remoto de
+> desarrollo `origin` (-> `PabloSnchz/gw2-wallet-agents`). Refspec de push:
+> `git push origin HEAD:main`.
+>
+> **Este archivo estaba apuntando al clon equivocado y lo mas grave era que el clon
+> que nombraba ya no existe.** Decía `gw2-wallet-ligero` como "canónico, tiene los 2
+> remotes" — ese clon fue **borrado** (verificado: `gw2-wallet-ligero\.git` no
+> existe, HB#62). O sea que la linea era doblemente falsa: nombraba un clon vetado
+> por la regla de repos de AGENTS.md **y** describia como vigente un directorio
+> inexistente. Es exactamente el camino que lleva al incidente de produccion del
+> 30-09 (un `push origin main` desde el clon viejo manda desarrollo a produccion).
+> Corregido contra el repo, no de memoria. Ver ALERT-71.
 
 ---
 

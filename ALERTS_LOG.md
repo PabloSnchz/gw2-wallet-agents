@@ -447,3 +447,85 @@ Mitigación aplicada en la 49G (este mismo ciclo): el pedido se entregó
 caracteres, las 6 preguntas presentes — **y no se escribió nada en `sent/`**.
 Lo que hay que hacer por defecto es **mirar el inbox del otro después de
 enviar**, porque el paso por defecto tiene que ser el que verifica.
+
+---
+
+## ALERT-71 (2026-09-30 18:40 UTC, HB#62) — IN_PROGRESS.md apontava al clon canonico equivocado, y ese clon ya no existe
+
+La cabecera de `IN_PROGRESS.md` decia, textual:
+
+> **Clon canónico:** `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` (tiene los 2
+> remotes: `origin`=produccion, `agents`=desarrollo).
+
+Verificado contra el disco: **`gw2-wallet-ligero\.git` no existe.** El clon fue
+borrado. O sea que la linea era doblemente falsa — nombraba un clon **vetado**
+por la regla de repos de `AGENTS.md` *y* describia como vigente un directorio
+inexistente.
+
+No es cosmetico. Ese clon viejo es exactamente el que tiene `main` local
+trackeando `agents/main` y **los dos remotos con `origin` = produccion**: es el
+camino del incidente del 30-09, donde un `push origin main` desde ahi manda
+commits de desarrollo a produccion. Un `.md` que dice "canonico" e invita a
+commitear ahi es un camino abierto a repetir ese incidente.
+
+La regla de "una rama que no es ancestro de main no implica WIP perdido"
+(ALERT-47) ya nos習慣 a verificar **ramas** contra `main`. Esta vez la
+verificacion era sobre un **directorio**, y la misma disciplina la resuelve:
+`os.path.isdir(ruta + "/.git")` antes de decir que un clon existe.
+
+Corregido en `IN_PROGRESS.md` con el clon real (`gw2-dev`, rama `main`, remoto
+de desarrollo `origin`, refspec `git push origin HEAD:main`) y la razon del
+cambio escrita, para que el proximo que lo lea sepa que la linea anterior no
+era una preferencia.
+
+> **Regla:** un archivo que dice "canonico" es una afirmacion sobre el disco, no
+> una convencion del equipo. Se verifica como cualquier otra afirmacion.
+
+---
+
+## ALERT-72 (2026-09-30 18:35 UTC, HB#62) — ENTREGAR NO ES RECOGER: el canal de archivos no despierta a nadie
+
+Los 3 pedidos de veredicto al Reviewer (Idea 61 T1-2 `164148Z`, Idea 50 Tramo F
+`170948Z`, Idea 49G `181500Z`) llevaban **entre 17 minutos y 2 horas** en
+`code-reviewer/inbox/` con `state=asked`, sin una sola respuesta. Con la regla
+de "no declarar muerto a un agente antes de 20 min" porque ya no cuadra: el
+Reviewer no estaba lento.
+
+La causa, verificada en `workspaces/code-reviewer/agent.json`:
+
+    code-reviewer  heartbeat: { enabled: FALSE, every: "6h" }
+    product-owner  heartbeat: { enabled: TRUE,  every: "2h" }
+    documenter     heartbeat: { enabled: TRUE,  every: "4h" }
+    default        heartbeat: { enabled: FALSE, every: "30m" }  (lo cubre el cron 13dc22e6)
+
+Y `qwenpaw cron list` tiene **2 crons**: el Heartbeat Principal y la sonda del
+Arquitecto (pausada). **Ningun cron toca al Reviewer.** Es decir: al Reviewer no
+lo despierta ni su heartbeat (desactivado por diseno) ni ningun cron. **Nada.**
+
+Por eso los 3 pedidosentedaron completos a su bandeja y nadie los abrio. El
+canal de archivos es durable — sobrevive reinicios y no vence, por eso es la via
+primaria — y esa misma propiedad es la que lo hace **inerte**: un mensaje puede
+estar en la bandeja del otro, con su `to` correcto y su cuerpo entero, durante
+tiempo indeterminado.
+
+> **El canal de archivos garantiza que el mensaje LLEGA. No garantiza que alguien
+> loLEA.** Son dosinstantias distintas, y confundirlas produce el modo de falla
+> mas caro que tenemos: **parece perdido cuando en realidad nadie lo fue a
+> buscar.** Un `state=asked` con horas de antiguedad no es "el Reviewer esta
+> pensando", es "nadie lo despertar".
+
+Mitigacion aplicada en este ciclo: un `submit_to_agent` al Reviewer que nombra
+los 3 archivos por nombre y por hash de commit, para que no los vuelva a
+buscar. Y el mensaje nuevo **declara** que el heartbeat esta apagado, para que
+`state=asked` con 2h se lea como lo que es.
+
+Corolario para el resto del equipo: **el PO y el Documentador si tienen
+heartbeat activo**, asi que a ellos un mensaje en el canal basta. **Al Reviewer
+no.** Es la unica asimetria real del ecosistema y hay que tenerla en la cabeza
+al elegir canal, no al esperar el veredicto.
+
+> **Distinto de ALERT-70, y por eso no es "la quinta vez":** ALERT-70-era que
+> el *recibo* no probaba la *entrega*. Este es que la *entrega* probada no
+> garantiza el *recogido*. Se arreglan en lugares distintos — uno escribiendo en
+> `sent/`, otro no llamando a `submit_to_agent` — asi que learn la regla de uno
+> no previene el otro.
