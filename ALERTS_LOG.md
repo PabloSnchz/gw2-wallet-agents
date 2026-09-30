@@ -88,6 +88,54 @@ legitimo:** vale para riesgo estetico o de baja superficie; **no** para un cambi
 reescribe la estrategia de claves. Ese caso necesita validacion, y la costo ~20 min.
 Corregidos con test que da 2 FAIL contra el archivo sin modificar.
 
+### ALERT-55 ƒ?" 6 ramas sin mergear, 3 con trabajo real perdido
+
+**Severidad: alta. Estado: ABIERTA (HB#50). Sin merge a ciegas.**
+
+El remoto tiene 6 ramas que no son ancestro de `main`. La pregunta obvia ("¿perdi trabajo?") tiene una
+respuesta que no es "si" ni "no", y por eso hay que medirla de tres formas.
+
+**1. Por contenido del commit — `git cherry main <rama>`.** Compara el *patch*, no el hash, asi que
+ignora el ruido de la base vieja:
+
+| Rama | Commits no absorbedos |
+|---|---|
+| `fix/theme-borderleft-shorthand` | **0** (`-`): ya esta en main |
+| `feat/commerce-delivery-ui` | 1 de 3 (el fix de CSS esta; los 2 del banner, no por hash) |
+| `feature/homestead-tracker` | 1 |
+| `feature/legendary-component-tracker` | 7 de 10 |
+| `fix/homestead-glyph-data` | 2 |
+| `docs-estructura-20260930` | 1 |
+
+**2. Por archivo — que es la que manda.** Un commit puede no estar en main por hash y aun asi estar su
+contenido. La pregunta es "¿la funcion existe en `main`?", yaca hay tres "no" que no admiten discussion:
+
+- `js/api-gw2.js` de main **no tiene** `getHomesteadDecorationDetails`, `getAccountHomesteadDecorations`
+  ni `getHomesteadGlyphs`. La rama si.
+- `js/router.js` de main **no tiene** la ruta `homestead`. La rama si.
+- `index.html` de main **no carga** `homestead-tracker.js`. La rama si.
+- `js/detail-modal.js` y `js/legendary-tracker-theme.js` **no existen como archivo** en main. La rama si.
+- `index.html` de main (linea 988) carga solo `legendary-tracker.js?v=1.0.0`.
+
+Y un "si" que tambien importa: el banner de la caja del Trading Post **si esta en main**
+(`converter-modal.js:14` documenta la v1.1.1, que es justamente el fix de titulo de esa rama). Esa rama
+esta absorbida.
+
+**3. Por que NO se mergea nada en este ciclo.** Las ramas con trabajo perdido estan **110 a 201 commits
+atras**. Entre su base y `main`, `js/api-gw2.js` cambio **481 lineas** — incluida la reescritura de
+claves de cache de la Idea 49. Un `git merge` de `homestead-tracker` revierte todo eso. Mergear es la
+operacion que destruye el trabajo; el rescate es **`cherry-pick` sobre una rama nueva desde `main`**, y
+uno por modulo.
+
+**Lo que si se puede hacer ya:** borrar `fix/theme-borderleft-shorthand` y, tras verificar que su unico
+commit unico esta en main, tambien `feat/commerce-delivery-ui`.
+
+**Por que existio esto.** La regla de AGENTS.md dice que el Principal es el unico que mergea y que
+ninguna rama queda sin mergear. El problema no es la regla: es que las 6 ramas se crearon **antes** de la
+migracion de clones del 2026-09-30 y quedaron colgadas en el remoto viejo. `git ls-remote` las muestra,
+`git status` no las ve nunca, y nadie las reviso en 33 heartbeats. **Un remoto con ramas huerfanas es un
+agenda de trabajo invisible, y las invisible no se cierran solas.**
+
 ## ALERT-50 — colision de ramas en el worktree compartido
 > **Abierta (HB#48). Severidad: media. Estado: abierta, mitigada por procedimiento.**
 > (Seccion de detalle de la fila **ALERT-50** de la tabla. La numeracion quedo duplicada durante el
@@ -104,4 +152,5 @@ antes de cada commit, y revisar el stat del commit ajeno si aparece en la propia
 PO en mitad de su heartbeat es peor que el riesgo que mitiga.
 | **ALERT-49** | 🔴 Alta | Codigo / Cache | **El sharding de `ach_meta` (Tramo C) se mergeo SIN validacion del Reviewer, y tenia 2 defectos reales. ElReviewer los encontro despues (`task-329b54da90ef`, veredicto APROBAR CON CAMBIOS) y los 2 se reprodujeron contra el archivo sin modificar: **2 FAIL**. **BUG 1 (media-alta):** dos cargas concurrentes del mismo shard en frio construyen cada una su `bag = {}` local y entran al mismo `inflightOnce` (misma `ikey`), asi que solo el primer llamador muta su bag. El segundo resuelve contra `{}` y **recibe `[]`**. En la app eso es peor que un error: `achievements.js:1069` arma `metaById` con ese array, asi que la cuenta renderiza logros **sin nombre, sin icono y sin tiers**, y `earnedAP` (`:218`) da **0 AP en silencio**. Es alcanzable: `gn:tokenchange` (`:1096`) y `hashchange` (`:1106`) disparan `loadAll()` sin secuencia que serialice el `getAchievementsMeta` de la carga anterior. **BUG 2 (media-baja):** `getCache` devuelve `null` con `nocache` (`:325`) -> `bag = {}` -> `putCache` graba solo los ids pedidos, **encogiendo un shard del que dependen otras cuentas** y generando churn de cuota, justo lo que el commit vino a reducir. Es alcanzable por el boton de refresh (`achievements.js:829`) y por `gn:tokenchange`. **Ademas:** el fix de concurrencia se commiteo SIN tocar el buster de `index.html` ni el header de version, o sea **el fix existia en el repo y no en la app** (el navegador cacheado corria la v2.21.0, que es la que tiene los 2 bugs). | **RESUELTA (HB#48)** | Fix mergeado en `f09eb7c`: la resolucion final **relee cada shard del cache** en vez de usar el objeto local, y el bag **se lee y se mergea siempre**, tambien con `nocache` (un shard depende del id, no de quien lo pide). Ademas se poda al guardar los 5 campos que la API manda y NADIE lee (`bits`, `requirement`, `locked_text`, `prerequisites`, `point_cap`): medido contra la API en vivo, la metadata baja de **1.75 MB a 0.81 MB** (35% -> 16% de la cuota). `api-gw2.js` v2.22.0 con buster, suite **231 aserciones 0 FAIL**. **Verificacion del test, no supuesta:** `git show f98da49:js/api-gw2.js` + `node tests/idea49.shard-concurrency.test.js` = **12 pass / 2 FAIL**; con el fix = **14 pass / 0 FAIL**. **REGLA 1: un merge es merge, no validacion. Sin veredicto del Reviewer, un cambio de capa de datos se considera PROVISIONAL, y el `task_id` se sigue hasta el final.** **REGLA 2 (nueva, la mas economica de todas): el fix y su buster van en el MISMO commit.** Es la version de codigo de ALERT-24 y evita la clase de bug donde se arregla el repo y la app sigue rota sin que nadie lo note. |
 | **ALERT-50** | 🟡 Media | Repo / Proceso | **Un commit de un agente cayo dentro de la rama de otro, en un worktree compartido, y nadie lo noto.** En el HB#48, el commit del PO (`0b9721d`, el dashboard de las 08:00) quedo dentro de `fix/idea49c-shard-races` porque el Principal cambio de rama mientras el PO trabajaba en el mismo clon. Benigno en este caso: era un `.md`, y el contenido era correcto. | **RESUELTA en el acto (HB#48)** | Los dos lo detectaron y lo resolvieron sin drama, que es exactamente por que funciona el canal de archivos. **REGLA: antes de commitear en un clon compartido, `git status -sb` y `git branch --show-current` en la MISMA llamada.** Si la rama no es la que uno cree, el commit va a la rama equivocada y el `git log` de la otra la muestra como si nunca hubiera existido. Corolario barato: `git log --oneline -1` inmediatamente despues de commitear, y verificar que el hash aparece en la rama esperada. Es la generalizacion de ALERT-43: alli el trabajo sin commitear casi se pierde; aqui el commit se guardo en el lugar equivocado. El riesgo real no es este caso, es el proximo en que el commit cruzado sea de codigo. |
+| **ALERT-55** | **Alta** | Repo / Proceso | **6 ramas sin mergear en `origin`, y al menos 3 contienen trabajo real que NO esta en `main`.** `git ls-remote --heads` las muestra todas; ninguna es ancestro de `main`. El detalle importa mas que el numero, porque **3 de las 6 estan enteramente absorbidas** y **3 tienen contenido perdido**. **ABSORBIDAS (el trabajo ya esta en main, las ramas solo están atrasadas):** `fix/theme-borderleft-shorthand` (`git cherry` da `-`: el patch ya esta) y `feat/commerce-delivery-ui` (su fix de CSS igual, y el banner de la v1.1.1 esta en `converter-modal.js:14` de main). **CON TRABAJO PERDIDO, verificado archivo por archivo contra `main`:** **(1) `feature/homestead-tracker` + `fix/homestead-glyph-data`** (la segunda contiene a la primera): `getHomesteadDecorationDetails`, `getAccountHomesteadDecorations` y `getHomesteadGlyphs` **no existen en `js/api-gw2.js` de main**; la ruta `#/account/homestead` **no esta en `js/router.js`**; `index.html` **no carga `homestead-tracker.js`**. La normalizacion de glyphs (`normalizeGlyphs`) tampoco esta en `js/homestead-tracker.js` de main. Son ~160 lineas de `api-gw2.js` y el fix de schema que el PO ya dio por bueno (COMM 010/012). **(2) `feature/legendary-component-tracker`:** `js/detail-modal.js` y `js/legendary-tracker-theme.js` **NO EXISTEN EN MAIN** (fichero completo, no un diff), e `index.html` de main solo carga `legendary-tracker.js?v=1.0.0`, sin el detail modal ni el theme de la capa 3. Son las Fases 2B y 3 del tracker. **(3) `docs-estructura-20260930`:** `ORG_MAP.md` tiene 103 lineas de diferencia contra main (una rama nace de un commit viejo, asi que el diff grande no es trabajo perdido: esto hay que leerlo, no contarlo). | **ABIERTA (HB#50)** | **Ninguna rama se borra ni se mergea en este ciclo**, y la razon es el orden de las operaciones, no la duda: las ramas que tienen trabajo perdido estan **110 a 201 commits atras** de `main`, y `api-gw2.js` cambio **481 lineas** desde su base. Un merge a ciegas de `homestead-tracker` revierte el sharding de la Idea 49 y arrastra elarranque del modulo. **El rescate correcto es por `cherry-pick` sobre una rama nueva desde `main`, no `merge`**, y uno por uno: (a) `homestead` (API + router + index + fix de glyphs, 2 commits), (b) `legendary` Phase 2B/3 (2 archivos que no existen), (c) `ORG_MAP` (revisar a mano, el diff es ruido de base). **Las 2 ramas absorbidas se pueden borrar YA, con seguridad verificada.** **REGLA que sale de aca:** `git cherry main <rama>` decide si un commit esta en main **por contenido**, no por hash; un `git diff main <rama>` grande NO prueba trabajo perdido, porque la rama nace vieja. Es el ALERT-47 con una segunda vuelta. |
 | **ALERT-54** | Media | Producto / Datos | **`vloxx` infla el KPI de Legendaria Imbuida: el 100% de LI es inalcanzable por diseno.** `vloxx` es el ala del CM de Sept 29 (Nexus of Eternity). `/v2/raids` **no lo expone** (medido contra la API en vivo, no supuesto), asi que esa tarjeta nunca se va a poder marcar. Pero el calculo de `liTotal` (`raid-tracker.js`) cuenta los encounters con `li === 1`, y `vloxx` lo tiene: el denominador suma un encuentro que la API jamas va a reportar. Es exactamente la clase de defecto que vino a matar la Idea 52 ("el modulo promete algo que no puede cumplir"), y quedo vivo dentro del propio fix que la ataco. No se toca en esta iteracion: decidir el ala 9 es producto (borrar el ala, o esperar a que GW2 la publique), no un fix de dato. | **ABIERTA (HB#50)** | Anotada, sin cambio de codigo. Cuando Pablo decida el ala 9 se cierra sola: si `vloxx` se borra, `liTotal` baja y el 100% vuelve a ser alcanzable. Si se conserva, hay que sacar `li: 1` del encuentro o excluir los fantasmas del calculo de LI. **Medicion que la sostiene:** el propio test de la Idea 52 ya valida que `vloxx` no esta en el catalogo (`tests/idea52.raid-encounter-ids.test.js`, seccion 3) y lo declara `FANTASMA_CONOCIDO` con la explicacion. Lo que faltaba era que el KPI de LI lo sintiera. |

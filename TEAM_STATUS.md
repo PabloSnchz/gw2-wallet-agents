@@ -13,6 +13,17 @@
 | Documentador | Sin evidencia | Sin tarea en vuelo ni comprobacion este ciclo. `HEARTBEAT.md` sigue registrando timeout. **Pendiente: verificar `active_model`.** El ciclo toco codigo, asi que le corresponde una entrega. |
 | Arquitecto | Activo | Intervino en el canal de archivos: detecto que el cuerpo de la comm 029 llego como la palabra `prueba.txt`. |
 
+## Ramas huerfanas en el remoto (ALERT-55)
+
+| Rama | Estado real | Accion del HB#50 |
+|---|---|---|
+| `fix/theme-borderleft-shorthand` | **Absorbida** (`git cherry` = `-`) | Pendiente de borrar |
+| `feat/commerce-delivery-ui` | **Absorbida** (banner v1.1.1 en `converter-modal.js:14` de main) | Pendiente de borrar |
+| `docs-estructura-20260930` | 1 commit, `ORG_MAP.md` con diff de base vieja | Revision manual |
+| `feature/homestead-tracker` | **Trabajo perdido**: 3 funciones de API, ruta y script tag | `cherry-pick` desde `main` |
+| `fix/homestead-glyph-data` | Contiene la anterior + el fix de schema de glyphs | `cherry-pick` desde `main` |
+| `feature/legendary-component-tracker` | **Trabajo perdido**: `detail-modal.js` y `legendary-tracker-theme.js` no existen en main | `cherry-pick` desde `main` |
+
 ## Trabajo completado este ciclo
 
 ### Idea 52 — 5 de los 30 encuentros de raid-tracker no se podian marcar nunca
@@ -76,6 +87,7 @@ Los renombres se emparejaron **por ala, no por nombre**, porque los nombres no s
 
 ## Alertas
 
+- **ALERT-55 (nueva, ALTA, ABIERTA):** **6 ramas sin mergear en `origin`; 3 tienen trabajo real que NO esta en `main`.** `js/api-gw2.js` de main no expone las 3 funciones de Homestead, `router.js` no tiene la ruta, `index.html` no carga el modulo, y `js/detail-modal.js` + `js/legendary-tracker-theme.js` no existen como archivo. Se rescata por `cherry-pick` desde `main`, no por `merge`: las ramas estan 110-201 commits atras y `api-gw2.js` cambio 481 lineas desde su base.
 - **ALERT-54 (nueva, ABIERTA):** `vloxx` tiene `li: 1` y `/v2/raids` no lo expone -> **`liTotal` cuenta un encuentro que jamas se va a reportar, y el 100% de Legendaria Imbuida es inalcanzable por diseno.** Es la misma clase de defecto que vino a matar la Idea 52, y quedo vivo dentro del fix que la ataco. No se toco: decidir el ala 9 es producto.
 - **ALERT-51 (HB#49, RESUELTA y reabierta en parte):** el fix de la Idea 52 creo la clave `"ura"` DUPLICADA en `REWARDS_DATA` y `BOSS_DETAILS` (bug introducido, efecto visual cero). Resuelta en `88a7721` con test anti-duplicadas. `raid-tracker.js` — 5 de 30 encuentros con id inexistente, 1 clave de datos mal (`ura_guardian`), 1 bloque muerto (`the_threshold`). Ver detalle abajo.
 - **ALERT-52 (nueva, ABIERTA):** `/v2/raids?ids=<id-de-evento>` devuelve **404**. Ver abajo — es una trampa para la Idea 53.
