@@ -185,5 +185,70 @@ console.log('\n--- 5. Los ids corregidos no colisionan con los que ya funcionaba
   eq(repetidos.length, 0, 'ningun id de encounter esta duplicado (repetidos: ' + (repetidos.join(', ') || 'ninguno') + ')');
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n--- 6. Ninguna clave repetida DENTRO de una tabla ---');
+// El hole exacto por donde paso el bug del 1.10.0: vm.runInNewContext colapsa
+// las claves repetidas de un object literal sin avisar, asi que loadTable()
+// NUNCA puede ver una duplicada. Y la seccion 4 tampoco la ve, porque "ura" si
+// es un encuentro real: la huerfana y la buena tienen el mismo nombre. Hay que
+// mirar el TEXTO de la tabla, no el objeto que produce.
+function clavesEnOrden(src) {
+  // El texto empieza en '{'. Se avanza caracter a caracteres saltando los
+  // strings, y se anotan los ':' que caen con depth == 1 (primer nivel).
+  const claves = [];
+  let depth = 0, i = 0, inStr = false;
+  while (i < src.length) {
+    const c = src[i];
+    if (inStr) {
+      if (c === '\\') { i += 2; continue; }
+      if (c === '"') inStr = false;
+      i++; continue;
+    }
+    if (c === '"') { inStr = true; i++; continue; }
+    if (c === '{' || c === '[') { depth++; i++; continue; }
+    if (c === '}' || c === ']') { depth--; i++; continue; }
+    if (c === ':' && depth === 1) {
+      // retroceder hasta la comilla de cierre de esta clave
+      let j = i - 1;
+      while (j >= 0 && /\s/.test(src[j])) j--;
+      if (src[j] === '"') {
+        let k = j - 1, buf = '';
+        while (k >= 0 && src[k] !== '"') { if (src[k] !== '\\') buf = src[k] + buf; k--; }
+        claves.push(buf);
+      }
+      i++; continue;
+    }
+    i++;
+  }
+  return claves;
+}
+for (const tabla of ['REWARDS_DATA', 'BOSS_DETAILS']) {
+  const src = table(tabla);
+  if (!src) continue;
+  const claves = clavesEnOrden(src);
+  const vistas = {}, repetidas = [];
+  for (const k of claves) {
+    if (vistas[k]) repetidas.push(k + ' (x' + (vistas[k] + 1) + ')');
+    vistas[k] = (vistas[k] || 0) + 1;
+  }
+  eq(repetidas.length, 0, tabla + ': ninguna clave repetida (repetidas: ' +
+    (repetidas.join(', ') || 'ninguna') + ')');
+  // Y la que gana es la ultima, asi que el bloque que realmente se ve es el
+  // que hay que leer. Para "ura" eso significa "Ura, la Aulladora de Vapores":
+  // el 1.10.0 dejo DOS bloques "ura" y ganaba el segundo, asi que borrar el
+  // huerfano no puede cambiar lo que el usuario ve.
+  const pos = claves.lastIndexOf('ura');
+  ok(pos >= 0, tabla + ': "ura" existe una sola vez');
+  if (tabla === 'BOSS_DETAILS' && pos >= 0) {
+    const idx = src.indexOf('"ura":');
+    ok(idx >= 0 && /Aulladora/.test(src.slice(idx, idx + 400)),
+       'la ficha de "ura" que gana es la de "Ura, la Aulladora de Vapores", no la de "Guardián Ura"');
+    ok(!/Guardián Ura/.test(src), 'no queda el bloque huerfano "Guardián Ura"');
+    const img = /image:\s*"([^"]+)"/.exec(src.slice(idx, idx + 900));
+    ok(!!img && fs.existsSync(path.join(ROOT, img[1].replace(/\//g, path.sep))),
+       'la imagen de la ficha de Ura existe en disco (' + (img ? img[1] : 'sin image') + ')');
+  }
+}
+
 console.log('\n' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail ? 1 : 0);

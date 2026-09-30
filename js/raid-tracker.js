@@ -1,14 +1,24 @@
 /*!
  * js/raid-tracker.js — Seguimiento de Raids Semanales
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.10.0 (2026-09-30) — 5 encuentros con id que la API no tiene (Idea 52)
+ * Versión: 1.10.1 (2026-09-30) — Clave "ura" duplicada en REWARDS_DATA y BOSS_DETAILS
  *
+ * 1.10.1 - Correccion del 1.10.0. El renombre ura_guardian->"ura" creo una clave
+ *   DUPLICADA en REWARDS_DATA y en BOSS_DETAILS (ganaba la ultima: la ficha
+ *   correcta de "Ura, la Aulladora de Vapores"). Se borra el bloque "Guardián
+ *   Ura", que era la entrada huerfana. Sin cambio visual. Ademas la ficha de
+ *   Ura apuntaba a ura_detail.png, que NO existe; ahora apunta a
+ *   ura_guardian.png, que si (createSafeIcon ya caia al fallback).
+ *   Correccion al texto del 1.10.0: la ficha de Ura NUNCA estuvo rota
+ *   (BOSS_DETAILS ya tenia la clave "ura"), y REWARDS_DATA no tiene ningun
+ *   lector en el repo: es codigo muerto que el test si valida.
  * 1.10.0 - La API devuelve el id real del encuentro; 4 de los 30 ids del modulo
  *   no existian en /v2/raids, asi que esas tarjetas NUNCA se podian marcar.
  *   Renombrados: siege_the_stronghold->escort, desmina->soulless_horror,
- *   dhuum->voice_in_the_void, gates_of_ahdashim->gate (por ala, contra el
- *   catalogo medido). Ademas ura_guardian no era el id de ningun encuentro
- *   (el de Ura es "ura"): sus recompensas y su ficha nunca se mostraban.
+ *   dhuum->voice_in_the_void, gates_of_ahdashim->gate (por ala + posicion +
+ *   nombre, contra el catalogo medido). Ademas ura_guardian no era el id de
+ *   ningun encuentro (el de Ura es "ura"), pero su entrada ya estaba muerta
+ *   desde antes: BOSS_DETAILS resolvia a la ficha correcta por "ura".
  *   Se borro "the_threshold", clave muerta sin encuentro. Total de encuentros
  *   sin cambio: 30. La correspondencia esta en tests/idea52.raid-encounter-ids.test.js
  * 1.9.0 - allSettled defensivo en raids + LI (Idea 47 c1)
@@ -275,12 +285,6 @@
       ]
     },
     "decima": {
-      drops: [
-        { id: 79722, name: "Insight legendaria", icon: "assets/icons/raids/rewards/legendary_insight.png" },
-        { id: 79921, name: "Fragmento de fe ascendido", icon: "assets/icons/raids/rewards/ascended_fragment.png" }
-      ]
-    },
-    "ura": {
       drops: [
         { id: 79722, name: "Insight legendaria", icon: "assets/icons/raids/rewards/legendary_insight.png" },
         { id: 79921, name: "Fragmento de fe ascendido", icon: "assets/icons/raids/rewards/ascended_fragment.png" }
@@ -787,25 +791,6 @@
       wiki: "https://wiki.guildwars2.com/wiki/Qadim_the_Peerless",
       image: "assets/icons/raids/bosses/qadim_the_peerless_detail.png"
     },
-    "ura": {
-      description: [
-        "• Guardián Ura es el primer encuentro del ala 8.",
-        "• Tiene mecánicas de luz y oscuridad.",
-        "• Invoca orbes que deben ser recolectados según el color.",
-        "• También tiene un ataque de área que debe ser evitado.",
-        "• En la fase final, los orbes son más difíciles de conseguir."
-      ],
-      strategy: [
-        "• TANQUE: Mantener al jefe centrado.",
-        "• DPS: Recoger orbes del color correcto.",
-        "• APOYO: Curar a los jugadores con orbes.",
-        "• TODOS: Evitar el ataque de área.",
-        "• CRÍTICO: Coordinar la recolección de orbes."
-      ],
-      video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      wiki: "https://wiki.guildwars2.com/wiki/Ura_Guardian",
-      image: "assets/icons/raids/bosses/ura_guardian_detail.png"
-    },
     "greer": {
       description: [
         "• Greer, el Portarruina, es el primer desafío del Monte Balrior.",
@@ -861,7 +846,7 @@
       ],
       video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       wiki: "https://wiki.guildwars2.com/wiki/Ura",
-      image: "assets/icons/raids/bosses/ura_detail.png"
+      image: "assets/icons/raids/bosses/ura_guardian.png"
     }
   };
 
