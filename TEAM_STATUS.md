@@ -1083,3 +1083,88 @@ numero que dos personas pueden leer como dos cosas distintas** (ALERT-84).
 - **La 49G sigue RECHAZADA** (ALERT-73), sin mergeear.
 - **Idea 63 T1-vs-T3** sigue abierta y no es mia: es preferencia de uso, va a
   Pablo.
+
+
+---
+
+## Heartbeat #71 (23:30 UTC) — ALERT-89: el invariante estaba vigilado en una sola dirección, y la aritmética lo hacía invisible
+
+### Lo que se recogió (PASO 0 y PASO 1)
+
+Las dos tareas del ciclo anterior volvieron **`finished`**, y las dos llegaron **tarde**: describen
+el árbol previo a `46b2d7f`, que ya aplicaba H1 y H2. El HB#70 ya lo había registrado; este ciclo
+no agregó nada de código por ese lado. El `confirm()` y el `title` del botón se verificaron contra
+el disco otra vez (`index.html:289-290`, `settings-manager.js:567`) y coinciden con lo declarado.
+
+Al PO se le recogió su ronda 17 (`task-1b6241ed5c58`) y al Reviewer el hook `onClear`. **Las dos
+comms vencidas del botón quedaron archivadas con `close`** (movidas a `archive/`), no leídas.
+
+> **Refinamiento de ALERT-67:** `close` mueve la copia del **inbox** a `archive/`, pero `overdue`
+> lee la copia de **`sent/`**, que `close` no toca. **O sea que `overdue` sigue reportando como
+> vencida una comm que ya se cerró.** `overdue` no es una señal confiable de "sigue abierta" para
+> nada que uno mismo haya mandado.
+
+### El hallazgo: ALERT-89
+
+La Idea 52 dejó el catálogo de raids midiendo que *todo encuentro del módulo existe en la API*
+(dirección `app -> API`). **La mitad inversa no estaba vigilada**, y las dos mitades dan el mismo
+número:
+
+| | |
+|---|---|
+| encuentros del módulo (`ALL.length === 30`) | 30 |
+| eventos de la API (`API.size === 30`) | 30 |
+| fantasmas `app -> API` (vigilado) | 1 → `vloxx`, allowlisted |
+| **faltantes `API -> app` (NO vigilado)** | 1 → **`camp`** |
+
+**Los totales coinciden y hay un id equivocado en cada lado.** `ALL.length === 30` es la aserción
+que hace esto *parecer* seguro: es una **aserción que pasa por construcción** (ALERT-77). Cuenta los
+encuentros, pero **cuenta los dos lados por separado y nunca los compara**.
+
+**Y `vloxx` no estaba roto.** La ronda 17 del PO lo puso como 🔴 #1, "el fix más urgente del
+backlog", y es una **decisión de producto medida** (`/v2/raids` no expone el ala Nexus of Eternity)
+que `idea52` tenía allowlisted desde antes, con un test que afirma *"medido, no supuesto"*. Lo
+que estaba roto era la otra dirección, que nadie miraba.
+
+**`camp` no se agregó, a propósito:** el fixture congelado lo trae **sin `name`**, y agregarlo
+obligaría a inventar nombre e icono. Un hallazgo con datos inventados es peor que un hueco declarado.
+
+Mergeado `1176be6`. Fase roja **1 FAIL nombrando `camp`**. Suite **823/0 FAIL, 30 de 30 archivos**.
+
+### ALERT-90: la regla de ALERT-88, tercera vez, y es mía
+
+La fila de **ALERT-78** cerraba diciendo *"queda `tools/count-suite-totals.py` commiteado para que
+la medición venga con el script que la produce"*. **Ese archivo no existe en disco, no está en
+HEAD, y `tools/.gitignore` lo ignora** — nunca entró. La regla que la fila aplicaba era la que la
+propia fila incumplía. El script que **sí** produce el total es `tools/run-suite.js`, que sí está
+trackeado. **Corregido en la fila misma, no solo en la adenda.**
+
+### Tooling: el assert de newline no detecta la mezcla
+
+`core.autocrlf=true`: el working tree materializa **CRLF** y el repo guarda **LF**. ALERT-87 ya
+tenía la regla para el caso de *leer*. El caso que faltaba es **agregar**: `assert t.endswith('
+')`
+**pasa igual con CRLF que con LF**, así que un append wrote LF sobre un archivo CRLF y el assert no
+lo notó. Medido: `COMMS_LOG.md` quedó con 252 CRLF y 2 LF, `BACKLOG.md` con 246 y 5. Normalizado con
+`tools/hb71-newlines.py`, que cuenta antes y después.
+
+### ALERT-79: se me coló un CJK y lo agarró el diff, no el scanner
+
+Escribí `El PO<dos ideogramas CJK> no se edita` en el script del dashboard. **Lo vi al releer el script antes de
+correrlo**, no por el scanner: `tools/scan-cjk.py` sobre los `.md` da **0**, porque los `.md`
+no están en su alcance — el escaneo CJK tiene que correr **sobre el `.py`/`.js` que genera el
+texto**, que es donde está el error antes de que llegue al `.md`. Verificado contra HEAD archivo por
+archivo: **0 escapes nuevos** (ALERTS_LOG 17 = 17, TEAM_STATUS 5 = 5, DASHBOARD 2 = 2).
+
+### Estado
+
+| Tramo | Estado |
+|---|---|
+| Botón de cache (Idea 50 A-F) | **MERGEADO** `950ea64`. Sin pendientes salvo el `onClear` |
+| ALERT-89 (`camp` + guarda inversa) | **MERGEADO** `1176be6` |
+| ALERT-84 T1 | **MERGEADO** `d64e688` (la fila decía "sin commitear": era falso) |
+| ALERT-84 T3+T4 | **ENVIADO AL REVIEWER** `task-509ffb6eb907`, una sola pregunta |
+| ALERT-84 T5 (build reproducible) | **ABIERTO**. Sin `_legendary_items_full.json` versionado no hay forma de regenerar el catálogo |
+| Hook `onClear` | **ABIERTO**, esperando veredicto del Reviewer |
+| 49G | **RECHAZADA** (ALERT-73). El fix va sobre `feat-idea49g-ach-acc-compacta` |
+| 63 T3 | **DESBLOQUEADA**, pero contraria al T1 → decisión de Pablo |
