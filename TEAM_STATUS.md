@@ -23,10 +23,20 @@ Este heartbeat cerró los 3 follow-ups que dejó:
 El "cinco propagados" de la Idea 47 no incluía a `getCharacterCount`. El relato de la v2.24.0 queda
 corregido en el header del propio archivo.
 
+**Y la Idea 57 Tramo 1 (merge `44a012a`) ataca el motivo de fondo: ese número estaba mal otra vez.**
+Medido con un parser sobre `agents/main`, los sitios que degradan por FORMA son **once**, no siete.
+Es el mismo tipo de error que el "8 tragadores" de la Idea 47: **un total que nadie vuelve a contar
+y que cada fix incremental desactualiza sin avisar.** Por eso el Tramo 1 **no arregla el caso N**
+—no cambia el comportamiento de ninguna función— sino que instala la regla: cada sitio tiene que
+**declarar** su contrato (`FORMA: degrada` / `FORMA: propaga`), y `tests/idea57.forma-contracts.test.js`
+exige la declaración **recorriendo el archivo**, sin lista mantenida a mano. Un wrapper nuevo cae en
+FAIL sin que nadie tenga que acordarse de actualizar nada.
+
 ## En curso
 
 | Qué | Dónde | Estado |
 |---|---|---|
+| **Idea 57 Tramo 2** — migrar los 7 wrappers que degradan por FORMA al guard | sin empezar | **Es lo que sigue después del Tramo 1.** Es capa de datos: ALERT-48 exige veredicto del Reviewer antes de tocar comportamiento. El de mayor costo no es el más raro sino el **más creible**: `getAccountLuck` degrada a **`0`**, y `0` **es un valor verdaderamente posible** (la API devuelve `[]` si la cuenta nunca consumió esencia). Es la única de las once sin `console.warn` ni rethrow: el fallo no deja rastro. Lo que Pablo ve es la columna "Suerte (MF)" en 0%, y un 0% se cree en buena fe. |
 | **Idea 53 — Strike Tracker por logros (14/15)** | sin empezar | Próxima. La más valiosa de la cola: hace que el módulo funcione y hoy muestra 0 de 15. Mismo criterio que la 56: quiere veredicto antes de mergear. |
 | CM de Convergencia por logros (9394/9435/9422) | sin empezar | 3 líneas, reusa `activities.js:870`. Detrás de la 53. |
 | **ALERT-55** — 6 ramas sin mergear en `origin` | `origin/*` | **ABIERTA.** 2 se pueden borrar ya (absorbidas, `git cherry` da `-`). 3 tienen trabajo real y están 110–201 commits atrás: el rescate correcto es `cherry-pick` sobre rama nueva desde `main`, **no `merge`**. No se toca en este ciclo. |
@@ -44,6 +54,12 @@ corregido en el header del propio archivo.
   Test `tests/idea56.f1-hint-permiso.test.js`, **23 aserciones, 5 FAIL sin el fix**.
 - **F3 — `ONBOARDING.md` documenta el contrato de dos capas.** Tabla de cómo distinguir RED de FORMA en
   el consumidor, y la advertencia de no reintroducir el `Array.isArray(x) ? x : []` por costumbre.
+- **Idea 57 Tramo 1 — la regla del contrato de FORMA** (`3f6e595` / merge `44a012a`, `api-gw2.js`
+  v2.25.0). **No cambia el comportamiento de ninguna función.** Instala la regla y declara los 11
+  contratos uno por uno en el sitio. Test `tests/idea57.forma-contracts.test.js`, **18/0** y **11 FAIL**
+  contra el archivo sin los contratos (tiene dientes). **Deliberadamente NO se corrigió el "SIETE" de
+  la cabecera a "ONCE":** poner el número correcto a mano sería el mismo error un commit más tarde.
+  Lo que vale es el conteo del test.
 - **037 cerrada.** `task-b20623f46caa` → `completed`, veredicto APROBADO. Era la regla del PASO 1 del
   ciclo: sin recogerla, el Reviewer figuraba caído mientras estaba trabajando.
 
@@ -62,7 +78,7 @@ corregido en el header del propio archivo.
 | Alerta | Estado |
 |---|---|
 | **ALERT-60** | ✅ **CERRADA.** Era el `Array.isArray(data) ? data : []` de `getAccountRaids` que degradaba una forma no soportada a `[]`. Mergeada y aprobada. **Corolario ya incorporado:** con F2 son **siete** los wrappers, y el recuento de "cinco propagados" que estaba en BACKLOG/ALERT-31 era falso. |
-| ALERT-59 | ABIERTA. El clon tiene dos escritores. Se le pidió al PO por el canal de archivos que no commitee en este clon mientras el Principal esté en `main`. **Este ciclo pasó de nuevo**: su rama se rescató con `git apply`, no con merge. |
+| ALERT-59 | ABIERTA. El clon tiene dos escritores. Se le pidió al PO por el canal de archivos que no commitee en este clon mientras el Principal esté en `main`. **Este ciclo pasó de nuevo, y de otra forma**: un **commit entero** (`3f6e595` + merge `44a012a`, la Idea 57 Tramo 1) apareció en `main` entre dos de mis pasos, hecho por un proceso paralelo. Benigno — el contenido era correcto y la suite da 491/0 — pero es la cuarta vez que el clon compartido surprise. **AGREGADO: correr `git reflog` si un commit aparece sin haberlo hecho.** |
 | ALERT-58 / ALERT-57 | ✅ RESUELTAS (HB#52 / HB#53). |
 | ALERT-56 | ABIERTA como regla. **Volvió a pegar dos veces este ciclo**: 4 FAIL míos en el test de F1 eran mis propias regex mal construidas, y un FAIL del de la 56 era del mock (el texto `[]` parsea a un array válido y tiene que pasar el guard). **Un FAIL se diagnostica antes de tocarse.** |
 | ALERT-55 | ABIERTA. 6 ramas sin mergear; 3 con trabajo real. Rescate por `cherry-pick`, no por `merge`. |
@@ -88,7 +104,7 @@ tests/idea60b.forma-charcount.test.js   -> 21 pass / 0 FAIL   (con el fix)
   mismo test, git stash sobre api-gw2   ->  9 pass / 12 FAIL  (SIN el fix)
 tests/idea56.f1-hint-permiso.test.js    -> 23 pass / 0 FAIL   (con el fix)
   mismo test, git stash sobre los 2 js  -> 10 pass /  5 FAIL  (SIN el fix)
-suite completa (18 archivos)            -> 473 aserciones, 0 FAIL
+suite completa (18 archivos)            -> 491 aserciones, 0 FAIL
 node --check raid-tracker.js strike-tracker.js -> limpio
 git push origin HEAD:main               -> origin/main = 72cc8af
 ```

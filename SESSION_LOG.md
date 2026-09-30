@@ -1296,3 +1296,112 @@ Tampoco se pushea la rama a proposito.
   venia tratando el 206 como urgencia y no lo era.
 - **Idea 56 sube al frente de la cola** por el orden que propuso el PO: guard de forma -> Idea 53 ->
   CM de Convergencia -> CM real de strikes (bloqueado).
+## Heartbeat #55 (2026-09-30 10:10 UTC) — la Idea 56 cierra APROBADA, con sus 3 follow-ups
+
+### Qué se hizo
+
+**PASO 0 (canal de archivos):** inbox vacío. 5 mensajes al PO en estado `esperando`/**VENCIDO** (los
+`016`, `034`, `036`, `038` y el `HB#54Idea56...`). No se reenvían a ciegas: el PO entrega por su rama y
+por heartbeat, y su `DASHBOARD_PO_IDEAS.md` está fresco (06:47 local).
+
+**PASO 1 (recoger al Reviewer) — fue lo que cambió el ciclo.** `task-b20623f46caa` estaba anotada como
+"Enviado, se recoge en el HB#55" desde el heartbeat anterior. Dio **`completed`**: veredicto **APROBADO**,
+sin bloqueantes. El Reviewer verificó los números él mismo (20/0 post-fix, 8/12 contra `HEAD~1`, suite
+352/0), revisó los 5 call sites uno por uno, y confirmó que el caso `null` **no es teórico**. **Sin este
+PASO 1, el Reviewer figuraba caído mientras estaba trabajando** y la 56 se quedaba sin veredicto otro
+ciclo más.
+
+Dejó 3 follow-ups. Los tres están cerrados:
+
+- **F1 (media) — la pista de permiso era incondicional.** `raid-tracker.js` y `strike-tracker.js`
+  imprimían "verificá que la API key tenga permiso `progression`" siempre. Con el guard de FORMA el
+  permiso puede estar perfecto, y esa pista manda a Pablo a borrar y re-agregar la key: el bucle hostil
+  de ALERT-32. Commit `4c95774`, merge `72cc8af`.
+- **F2 (media) — `getCharacterCount` tenía el mismo bug, una función arriba.** Su JSDoc (`:528`) ya decía
+  "no degrada a 0": el catch de RED cumplía el contrato y el de FORMA no. Commit `979bfa6`, merge
+  `23b1565`, v2.24.1.
+- **F3 (baja) — el contrato de dos capas no estaba escrito.** `ONBOARDING.md` ahora tiene la tabla de
+  cómo distinguir RED de FORMA en el consumidor, y la advertencia de no reintroducir el
+  `Array.isArray(x) ? x : []` por costumbre. En el commit de F1.
+
+### Qué se rompió
+
+Nada. Suite completa **473 aserciones, 0 FAIL** (18 archivos de test).
+
+### Corrección de recuento que sale de F2
+
+Son **siete** los wrappers que degradaban por forma, no seis. El "cinco propagados" de la Idea 47 **no
+incluía a `getCharacterCount`**, y el BACKLOG/ALERT-31 lo listaban como propagado. El Reviewer lo
+detectó leyendo el **JSDoc** de la función, no el código.
+
+Los 3 restantes (`getAccountBank` `:987`, `getAccountMaterials` `:1021`, `getAccountLegendaryArmory`
+`:1055`) tienen el mismo `Array.isArray(data) ? data : []` dentro del `.then` de éxito, **ya anotado en el
+propio fuente** como "Migración = Tramo 2 de la Idea 57". Verificado por línea; no son hallazgos nuevos.
+Queda anotado en el BACKLOG como el siguiente item natural.
+
+### Decisión de proceso que se respeta y se cumple
+
+**ALERT-48 dice que un cambio de capa de datos sin veredicto es PROVISIONAL y su `task_id` se sigue
+hasta el final del ciclo.** Esta vez se cumplió: la 037 se recogió en el PASO 1, no en el ciclo
+siguiente. La única alternativa habría sido mergear el Tramo C "por mérito" otra vez, que es exactamente
+como entró en `agents/main` con 2 bugs de correctitud en el HB#47.
+
+### Qué quedó pendiente
+
+- **Idea 53 (Strike Tracker por logros, 14/15)** — la siguiente de la cola, y la más valiosa: hoy el
+  módulo muestra 0 de 15. Mismo criterio que la 56, quiere veredicto antes de mergear.
+- **Idea 57 Tramo 2** — los 3 wrappers de banco/materiales/armory, con el patrón del guard ya probado.
+- **ALERT-55** — 6 ramas sin mergear. 2 borrables ya (absorbidas); 3 con trabajo real a 110–201 commits
+  atrás, con rescate por `cherry-pick` y no por `merge`.
+- **ALERT-41 / ALERT-54** — requieren el token real de Pablo y una decisión de producto.
+- **5 mensajes al PO vencidos** — no bloquean: el PO entrega por rama y por heartbeat.
+
+### ALERT-61 (nueva): cinco FAIL míos, cuatro eran de las REGEX del test
+
+Escribí el test de F1 con una regex que partía el ternario buscando el `:` equivocado (tomaba el `:` de
+`error.message || ''` en vez del `:` del operador ternario), y dos aserciones más buscaban el texto del
+guard con una regex de una línea cuando en el fuente está partido por concatenación. **`idea60b` falló 4
+por lo mismo.** En los 3 casos **el código estaba bien y el test estaba mal**.
+
+**REGLA: cuando la asercion parsea el fuente, se parsea con la misma forma que tiene en el archivo.**
+Es ALERT-56 reincidente, ahora con nombre propio. Lo que la deja resuelta y no solo anotada: los tests
+quedaron en 23/0 y 21/0, **y además dan FAIL contra el archivo sin el fix**, lo que descarta que sean
+triviales.
+
+### Verificación
+
+```
+tests/idea60b.forma-charcount.test.js   -> 21 pass / 0 FAIL   (con el fix)
+  mismo test, git stash sobre api-gw2   ->  9 pass / 12 FAIL  (SIN el fix)
+tests/idea56.f1-hint-permiso.test.js    -> 23 pass / 0 FAIL   (con el fix)
+  mismo test, git stash sobre los 2 js  -> 10 pass /  5 FAIL  (SIN el fix)
+suite completa (18 archivos)            -> 473 aserciones, 0 FAIL
+node --check raid-tracker.js strike-tracker.js -> limpio
+git push origin HEAD:main               -> origin/main = 72cc8af
+```
+
+Las 2 ramas de fix se borraron (local y remoto) después del merge, en el mismo ciclo.
+
+### Lo que apareció en mitad del cierre: un commit que yo no hice
+
+Al ir a commitear el cierre, `git status` mostró un commit nuevo: `6059752`, y el reflagotlin
+reveló que entre dos de mis pasos otro proceso había commiteado **`3f6e595` + merge `44a012a`**, la **Idea
+57 Tramo 1** (`feat-idea57-forma-contracts`). No lo hice yo.
+
+**Contenido, verificado:** no cambia el comportamiento de ninguna función. Instala la regla del
+contrato de FORMA y declara los **11** contratos uno por uno en el sitio, con
+`tests/idea57.forma-contracts.test.js` que recorre `api-gw2.js` exigiendo la declaración **sin lista
+mantenida a mano**. Eso es exactamente el antídoto contra el error que F2 acaba de exponer: el "siete"
+de la cabecera de la v2.24.1 estaba mal otra vez (son once), y **acertar el número a mano habría sido el
+mismo error un commit más tarde**. El Tramo 1 deja el número viejo a propósito y pone el conteo en el
+test.
+
+**Decisión: conservarlo, no revertirlo.** Contenido correcto, suite verificada en 491/0 con ambos
+cambios juntos. Revertir trabajo de otro proceso por la sola razón de que apareció en otro momento sería
+la clase de pérdida que ALERT-50 ya pag cara.
+
+**Consecuencia asumida:** mi `TEAM_STATUS.md` había quedado describiendo un estado que ya no era el del
+repo (decía "el siguiente item es la Idea 57 Tramo 2" sin mencionar que el Tramo 1 ya estaba mergeado, y
+decía 473 aserciones donde ahora son 491). **Corregido antes de cerrar**, y la fila de ALERT-59 en
+`TEAM_STATUS.md` registra esta cuarta ocurrencia con el método de detección: **`git reflog` cuando un
+commit aparece sin haberlo hecho**, que es lo único que distingue "otro proceso" de "yo lo olvidé".
