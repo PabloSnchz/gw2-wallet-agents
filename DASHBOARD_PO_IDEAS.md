@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T02:00:00Z (Heartbeat PO — **IDEA 48 NUEVA: el pool mergeado está calibrado a 1/3 del permiso**; Idea 47 re-verificada en 8; 2 correcciones propias aceptadas)
+> Actualizado: 2026-09-30T04:00:00Z (Heartbeat PO — **IDEA 49 NUEVA: la caché persistente de localStorage muere en silencio a las ~10-24 cuentas**; 48 y 47 CERRADAS y mergeadas; catálogo de endpoints cerrado contra `/v2.json`)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -10,19 +10,20 @@
 
 ## Top prioridades
 
-> ⚠️ **Reordenado 2026-09-30 02:00 UTC.** La **Idea 48** entra al frente: es la más barata de todo el backlog (**30-45 min**) y la de mayor efecto percibido (**16 s menos por pantalla**). No es una feature — es un número mal calibrado en algo que **ya está mergeado**. La Idea 47 sigue primera entre las de código, con la estimación revisada a la baja que hizo el Principal (~2-3h, no 4-6h).
+> ⚠️ **Reordenado 2026-09-30 04:00 UTC.** La **Idea 49** entra al frente: la **Idea 48 y la Idea 47 quedaron CERRADAS y mergeadas** (`9d77b32`, `78a5a7a`, `90d2b0e`, `110b049`). La 49 es el siguiente eslabón de la misma cadena: la 48 hizo que la app vaya más rápido, y ahora aparece **por qué una parte de esa velocidad no se conserva entre recargas**.
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
-| 🔴 **0** | **IDEA 48: el pool mergeado está calibrado a 1/3 del permiso.** `POOL_MAX=3` no lo eligió nadie: se heredó de los worker-pool locales, y nunca se midió qué throughput da. Medido hoy: **latencia real mediana 902 ms** (7 respuestas 200 con datos), **cero 429 hasta 20 requests concurrentes**, `X-Rate-Limit-Limit: 600` confirmado en la respuesta. El pool actual rinde **~200 req/min = 33% del permiso**. Con **27 cuentas** son **433 requests** por recorrido; solo el Dashboard Cartera = 109 → **32.7 s hasta la primera pantalla con datos**, y la UI meantime solo dice `"Cargando cuentas... 4/27"`, un contador que **avanza a saltos** sin decir si eso es normal. Con `POOL_MAX=6`: **16.4 s**. **Tramo A 🟢 (30-45 min): 3→6.** `fetchWithRetry` ya tiene backoff exponencial para 429. **Tramo B 🟡 (2-3h): ETA en ese contador** leyendo `poolStats()` — **cierra la Idea 46 t2 con datos reales en vez de con una estimación** | 🟢 A / 🟡 B | **No implementado. Medido en vivo** | **AHORA** |
-| 🔴 **0a | **IDEA 47: los ceros falsos.** 8 wrappers de `api-gw2.js` loguean el error y devuelven `[]` o `0`: `getCharacterCount` (L327→`0`), `getAccountRaids` (L355), `getCommerceTransactionsBuys` (L390), `getCommerceTransactionsSells` (L421), `getCommerceListings` (L501), `getAccountBank` (L574), `getAccountMaterials` (L603), `getAccountLegendaryArmory` (L632). **Re-verificada hoy a mano: los 8 son exactos.** `getCommerceDelivery` (L475) es el único con el contrato escrito. **Dato nuevo (el denominador): de 29 wrappers, 10 tienen `console.warn` y solo 1 propaga** → el patrón por defecto de la capa es degradar a `[]`, y la 47 no son 8 casos sueltos sino el contrato de la capa. Consecuencia: la Idea 45 t2 está a medio dead (`loadAccountSummary` tiene el catch correcto, inalcanzable para `characters` y `raids`). **Alcance real menor al estimado: ~2-3h**, no 4-6h | 🟡 Media (**~2-3h**, revisada a la baja por el Principal) | **No implementado. Verificada por el Principal contra el código** | **Con 48A** |
+| 🔴 **0** | **IDEA 49: la caché persistente muere en silencio.** `api-gw2.js:189` — `function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(_){} }` — **se traga el `QuotaExceededError`**. Cuota medida en navegador real: **4.98 MB**. Caché de logros por cuenta: **0.53 MB** (6.991 achievements × 79 B medidos). **27 cuentas = 14.22 MB al 100%, 9.95 MB al 70%, 5.69 MB al 40%.** La app revienta entre la **cuenta ~10 y la ~24**; Pablo tiene **27**. Cuando revienta, la copia en localStorage deja de existir (la de `__mem` sobrevive, por eso no hay error visible), **cada F5 vuelve a ser un arranque en frío de 433 requests ≈ 65 s** — y `cacheClear()` tiene **0 callers y ningún botón**, así que no hay escape. **Lo grave no es la lentitud: es que se presenta como "la Bóveda anda lenta" y no como un fallo.** **Tramo C 🟢 (1-1.5 h): guardar los logros como `"id:completed,id:completed"` (~6 B) en vez del objeto JSON (79 B) → 13× menos → 14.22 MB pasa a ~1.1 MB y entra en la cuota.** Tramo A 🟢 (1 h): `lsSet` devuelve booleano, se registra el fallo y el contador de carga lo nombra. Tramo B 🟡 (2-3 h): LRU sobre las claves `gw2_*` (hoy el único cap del código es `items_cache_v1` a 500). **Orden C → A → B** | 🟢 C / 🟢 A / 🟡 B | **No implementado. Medido en navegador real + API en vivo** | **AHORA** |
+| ✅ | **IDEA 48: recalibrar el pool (3 → 6) + ETA en el contador** — **CERRADA.** Tramo A @ `9d77b32` + merge `78a5a7a` (`api-gw2.js` v2.19.0, `POOL_MAX: 6` L129). Tramo B @ `90d2b0e` (`wallet-dashboard.js` v2.9.0, ETA medida con umbrales `ETA_MIN_DONE=3` / `ETA_MIN_MS=1500`) | 🟢 / 🟡 | **Cerrada** | ✅ |
+| ✅ | **IDEA 47: los ceros falsos** — **CERRADA.** Merge @ `110b049` + `776b1ea` (`.catch` en launches tardíos) + `7ca8195` (allSettled + banner) + `92b9cc1` (call site del TP nombra el fallo) | 🟡 | **Cerrada** | ✅ |
 | ✅ | **IDEA 46 t1: pool global de requests** — **CERRADA.** Mergeada @ `2f6ce82`, merge `bf0fb62` → `agents/main`, más `10ead9b` (fuga de slot en `poolPump`) y `9a8262c` (pool de FASE 2 en inventario). **La Idea 48 es la continuación de esta, no una alternativa** | 🟢 Fácil | **Cerrada** | ✅ |
-| 🟡 | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". **= Tramo B de la Idea 48**, reformulado con los números medidos | 🟡 Media | No implementado. `poolStats()` ya expone `queued`/`waitMs` | Con 48A |
+| ✅ | **IDEA 46 t2: honestidad de la cola** — **CERRADA** por el Tramo B de la 48 (`90d2b0e`): el contador ya mide y muestra ETA real en vez de decir "Cargando…" | 🟡 | **Cerrada** | ✅ |
 | ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0) | — | **Implementada** | ✅ |
 | ✅ | **Commerce delivery** (`getCommerceDelivery`) — API en `agents/main` @ `7d13155`. **UI sigue pendiente** (0 callers) | 🟢 | API lista, sin UI | Con 46 t2 |
 | ✅ | **Fix `meta.js`: endpoint `/v2/events` obsoleto** | 🟢 | **CERRADO** @ `f533d67` (guard `LEY_LINE_ENDPOINT_RETIRED`, v3.4.1) | ✅ |
-| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons`, 401; `/v2/dungeons` = 8 mazmorras / 36 paths, público y sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0%** (quinto heartbeat que lo verifico) | **Próxima** |
-| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints (`account/skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ✅ Ya no depende de la 46 t1 (está mergeada). **Con `POOL_MAX=6` los 324 requests bajan de ~97 s a ~49 s** — recalculado hoy | 🟡 Media | API confirmada, 0% implementado | Después de 47 + dungeons |
+| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons` + `dungeons`, **ambos confirmados contra `/v2.json` el 04:00**; 8 mazmorras / 36 paths, público, sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0% (sexto heartbeat)** | **Próxima** |
+| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints, **12/12 confirmados contra el índice oficial `/v2.json` el 04:00** (`skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ✅ Ya no depende de la 46 t1 (está mergeada). Con `POOL_MAX=6` los 324 requests bajan de ~97 s a ~49 s | 🟡 Media | API confirmada, 0% implementado | Después de 49C |
 | 🥇 3 | Fractal Tracker multicuenta (T1-T4+CM, instabilities, agony) — falta el 3er tipo de contenido instanciado | 🟡 Media | API parcial, patrón de raid/strike reusable | Ahora |
 | 🥉 4 | Titles tracker (`/v2/account/titles`, 496). **Reabierta**: `achievements.js` solo usa `/v2/titles?id=` como resolutor de nombres, nunca llama al account-scoped. No es redundante | 🟢 Fácil | API confirmada | Próxima |
 | ⚠️ 5 | `homestead-tracker.js` — **código muerto**: sus wrappers no están en el `return` de `GW2Api` y `index.html` no lo referencia. **Quinta verificación, misma respuesta.** Sale de la tabla → decisión abierta del Principal | 🟡 | **Parado** | — |
@@ -32,6 +33,72 @@
 | 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
 | 7 | Goal tracking | 🟡 Media | Validated | — |
 | 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+
+## 🔴 Heartbeat PO 2026-09-30 04:00 UTC — Idea 49 + catálogo de endpoints con autoridad
+
+> **Octava ronda consecutiva con 0 web research útil.** La pregunta del heartbeat no fue
+> "¿qué feature falta?", sino **"¿qué ve Pablo cuando localStorage se llena?"**
+> → **Idea 49**. Ninguna búsqueda web la hubiera producido.
+
+### Lo que cambió en el repo desde las 02:00 (leído, no supuesto)
+
+| Idea | Estado | Commits |
+|---|---|---|
+| 48 Tramo A — `POOL_MAX` 3→6 | ✅ **CERRADA** | `9d77b32` + merge `78a5a7a` |
+| 48 Tramo B — ETA en el contador | ✅ **CERRADA** | `90d2b0e` |
+| 47 — ceros falsos | ✅ **CERRADA** | `110b049` + `776b1ea` + `7ca8195` + `92b9cc1` |
+| 46 t1 / t2 | ✅ **CERRADA** | t1 en `c0cd18f`/`25e6cc5`/`10ead9b`; **t2 resuelta por el Tramo B de la 48** |
+| 44 — dungeons | 🟡 **sigue en 0%** (sexto heartbeat) | — |
+| `homestead-tracker.js` | ⚠️ código muerto (sexta verificación) | — |
+
+NUEVO en el repo: **`PROMOTIONS.md`**, inventario de feats para decisión de **Pablo**.
+Producción congelada. El equipo no propone promover y este heartbeat **no lo hace**.
+
+### Una idea candidata que murió en la medición
+
+Iba a proponer **requests condicionales con ETag**: si la API devolviera `ETag`, un F5
+costaría ~0 requests de los 433, porque los 304 no gastan presupuesto.
+**Medido: la API de GW2 no soporta ETag.** `GET /v2/colors?ids=1..15` → 200, con
+`X-Rate-Limit-Limit: 600` y `Cache-Control: public,max-age=3600`, pero **sin `ETag` y
+sin `Last-Modified`**. Sin eso no hay 304. La única palanca HTTP que existe ya está
+usada: el `fetch` va con `cache: 'default'` (`api-gw2.js:224`). **La palanca real es del
+lado del almacenamiento, no del protocolo.**
+
+### Correcciones propias (3, autode-)
+
+1. **Probe de `/v2.json` devolvió 0 endpoints** y estuve a punto de reportar que no había
+   índice. Era mi bug: leí la clave `endpoints` cuando el documento usa `routes`. La
+   salida me lo decía. **Segunda vez en 48 h que "imprimir el total junto al 0" me evita
+   reportar una idea falsa.**
+2. **La columna "SIN USAR" estaba inflada.** La armé sobre prefijos de wrappers de
+   `GW2Api`, pero `activities.js`, `meta.js` y `wizards-vault.js` llaman con `fetch`
+   crudo. Verificado: `dailycrafting`, `worldbosses`, `mapchests`, `luck` y
+   `wizardsvault/*` **sí se usan**. El gap real es menor que el que despaché.
+3. **Premisa wrong sobre la caché:** creí que era solo en memoria y que un F5 repedía
+   las 433 requests. Falso — `putCache` también escribe en localStorage. No cambió la
+   conclusión, pero cambió el diagnóstico: lo que muere no es la caché al hacer F5, es
+   **la copia persistente cuando la cuota se agota.**
+
+### Catálogo de endpoints, cerrado con el índice oficial
+
+Usé `/v2.json` en vez de mi heurística 401-vs-404, que ya me produjo un error con
+`/v2/account/mounts`. **184 routes, 45 `account/*`.**
+
+- **Idea 42: 12/12 confirmados.** `dungeons` también. `dungeons/rooms` **no** existe.
+- **Resuelto:** `account/mail` **existe** (quedaba "503, no confirmable").
+- **Gaps nuevos que no tenía anotados:** `account/buildstorage`, `account/mastery/points`,
+  `account/inventory`, `account/emotes`, `account/recipes`, `account/jadebots`,
+  `account/progression`, `account/pvp/heroes`, `account/skiffs`, `account/home`,
+  `account/homestead{,/decorations,/glyphs}`.
+  El que más me interesa es **`account/buildstorage`**: es donde viven los ítems
+  duplicados, que es justo lo que la Idea 28 (inventory cleanup, gap competitivo contra
+  MetaForge WARDOGS) necesita y **no tenía en su lista de fuentes**.
+
+### Secuencia vigente (04:00 UTC)
+
+`49C compactar logros → 44 dungeons → 49A decir que la caché falló → 49B LRU → 42 coleccionables → titles → buildstorage`
+
+---
 
 ## 🟢 Correcciones propias del PO (2026-09-30 02:00 UTC) — 2, ambas autode-
 
