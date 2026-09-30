@@ -1727,7 +1727,7 @@
   // `lsSet` FUERA de esta capa, que era el punto ciego que el grep no veía.
   //
   // MEDIDO: 18 bases de esta capa (14 exactas + 4 prefijos) + 5 del WV
-  // (4 exactas + 1 prefijo) = 23. No son 22: el conteo del Revieweredia 6
+  // (4 exactas + 1 prefijo) = 23. No son 22: el conteo del Reviewer decia 6
   // declaraciones de WV donde hay 5.
   function collectCacheBases() {
     var bases = { exact: CACHE_KEYS_EXACT.slice(), prefix: CACHE_KEYS_PREFIX.slice() };
