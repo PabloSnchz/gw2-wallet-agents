@@ -142,7 +142,14 @@ console.log('\n[6] Sintaxis de todo lo tocado');
 console.log('\n[7] Cache-busting: index.html apunta a la version nueva');
 {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf-8');
-  ok('api-gw2.js?v=2.18.0', /js\/api-gw2\.js\?v=2\.18\.0/.test(html));
+  // api-gw2.js: la invariante es que el ?v= coincida con el header del
+  // archivo, no que valga un numero concreto. El Idea 48 subio esa version
+  // despues de este commit y el literal se rompio solo. Compara contra el
+  // header real para que el test siga diciendo lo que pretende decir.
+  const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'api-gw2.js'), 'utf-8');
+  const apiVer = (apiSrc.match(/Versi\u00f3n:\s*([\d.]+)/) || [])[1];
+  ok('api-gw2.js?v= alineado con su header (' + apiVer + ')',
+     !!apiVer && new RegExp('js/api-gw2\\.js\\?v=' + apiVer.replace(/\./g, '\\.')).test(html));
   ok('inventory-hub.js?v=1.4.0', /js\/inventory-hub\.js\?v=1\.4\.0/.test(html));
   ok('no queda api-gw2 en 2.17.x', !/api-gw2\.js\?v=2\.17/.test(html));
 }

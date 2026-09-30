@@ -122,8 +122,15 @@ ok('sin !important', !/!important/.test(bannerBody) && !/!important/.test(API.sp
 // coincidir (regla del commit 02254a7).
 ok('converter-modal.js?v= alineado con el header (1.2.0)',
   /converter-modal\.js\?v=1\.2\.0/.test(INDEX) && /Versión: 1\.2\.0/.test(CONV));
-ok('api-gw2.js?v= sigue en 2.18.0 (solo se toco un comentario)',
-  /api-gw2\.js\?v=2\.18\.0/.test(INDEX));
+// El ?v= de api-gw2.js tiene que COINCIDIR con su propio header, no valgar un
+// numero fijo: este commit no lo toco, pero el Idea 48 si subio la version del
+// archivo. La invariante es la alineacion (regla del commit 02254a7); el
+// literal era una foto del momento y se rompio sola albumpear la version.
+const API_VER = (CONV === null ? '' : (fs.readFileSync(path.join(ROOT,'js','api-gw2.js'),'utf8')
+  .match(/Versi\u00f3n:\s*([\d.]+)/) || [])[1]);
+ok('api-gw2.js?v= alineado con el header del archivo',
+  new RegExp('api-gw2\\.js\\?v=' + (API_VER||'x')).test(INDEX),
+  `header=${API_VER}`);
 
 section('[3] EJECUCION — renderTransErrorBanner() con estados falsos');
 
