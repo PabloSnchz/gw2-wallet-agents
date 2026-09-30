@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-30T05:40:00Z (Heartbeat #46 — Tramo C de la Idea 49 medido y reencuadrado: el problema es duplicación, no tamaño; sharding −91.5%. ALERT-45: 404 de task_id ≠ timeout. ALERT-46: corregida la cifra de 96 MB → 20.22 MB reales.)
+> Actualizado: 2026-09-30T07:35:00Z (Heartbeat #48 — el Tramo C de la Idea 49 tenía **2 bugs de correctitud** que el Code Reviewer encontró al revisarlo y que se mergearon sin validación: concurrencia en el primer llenado del shard (AP en 0 silencioso) y `nocache` encogiendo un shard compartido. Ambos corregidos y mergeados en `f09eb7c`. Cifras de la cuota corregidas con medición contra la API real: 1.75 MB sin podar, **0.81 MB con el drop de los 5 campos muertos**. ALERT-48: el "por mérito" no aplica a capa de datos.)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -61,23 +61,66 @@
   - ✅ **Tramo 1 (HB#44) — la causa real, y no era la cuota.** `activities.js:activate()` llamaba `cleanAchievementsCache()`, que borra toda clave `ach_`… justo la familia que `putCache()` escribe para logros. `router.js` la invoca en cada entrada a `#/activities`: **abrir el panel de Actividades invalidaba la cache de logros de todas las cuentas.** Un modulo no borra la cache de otro. `d7cbe0d` / merge `9e211b5`, `activities.js` v3.20.3. Runner 16/16.
   - ✅ **Tramo A (HB#45) — el fallo dejo de ser invisible.** `lsSet` devuelve booleano, cuenta los `QuotaExceededError` y avisa **una sola vez**; se expone `GW2Api.__cacheStats()`. **No relanza el error**: la copia en `__mem` ya sirvio para la sesion y lanzar ahi seria peor que el bug. `fb55fe2` + buster `4e5296b`, `api-gw2.js` v2.20.0. Runner `tests/idea49.quotavisible.test.js` **11/11**, y **4/11 (7 FAIL) contra el archivo sin modificar**; suite completa **170/0**.
     - **Por que A no era opcional:** el wipe del Tramo 1 era lo unico que mantenia la cuota a raya, **por accidente**. Sin el Tramo A, quitar el wipe no cambiaba «Logros tarda» por «todo reinicia en frio»: lo cambiaba por **«todo reinicia en frio, en mas sitios, y sin decir nada»** — la cuota es **compartida por todos los modulos**, no solo el de logros. Un fix que destapa un sintoma puede soltar otro peor detras; por eso van en el mismo ciclo.
-  - ⏳ **Tramo C (1-1.5 h, el que rinde) — OBJETIVO MEDIDO Y CORREGIDO (HB#46).** El plan del PO (comprimir `ach_acc` de 79 B a ~6 B por id, 13× menos) apuntaba a la clave chica. **Medido contra la API en vivo, el problema real es la duplicación, no el tamaño del registro.**
-    - **Por campo** (200 ids reales, `lang=es`): `bits` 20.1%, `requirement` 8.3%, `tiers` 5.5%, `name` 3.8%, `description` 3.7%, `flags` 2.9%, `rewards` 2.6%, `icon` 2.1%, `type` 1.2%, `locked_text` 0.8%, `id` 0.5%. **519 B/registro.**
-    - **`bits`, `requirement`, `locked_text`, `prerequisites` y `point_cap` no los lee NADIE** (`getAchievementsMeta` tiene un solo call site, `achievements.js:1067`, y no los toca; verificado con grep sobre todo `js/`). Dropearlos al cachear: **−29%** sin perder un dato que la app pueda leer. `tiers`, `flags`, `rewards`, `description`, `name`, `icon`, `type`, `id` **sí** se usan.
-    - **La corrección estructural es sharding.** La key es `ach_meta_v2:<lang>:<ids>` — **una key por id-set, con el id-set entero dentro del nombre**. Con 27 cuentas: **216 claves** que se solapan, guardando la misma tabla muchas veces (la metadata no depende del token: se cachea con `null`).
-    - **Simulación con ids reales de la API** (3459 ids barridos en 1..4000), 27 cuentas × 1500 logros, cuota 4.98 MB:
+  - ✅ **Tramo C (HB#46, `f98da49`) — CERRADO, y CORREGIDO en el HB#48 (`f09eb7c`).**
+    Sharding por `id//200`. La key vieja `ach_meta_v2:<lang>:<ids>` llevaba el id-set ENTERO en el nombre, asi
+    que cada cuenta guardaba su propia copia de la misma tabla. Ademas `purgeLegacyAchMeta()` borra las keys
+    viejas en el primer uso: **sin eso el sharding no abre nada**, porque la cuota ya esta llena.
 
-      | Estrategia | Volumen | Claves |
-      |---|---|---|
-      | Hoy (key por id-set, chunks de 200) | **20.22 MB** | 216 |
-      | Sharding (key por shard fijo `id//200`) | **1.71 MB** | 18 |
-      | | **−91.5%** | |
+    - 🐞 **2 bugs de correctitud encontrados al revisarlo, y mergeados sin validacion.** El Tramo C entro
+      "por merito" en el HB#46; la revision del HB#48 (`task-329b54da90ef`, *aprobar con cambios*) los
+      encontro. **Los dos se reprodujeron con test contra el archivo SIN modificar antes de tocar una linea**
+      (2 FAIL), y el test queda en el repo como `tests/idea49.shard-concurrency.test.js` (14 aserciones).
+      - **Concurrencia en el primer llenado (media-alta).** `bag = {}` era local por llamada; dos cargas
+        concurrentes del mismo shard en frio comparten `inflightOnce`, asi que solo la primera mutaba su bag
+        y la segunda resolvia contra `{}` → devolvia `[]`. En la app: `achievements.js:1069` armaba
+        `metaById` incompleto — logros sin nombre, sin icono y sin tiers, y **`earnedAP` en 0 sin ningun error
+        visible**. Alcanzable por `gn:tokenchange` (`achievements.js:1096`) y `hashchange` (`:1106`), que
+        disparan `loadAll()` sin serializar el `getAchievementsMeta` de la carga anterior.
+        **Fix:** la resolucion final relee el shard del cache en vez de usar el objeto local.
+      - **`nocache` encogia un shard compartido (media-baja).** `getCache` devuelve `null` con `nocache`
+        (`api-gw2.js:325`) → `bag = {}` → `putCache` grababa solo los ids pedidos. Una cuenta chica que
+        refresca (boton `achievements.js:829`, o `gn:tokenchange`) encoge un shard del que dependen otras.
+        **Fix:** el bag se lee siempre y se mergea. Un shard depende del id, no de quien lo pide;
+        `nocache` significa "refresca lo que te pido", no "olvida lo que ya sabes".
 
-      Sumando el drop de los 5 campos muertos, **~1.2 MB**. El sharding no requiere ningún dato nuevo: el shard de un id es su posición global, independiente de qué cuenta lo pidió.
-    - **Corrección de la cifra del HB#45:** los "~96 MB" multiplicaban el catálogo completo por 27. El volumen real del patrón es **20.22 MB** (ALERT-46). Sigue muy por encima de la cuota, pero la cifra inflada empujaba al arreglo equivocado.
-    - **NO implementado en el HB#46.** Sharding cambia el contrato de `getAchievementsMeta` y la estrategia de red (un shard pide 200 ids aunque la cuenta tenga 3 en ese rango). Es un cambio de capa de datos, no un fix local. Va con el acuerdo del PO sobre el objetivo (pregunta 1, `task-b781ce950d38`) y con tests propios.
-    - Orden restante después del C: **Tramo B** (LRU sobre `gw2_*`; hoy el único cap del código es `items_cache_v1` a 500).
+      **Los 2 estaban en el camino de escritura, que era el unico sin cobertura**: los tests del Tramo C
+      median volumen de cuota, no correctitud de la lectura.
+
+    - ✅ **Drop de los 5 campos que NADIE lee**, aplicado **antes de guardar** (`api-gw2.js:964`): `bits`,
+      `requirement`, `locked_text`, `prerequisites`, `point_cap`. Dropearlos en el consumidor no ahorraba ni
+      un byte en disco, que es justo lo que se queria liberar. Verificado con grep sobre todo `js/`: cero
+      apariciones. `type` NO se poda (`achievements.js:527` lo lee).
+      `tests/idea49.tramoc-sharding.test.js` sube de 22 a **37** aserciones con el bloque `[4b]`, que falla
+      si alguien vuelve a guardarlos.
+
+    - 📊 **Cifras corregidas: las 3 que circulaban NO reproducian.** El header decia "1.71 MB en 18 claves",
+      el commit decia "35 shards, 3.58 MB" y la corrida del test imprimia "18.64 MB → 1.85 MB en 40 claves".
+      Medido contra la API en vivo con `tools/idea49c-measure.mjs` (3458 logros reales, `lang=es`,
+      27 cuentas × ~1500 logros solapados, cuota 4.98 MB):
+
+      | Estrategia | Volumen | Claves | % de la cuota |
+      |---|---|---|---|
+      | Patron viejo (key por id-set) | 20.22 MB | 216 | — |
+      | Sharding, sin podar | **1.75 MB** | 20 | 35.2% |
+      | Sharding + drop de 5 campos | **0.81 MB** | 20 | **16.4%** |
+
+      Las tres cifras viejas salian de registros **sinteticos** del test, no de la API. Los 3458 logros
+      tienen al menos uno de los 5 campos muertos.
+
+    - ⚠️ **El sharding NO cierra la cuota: `ach_acc` es la otra mitad.** Son **27 keys, una por cuenta**
+      (el fingerprint del token va en el nombre), y el sharding no las toca. Medido por el PO con la forma
+      real del endpoint: **4.10 MB**, o sea `0.81 + 4.10 = 4.91 MB` contra 4.98 MB de cuota. El quiebre esta
+      en ~2.700 logros por cuenta. **Ver Idea 49G.**
+
+    - **Suite completa: 231 aserciones, 0 FAIL.** `api-gw2.js` v2.22.0, buster alineado en `index.html`.
+    - ⚠️ **ALERT-48:** este Tramo se mergeo sin validacion y tenia 2 bugs de correctitud. El "por merito"
+      vale para riesgo estetico o de baja superficie, **no** para un cambio de capa de datos que reescribe
+      la estrategia de claves.
   - **Sigue la cadena de la 48**: la 48 hizo la app mas rapida; la 49 explica por que una parte de esa velocidad no se conserva entre recargas.
+
+- [ ] **Idea 49G — `ach_acc` en forma compacta (PO, 08:00 UTC)** — 🔴 **LO QUE CIERRA LA CUOTA DE VERDAD.** Propuesta del PO, **sin implementar**. El Tramo C cerro `ach_meta` (0.81 MB) pero **`ach_acc` son 27 keys, una por cuenta**, y el fingerprint del token va en el nombre de la key: el sharding no las toca. Con la forma real del endpoint (`{id,current,max,done,bits}`), 3.000 logros × 27 cuentas = **4.10 MB**, y `0.81 + 4.10 = 4.91 MB` contra 4.98 MB de cuota: entra raspando y sin margen para el resto de la cache. **Compactando a `"id,id,..."`: 0.36 MB.** Suma final ~1.2 MB, con 3.7 MB de aire.
+  - 🟡 **Media, no verde**: `getAccountAchievements` tiene **2 consumidores que leen campos del objeto** (no es cache-and-forget), asi que hay que auditarlos antes de tocar el formato.
+  - El PO reporto ademas su propia **hipotesis muerta**: iba a declarar que el modulo Logros estaba roto de punta a punta (`computeProgress`/`earnedAP` leen `current`/`max`/`done`), y verifico en la wiki que **esos campos si existen**. Casi manda una ALERT contra un modulo sano.
 
 ## Pendientes (prioridad media)
 

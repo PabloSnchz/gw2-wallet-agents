@@ -10,7 +10,11 @@
 
 ## Top prioridades
 
-> ⚠️ **Reordenado 2026-09-30 08:00 UTC.** El **Tramo C de la 49 ya está MERGEADO** (`f98da49`, `api-gw2.js` v2.21.0: sharding `ach_meta_v3:<lang>:<id//200>`, **20.22 MB → 1.71 MB**, tests **22 pass / 0 FAIL**). Pero **no cierra la cuota**: `ach_acc` son 27 keys (una por cuenta, porque `kLS` mete el fingerprint del token en el nombre) y pesan lo mismo. **Aparece la Idea 49G.** También entra la **Idea 52**: `raid-tracker.js` tiene **5 de 30 encuentros rotos**, en el módulo que todos creían sano.
+> ⚠️ **Reordenado 2026-09-30 08:00 UTC.** El **Tramo C de la 49 ya está MERGEADO** (`f98da49`, `api-gw2.js` v2.21.0: sharding `ach_meta_v3:<lang>:<id//200>`). Pero **no cierra la cuota**: `ach_acc` son 27 keys (una por cuenta, porque `kLS` mete el fingerprint del token en el nombre) y pesan lo mismo. **Aparece la Idea 49G.** También entra la **Idea 52**: `raid-tracker.js` tiene **5 de 30 encuentros rotos**, en el módulo que todos creían sano.
+>
+> ✅ **Cifras corregidas por el Principal (HB#48).** Las tres que circulaban para la misma medición (18 claves / 1.71 MB, "35 shards / 3.58 MB", 18.64 → 1.85 MB) **no reproducen**. Medido contra la API en vivo con `tools/idea49c-measure.mjs` (3458 logros, lang=es, 27 cuentas): patrón viejo **20.22 MB** → sharding sin podar **1.75 MB (35% de la cuota)** → **podando los 5 campos que nadie lee, 0.81 MB (16%)**. Sigue siendo necesario, y solo.
+>
+> 🔧 **Revisión del Code Reviewer (task-329b54da90ef, "APROBAR CON CAMBIOS") aplicada y mergeada** (`f09eb7c`): 2 defectos reales del sharding, reproducidos con test. `api-gw2.js` v2.22.0, suite **231 aserciones 0 FAIL**.
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
@@ -35,6 +39,69 @@
 | 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
 | 7 | Goal tracking | 🟡 Media | Validated | — |
 | 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+
+## 🟢 Heartbeat PO 2026-09-30 06:00 UTC — Idea 50: la cuota no se libera nunca
+
+> **Novena ronda consecutiva sin web research útil** (Reddit devolvió los mismos 5 posts de
+> siempre; gw2treasures confirma 78.422 items / 10.635 skins / 4.821 skills, nada nuevo).
+> La pregunta fue **"¿qué borra la caché?"** → **Idea 50**. Ninguna búsqueda web la produce.
+>
+> **Lo más importante de este heartbeat es una corrección, no una idea nueva:**
+> **el Tramo C no cierra la cuota por sí solo.**
+
+### La respuesta a "¿qué la borra?" — nada
+
+| Mecanismo | Qué hace | Callers |
+|---|---|---|
+| `lsDel(key)` `api-gw2.js:243` | borra una clave de localStorage | **0** |
+| `cacheClear()` `:1077` | limpia `__mem` + `__inflight` | **0** |
+| `getCache()` `:324` | si venció → `return null`, **no borra** | — |
+| `KeyManager.remove()` `app.js:694` | saca la Key de la lista | **no toca la caché** |
+
+`cacheClear()` es peor de lo que dice su nombre: **solo limpia la caché en memoria, no la
+de localStorage.** El TTL no libera espacio, deja de leer. Y **eliminar una API Key deja
+su caché huérfana para siempre** — ese es el caso común, no "la caché se hace grande".
+
+### El presupuesto completo, medido (27 cuentas)
+
+18 `putCache`: **14 por token** (→ 378 claves fijas con 27 cuentas) + 4 globales.
+
+| | Hoy | Con Tramo C | + compacto `ach_acc` |
+|---|---|---|---|
+| `ach_meta` | 41.60 MB | **1.54 MB** | 1.54 MB |
+| `ach_acc` | 11.88 MB | 11.88 MB | **1.08 MB** |
+| bank + items + resto | 1.07 MB | 1.07 MB | 1.07 MB |
+| **TOTAL** | **54.55 MB** | **14.49 MB** 🔴 | **3.99 MB** 🟢 |
+
+Contra la cuota de **4.98 MB**. **Con sharding solo siguen 14.49 MB: ×3.**
+Los dos tramos juntos: 3.99 MB. **Por eso el LRU (Tramo B) baja de prioridad.**
+
+Bytes medidos sobre la forma real (`ensure_ascii=False`, como guarda `JSON.stringify`):
+**458 B** por entrada `ach_meta` (6991 logros), **66 B** por `ach_acc`,
+`currencies_all:es` 23.3 KB, `commerce_listings` 159.5 KB (27.997 ids), `items_cache_v1`
+189.1 KB (378 B/item). `account_bank` (~44 KB/cuenta) es **estimación** (necesita token);
+aunque fuera el doble no cambia la conclusión.
+
+### La idea que murió en la verificación
+
+Iba a proponer que **el sharding rompe la correctitud** (un hit de caché con key de shard
+significa "tengo *algunos* ids", y el `if (cached) return;` sin pedir lo que falta daría
+listas de logros incompletas). **No se reporta: ya está implementado y está bien.**
+`api-gw2.js:925-983` guarda un bag por shard, calcula `missing` y pide solo eso (`:952`),
+y resuelve en el orden pedido deduplicado. **22 pass / 0 FAIL** en
+`tests/idea49.tramoc-sharding.test.js`. Mi idea nació de un `if (cached) return` de la
+versión vieja; el código actual ya no lo tiene.
+
+### Tramos propuestos
+
+| Tramo | Qué | 🟢 |
+|---|---|---|
+| **D** | Barrido de huérfanas al arrancar: borrar claves cuyo token ya no está en `gw2_keys`. La prueba: tras eliminar una Key, `localStorage.length` baja | 1-1.5 h |
+| **F** | Que `cacheClear()` borre localStorage de verdad, o renombrarse `memClear()` + `cacheClearAll()` | 30 min |
+| **E** | Que `getCache` borre la entrada vencida (con cuidado: `TTL.ACCOUNT` son 30 s) | 30 min |
+| **B** | LRU — **baja de prioridad**, ya no es el problema | 🟡 ⬇️ |
+
+---
 
 ## 🔴 Heartbeat PO 2026-09-30 04:00 UTC — Idea 49 + catálogo de endpoints con autoridad
 

@@ -932,3 +932,99 @@ Perdi tiempo con dos errores mios en el camino: un heredoc que `cmd` no soporta,
 ### Repetible
 
 Un `catch(_){}` que se traga el error no es un detalle de robustez: es el que convierte "el usuario tiene 27 cuentas" en "la boveda anda lenta", sin dejar rastro. Y un borrado de cache que nadie considero funciono durante 6 meses y mantuvo el sistema en pie, tapando el problema de cuota que el PO estaba por medir al reves.
+
+---
+
+## Heartbeat #48 (2026-09-30 08:00-08:40 UTC) - Se cierra la revision del Tramo C, y las cifras de la cuota
+
+**Que se hizo.** Recogida de la respuesta del Code Reviewer que el HB#47 dio por perdida: `task-329b54da90ef`
+**si llego** (no era un 404, era una tarea que se recogia tarde). Veredicto **APROBAR CON CAMBIOS** sobre el Tramo C
+(`f98da49`). Los 2 defectos que encontro son reales y se reprodujeron **contra el archivo sin modificar**
+(`git show f98da49:js/api-gw2.js`): **12 pass / 2 FAIL**. Con el fix: **14 pass / 0 FAIL**.
+
+Merge `f09eb7c` a `agents/main`, con `api-gw2.js` v2.22.0 y buster de `index.html` en el mismo ciclo
+(ALERT-24: el fix sin buster es un fix que no existe para el usuario).
+
+**Que se rompio.** Nada. La suite completa da **231 aserciones / 0 FAIL** en 11 archivos
+(`tools/run-suite.cmd` las corre todas). Se encontro, eso si, un **1 FAIL** en
+`idea49.activities-cache-wipe.test.js:90`: asertaba la forma EXACTA de la linea que calcula `missing`, y el fix del
+BUG 2 la paso a un ternario con `opts.nocache`. El test estaba mal, no el codigo. Corregido en `b2d78e3`, que ademas
+**fija el invariante** (con nocache se re-pide lo pedido pero el bag se mergea), para que el fix no se pueda revertir
+en silencio: el test viejo solo miraba la rama normal.
+
+**Cifras corregidas.** Habia **tres numeros distintos para la misma medicion** y ninguno reproducia: 18 claves /
+1.71 MB (header), "35 shards / 3.58 MB" (commit), 18.64 -> 1.85 MB (corrida del test). Medido contra la API en vivo
+con `tools/idea49c-measure.mjs` (3458 logros, `lang=es`, 27 cuentas x ~1500 solapados, cuota 4.98 MB):
+
+| patron | volumen | % de la cuota |
+|---|---|---|
+| viejo (key por id-set) | 20.22 MB | 406% |
+| sharding, sin podar | 1.75 MB (20 claves) | 35% |
+| sharding, podando 5 campos | **0.81 MB (20 claves)** | **16%** |
+
+**La conclusion NO cambia: el sharding es necesario y NO suficiente.** `ach_acc` son 27 keys (una por cuenta,
+porque `kLS` mete el fingerprint del token en el nombre) y el sharding no las toca. Con el numero corregido, el punto
+de quiebre es **~2.700 logros con progreso por cuenta**: ahi la cuota se pasa 1.2x. Eso es la **Idea 49G** del PO.
+
+**Que quedo pendiente.**
+- **49G** (`ach_acc` compacto: `"id,id,..."` en vez del array de objetos, 11x menos) — la que cierra la cuota de verdad.
+- **49D** (barrido de huerfanas) sube a NECESARIO si Pablo rota tokens: `getCache:324` no borra la vencida, asi que
+  cada `ach_acc:*` de un token retirado es 100-364 KB eternos.
+- **49F / 49E** (`cacheClear()` que borre localStorage de verdad; `getCache` que borre la vencida).
+- **Idea 52**: 5 de 30 encuentros de `raid-tracker.js` no existen. Es el mismo bug que ALERT-41 en el modulo que
+  todos creian sano, y es el que Pablo usa todas las semanas. 30 min, fix de dato.
+- **Idea 53**: re-apuntar el Strike Tracker a logros o borrarlo. Decision de producto, no del Principal.
+
+**Decisiones tomadas en este ciclo.**
+1. Se secuencia **49G antes que 49D/49F/49E**: sin 49G la cuota no entra, y 49D/49F/49E solo limpian lo que ya esta
+   roto. Es el orden que propuso el PO y se acepta sin cambios.
+2. El **LRU (Tramo B) baja de prioridad** mas aun: era la respuesta a un problema que ya no es el problema.
+3. **Idea 52 entra al frente.** Es 30 min, es dato, y arregla algo visible todas las semanas. Compite mejor que
+   cualquier feature nueva por el tiempo de Pablo.
+4. Se acepta la regla que el PO se autoimpuso tras su hipotesis muerta #4: **la forma de un registro se mide contra
+   la doc del endpoint, no contra lo que uno asume.** Casi mando una ALERT contra el modulo Logros, que esta sano.
+
+---
+
+## Heartbeat #48 — 2026-09-30 07:00 UTC (Principal)
+
+### Que se hizo
+1. **PASO 0**: canal de archivos `_comms` — inbox, replies y overdue **vacios**. Sin preguntas pendientes.
+2. **PASO 1**: las 2 tareas del ciclo anterior (`task-8408fd859db1` al Reviewer, `task-6176f26e77bf` al PO)
+   devolvieron **404 = TTL vencido**. Verificado que su contenido llego por archivo; **no se reenviaron a ciegas**.
+3. Enviadas consultas nuevas: `task-329b54da90ef` (Reviewer, revision del Tramo C) y `task-0c7e4041cd59` (PO).
+4. **Revision del Tramo C aplicada**: 2 bugs de correctitud corregidos, mas el drop de 5 campos y las cifras.
+   Merge `f09eb7c` a `agents/main`.
+
+### Lo que se rompio (y lo que casi se rompe)
+- **Lo que casi se rompe: 2 bugs que yo mismo mergee sin validacion.** El Tramo C (`f98da49`) entro "por
+  merito" en el HB#46. La revision del Reviewer los encontro:
+  - **Concurrencia**: dos cargas simultaneas del mismo shard en frio → la segunda recibia `[]`, y eso se
+    traduce en **AP en 0 sin ningun error visible** en el modulo Logros. Es el peor tipo de bug: no falla,
+    **miente**.
+  - **`nocache`**: encogia un shard compartido y dejaba sin metadata a otras cuentas.
+  Los dos **reproducidos con test antes de arreglar** (2 FAIL contra el archivo sin modificar), y el test
+  queda en el repo.
+- **Un test cayo por una razon.cosmetica**: `idea49.activities-cache-wipe.test.js:90` asertaba la forma
+  *literal* de una linea que mi fix movio a un ternario. El comportamiento estaba bien. Lo actualice para
+  cubrir **las dos ramas** y anadi 2 aserciones que fijan el invariante del merge, para que el fix del BUG 2
+  no se pueda revertir en silencio.
+- **Colision de ramas (ALERT-49)**: el commit del PO (`0b9721d`) cayo dentro de mi rama `fix/idea49c-shard-races`
+  porque cambie de rama mientras el PO trabajaba en el mismo worktree. Benigno (era un `.md`) y ambos lo
+  detectamos. **No se reorganiza el worktree en caliente**: romperle el heartbeat al PO es peor que el riesgo.
+
+### Decisiones tomadas
+- **"Por merito" no aplica a capa de datos** (ALERT-48). Vale para riesgo estetico o de baja superficie; un
+  cambio que reescribe la estrategia de claves necesita validacion. La costo ~20 min y evito un bug de AP.
+- **Las cifras se miden contra la API real, no contra fixtures.** Las 3 cifras que circulaban para la misma
+  medicion no reproducian ninguna, porque venian de registros sinteticos del test. Se agrego
+  `tools/idea49c-measure.mjs`, que corre contra `/v2/achievements` de verdad.
+- **`PRE_BACKLOG.md` no se commitea**: es privado del PO por su propia regla.
+
+### Pendiente
+- **Idea 49G** (`ach_acc` compacta, 4.10 MB → 0.36 MB) es lo que **cierra la cuota de verdad**. Es del PO y
+  tiene **2 consumidores que leen campos del objeto**: hay que auditarlos antes de cambiar el formato.
+- **Idea 49 Tramo B**: LRU sobre las keys `gw2_*`. Hoy el unico cap del codigo es `items_cache_v1` a 500.
+- **ALERT-41**: sigue bloqueado. Necesita **una llamada de Pablo a `/v2/account/raids` con token real**.
+- Ideas nuevas del PO sin Implementar: 50 (la cuota no se libera nunca), 52 (5 de 30 encuentros de raid no
+  existen), 53 (re-apuntar el Strike Tracker a logros o borrarlo).

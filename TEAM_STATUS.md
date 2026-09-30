@@ -1,35 +1,98 @@
-# TEAM STATUS - Heartbeat #47 (2026-09-30 06:30 UTC)
+# TEAM STATUS - Heartbeat #48 (2026-09-30 07:00 UTC)
 
-> Actualizado por el Principal. Clon de trabajo: `C:\Mis Archivos\GW2 online\gw2-dev`
-> (el worktree `_wt_main` que usaba el HB#46 **ya no existe**; `gw2-dev` paso a ser el worktree activo).
-> `agents/main` @ `a4d31ac`.
+> Actualizado por el Principal. Clon de trabajo: `C:\Mis Archivos\GW2 online\gw2-dev`.
+> `agents/main` @ `f09eb7c`.
 
 ## Estado del equipo
 
 | Agente | Estado | Evidencia del ciclo |
 |---|---|---|
-| Principal (default) | **OPERATIVO** | Ciclo completo. Merge + push verificados. |
-| Code-Reviewer | **OPERATIVO** | `active_model` correcto, `startup_status: running`. Consulta 029 en vuelo. Tarda 2-15 min: **no declararlo muerto antes de 20 min**. |
-| product-owner | **OPERATIVO** | `active_model` correcto, running. Consulta 030 en vuelo. |
-| Documentador | **OPERATIVO** | `active_model` correcto, running. Sin tareas en vuelo este ciclo (no hubo cambio de arquitectura que documentar). |
-| Arquitecto | **OPERATIVO** | Mandó una sonda de canal ("SONDA DE CANAL 1"). **Respondida**: el canal de archivos funciona. |
+| Principal (default) | **OPERATIVO** | Ciclo completo. Merge `f09eb7c` + push verificados contra `git ls-remote`. |
+| Code-Reviewer | **OPERATIVO** | Respondio `task-329b54da90ef` (Idea 49 Tramo C) con revision de 5 secciones en un solo turno. **3er heartbeat seguido que responde.** |
+| product-owner | **OPERATIVO** | Respondio `task-0c7e4041cd59` con 4 ideas nuevas y 2 hipotesis muertas verificadas. |
+| Documentador | **OPERATIVO** | `active_model` correcto. Sin tarea en vuelo este ciclo. |
+| Arquitecto | Sin cambios | Sin sonda este ciclo. |
 
 ## Trabajo completado este ciclo
 
-- **Fuga de AbortController en `inventory-dashboard.js` — CERRADA.** Commit `c3416c5`, merge `a4d31ac`, pusheado a `agents/main`.
-  `loadActiveCharacterInventory` creaba `c1` (4s) y `c2` (15s) con un `setTimeout` abortador, pero el `finally` hacia
-  `clearTimeout`: **cancelaba el propio mecanismo de abort**. Los `fetch` quedaban vivos hasta que la API respondiera,
-  y en un `gn:tokenchange` durante la Fase 2 el pipeline viejo podía pintar sobre el nuevo. Fix de 2 líneas
-  (`c1.abort()` / `c2.abort()` en el `finally`, después de consumir la respuesta).
-  **Test `tests/inventory-dashboard.abort.test.js`, 5 aserciones: 2 FAIL contra el archivo sin modificar, 0 FAIL con el fix.**
-  Suite completa **200 aserciones, 0 FAIL**.
+- **2 defectos del sharding de `ach_meta` — CERRADOS.** Merge `f09eb7c`, pusheado a `agents/main`.
+  El Tramo C (`f98da49`) se habia mergeado **sin revision del Code Reviewer**. La revision del HB#48
+  (`task-329b54da90ef`, veredicto *aprobar con cambios*) encontro 2 bugs reales. **Los dos se reprodujeron
+  con test contra el archivo SIN modificar antes de tocar una linea.**
+
+  - **BUG 1 — concurrencia en el primer llenado (media-alta).** Cada llamada construia su propio `bag = {}`.
+    Dos cargas concurrentes del mismo shard en frio entran al mismo `inflightOnce`, asi que solo el primer
+    llamador mutaba su bag; el segundo resolvia contra `{}` y devolvia `[]`. En la app eso es
+    `achievements.js:1069` armando `metaById` incompleto: logros sin nombre, sin icono y sin tiers, con
+    **`earnedAP` en 0 y sin ningun error visible**. Alcanzable: `gn:tokenchange` (`:1096`) y `hashchange`
+    (`:1106`) disparan `loadAll()` sin serializar el `getAchievementsMeta` de la carga anterior.
+    **Fix:** la resolucion final relee el shard del cache en vez de usar el objeto local.
+  - **BUG 2 — `nocache` encogia un shard compartido (media-baja).** `getCache` devuelve `null` con `nocache`
+    → `bag = {}` → `putCache` grababa solo los ids pedidos. Una cuenta chica que refresca (boton de refresh
+    `achievements.js:829`, o `gn:tokenchange`) encoge un shard del que dependen otras cuentas.
+    **Fix:** el bag se lee siempre y se mergea. Un shard depende del id, no de quien lo pide;
+    `nocache` significa "refresca lo que te pido", no "olvida lo que ya sabes".
+  - **Drop de los 5 campos que NADIE lee** (`bits`, `requirement`, `locked_text`, `prerequisites`,
+    `point_cap`), aplicado **antes de guardar** (dropearlos al leer no ahorra un byte en disco).
+    Verificado con grep sobre todo `js/`: cero apariciones.
+
+  **Tests:** `tests/idea49.shard-concurrency.test.js` (nuevo, 14 aserciones) da **2 FAIL contra el archivo sin
+  modificar**. `tests/idea49.tramoc-sharding.test.js` sube de 22 a 37 con el bloque `[4b]`, que falla si
+  alguien vuelve a guardar los campos muertos. Suite completa **231 aserciones, 0 FAIL**.
+
+- **Cifras de la cuota, corregidas.** El Reviewer Denial del punto 3: existian **tres cifras distintas** para
+  la misma medicion y ninguna reproducia. Medido contra la API en vivo con `tools/idea49c-measure.mjs`
+  (3458 logros, `lang=es`, 27 cuentas × ~1500 solapados, cuota 4.98 MB):
+
+  | Estrategia | Volumen | Claves | % cuota |
+  |---|---|---|---|
+  | Patron viejo (key por id-set) | 20.22 MB | 216 | — |
+  | Sharding, sin podar | **1.75 MB** | 20 | 35.2% |
+  | Sharding + drop 5 campos | **0.81 MB** | 20 | 16.4% |
+
+  Los 3458 logros tienen al menos uno de los 5 campos. `api-gw2.js` v2.22.0 + buster en `index.html`.
+
+- **Un test que revivio un fix.** `tests/idea49.activities-cache-wipe.test.js:90` asertaba la forma *literal*
+  de la linea de `missing`. El fix del BUG 2 la paso a un ternario y el test cayo (1 FAIL) aunque el
+  comportamiento estuviera bien. Se actualizo para cubrir **las dos ramas** y se agregaron 2 aserciones que
+  fijan el invariante del merge: sin eso, el fix del BUG 2 podia revertirse sin que nada lo notara.
 
 ## Tareas en curso
 
-| # | Destinatario | Qué | Task ID | Arrancada |
-|---|---|---|---|---|
-| 029 | Code-Reviewer | P1 estilos inline / P2 correctitud del abort en `inventory-dashboard.js`, con cifras reencuadradas | `task-8408fd859db1` | 06:28Z |
-| 030 | product-owner | 3 puntos: novedades PRE_BACKLOG, camino sin token para ALERT-41, siguiente tramo de Idea 49 | `task-6176f26e77bf` | 06:30Z |
+Ninguna. Las 2 del ciclo anterior quedaron en **404 (TTL vencido)**: `task-8408fd859db1` (029) y
+`task-6176f26e77bf` (030). No fueron reenviadas: su contenido llego por archivo, y lo que si importaba
+(la revision del Tramo C) se pidio de nuevo con `task-329b54da90ef`, que si respondio.
+
+## Propuestas
+
+El PO entrego **4 ideas nuevas** en este ciclo, respondiendo las 2 preguntas del heartbeat:
+
+| # | Idea | Estado |
+|---|---|---|
+| **49G** | **`ach_acc` en forma compacta: 4.10 MB → 0.36 MB.** El sharding cierra `ach_meta` pero NO cierra la cuota: `ach_acc` son 27 keys (una por cuenta, el fingerprint va en el nombre) y el sharding no las toca. Suma final 3.14 MB de 4.98. Es 🟡 media, no verde: `getAccountAchievements` tiene 2 consumidores que leen campos del objeto. | **PROPUESTA, sin implementing** |
+| 50 | La cuota no se libera nunca: `lsDel`/`cacheClear` con 0 callers y el TTL no borra. | Propuesta |
+| 52 | `raid-tracker.js`: 5 de 30 encuentros no existen en la API. | Propuesta |
+| 53 | Strike Tracker: re-apuntarlo a logros o borrarlo. | Propuesta |
+
+**El PO tambien reporto 2 hipotesis muertas propias**, antes de que llegaran como ALERT: su cifra de
+11.88 MB para `ach_acc` estaba mal (medida con una forma de registro inventada; la correcta es 4.10 MB), y
+iba a reportar que el modulo Logros estaba roto de punta a punta cuando **`current`/`max`/`done` si existen**
+en la API. Casi manda una ALERT contra un modulo sano.
+
+## Alertas
+
+- **ALERT-48 (nueva) — 2 bugs de la cache mergeados sin revision.** El Tramo C se mergeo por merito en el
+  HB#46 sin validacion del Reviewer, y tenia 2 defectos reales. El "por merito" funciona cuando el riesgo es
+  estetico, **no cuando el cambio es de capa de datos y reescribe la estrategia de claves**. La revision
+  existia y habia costado 20 minutos.
+- **ALERT-49 (nueva) — colision de ramas en el worktree compartido.** El commit del PO (`0b9721d`) cayo
+  dentro de `fix/idea49c-shard-races` porque el Principal cambio de rama mientras el PO trabajaba en el mismo
+  worktree. Resultado: benigno (era un `.md`), pero el riesgo real es que un commit de un agente termine en
+  la rama de otro sin que ninguno lo note. Los dos agentes lo detectaron y lo-AMos stroke sin drama, que es
+  exactamente por lo que funciona.
+- **ALERT-41 sigue ABIERTA** (no es de este ciclo): el Strike Tracker no tiene backend. Bloqueado hasta que
+  Pablo haga **una llamada a `/v2/account/raids` con un token real** (permiso `progression`) y pegue el body.
+
 
 ## Pendientes
 
