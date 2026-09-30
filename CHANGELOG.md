@@ -11,6 +11,28 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **fix(cache): Actividades ya no borra la cache de logros de otros módulos, y `lsSet` deja de tragarse el `QuotaExceededError` (Idea 49, Tramos 1 y A — `d7cbe0d` + merge `9e211b5`, `fb55fe2` + buster `4e5296b`; `js/activities.js` v3.20.3, `js/api-gw2.js` v2.20.0)**:
+
+  **Tramo 1 — un módulo borraba la cache de otro (`activities.js` v3.20.2 → v3.20.3)**
+
+  - **Bug**: `Activities.activate()` llamaba a `cleanAchievementsCache()` (`activities.js:553`), que borra **toda** clave `localStorage` con prefijo `ach_` — exactamente la familia que `api-gw2.js putCache()` escribe para logros: `ach_acc:<fpToken>` (TTL 2 min, `api-gw2.js:860`, `TTL.ACH_ACC`) y `ach_meta_v2:es:<ids>` (TTL 12 h, `api-gw2.js:887`, `TTL.ACH_META` — la cara: chunkea de a 200 ids y escribe una clave completa por id-set distinto).
+  - `router.js` invoca `Activities.activate()` en **cada** navegación a `#/activities` (`router.js:1661` y `router.js:1758`). Consecuencia: abrir el panel de Actividades invalidaba la cache de logros de **todas** las cuentas y la página de Logros arrancaba en frío (~433 requests) aunque recién se hubiera cargado.
+  - **Fix**: quitada la llamada de `activate()`. `cleanActivitiesCache()` **se conserva** (prefijos `psna:` y `ACTIVITIES_CACHE_KEYS`, datos del propio módulo). `cleanAchievementsCache()` **sigue definida** para llamadas explícitas; no se borró ninguna función.
+  - Regla aplicada: **un módulo no borra la cache de otro**. Limpiar la cache es acción explícita del usuario, no parte de entrar a un panel.
+  - **Lo que el fix destapa** (medición de ALERT-42): la metadata sola son **~3.6 MB por id-set de cuenta**; con 27 cuentas el volumen no gestionado sería **~96 MB** contra una cuota de navegador de **4.98 MB**. Es decir, lo que mantenía la cuota a raya era **un borrado accidental, no el diseño**. Por eso el Tramo A va encadenado a este en el mismo ciclo: quitar el wipe sin hacer visible el fallo de cuota habría cambiado «la página de Logros tarda» por «todo reinicia en frío, en más sitios, y sin decir nada».
+  - Sin CSS, sin cambio de UI. `index.html` subido a `activities.js?v=3.20.3` en el mismo commit.
+  - Runner: `tests/idea49.activities-cache-wipe.test.js` **16/16**; suite completa en ese commit 159/0.
+
+  **Tramo A — el fallo de cuota dejó de ser invisible (`api-gw2.js` v2.19.0 → v2.20.0)**
+
+  - **Bug**: `lsSet()` era `try{...}catch(_){}` — se tragaba **cualquier** error sin dejar rastro. El que importa es el de cuota: la cuota de `localStorage` (**~4.98 MB medidos en navegador real**) es **compartida por todas las claves cacheadas de la página, no por módulo**. Al llenarse, cada escritura posterior falla, la copia en `__mem` sigue sirviendo solo durante la sesión, y **cada recarga vuelve a ser un arranque en frío** (~433 requests, ~65 s) presentado como «la Bóveda anda lenta» en vez de como un fallo. `cacheClear()` tiene 0 callers y ningún botón: no había escape.
+  - **Fix**: `lsSet()` devuelve booleano, cuenta los fallos de cuota (`isQuotaError()` cubre `QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED` y los `code` legacy 22/1014) y avisa **una sola vez** por consola (no una por escritura: son cientos por carga). Nueva **`GW2Api.__cacheStats()` → `{ quotaFails, quotaWarned }`**: `quotaFails > 0` significa que la cache dejó de persistir entre recargas.
+  - **No relanza el error, a propósito**: la copia en `__mem` ya sirvió para la sesión y lanzar ahí sería peor que el fallo que se está corrigiendo. Los 2 call sites de `lsSet` ignoran el valor de retorno; no se tocaron.
+  - **⚠️ ESTE TRAMO NO ARREGLA LA CUOTA.** El volumen sigue siendo el que es; lo único que cambia es que el fallo deja de disfrazarse de lentitud. Sigue pendiente el **Tramo C**, que es el que de verdad manda, y su **objetivo está corregido**: apuntaba a `ach_acc` (**0.17 MB/cuenta**, 4.6 MB las 27 cuentas), pero la clave cara es **`ach_meta_v2` (metadata, TTL 12 h) con ~3.6 MB/cuenta** — comprimir `ach_acc` por sí solo no alcanza. Pregunta abierta al PO (COMMS_LOG 027). Después, Tramo B: LRU sobre `gw2_*` (hoy el único cap del código es `items_cache_v1` a 500).
+  - Runner: `tests/idea49.quotavisible.test.js` **11/11** con el fix y **4/11 (7 FAIL) contra el archivo sin modificar**, montando un `localStorage` que lanza `QuotaExceededError` de verdad sobre el archivo real (no una copia del código a un test). Suite completa: **7 runners, 170 aserciones, 0 FAIL**.
+  - `index.html`: `api-gw2.js?v=2.20.0`. Sin CSS, sin cambio de UI, sin endpoints nuevos, sin tocar `router.js` ni `gn:tokenchange`.
+  - **Alcance de la sesión (HB#45)**: `ALERT-43` (un heartbeat concurrente movió la rama por debajo del trabajo sin commitear → regla: commitear temprano) y `ALERT-44` (un sandbox con el mismo nombre dos veces en el literal de globals daba verde falso). Registradas en `ALERTS_LOG.md` por el Principal.
+
 - **docs: dos anotaciones que se leían como promoción a producción sin serlo** (a pedido del PO, 2026-09-29):
   - `CHANGELOG.md` y `docs/ONBOARDING.md` afirmaban, en la sección de Suerte, que `origin/main` estaba en `0cc5cb7` con `luck-curve.js` y `getAccountLuck`. **Falso**: `0cc5cb7` es el head de `agents/main` (desarrollo). Producción (`origin/main` = repo `gw2-wallet-ligero`) está en `392c3b9` y **no** contiene esos archivos — verificado con `git cat-file -e origin/main:js/luck-curve.js` (no existe) y `git branch --contains 0cc5cb7` (solo `main`/`agents/main`).
   - Causa: en este clon el remote `origin` apunta a producción y el remote `agents` a desarrollo, así que un `origin/main` sin contexto se lee como "ya está en producción". Ahora ambas líneas nombran **el repositorio**, no el alias del remote.
@@ -191,6 +213,7 @@ y el versionado **SemVer** (https://semver.org/).
   - Commit: `5d550b8`
 
 ### Build
+- **Idea 49 Tramo A**: `index.html` pasa a `js/api-gw2.js?v=2.20.0` (`4e5296b`). Sin este bump el fix existiría en el repo y no en la app: un navegador con el archivo cacheado seguiría ejecutando la v2.19.0 con el `QuotaExceededError` tragado. El bump de `activities.js` a `?v=3.20.3` va dentro de `d7cbe0d`. Mismo modo de falla que ya se registró con `meta.js` en el HB#33.
 - **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
 
 ---

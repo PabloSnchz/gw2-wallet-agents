@@ -32,7 +32,7 @@ Trabajás en un equipo de 5 agentes. Conocé a los otros 4:
 - **Responsabilidad:** proponer e implementar cambios.
 - **Skill de colaboración:** `multi_agent_collaboration`.
 
-### 🔍 Code Reviewer (`code-reviewer`)
+### 🔍 Code Reviewer (`Code-Reviewer`)
 - **Rol:** Revisor crítico.
 - **Responsabilidad:** revisar tus propuestas antes de que las apliques.
 - **Cuándo consultarlo:** antes de cambios que toquen CSS, arquitectura, 
@@ -40,7 +40,7 @@ Trabajás en un equipo de 5 agentes. Conocé a los otros 4:
 - **Cómo consultarlo:**
 
 qwenpaw agents list
-qwenpaw agents chat --from-agent default --to-agent code-reviewer --text "[Agent default requesting] Revisá esta propuesta: ..."
+qwenpaw agents chat --from-agent default --to-agent Code-Reviewer --text "[Agent default requesting] Revisá esta propuesta: ..."
 
 - **Qué esperar:** reporte con problemas detectados y recomendación (aprobar / aprobar con cambios / rechazar).
 

@@ -98,6 +98,25 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 
 ---
 
+### ⚠️ La cache persistente tiene un tope: la cuota del navegador
+
+**Idea 49 (`agents/main`, `api-gw2.js` v2.20.0). Sigue abierto — esto no es un fix, es la visibilidad de un límite que ya existía.**
+
+La cache de la Bóveda vive en `localStorage`, y **`localStorage` tiene una cuota para toda la origins** — medida en **~4.98 MB** en navegador real, no por módulo sino **compartida por todas las claves de la página**. Con muchas cuentas, la cache de logros sola (la metadata `ach_meta_v2`, TTL 12 h) es de ~3.6 MB por cuenta.
+
+Qué pasa cuando se llena: cada escritura posterior falla, la copia en memoria sigue sirviendo **solo durante la sesión**, y **cada recarga vuelve a ser un arranque en frío** (cientos de requests, ~65 s). Antes se veía como «la Bóveda anda lenta»; no como un fallo.
+
+Ahora es visible y contable:
+
+| Qué | Cómo |
+|-----|------|
+| `GW2Api.__cacheStats()` | Devuelve `{ quotaFails, quotaWarned }`. `quotaFails > 0` = la cache **dejó de guardarse entre recargas** |
+| Aviso en consola | Uno solo, la primera vez: `localStorage LLENO: la cache ya NO se guarda entre recargas` |
+
+> **No arregla la cuota.** El volumen sigue sin resolver; el Tramo C de la Idea 49 (comprimir la metadata de logros) sigue pendiente. Esto solo hace que el fallo se pueda ver en vez de disfrazarse de lentitud. Detalle en `docs/ONBOARDING.md` y `BACKLOG.md`.
+
+---
+
 ### 🏗️ Migración de estilos inline a CSS (Fase 1)
 
 **Se eliminaron todos los estilos inline (`.style.*`) de los dos dashboards multi-cuenta y se migraron a la arquitectura CSS de 3 capas.**

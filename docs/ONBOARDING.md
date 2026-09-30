@@ -36,6 +36,8 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - Sin frameworks: JavaScript, HTML y CSS puros.
 - **Un `[]` degradado no siempre es un dato válido.** La degradación a `[]` en error solo es aceptable si `[]` es el estado *normal* de la función. Cuando `[]` es indistinguible de un fallo (p.ej. la caja del Trading Post: "no tenés nada pendiente" vs "no se pudo leer"), **el error se propaga** y la UI distingue tres estados: *pendiente / vacío real / no se pudo leer*. Ver la sección "Criterio de manejo de error en la capa API" más abajo.
 - **Cuando la GW2 API no expone un dato: se muestra un aviso o se usa el fallback estático. Nunca se hardcodea una rotación, calendario o listado inventado.** Un dato hardcodeado es indistinguible de uno real para el usuario. Aplicado en `activities.js` v3.20.1 (rotación de fractales → `rotationAvailable:false` + aviso) y en `meta.js` (endpoint `/v2/events` retirado → guard `LEY_LINE_ENDPOINT_RETIRED` + waypoint estático). Si un endpoint se retira (503 `API not active` mientras el resto responde 200), se deshabilita la llamada y se cae al fallback estático; no se sustituye por un endpoint ajeno.
+- **Un módulo no borra la cache de otro. Limpiar la cache es acción explícita del usuario, no parte de entrar a un panel.** NINGÚN módulo borra claves de `localStorage` que no sean suyas al activarse, renderizarse o navegar. El prefijo de la clave importa: `api-gw2.js` escribe las suyas con prefijos de dominio (`ach_`, `ach_meta_v2:`, `items_`, `if:`…) y cualquiera que borre "por familia de prefijo" se está llevando la cache de otro. Aplicado en `activities.js` v3.20.3, que llamaba `cleanAchievementsCache()` (borra todo `ach_*`) en cada `activate()` y por lo tanto invalidaba la cache de logros de **todas** las cuentas en cada visita a `#/activities` (`router.js:1661` y `1758`). Si tu módulo necesita su propia cache fresca al activarse, lo correcto es TTL corto o una clave propia versionada, no borrar la ajena.
+- **Un `catch` vacío que se traga el error convierte un problema de cuota en lentitud sin dejar rastro. Y la cuota de `localStorage` es COMPARTIDA por todos los módulos, no por módulo.** Un `catch (_) {}` alrededor de un `setItem` no es un manejo de error: es la razón por la que un fallo de cuota puede quedar días sin nombre. Nunca se traga un error sin registrarlo: se cuenta, se avisa una sola vez (no una por escritura: son cientos por carga) y se expone para inspección. La cuota de `localStorage` es de **toda la origin** (~4.98 MB medidos en navegador real), compartida por **todas** las claves de la página. Cuando se llena, **ningún** módulo puede escribir y **todos** reinician en frío en cada recarga: el síntoma aparece como lentitud en el módulo más visible, no en el que realmente lo causó. Aplicado en `api-gw2.js` v2.20.0 (`lsSet()` devuelve booleano, cuenta `QuotaExceededError` y expone `GW2Api.__cacheStats()`). Consecuencia operativa: **arreglar un síntoma puede destapar otro peor detrás** — por eso el fix del wipe de `activities.js` (Tramo 1) y la visibilidad de la cuota (Tramo A) van en el mismo ciclo y no en heartbeats separados.
 
 ### Reglas de Estilo
 
@@ -58,8 +60,77 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 - ☐ **¿De dónde sale cada dato que pinto? ¿La GW2 API lo expone? Si no → aviso o fallback estático, NUNCA hardcodear una rotación.**
 - ☐ ¿Impacto en performance/UI?
 - ☐ ¿Alguna función nueva degrada a `[]` en error? Solo vale si `[]` es su estado normal; si no, el error se propaga y la UI distingue pendiente / vacío real / no se pudo leer.
+- ☐ **¿Borro claves de `localStorage` que no son mías?** Un módulo solo limpia sus propias claves (prefijo propio, tipo `psna:`). Si el motivo de limpiar es "que el panel muestre datos de hoy", la respuesta es TTL corto o clave versionada, no borrar la cache de otro.
+- ☐ **¿Tengo algún `catch` vacío alrededor de una escritura?** Un `catch (_) {}` en un `setItem` esconde el `QuotaExceededError` y convierte un problema de cuota en lentitud sin dejar rastro. Se cuenta, se avisa una vez y se expone. Y recordá que la cuota es de **toda la origin**, compartida por todos los módulos.
 
 Si hay riesgo → advertir antes de generar código.
+
+---
+
+## 🗄️ Novedades 2026-09-30 (C) — Caché de `localStorage`: cuota compartida y quién puede borrar qué
+
+Commits en `agents/main`: `d7cbe0d` + merge `9e211b5` (`js/activities.js` v3.20.2 → **v3.20.3**), `fb55fe2` + buster `4e5296b` (`js/api-gw2.js` v2.19.0 → **v2.20.0**). **Sin CSS, sin cambio de UI.** Runner propio del Tramo 1: `tests/idea49.activities-cache-wipe.test.js` 16/16. Runner del Tramo A: `tests/idea49.quotavisible.test.js` 11/11, y **4/11 (7 FAIL) contra el archivo sin modificar**. Suite completa: 7 runners, 170 aserciones, 0 FAIL.
+
+### Regla 1 — Un módulo no borra la cache de otro
+
+`Activities.activate()` llamaba a `cleanAchievementsCache()` (`activities.js:553`), que borra **toda** clave de `localStorage` con prefijo `ach_`. Esa es exactamente la familia que `api-gw2.js putCache()` escribe para logros:
+
+| Clave | TTL | Dónde |
+|-------|-----|-------|
+| `ach_acc:<fpToken>` | 2 min | `api-gw2.js:860` (`TTL.ACH_ACC`) |
+| `ach_meta_v2:es:<ids>` | **12 h** | `api-gw2.js:887` (`TTL.ACH_META`) — chunkea de a 200 ids, **una clave completa por id-set distinto** |
+
+Y `router.js` invoca `Activities.activate()` en **cada** navegación a `#/activities` (`router.js:1661` y `router.js:1758`). O sea: **abrir el panel de Actividades invalidaba la cache de logros de todas las cuentas**, y la página de Logros arrancaba en frío (~433 requests) aunque recién se hubiera cargado.
+
+**Fix**: quitada la llamada de `activate()`. `cleanActivitiesCache()` **se conserva** (prefijos `psna:` y `ACTIVITIES_CACHE_KEYS` — datos del propio módulo: al panel le conviene tener fresco lo de hoy). `cleanAchievementsCache()` **sigue definida** para cuando se la quiera llamar a propósito; no se borró ninguna función.
+
+> **Corolario de prefijos:** el problema no fue la función, fue el **prefijo**. `ach_` parece "de logros" desde el punto de vista de quien lo escribe, pero en `localStorage` es un espacio global. Si tu módulo necesita cache propia y fresca, la respuesta es **TTL corto o clave propia versionada**, no borrar por familia de prefijo.
+
+### Regla 2 — Un `catch` vacío convierte un problema de cuota en lentitud sin dejar rastro
+
+`lsSet()` era `try { localStorage.setItem(...) } catch (_) {}`: se tragaba **cualquier** error. El que importa es el de cuota, porque **la cuota de `localStorage` es de toda la origin** — **~4.98 MB medidos en navegador real** — y es **compartida por todas las claves de la página, no por módulo**. Cuando se llena, cada escritura posterior falla, la copia en `__mem` sigue sirviendo solo durante la sesión, y **cada recarga vuelve a ser un arranque en frío** (~433 requests, ~65 s). Sin error ni aviso: se presenta como «la Bóveda anda lenta», que es exactamente como se describió el síntoma.
+
+**Fix** (`api-gw2.js` v2.20.0): `lsSet()` **devuelve booleano**, cuenta los `QuotaExceededError` (`isQuotaError()` cubre `QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED` y los `code` legacy 22/1014) y **avisa una sola vez** (no una por escritura: son cientos por carga). Se expone:
+
+```js
+GW2Api.__cacheStats()   // → { quotaFails, quotaWarned }
+```
+
+`quotaFails > 0` significa que **la cache dejó de persistir entre recargas**; mientras siga en `0` el problema no existe.
+
+**Por qué NO se relanza el error:** la copia en `__mem` ya sirvió para la sesión, y lanzar ahí sería **peor** que el fallo que se está corrigiendo. Los 2 call sites de `lsSet` ignoran el valor de retorno; no se tocaron.
+
+### Por qué los dos tramos van en el mismo ciclo
+
+| | Con el wipe (antes) | Sin el wipe + sin Tramo A | Sin el wipe + con Tramo A (ahora) |
+|---|---|---|---|
+| Página de Logros | Arranca en frío cada vez | Cacheada, si entra en cuota | Cacheada |
+| Cuando la cuota se llena | — (el wipe la vaciaba) | **Todo** reinicia en frío, cada recarga, en silencio | **Todo** reinicia en frío, pero **avisado y contable** |
+
+El wipe del Tramo 1 **era lo único que mantenía la cuota a raya, por accidente**. Sin el Tramo A, quitarlo no cambiaba «Logros tarda» por «todo reinicia en frío»: lo cambiaba por «todo reinicia en frío, en más sitios, y sin decir nada».
+
+> **Regla general:** un arreglo que destapa un síntoma puede soltar otro peor detrás. Si el fix del Tramo 1 hace probable un fallo que antes estaba tapado, **el segundo fix va en el mismo ciclo**, no en el heartbeat siguiente.
+
+### ⚠️ Lo que NO está resuelto
+
+**El Tramo A no arregla la cuota.** El volumen sigue siendo el que es; lo único que cambia es que deja de ser secreto.
+
+**Tramo C (pendiente, con el objetivo corregido):** la clave cara **no es** `ach_acc`.
+
+| Clave | Tamaño medido | 27 cuentas |
+|-------|----------------|------------|
+| `ach_acc` (logros de la cuenta) | **0.17 MB/cuenta** | 4.6 MB |
+| **`ach_meta_v2` (metadata, TTL 12 h)** | **~3.6 MB/cuenta** | **~96 MB sin gestionar** |
+
+Contra 4.98 MB de cuota. El Tramo C del PO apuntaba a comprimir `ach_acc` (~13× menos); comprimido solo, **no alcanza** — debería ir sobre `ach_meta_v2`. Pregunta abierta al PO (COMMS_LOG 027). Después, **Tramo B**: LRU sobre `gw2_*` (hoy el único cap del código es `items_cache_v1` a 500).
+
+### Lección de test que salió de acá
+
+El runner del Tramo A monta un `localStorage` que **lanza `QuotaExceededError` de verdad sobre el archivo real**, en vez de copiar el código a un test, y se verificó **en las dos direcciones**: 11/11 con el fix, 4/11 (7 FAIL) contra el archivo sin modificar. Un test que solo puede dar verde no prueba nada.
+
+Dos trampas del propio sandbox, ninguna del código de producción:
+- `putCache()` está dentro del `.then` de éxito → un `fetch` que falla nunca llega a `lsSet()`. El mock de red tiene que **tener éxito**.
+- **Nunca pongas el mismo nombre dos veces en el literal de globals**: `console: fake` seguido de `console` real hace que el real gane en silencio y el test "vea" un aviso que sí se imprimía (ALERT-44). Resuelto con un `Proxy` que reenvía todo y captura solo `warn`.
 
 ---
 
