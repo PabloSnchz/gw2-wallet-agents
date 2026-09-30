@@ -1,7 +1,18 @@
 /*!
  * js/wallet-dashboard.js — Dashboard de Cartera Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.8.0 (2026-09-29) — + columna Suerte (MF base account-wide, /v2/account/luck)
+ * Versión: 2.8.1 (2026-09-30) — .catch no-op en los launches de summary (Idea 47 c3)
+ *
+ * v2.8.1: charP, apP, raidsP y luckP se lanzan los cuatro en un bloque
+ *   sincrono y cada uno recibe su handler recien en su propio await. Con los
+ *   4 propagando (api-gw2 v2.18.0), un rechazo de apP/raidsP/luckP durante
+ *   el await de charP dispara "unhandledrejection" en consola. El .catch
+ *   no-op marca que ya hay handler sin tocar el valor de la promesa: el await
+ *   sigue viendo el rechazo y el catch de su columna corre igual.
+ *   Efecto buscado: los catch de _errors.characters y _errors.raids, que
+ *   estaban escritos y bien pero NUNCA corrian (el PO lo reporto en el
+ *   HB#38), ahora son alcanzables. La UI de error por columna no cambia.
+ * v2.8.0: + columna Suerte (MF base account-wide, /v2/account/luck)
  *                              + error por columna: "no se pudo leer" ≠ 0
  *
  * Características:
@@ -379,6 +390,26 @@
     if (state.summaryFields.indexOf('luck') >= 0) {
       luckP = root.GW2Api.getAccountLuck(token, { nocache: nocache });
     }
+
+    // Las 4 promesas se lanzan aqui, en un bloque sincrono, y cada una recibe
+    // su handler recien en su propio await, mas abajo. Entre el lanzamiento y
+    // ese await hay al menos una suspension (esperar charP), asi que si apP,
+    // raidsP o luckP rechazan durante ese tiempo el navegador dispara
+    // "unhandledrejection" en consola aunque su catch de columna corra
+    // despues y la UI quede correcta.
+    //
+    // Antes esto no se notaba porque solo apP y luckP propagaban; los otros dos
+    // resolvian 0 / [] y no podia pasar. Ahora los 4 propagan (Idea 47 c2), asi
+    // que el .catch no-op de abajo es obligatorio, no cosmetico.
+    //
+    // El no-op NO cambia el valor de la promesa: solo marca que ya hay un
+    // handler. El await posterior sigue viendo el rechazo original y el catch
+    // de su columna corre igual, que es el que escribe _errors.
+    // charP queda fuera a proposito: es el primero que se espera, asi que su
+    // handler se adjunta en la primera suspension, sin ventana muerta.
+    if (apP) apP.catch(function () {});
+    if (raidsP) raidsP.catch(function () {});
+    if (luckP) luckP.catch(function () {});
 
     var summary = { _errors: {} };
     if (charP) {
@@ -1273,5 +1304,5 @@
 
   root.WalletDashboard = WalletDashboard;
 
-  console.info(LOG, 'ready v2.8.0 — multicuenta con progreso "N/total" y error por cuenta nombrado (Idea 45)');
+  console.info(LOG, 'ready v2.8.1 — los 4 launches con .catch no-op: el error por columna de characters y raids ahora corre (Idea 47 c3)');
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

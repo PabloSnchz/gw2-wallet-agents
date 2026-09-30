@@ -147,5 +147,21 @@ console.log('\n[7] Cache-busting: index.html apunta a la version nueva');
   ok('no queda api-gw2 en 2.17.x', !/api-gw2\.js\?v=2\.17/.test(html));
 }
 
+console.log('\n[8] wallet-dashboard: los 3 launches tardios tienen .catch no-op');
+{
+  // Sin esto, un rechazo de apP/raidsP/luckP durante el await de charP dispara
+  // "unhandledrejection": los 4 se lanzan en un bloque sincrono y cada handler
+  // se adjunta recien en su propio await.
+  const src = SRC['wallet-dashboard.js'];
+  const block = src.match(/if \(apP\)[\s\S]*?if \(luckP\) luckP\.catch\(function \(\) \{\}\);/);
+  ok('apP tiene catch no-op', !!block && /if \(apP\) apP\.catch\(function \(\) \{\}\);/.test(block[0]));
+  ok('raidsP tiene catch no-op', !!block && /if \(raidsP\) raidsP\.catch\(function \(\) \{\}\);/.test(block[0]));
+  ok('luckP tiene catch no-op', !!block && /if \(luckP\) luckP\.catch\(function \(\) \{\}\);/.test(block[0]));
+  // charP es el primero que se espera: su handler se adjunta en la primera
+  // suspension, sin ventana muerta. Si alguien lo agrega, es inofensivo.
+  ok('el bloque va antes de los try/catch de columna',
+     src.indexOf('if (apP) apP.catch') < src.indexOf('summary.characters = await charP'));
+}
+
 console.log('\n--- ' + pass + ' OK / ' + fail + ' FAIL ---');
 process.exit(fail ? 1 : 0);
