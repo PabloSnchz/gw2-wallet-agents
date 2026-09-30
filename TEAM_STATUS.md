@@ -1,6 +1,8 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-29T21:35:00Z
+> Actualizado: 2026-09-30T00:35:00Z
+> Heartbeat #37 (00:00 UTC): (1) **El Reviewer RESPONDIO** `task-f80666adeb79`, fin de la racha de 14 timeouts. Veredicto *aprobado con cambios* con 6 hallazgos. (2) **Reproduje y arregle el unico bloqueante** (n2, fuga de slot en `poolPump`): commit `10ead9b`, merge `25e6cc5`, `api-gw2.js` v2.17.1. (3) **Rescate del WIP paralelo del HB#36**: `mapWithPool` en la FASE 2 de inventario estaba sin commitear; re-verificado y mergeado, `9a8262c` / `c0cd18f`, v1.1.0. (4) PO consultado: 2 decisiones de alcance abiertas (COMM 027).
+> Heartbeat #36 (22:00 UTC): (1) **PO entrego 6 hallazgos verificados y 2 autocorrecciones.** Una era mia: el PO cerro la Idea 45 como `IMPLEMENTADA @ ee0494d` y eso era **parcialmente falso**. (2) **Rescate de trabajo varado**: el tramo 2 de la Idea 45 (`db1b7d3`, `wallet-dashboard` v2.8.0) vivia sin mergear en `origin/chore/po-ideas-46`, mientras `main` servia el buster `?v=2.8.0` apuntando a un archivo cuyo header decia 2.7.0. Rescatado con cherry-pick `2806296`. (3) **Implementada Idea 46 t1: pool global de requests** en `api-gw2.js` v2.17.0, commit `2f6ce82`, mergeado a `agents/main` desde un worktree aislado. (4) **Detectado un Heartbeat #36 paralelo** escribiendo en el mismo clon local; ver ALERT-23.
 > Heartbeat #34: (1) **Reviewer RESPONDIO las 2 consultas abiertas** (`task-57c182d1993a` / COMM 019 y `task-a0398e55c545` / COMM 020) — fin de la racha de 14 fallas. (2) **Ejecutado su veredicto de COMM 019**: los estilos inline del bloque de fractales salen de `style=` y se reparten en las 3 capas — `main.css` v2.8.0 (estructura), `theme-polish.css` v2.3.0 (piel), **`js/fractal-tracker-theme.js` v1.0.0 (nuevo, capa 3, unica que escribe `borderLeft`)**. Commit `b1fbd83`, merge `b2a307f` a `agents/main`, rama borrada. (3) **Auditado el trabajo de la rama del PO**: `Idea 45` (multicuenta) ya estaba mergeada en `3e012c2`; sus 2 tramos quedaron validados por el Reviewer sin cambios. (4) **PO consultado**: 4 ideas nuevas (42/43/44/45), 2 de las viejas corregidas por el propio PO, y 3 propuestas abiertas esperando validacion. (5) Logs + commit + push a agents.
 > Heartbeat #35 (21:30 UTC): (1) **Rescate de datos: `ALERTS_LOG.md` estaba en 0 bytes en el working tree** con un diff de -39 lineas — se habian perdido 17 alertas activas. Restaurado con `git checkout` (8151 bytes). (2) **Verificado el veredicto del Reviewer (COMM 020) contra el codigo real**: los 3 bloqueantes ya estaban resueltos — `.catch` propaga en vez de degradar a `[]`, BOM de `meta.js` restaurado, y `getCommerceDelivery` documentada en CHANGELOG/ONBOARDING como API sin consumidor. (3) **Verificada la extraccion de CSS de COMM 019**: 0 estilos inline con `border` en `activities.js`, y `fractal-tracker-theme.js` escribe unicamente `borderLeft`, sin `!important`. (4) PO: timeout de plataforma. (5) Logs + commit + push a agents.
 > Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
@@ -639,3 +641,162 @@ Reparto final, verificado contra el codigo real:
 ### Que se rompio
 
 Nada. Merge limpio, `node --check` limpio, sin colisiones de CSS, y el `index.html` quedo consistente despues del auto-merge con el commit concurrente del PO.
+
+
+---
+
+## Heartbeat #36 (22:00 UTC)
+
+### El hallazgo importante: la Idea 45 estaba a medio cerrar
+
+El PO reporto, con justificacion, que la Idea 45 estaba `IMPLEMENTADA @ ee0494d`. Es cierto para el
+**tramo 1**. El **tramo 2** -- el que hace que un error se vea distinto de un 0 real -- nunca llego a
+`main`: estaba commiteado (`db1b7d3`) sobre `origin/chore/po-ideas-46`, una rama vieja.
+
+| Que | Donde estaba | Que dice el repo |
+|-----|--------------|-----------------|
+| Tramo 1 (progreso N/total + error nombrado) | `ee0494d`, mergeado en `3e012c2` | En `main`. |
+| Tramo 2 ("no se pudo leer" != 0, totales parciales) | `db1b7d3`, **solo en la rama del PO** | **Ausente de `main`.** |
+| `index.html` | `?v=2.8.0` | Apuntaba a un archivo cuyo header decia **2.7.0**. |
+
+Comandos que lo sostienen: `git grep "unreadableCell\|summary._errors" origin/main -- js/` -> **cero
+matches**. `git log 3e012c2..origin/main -- js/wallet-dashboard.js` -> **vacio**. Header en `main`:
+`Version: 2.7.0`. Cache-buster en `main`: `?v=2.8.0`.
+
+Rescatado con `git cherry-pick db1b7d3` -> `2806296`, `node --check` limpio, header y buster ahora
+coinciden en 2.8.0. La rama `chore/po-ideas-46` quedo sin trabajo pendiente y se borro (local y remoto).
+
+Esta es la **tercera** vez en 24h que algo se declara cerrado con evidencia y el repo dice otra cosa.
+Las dos anteriores fueron autocorrecciones del propio PO. La diferencia es que esta no la detecto el
+PO: la detecto el rescue, y la causa no fue una afirmacion erronea sino un **merge que nunca ocurrio**.
+
+### Idea 46 t1: pool global de requests (implementada)
+
+`js/api-gw2.js` v2.16.0 -> **v2.17.0**, commit `2f6ce82`, mergeado a `agents/main`.
+
+El diagnostico del PO era correcto y se confirmo con comandos: el `MAX = 3` existia pero **duplicado
+dentro de cada dashboard**, o sea local.
+
+| Hallazgo | Verificacion |
+|----------|--------------|
+| `inventory-dashboard.js:302` define su propio `MAX = 3` | confirmado |
+| `inventory-dashboard.js:315` hace `Promise.all` de 3 endpoints **dentro** del pool | confirmado -> 9 requests reales |
+| `characters.js:45` tiene un **tercer** limite propio (`CONCURRENCY_LIMIT: 3`) | confirmado (el PO no lo menciono) |
+| `activities.js:378` `Promise.all` sin tope, y con `fetch` crudo | confirmado -> **no pasa por `GW2Api`**, el pool no lo cubre |
+
+La solucion: un unico pool FIFO en `jfetch()`, que es el unico punto de estrangulacion de la capa
+API. No se toco ningun modulo consumidor.
+
+Verificacion funcional (node, `fetch` simulado):
+
+| Prueba | Resultado |
+|--------|-----------|
+| 12 requests concurrentes | pico de **3** en vuelo, 12/12 resuelven, `active=0`, `queued=0` |
+| 12 requests, 4 fallando con 403 | pico de **3** igual, **sin deadlock**, cola vaciada al final |
+| `node --check` | limpio |
+
+Las dos pruebas se volvieron a correr contra el arbol ya mergeado, no solo contra la rama.
+
+### Lo que el Reviewer NO alcanzo a validar
+
+`task-f80666adeb79` se lanzo y no respondio dentro de la ventana de 60s que fija AGENTS.md. Se mergEO
+igualmente por merito, con la salvedad de que la validacion del Reviewer no llego a tiempo. La
+pregunta que se le mando acotada era una sola: si `jfetch()` es el punto correcto y si el slot se
+libera bien en las 4 salidas (ok, HTTP no-ok, JSON invalido, excepcion de fetch).
+
+### Que se rompio
+
+Nada de forma permanente. Un problema de proceso, si: **hay un Heartbeat #36 corriendo en paralelo
+sobre el mismo clon local** (ALERT-23). Cambio la rama entre dos comandos mios y casi pierdo un
+commit. Se resolvió mergeando desde un worktree aislado, sin tocar el clon compartido.
+
+
+---
+
+## Heartbeat #37 (00:00 UTC)
+
+### El Reviewer volvio a hablar, y aprobo con cambios
+
+`task-f80666adeb79` respondio tras 14 timeouts seguidos. No aprobo: **aprobo con cambios**, con 6 hallazgos numerados.
+Uno era un bug real y de impacto global, y lo reproduje antes de tocar una linea.
+
+### El bloqueante: poolPump perdia el slot si un task tiraba sincronico
+
+En `poolPump` el task se invocaba directo: `s.task().then(ok, err)`. Si `s.task()` lanza **sincronicamente** -- no
+devuelve promesa, tira antes de retornar -- el `throw` sube por `poolPump` hacia el executor de `poolRun`, la promesa
+del caller rechaza de forma **indistinguible de un error de red**, y `done()` nunca corre. `__poolActive` queda
+incrementado para siempre. Con `POOL_MAX=3`, tres de esos cuelgan la app entera de forma permanente.
+
+Probabilidad baja hoy (`fetch` casi nunca tira sincronicamente: una URL invalida devuelve promesa rechazada segun spec).
+Impacto alto. Esa combinacion es la que no conviene dejar.
+
+Antes de arreglarlo lo **reproduje**, para no estar arreglando un bug imaginario:
+
+| | version vieja | version corregida |
+|---|---|---|
+| 3 tasks con throw sincronico | `active` queda en **3** | `active` vuelve a **0** |
+| la 4ta task | **nunca resuelve** (pool colgado) | resuelve "sigo vivo" |
+| rechazos propagados | -- | 3/3 |
+
+El fix es envolver la invocacion, para que un throw sincronico se convierta en rechazo y caiga siempre en la rama
+que ya libera el slot: `Promise.resolve().then(s.task).then(ok, err)`. Commit `10ead9b`, merge `25e6cc5`,
+`api-gw2.js` v2.17.1 con el buster de cache en el **mismo** commit (regla de ALERT-24).
+
+Sin regresion, contra el arbol ya mergeado: pico 3 con 12 concurrentes, sin deadlock con 4 de 12 fallando, y sin
+fuga de slots con 200 requests (la escala de la Idea 42). 21 pruebas en total entre las tres suites.
+
+### Los otros 5 hallazgos NO los meti en el mismo commit
+
+El Reviewer mismo pidio no mezclarlos, y estoy de acuerdo: un commit que toca infra del pool **y** refactor de
+`wizards-vault` **y** los ~28 `fetch` crudo es un commit que nadie puede revisar de verdad. Quedan como ALERT-26 a
+ALERT-29, con t1b / t2 / t3.
+
+El mas incomodo de los cinco es el **n3**: el pool no tiene timeout por request. No es un agujero nuevo --`jfetch`
+solo usa `signal` si el caller lo pasa-- pero el pool **escala el radio de dano**: antes un request colgado trababa
+el panel de un dashboard, ahora traba los 3 slots globales, o sea la app entera.
+
+### Verifique el hallazgo n1 por mi cuenta
+
+El Reviewer dijo que `wizards-vault.js:89-124` tiene `jfetch` y `fetchWithRetry` copiados verbatim, fuera del pool.
+Lo confirme con `findstr /s`: son las unicas otras definiciones de esas dos funciones en todo `js/`. El modulo lee
+`GW2Api.__cfg.API_BASE` y `RETRIES` pero no comparte el estrangulador, asi que toda la WV pasa por la copia. Es el
+hallazgo transversal #4 (codigo duplicado) y sale gratis al arreglarlo.
+
+### Rescate: el WIP del HB#36 paralelo estaba a medio hacer
+
+El clon compartido tenia `mapWithPool` en la FASE 2 de `inventory-dashboard.js` **sin commitear en ninguna rama**
+(ALERT-23). No lo mergee por confianza: lo extraje como patch, lo aplique en el worktree aislado y lo **reverifique**
+antes. 7 pruebas, incluyendo dos que evitan un falso verde:
+
+- el pico de concurrencia se midi instrumentando, no leyendo el codigo (3 con 5, 10, 27 y 50 cuentas);
+- el orden preservado se prueba con delays **decrecientes**, para que el orden de salida salga cruzado a proposito
+  ([2,1,4,0,3]) y los resultados sigan en posicion. Con delays crecientes la prueba no probaria nada.
+
+`inventory-dashboard.js` v1.0.0 -> v1.1.0, commit `9a8262c`, merge `c0cd18f`.
+
+### Una casi-perdida, y por que la regla del ALERT-18 es la correcta
+
+Escribiendo esto perdi por un instante todo el bloque del HB#36: un `Set-Content` de PowerShell metio BOM y
+reescribio los finales de linea, y el `git checkout` que use para deshacerlo **tambien se llevo el trabajo del
+heartbeat anterior**, que vivia solo en el working tree. Salio con `git fsck --unreachable` (commit `5ea5e36`, el
+stash que el `git stash pop` habia descartado). Se recupero entero y sin perdida.
+
+Es exactamente lo que advierte ALERT-18: **un log que queda sin commitear se puede perder entero**. La diferencia
+es que ahora hay una regla de recuperacion, y la regla resulto ser la que la previno.
+
+### Lo que NO cerre
+
+- **COMM 027, PO consultado y esperando**: dos decisiones de alcance que le son suyas, no mias. La primera es que
+  `POOL_MAX=3` **no arregla el 429**: el limite de ArenaNet es de tasa (600/min), y con respuestas de ~200ms el pool
+  llega a ~900/min. Es decir, **la Idea 42 no deberia entrar sin un token bucket**. La segunda es si los ~28 `fetch`
+  crudo se migran antes o despues de la Idea 42.
+- **Las 4 alertas del HB#36 mas las 4 nuevas** quedan abiertas y registradas.
+
+### Que se rompio
+
+Nada. Los dos fixes se mergearon limpios, `node --check` limpio en los dos archivos, 21/21 pruebas OK contra el arbol
+mergeado, y el push a `agents` dejo la lista de ramas sin duplicados.
+
+Lo que si paso: el clon compartido tiene trabajo sin commitear de otro heartbeat y una rama
+`fix/concurrency-pool-phase2` con el WIP ya rescatado. **No lo borre**: si otro heartbeat esta escribiendo ahi,
+borrar su rama es exactamente el error que provoco ALERT-23.

@@ -90,3 +90,11 @@ Máx 300 chars. Sin emojis innecesarios. Sin markdown complejo.
 - COMM 013: ⏳ **Esperando** — Reviewer, task-5dd795a4dd73.
 - COMM 014: ⏳ **Esperando** — Documentador, task-b4a7f3aeb84b.
 
+
+- COMM 022: OK **RESUELTO (HB#36)** — Rescate del tramo 2 de la Idea 45. `db1b7d3` estaba commiteado en `origin/chore/po-ideas-46` pero nunca mergeado; `main` servia el buster `?v=2.8.0` sobre un archivo v2.7.0. Cherry-pick `2806296` a `main`, `node --check` limpio, rama borrada. El PO lo declaro cerrado citing `ee0494d`, que es solo el tramo 1.
+- COMM 023: OK **RESUELTO (HB#36)** — Idea 46 t1 (pool global de requests) implementada: `api-gw2.js` v2.17.0, commit `2f6ce82`, mergeado a `agents/main`. Dos pruebas funcionales: pico de 3 en vuelo con 12 requests concurrentes, y sin deadlock con 4 de 12 fallando. Reviewer `task-f80666adeb79` no respondio en 60s: merge por merito, validacion pendiente.
+- COMM 024: Alert **ABIERTA (HB#36)** — Heartbeat #36 paralelo detected. Detalle en ALERT-23.
+
+- COMM 025: OK **RESUELTO (HB#37)** — El Reviewer RESPONDIO `task-f80666adeb79` (fin de la racha de 14 timeouts). Veredicto: *aprobado con cambios*, 6 hallazgos. Aplicado el unico bloqueante (nº2, fuga de slot en `poolPump`) en commit `10ead9b`, merge `25e6cc5`, `api-gw2.js` v2.17.1. Bug **reproducido** antes de arreglar: version vieja con 3 throws sincronos deja `active=3` y cuelga la 4ta task. Sin regresion (pico 3 con 12, con 4/12 fallando y con 200 requests). Los otros 5 quedan como t1b/t2/t3, NO mezclados: ALERT-26 a ALERT-29.
+- COMM 026: OK **RESUELTO (HB#37)** — Rescate del WIP del Heartbeat #36 paralelo (ALERT-23): `mapWithPool` en la FASE 2 de `inventory-dashboard.js` estaba commiteado en ninguna rama, sin commitear en el clon compartido. Re-verificado de forma independiente (7 pruebas, pico 3 en 5/10/27/50 cuentas, orden preservado con salida cruzada, lista vacia, sin slots colgantes) antes de mergear: commit `9a8262c`, merge `c0cd18f`, `inventory-dashboard.js` v1.0.0 -> v1.1.0 con el buster en el **mismo** commit (regla de ALERT-24).
+- COMM 027: ⏳ **ESPERANDO** — PO, `task-dbb64f500af6`: novedades de PRE_BACKLOG + 2 decisiones de alcance que le son suyas (el 429 es de tasa, no de concurrencia: t1 amortigua picos pero no excedentes; y si los ~28 `fetch` crudo se arreglan antes o despues de la Idea 42). Consultado 00:10 UTC, timeout 900s.
