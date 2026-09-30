@@ -1,7 +1,21 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.24.0 (2026-09-30) — guard de FORMA en getAccountRaids
+ * Versión: 2.24.1 (2026-09-30) — el mismo guard en getCharacterCount
+ *   v2.24.1: F2 del Code-Reviewer sobre la v2.24.0 (`task-b20623f46caa`,
+ *   veredicto APROBADO con 3 follow-ups). `getCharacterCount` degrada a `0`
+ *   ante una forma no soportada, y su JSDoc de la línea :528 ya decía "no
+ *   degrada a 0": el catch de RED cumplía el contrato y el camino de FORMA
+ *   no. Es el mismo bug de la v2.24.0, una función arriba. NO es teórico:
+ *   `jfetch` devuelve `null` ante un 200 con body vacío (`return raw ?
+ *   JSON.parse(raw) : null`, :408), o sea que una API que responde 200 sin
+ *   cuerpo producía "0 personajes" en la columna del Wallet Dashboard, sin
+ *   error visible e indistinguible de "esta cuenta no tiene personajes".
+ *   Test: tests/idea60b.forma-charcount.test.js (21 aserciones; 12 FAIL
+ *   contra el archivo sin el fix).
+ *   Con esto son SIETE los wrappers que degradaban por forma, no seis: el
+ *   "cinco propagados" de la Idea 47 no incluía a este. El relato de la
+ *   v2.24.0 queda corregido acá.
  *   v2.24.0: `getAccountRaids` degradaba a `[]` ante una forma de respuesta
  *   que no soportamos, y `[]` es indistinguible de "no completaste nada". En
  *   el Strike Tracker eso es `state.completedStrikes = []` -> "0 de 15
@@ -541,7 +555,25 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        var count = Array.isArray(data) ? data.length : 0;
+        // Guard de FORMA (Idea 60B). Mismo contrato que getAccountRaids
+        // (v2.24.0) y mismo motivo: el JSDoc de arriba promete "no degrada
+        // a 0" y solo lo cumplia el catch de RED. Una respuesta con una
+        // forma que no soportamos llegaba como `0`, que en la columna
+        // "Personajes" del Wallet Dashboard es indistinguible de "esta
+        // cuenta no tiene personajes".
+        //
+        // ALCANZABLE, no teórico: `jfetch` devuelve `null` ante un 200 con
+        // body vacío (`return raw ? JSON.parse(raw) : null`, api-gw2.js:408).
+        // O sea que la API contestando 200 sin cuerpo landing acá produce
+        // "0 personajes" sin ningún error visible.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'characters: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de personajes.'
+          );
+        }
+        var count = data.length;
         putCache(key, count, token, TTL.ACCOUNT);
         return count;
       }).catch(function (error) {
