@@ -519,8 +519,25 @@
 
   /**
    * Obtiene la lista de IDs de items disponibles en la Compañía de Comercio
+   *
+   * NOTA DE CONTRATO — por qué esta NO propaga el error (Idea 47, 2026-09-30).
+   * Es tentador "arreglar" esta función junto a los otros wrappers de commerce,
+   * y estaria mal. A diferencia de /v2/commerce/transactions[buys|sells] y
+   * /v2/commerce/delivery, este endpoint devuelve un catálogo GLOBAL del
+   * mercado, no algo de la cuenta: `[]` es un estado NORMAL y frecuente (no
+   * hay items publicados, o la API responde vacio), no un "no pude leer".
+   *
+   * Si pasara a rechazar, todos los call sites que hoy hacen
+   * `.catch(function(){ return []; })` lo verian como fallo y el convertidor
+   * pararia de mostrar precios en un momento en que la API funciona bien.
+   *
+   * Si alguna vez hay que distinguir, el camino es un estado mas en el call
+   * site (como `deliveryStatus` / `buysStatus` en converter-modal.js), NO
+   * propagar desde acá. Mismo criterio y mismo precedente que
+   * getCommerceDelivery() en api-gw2.js:442-451.
+   *
    * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de IDs
+   * @returns {Promise<Array>} - Array de IDs (vacio si el mercado no ofrece nada)
    */
   function getCommerceListings(opts) {
     opts = opts || {};

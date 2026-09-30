@@ -1,8 +1,16 @@
 ﻿/*!
  * js/converter-modal.js — Conversor Gem ↔ Gold (Modal)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.1.1 (2026-09-29)
+ * Versión: 1.2.0 (2026-09-30)
  *
+ * v1.2.0: buys/sells distinguen "no leido" de "no tenes" (Idea 47 c4, P1 del
+ *         Code Reviewer). Los dos wrappers de /v2/commerce/transactions YA
+ *         propagan el error desde api-gw2.js v2.18.0, pero el call site lo
+ *         volvia a convertir en [] con un ternario. El efecto era que el
+ *         cambio de contrato no arreglaba nada y ademas duplicaba el
+ *         console.warn: un API key caido se seguia viendo como
+ *         "No tenes ordenes activas en el TP". Ahora cada lado lleva su
+ *         estado y el fallo se nombra.
  * v1.1.1: el titulo decia "sin cobrar", pero /v2/commerce/delivery devuelve la
  *         caja ENTERA: ventas sin retirar y compras sin retirar. Para un item
  *         comprado, "no te abonaron" es falso. Corregido a "sin recoger" con
@@ -52,6 +60,15 @@
       // proposito (ver el contrato en js/api-gw2.js) para que un fallo no se
       // pueda presentar como "caja vacia".
       deliveryStatus: 'unknown',
+      // Compras y ventas, cada una por separado. Mismo contrato que
+      // deliveryStatus y por el mismo motivo: los dos wrappers de
+      // transactions propagan el error (api-gw2.js v2.18.0), asi que "no pude
+      // leer" y "no tenes" son estados distintos y no pueden verse igual.
+      //   'unknown' = todavia no se consulto
+      //   'ok'      = se leyo bien (puede ser [])
+      //   'error'   = no se pudo leer
+      buysStatus: 'unknown',
+      sellsStatus: 'unknown',
       filters: {
         type: 'all' // 'all', 'buys', 'sells'
       }
@@ -704,21 +721,42 @@
       var token = getSelectedTokenForCommerce();
       if (!token) {
         st.buys = []; st.sells = []; st.lastUpdate = Date.now();
+        st.buysStatus = 'unknown'; st.sellsStatus = 'unknown';
         return;
       }
 
+      // allSettled + estado por lado (v1.2.0). Antes: `status === 'fulfilled'
+      // ? value : []`, que deshacia el contrato de api-gw2.js v2.18.0 y
+      // volvia a presentar un fallo de red como "no tenes ordenes".
+      st.buysStatus = 'unknown';
+      st.sellsStatus = 'unknown';
       var results = await Promise.allSettled([
         root.GW2Api.getCommerceTransactionsBuys(token, { nocache: !!forceNoCache }),
         root.GW2Api.getCommerceTransactionsSells(token, { nocache: !!forceNoCache })
       ]);
 
-      var buys = results[0].status === 'fulfilled' ? results[0].value : [];
-      var sells = results[1].status === 'fulfilled' ? results[1].value : [];
+      var buys = [];
+      if (results[0].status === 'fulfilled') {
+        buys = Array.isArray(results[0].value) ? results[0].value : [];
+        st.buysStatus = 'ok';
+      } else {
+        st.buysStatus = 'error';
+        console.warn(LOG, 'No se pudieron leer las compras del TP:', results[0].reason);
+      }
+
+      var sells = [];
+      if (results[1].status === 'fulfilled') {
+        sells = Array.isArray(results[1].value) ? results[1].value : [];
+        st.sellsStatus = 'ok';
+      } else {
+        st.sellsStatus = 'error';
+        console.warn(LOG, 'No se pudieron leer las ventas del TP:', results[1].reason);
+      }
 
       // Caja del Trading Post: lo que quedo sin cobrar.
-      // A diferencia de buys/sells, getCommerceDelivery() PROPAGA el error
-      // (contrato documentado en api-gw2.js). Aca se traduce a un 4to estado
-      // explicito para que la UI distinga "no hay nada" de "no se pudo leer".
+      // Los tres wrappers (buys, sells, delivery) propagan el error; aca se
+      // traduce cada uno a un estado explicito para que la UI distinga
+      // "no hay nada" de "no se pudo leer".
       st.delivery = [];
       st.deliveryStatus = 'empty';
       try {
@@ -857,6 +895,52 @@
     return all;
   }
 
+  /**
+   * Banner de "no se pudo leer" para compras y ventas (v1.2.0).
+   *
+   * Reutiliza a proposito las clases de la caja del TP en vez de crear unas
+   * nuevas: son las mismas tres capas (main.css estructura, theme-polish.css
+   * borde neutro, commerce-delivery-theme.js borderLeft de color) y el estado
+   * 'error' ya existe en COLORS. Un banner nuevo habia exigido CSS nuevo, y
+   * con el riesgo de duplicar la receta visual en otra capa.
+   *
+   * Se dibuja TAMBIEN cuando no hay ordenes, porque ese es justamente el
+   * estado en el que el fallo era invisible: sin este bloque, un API key
+   * caido se renderizaba como "No tenes ordenes activas en el TP".
+   */
+  function renderTransErrorBanner() {
+    var st = state.transacciones;
+    var failBuys = st.buysStatus === 'error';
+    var failSells = st.sellsStatus === 'error';
+    if (!failBuys && !failSells) return '';
+
+    var failed, ok;
+    if (failBuys && failSells) {
+      failed = 'las compras ni las ventas';
+      ok = 'La caja del Trading Post';
+    } else if (failBuys) {
+      failed = 'las compras';
+      ok = 'las ventas y la caja del Trading Post';
+    } else {
+      failed = 'las ventas';
+      ok = 'las compras y la caja del Trading Post';
+    }
+
+    return '<div class="cv-delivery" data-cv-color="error" role="status">' +
+      '<div class="cv-delivery__head">' +
+        '<span class="cv-delivery__icon" aria-hidden="true">⚠️</span>' +
+        '<span class="cv-delivery__title">No se pudo leer ' + esc(failed) + ' del Trading Post</span>' +
+      '</div>' +
+      '<p class="cv-delivery__body">Lo usual es que la API Key no tenga el permiso <code>tradingpost</code>, ' +
+      'o que la API haya caído en ese momento. Lo que sí se pudo leer — ' + esc(ok) + ' — no se ve afectado. ' +
+      'Si recargás y sigue igual, revisá el permiso de la Key.</p>' +
+      // Reusa el id que wireTransaccionesEvents() ya escuchaba y que ningun
+      // markup dibujaba (handler muerto hasta ahora, hallazgo #10). Usar el id
+      // del boton del estado vacio habria dejado DOS nodos con el mismo id.
+      '<button id="cvTransaccionesRetry" class="btn btn--ghost btn--xs">Reintentar</button>' +
+      '</div>';
+  }
+
   function renderTransacciones() {
     var container = document.querySelector('#convModal .conv-tab-content[data-tab="transacciones"]');
     if (!container) return;
@@ -878,10 +962,12 @@
     }
 
     if (!st.buys.length && !st.sells.length) {
-      // El banner va PRIMERO y se dibuja igual: "cero órdenes activas" es
-      // precisamente el caso donde la caja del TP puede seguir llena, y
-      // antes de este bloque ese estado se renderizaba como vacío de verdad.
-      container.innerHTML = renderDeliveryBanner() +
+      // Los banners van PRIMERO y se dibujan igual: "cero órdenes activas" es
+      // precisamente el caso donde la caja del TP puede seguir llena, y antes
+      // de este bloque ese estado se renderizaba como vacío de verdad. Y es
+      // también el estado donde un fallo de lectura era invisible, porque se
+      // confundía con "no tenés órdenes" (v1.2.0).
+      container.innerHTML = renderTransErrorBanner() + renderDeliveryBanner() +
         '<div style="text-align:center;padding:40px;color:var(--muted);">' +
         '<img src="assets/icons/155033.png" width="48" height="48" alt="" style="opacity:0.3;margin-bottom:16px;"><br>' +
         '📭 No tenés órdenes activas en el TP.<br>' +
@@ -901,6 +987,7 @@
     var balanceSign = balance >= 0 ? '+' : '';
 
     var html =
+      renderTransErrorBanner() +
       renderDeliveryBanner() +
       '<div style="margin-bottom:8px;font-size:0.75rem;color:var(--muted);line-height:1.5;">' +
         '📋 <strong>Tus órdenes activas</strong> en la Compañía de Comercio. ' +
