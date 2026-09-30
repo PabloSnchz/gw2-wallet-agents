@@ -1,7 +1,15 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.19.0 (2026-09-30) — POOL_MAX 3 → 6, calibrado por medición (Idea 48 Tramo A)
+ * Versión: 2.20.0 (2026-09-30) — lsSet reporta el fallo de cuota (Idea 49 Tramo A)
+ *   v2.20.0: lsSet() ya no se traga los errores con catch vacío. Devuelve
+ *   booleano, cuenta los QuotaExceededError y avisa una sola vez. La cuota de
+ *   localStorage (~4.98 MB) es compartida por TODOS los módulos, así que
+ *   cuando se llena cada escritura posterior falla en silencio y la app
+ *   reinicia en frío en cada recarga. Visible en GW2Api.__cacheStats().
+ *   No relanza el error: la copia en __mem ya sirvió para la sesión.
+ *  _No arregla la cuota_: el Tramo C (comprimir ach_meta_v2) sigue pendiente.
+ *   Esto solo hace que el fallo se pueda ver en vez de disfrazarse de lentitud.
  *   v2.19.0: POOL_MAX 3 → 6. Con 3 slots y ~900 ms de latencia mediana el pool
  *   rendía ~200 req/min = 33% del permiso (X-Rate-Limit-Limit: 600). Con 6
  *   rinde ~400/min y la primera pantalla del Dashboard Cartera con 27 cuentas
