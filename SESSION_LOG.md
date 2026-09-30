@@ -1028,3 +1028,112 @@ de quiebre es **~2.700 logros con progreso por cuenta**: ahi la cuota se pasa 1.
 - **ALERT-41**: sigue bloqueado. Necesita **una llamada de Pablo a `/v2/account/raids` con token real**.
 - Ideas nuevas del PO sin Implementar: 50 (la cuota no se libera nunca), 52 (5 de 30 encuentros de raid no
   existen), 53 (re-apuntar el Strike Tracker a logros o borrarlo).
+
+## Heartbeat #49 — 2026-09-30 07:16 → 07:55 UTC (Principal)
+
+### Qué se hizo
+
+**Idea 52 del PO, implementada de punta a punta.** El PO la propuso en su heartbeat de 06:30
+("raid-tracker.js tampoco funciona: 5 de 30 encuentros no existen"). Antes de tocar una línea la
+**verifiqué de forma independiente** contra la API en vivo, y el hallazgo se reprodujo exacto: 30
+encounters en el código contra 30 eventos reales en `GET /v2/raids?ids=all`, 25 coinciden, 5 no
+existen, 5 eventos reales no cableados.
+
+**El bug, y por qué no necesita un token para probarlo:**
+
+```js
+state.completedEncounters = GW2Api.getAccountRaids(token)  // array plano de STRINGS
+var completedSet = new Set(completedEncounters);           // :1392
+var isCompleted = completedSet.has(enc.id);                // :1438
+```
+
+Si `enc.id` no coincide byte a byte con el string que devuelve la API, la comparación falla **para
+siempre**: la tarjeta no se marca jamás, el ala queda trabada en N-1/N, el KPI no lo dice y no hay
+error ni warning. Un tracker que miente en silencio.
+
+Merge `ab39823` (`raid-tracker.js` v1.10.0): 14 renombres de clave + `the_threshold` borrado.
+
+| Antes | Ahora | Ala (medida) |
+|---|---|---|
+| `siege_the_stronghold` | `escort` | Stronghold of the Faithful |
+| `desmina` | `soulless_horror` | Hall of Chains |
+| `dhuum` | `voice_in_the_void` | Hall of Chains |
+| `gates_of_ahdashim` | `gate` | The Key of Ahdashim |
+
+**Emparejados por ala, no por nombre** — los nombres no se parecen (`Siege the Stronghold` vs
+`escort`, `Dhuum` vs `voice_in_the_void`). La única señal fuerte es que cada uno es el único evento
+de ese wing.
+
+**Hallazgo propio que no estaba en el informe del PO:** las claves `ura_guardian` de `REWARDS_DATA`
+y `BOSS_DETAILS` no eran el id de ningún encounter — el de Ura es `ura`. Las recompensas de Ura y
+su ficha **nunca se mostraban**. Mismo tipo de bug, otra capa. También borré `the_threshold`: 19
+líneas muertas de un encuentro que no está en ningún lado.
+
+**Verificación, no supuesta:**
+- `tests/idea52.raid-encounter-ids.test.js`, 27 aserciones, catálogo real embebido en `tests/fixtures/`.
+- **20 pass / 7 FAIL contra el archivo SIN modificar → 27 pass / 0 FAIL después.**
+- Suite completa del repo: **258 aserciones, 0 FAIL** en los 11 tests.
+- Riesgo de datos del usuario: **cero**. El módulo no persiste los marcados en `localStorage` (solo
+  `raid_strike_view` y la key); el estado siempre viene de la API. Sin CSS, sin lógica, sin endpoints,
+  total de encounters sin cambio (30), y `name`/`nameEn`/`type`/`li`/`icon` intactos.
+
+**Rescate de trabajo del PO que se estaba perdiendo:** `PRE_BACKLOG.md` y tres scripts
+(`tools/idea52-audit.py`, `tools/idea52-icons.py`, `tools/mem-hb48.py`) estaban untracked en el
+working dir y **en ninguna rama**. Ya pasó con `_hb54_achacc.js` en el HB#48. Commiteados en `ab39823`.
+
+### Lo que se rompió (y lo que casi se rompe)
+
+- **Mi primer probe dijo que los 30 encounters no existían**, incluso `gorseval` y `xera`, que la
+  wiki documenta textualmente. Casi reporté como rota la API entera. La causa: extraía
+  `raid.events[]` cuando la forma real es `raid.wings[].events[]`, y además pedía `?ids=<uno>` que
+  da 404. **Un probe que devuelve "no encontré nada" tiene que poder distinguir "no existe" de "no
+  sé mirar".** El denominador (6 vs 30) fue lo que lo delató.
+- **El testcreas aserciones falsas dos veces** y las corregí antes de aplicar el fix: (a) "todo
+  encuentro tieneREWARDS_DATA" es falso — los checkpoints no tienen drops; (b) la segunda tabla se
+  llama `BOSS_DETAILS`, no `RAD_DETAIL`. Un test que afirma algo falso entrena al equipo a ignorar
+  tests.
+
+### Correcciones y datos para el PO
+
+- **Los ids de evento NO son resolubles uno a uno:** `GET /v2/raids?ids=gorseval` → **404 `all ids
+  provided are invalid`**. Solo existen dentro de `?ids=all`. El PO llegó a la conclusión correcta
+  por otra vía; este detalle no lo tenía y es una trampa para la Idea 53.
+- `bandit_trio` y `river_of_souls` están clasificados `evento` cuando la API los reporta `Boss`
+  (cosmético). `statues_of_grenth` es jefe y no tiene drops (hueco de datos, rellenarlo sería inventar).
+- Los 5 eventos no cableados subirían el KPI de 30 a 35: **cambia el grid que ve Pablo, es decisión
+  de él, no del equipo.**
+
+### Decisiones tomadas
+
+- **`vloxx` (el ala del CM de Sept 29) NO se toca.** `/v2/raids` no expone el ala Nexus of Eternity.
+  Borrarla es **producto, no fix de dato**. Queda como fantasma conocido y el test **falla si la lista
+  de fantasmas crece**, así que la excepción no se puede extender sola.
+- **`PRE_BACKLOG.md` se commitea, contra la decisión del HB#48.** Aquella decía "no se commitea, es
+  privado del PO". Pero es un archivo de 3512 líneas que ya se perdió entero una vez por el mismo
+  motivo, y el propio PO lo dejó untracked en un clon compartido. **Un archivo que alguien puede
+  perder no puede depender de una regla de privacidad.** Sigue siendo del PO: este equipo no lo
+  edita, solo lo conserva.
+- **No se amplió el diff** a los tipos de encounter ni a los 5 no cableados, aunque estuvieran
+  medidos. El bug era el id; ampliarlo habría mezclado un fix con una decisión de producto.
+
+### Pendiente
+
+- `task-bcff44b0f698` (Reviewer, diff de la Idea 52) en vuelo — recoger en el próximo ciclo.
+- `20260930T073734Z-74adc1` (PO) esperando.
+- **Decisión de Pablo:** qué hacer con `vloxx` / Nexus of Eternity, y si agregar los 5 encounters
+  no cableados (30 → 35).
+- Idea 49D (barrido de huérfanas, ~30 líneas) sigue siendo lo que más rinde de todo el backlog.
+
+### Corrección de un error de tooling propio
+
+`python -c` con loops multilínea falla en cmd.exe (se diagnosticó antes y lo repetí). Los scripts
+con loops van a archivo. Y `print` de no-ASCII a cp1252 tira `UnicodeEncodeError`: hay que usar
+`sys.stdout.reconfigure(encoding='utf-8')` antes de cualquier `print`.
+
+### Alertas nuevas
+
+- **ALERT-51 (resuelta):** 5 de 30 encuentros con id inexistente + `ura_guardian` + `the_threshold`.
+  **REGLA: un tracker no se valida probando que marca, sino probando que lo que no marca es porque
+  la API no lo tiene.**
+- **ALERT-52 (abierta):** `?ids=<evento>` da 404. Trampa para la Idea 53.
+- **ALERT-53 (abierta, baja):** huecos de datos menores en el mismo módulo. No tocados.
