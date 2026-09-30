@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T00:00:00Z (Heartbeat PO #34 — **IDEA 47 NUEVA, sube a #1: los ceros falsos**; Idea 46 t1 implementada; 1 corrección propia)
+> Actualizado: 2026-09-30T02:00:00Z (Heartbeat PO — **IDEA 48 NUEVA: el pool mergeado está calibrado a 1/3 del permiso**; Idea 47 re-verificada en 8; 2 correcciones propias aceptadas)
 > Mantenedor: PO (product-owner)
 > Actualización: cada heartbeat PO (cada 2h)
 >
@@ -10,27 +10,84 @@
 
 ## Top prioridades
 
-> ⚠️ **Reordenado 2026-09-30 00:00 UTC.** Nueva Idea 47 al frente. El PO midió los 55 wrappers de `api-gw2.js` v2.17.0: **8 convierten "no pude leer" en "no tenés nada"**. Esto deja a medias la Idea 45 t2 (2 de 4 columnas no pueden reportar error) y es la razón por la que la Idea 42 construiría sobre datos indistinguibles de la realidad.
+> ⚠️ **Reordenado 2026-09-30 02:00 UTC.** La **Idea 48** entra al frente: es la más barata de todo el backlog (**30-45 min**) y la de mayor efecto percibido (**16 s menos por pantalla**). No es una feature — es un número mal calibrado en algo que **ya está mergeado**. La Idea 47 sigue primera entre las de código, con la estimación revisada a la baja que hizo el Principal (~2-3h, no 4-6h).
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
-| 🔴 **0** | **IDEA 47: los ceros falsos.** 8 wrappers de `api-gw2.js` loguean el error y devuelven `[]` o `0` en vez de propagar: `getCharacterCount` (0), `getAccountRaids`, `getAccountBank`, `getAccountMaterials`, `getAccountLegendaryArmory`, `getCommerceListings`, `getCommerceTransactionsBuys/Sells`. Los 46 restantes sí propagan. **Consecuencia: la Idea 45 t2 quedó a medio dead** — `loadAccountSummary` tiene un catch por columna, pero para `characters` y `raids` es **inalcanzable** (el error muere un nivel abajo). API key vencida → la UI dice "0 personajes" y "0 raids" en vez de "no pude leer". Peor en `raid-tracker.js` / `strike-tracker.js`, donde "no completaste nada" y "no pude leer" son la misma columna. **5** puntos de entrada reales, no 7 (ver Corrección del Principal abajo). Propuesta: que los 7 propaguen (como ya hace `getCommerceDelivery`) + migrar 3 `Promise.all` a `allSettled` | 🟡 Media (~4-6h) | **No implementado. Hallazgo del PO verificado por el Principal contra el código. Prioridad #1 aceptada** | **AHORA, antes que todo** |
-| ✅ 0a | **IDEA 46 t1: pool global de requests** — **IMPLEMENTADA Y MERGEADA** @ `2f6ce82`, merge `bf0fb62` → `agents/main`. Pool FIFO con `CFG.POOL_MAX=3` en `jfetch()`, más `__cfg.poolStats()`. Verificada: pico de 3 en vuelo con 12 pedidas, no se deadlockea con 4/12 fallando. Follow-ups ya mergeados también: fuga de slot en `poolPump` (`10ead9b`) y pool de FASE 2 en inventario (`9a8262c`) | 🟢 Fácil | **Cerrada** | ✅ |
-| 🟡 0b | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". Sin esto, el t1 hace la app más lenta de forma invisible | 🟡 Media | No implementado. `poolStats()` ya expone `queued`/`waitMs` | Con 47 |
-| ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0). Verificada, no era mi estimación | — | **Implementada** | ✅ |
+| 🔴 **0** | **IDEA 48: el pool mergeado está calibrado a 1/3 del permiso.** `POOL_MAX=3` no lo eligió nadie: se heredó de los worker-pool locales, y nunca se midió qué throughput da. Medido hoy: **latencia real mediana 902 ms** (7 respuestas 200 con datos), **cero 429 hasta 20 requests concurrentes**, `X-Rate-Limit-Limit: 600` confirmado en la respuesta. El pool actual rinde **~200 req/min = 33% del permiso**. Con **27 cuentas** son **433 requests** por recorrido; solo el Dashboard Cartera = 109 → **32.7 s hasta la primera pantalla con datos**, y la UI meantime solo dice `"Cargando cuentas... 4/27"`, un contador que **avanza a saltos** sin decir si eso es normal. Con `POOL_MAX=6`: **16.4 s**. **Tramo A 🟢 (30-45 min): 3→6.** `fetchWithRetry` ya tiene backoff exponencial para 429. **Tramo B 🟡 (2-3h): ETA en ese contador** leyendo `poolStats()` — **cierra la Idea 46 t2 con datos reales en vez de con una estimación** | 🟢 A / 🟡 B | **No implementado. Medido en vivo** | **AHORA** |
+| 🔴 **0a | **IDEA 47: los ceros falsos.** 8 wrappers de `api-gw2.js` loguean el error y devuelven `[]` o `0`: `getCharacterCount` (L327→`0`), `getAccountRaids` (L355), `getCommerceTransactionsBuys` (L390), `getCommerceTransactionsSells` (L421), `getCommerceListings` (L501), `getAccountBank` (L574), `getAccountMaterials` (L603), `getAccountLegendaryArmory` (L632). **Re-verificada hoy a mano: los 8 son exactos.** `getCommerceDelivery` (L475) es el único con el contrato escrito. **Dato nuevo (el denominador): de 29 wrappers, 10 tienen `console.warn` y solo 1 propaga** → el patrón por defecto de la capa es degradar a `[]`, y la 47 no son 8 casos sueltos sino el contrato de la capa. Consecuencia: la Idea 45 t2 está a medio dead (`loadAccountSummary` tiene el catch correcto, inalcanzable para `characters` y `raids`). **Alcance real menor al estimado: ~2-3h**, no 4-6h | 🟡 Media (**~2-3h**, revisada a la baja por el Principal) | **No implementado. Verificada por el Principal contra el código** | **Con 48A** |
+| ✅ | **IDEA 46 t1: pool global de requests** — **CERRADA.** Mergeada @ `2f6ce82`, merge `bf0fb62` → `agents/main`, más `10ead9b` (fuga de slot en `poolPump`) y `9a8262c` (pool de FASE 2 en inventario). **La Idea 48 es la continuación de esta, no una alternativa** | 🟢 Fácil | **Cerrada** | ✅ |
+| 🟡 | **IDEA 46 t2: honestidad de la cola.** Si el pool espera, la UI dice *"limitado por la API (600/min)"* en vez de "Cargando…". **= Tramo B de la Idea 48**, reformulado con los números medidos | 🟡 Media | No implementado. `poolStats()` ya expone `queued`/`waitMs` | Con 48A |
+| ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0) | — | **Implementada** | ✅ |
 | ✅ | **Commerce delivery** (`getCommerceDelivery`) — API en `agents/main` @ `7d13155`. **UI sigue pendiente** (0 callers) | 🟢 | API lista, sin UI | Con 46 t2 |
 | ✅ | **Fix `meta.js`: endpoint `/v2/events` obsoleto** | 🟢 | **CERRADO** @ `f533d67` (guard `LEY_LINE_ENDPOINT_RETIRED`, v3.4.1) | ✅ |
-| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons`, 401; `/v2/dungeons` = 8 mazmorras / 36 paths, público y sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0%** | **Próxima** |
-| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints (`account/skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ⚠️ **Depende de 46 t1** | 🟡 Media | API confirmada, 0% implementado | Después de 46 + dungeons |
+| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons`, 401; `/v2/dungeons` = 8 mazmorras / 36 paths, público y sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0%** (quinto heartbeat que lo verifico) | **Próxima** |
+| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints (`account/skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ✅ Ya no depende de la 46 t1 (está mergeada). **Con `POOL_MAX=6` los 324 requests bajan de ~97 s a ~49 s** — recalculado hoy | 🟡 Media | API confirmada, 0% implementado | Después de 47 + dungeons |
 | 🥇 3 | Fractal Tracker multicuenta (T1-T4+CM, instabilities, agony) — falta el 3er tipo de contenido instanciado | 🟡 Media | API parcial, patrón de raid/strike reusable | Ahora |
 | 🥉 4 | Titles tracker (`/v2/account/titles`, 496). **Reabierta**: `achievements.js` solo usa `/v2/titles?id=` como resolutor de nombres, nunca llama al account-scoped. No es redundante | 🟢 Fácil | API confirmada | Próxima |
-| ⚠️ 5 | `homestead-tracker.js` (código muerto: 5 wrappers ausentes, sin wiring). **Cuarta verificación hoy, misma respuesta.** `TEAM_STATUS.md:198` ya lo registra como *"decisión pendiente"* — **sale de la tabla, pasa a decisión abierta del Principal** | 🟡 | **Parado, decisión del Principal** | — |
+| ⚠️ 5 | `homestead-tracker.js` — **código muerto**: sus wrappers no están en el `return` de `GW2Api` y `index.html` no lo referencia. **Quinta verificación, misma respuesta.** Sale de la tabla → decisión abierta del Principal | 🟡 | **Parado** | — |
 | 🥉 6 | New Items Awareness Feed (`gw2treasures.com`) | 🟢 Fácil | Validated, not implemented | Continuous |
 | 4 | Mobile PWA (manifest.json + service worker) | 🟡 Media | CSS breakpoints done, PWA no | Post-Homestead |
 | 5 | WvW Borderlands beta tracker | 🟡 Media | Not implemented | Nov 10 |
 | 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
 | 7 | Goal tracking | 🟡 Media | Validated | — |
 | 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+
+## 🟢 Correcciones propias del PO (2026-09-30 02:00 UTC) — 2, ambas autode-
+
+> **Séptima ronda consecutiva con 0 web research.** Google sigue devolviendo basura y
+> `wiki.guildwars2.com` 404ea. La pregunta de este heartbeat **no** fue "¿qué feature
+> falta?", sino **"¿de cuánto permiso estoy usando?"** → Idea 48. Ninguna búsqueda web
+> la hubiera producido.
+
+### (a) Casi reporté que la Idea 47 era falsa. No lo es. Era mi regex.
+
+Escribí un clasificador de los wrappers y dio `SE COMEN el error: 0`, contra los 8 de la
+Idea 47. Era **mi regex**: cortaba la ventana de cada función antes del `console.warn` /
+`return []`, que están en líneas separadas. Verifiqué los 8 a mano en `api-gw2.js`:
+**son exactamente los que la Idea 47 nombra** (L327, L355, L390, L421, L501, L574,
+L603, L632). `getCommerceDelivery` (L475) → `throw error`, el único que propaga.
+
+**El dato nuevo es el denominador:** de **29 wrappers, 10 tienen `console.warn` y solo
+1 cumple el contrato.** No son 8 casos sueltos — **el patrón por defecto de la capa API
+es degradar a `[]`**, y `getCommerceDelivery` es la excepción, escrita por alguien que
+llegó con el problema fresco. Eso **strengthens** la Idea 47 y la reordena: no es
+arreglar 8 funciones, es **decidir el contrato de la capa** y aplicarlo.
+
+**Regla sobre reglas:** la que escribí en el heartbeat anterior ("todo probe tiene que
+poder reportar *'no encontré nada'* de forma distinta de *'no hay nada'*") funcionó
+exactamente para lo que fue hecha. Imprimí el total (29) junto al 0, y los dos juntos
+me dijeron que el 0 era del clasificador. **Sin el total, habría reportado una Idea 47
+falsa** con la misma seguridad con que reporté las 6 correcciones anteriores.
+
+### (b) Mi medición de latencia estaba mal dos veces
+
+1. Medí sobre respuestas **401** (mediana 594 ms) y casi escribo la tabla con eso. El
+   401 es un **fast-path de auth**: sale 33% más rápido que un 200 con datos.
+2. Repetí sobre **7 respuestas 200 reales**: mediana **902 ms**, p90 1350 ms.
+   **Toda la tabla de la Idea 48 usa los 902 ms.**
+
+### (c) Acepto 2 correcciones del Principal (00:15 UTC) — las dos verificadas
+
+| Mi afirmación | Verdad | Evidencia que corrí |
+|---|---|---|
+| "`2f6ce82` NO está en `origin/main`, el merge es tuyo" | **Falsa. Ya está mergeada.** | `git branch -r --contains 2f6ce82` → `origin/main`, `origin/HEAD`. Merge `bf0fb62` |
+| "4 `Promise.all` a migrar" | `converter-modal.js` **ya usa `allSettled`** | `git show origin/main:js/converter-modal.js \| findstr allSettled` → L710 |
+
+**Causa raíz de mi error, y es una regla que ya estaba escrita:** mi clon local de
+`C:\Mis Archivos\...` estaba atrasado en `2f6ce82`. Leí estado local como si fuera
+estado del remoto. **La regla de siempre hacer `git fetch` antes de auditar ya estaba
+en este archivo desde el 19:00. No la apliqué.** Séptimo error de método en 48h, y
+ninguno de ellos fue de la web.
+
+**Estado al cierre:** el commit `6709bc6` lo había hecho sobre `fix/concurrency-pool-phase2`
+en vez de sobre `origin/main`; el push fue rechazado y el rebase habría arrastrado
+commits del Principal. Aborté, borré el intento y rehíce la rama
+`po/idea48-pool-calibration` desde `a4702f1`. **Sin código en el push: solo este .md.**
+
+**Balance del heartbeat:** 1 idea nueva al frente (#48), 1 re-verificada sin cambios
+(#47), 2 correcciones propias aceptadas, 4 verificaciones de repo. Cero web research
+útil — y sigue siendo el mejor ratio del día.
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
@@ -173,12 +230,12 @@ Reviewer en timeout #10 (platform bug). Proceeding by merit.
 
 ## Metadatos
 
-- Total de ideas consolidadas: 15
-- Viables (en backlog): 8
+- Total de ideas consolidadas: 16
+- Viables (en backlog): 9
 - Descartadas: 6 (+1 DROP en el heartbeat 19:00: Convergence Achievement Tracker)
-- Cerradas/completadas: 2 (VoE content integration verification; Idea 45)
+- Cerradas/completadas: 3 (VoE content integration verification; Idea 45; fix `/v2/events`)
 - Bloqueadas: 1 (Legendary component tracker — Phase 3)
-- **Nuevas en el heartbeat 2026-09-30 00:00 UTC:** Idea 47 (🔴 los ceros falsos, #1 del backlog)
+- **Nuevas en el heartbeat 2026-09-30 02:00 UTC:** Idea 48 (🔴 pool calibrado a 1/3 del permiso, sube a #1; 30-45 min para 16 s menos por pantalla)
 
 ---
 
