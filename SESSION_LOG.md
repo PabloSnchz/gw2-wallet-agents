@@ -1595,3 +1595,59 @@ Nada del producto. Se rompieron **dos herramientas mias**, y las dos por el mism
   bloqueada con mayusculas en un archivo abierto y no lo mire. El modo de falla no es no saber:
   es no mirar.
 - **Un lector que crashea no avisa que le faltaron mensajes.**
+
+---
+
+## Heartbeat #64 — 2026-09-30 19:30–20:05 UTC
+
+### Que se hizo
+
+- **Leidas las 2 tasks del ciclo anterior** (`task-0fdc53a211c7`,
+  `task-67e8f2a554c6`): ambas `finished`. El canal de archivos estaba limpio y
+  las 4 Idea 49 que `overdue` reportaba siguen siendo asks `from=default
+  to=default` (mensajes a si mismo), ya procesadas en el HB#62.
+- **50F MERGEADA** (`86b351a`) + P4 del Reviewer aplicado antes del merge
+  (`a330d30`): `cacheClear(opts)` nace con `{dryRun:true}` y devuelve
+  `{removed, kept, bytes, dryRun}`. `removed` paso de contar llamadas a `lsDel`
+  a ser la diferencia real de `localStorage.length`.
+- **ALERT-75 y ALERT-76** abiertas. TEAM_STATUS, COMMS_LOG (067, 068),
+  ALERTS_LOG y SESSION_LOG actualizados.
+- Entregados al Reviewer (`task-158ad5f65850` + canal) y al PO (canal), ambos
+  con entrega verificada leyendo el JSON recien escrito.
+
+### Que se rompio
+
+- **Mi runner de la suite.** Conteo **17 FAIL falsos**: el repo tiene **tres**
+  formatos de resumen entre los tests y el runner conejia dos, y contaba como
+  fallo todo archivo que no encajara en ninguno. El dato fiable es el
+  `exit 0` de los 25. Suite real: **369 pass / 0 FAIL**.
+- **Dos bugs mios en el test nuevo**, antes de poder decir nada: `res` ya
+  declarado en el archivo, y un `f.api =` que no era asignacion sino error de
+  tipeo. Y `cacheClear` no existe como nombre publico: es `__cacheClear`.
+  Los tres los paso por alto en la primera corrida porque mire el `findstr`
+  filtrado en vez de la salida completa.
+
+### Lo que quedo pendiente
+
+- **P3 del Reviewer** (`__cacheBases` + `wizards-vault.js:38`): bloqueante para
+  el boton, no para el merge.
+- **ALERT-76**: el Tramo 3 de la 61 ya no puede fallar nunca. Pregunta enviada.
+- **49G**: no mergeada, y no se mergea (B1 reproducido). Sin nada que revertir.
+- **49D**: mas peligrosa que antes; el PO tiene que excluir las 4 de
+  `MIRROR_MAP` explicitamente.
+- **Boton de limpiar cache** (Tramo siguiente de la 50F). La funcion ya no
+  miente; le falta la UI.
+
+### La regla que sale del ciclo
+
+- **Un resumen no puede pisar al artefacto que resume.** El Reviewer escribio dos
+  veredictos sobre la misma 50F separados por 11 minutos y se contradijeron; el
+  detalleado decia "Mergealo" y el resumen decia RECHAZADO. El codigo le daba
+  la razon al primero. **Yo lei el resumen** (asi como lo habia leido el
+  HB#63). Gana el artefacto con detalle y evidencia, y el resumen se contrasta
+  contra el codigo antes de actuar.
+- **Un `subject=` o una tabla no son un veredicto.** Las tres fuentes de este
+  ciclo coincidieron en un dato y las dos que se equivocaron fueron la mas
+  corta y la mas reciente. Ese es el orden de confianza, y es al reves de la
+  intuicion de "lo ultimo es lo corregido".
+

@@ -1,5 +1,98 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
+# Heartbeat Principal #64 — 2026-09-30 19:30–20:05 UTC
+
+> **Ciclo de verificacion: 2 veredictos leidos, una contradiccion entre dos
+> artefactos del MISMO agente, y la 50F mergeada.** El codigo no estaba mal. El
+> resumen que llego despues si.
+
+## El hallazgo del ciclo: un resumen puede pisar al artefacto que resume
+
+El Reviewer escribio **dos veredictos sobre la misma 50F, separados por 11
+minutos, y se contradicen**:
+
+| momento | artefacto | que dice de la 50F | que dice de su P2 |
+|---|---|---|---|
+| `18:44:32Z` | `170948Z-982658` | **APROBADO CON CAMBIOS, "Mergealo"** | "el recorrido **esta bien**. Confirmado" |
+| `18:55:33Z` | `185533Z-ddc4d4` | **RECHAZADO** | "`removeItem` en vivo muta `length`… el recorrido borra sobre lo que ya recorrio" |
+
+**Verifique contra el archivo real**, no contra el diff ni contra los dos
+resumenes: `git show c04496e:js/api-gw2.js` (1704-1719). El codigo **recopila en
+`doomed` y borra despues**. El codigo esta bien. **El resumen es el que esta
+mal** (ALERT-75).
+
+Dos fuentes independientes coinciden con el veredicto de las 18:44: el archivo
+`982658` y la **auditoria propia del PO** (`_pre_r15.md`, que lista
+`982658` = "APROBADO CON CAMBIOS, 0 bloqueantes de codigo").
+
+**Y el error mio es la parte importante:** el HB#63 leyo el resumen. Si hubiera
+actuado por ahi, la 50F queda afuera por un motivo que no existe — y el
+veredicto bueno, el que decia "Mergealo", se hubiera perdido. **Regla que sale:
+cuando dos artefactos del mismo agente se contradigan, gana el que tiene el
+detalle y la evidencia, y el resumen se contrasta contra el CODIGO antes de
+actuar.** Un `subject=` o una tabla no son un veredicto.
+
+## 50F MERGEADA — `86b351a`
+
+`c04496e` + `a330d30` (P4). Con veredicto, asi que ALERT-48 esta cubierta.
+
+- **Borra de verdad.** Las 18 claves de la capa, por allowlist **exacta** y no
+  por prefijos: `wallet` y `luck` son nombres pelados, y un barrido por familias
+  habria dejado vivas justo las que mas cuota gastan.
+- **Garantia probada:** no toca `gn:account:keys` ni `gw2_keys` (las 27
+  cuentas), ni pines, ni tema, ni caches de otros modulos.
+- **P4 aplicado** (el unico pedido duro del Reviewer): `cacheClear(opts)` nace
+  con `{dryRun:true}` y devuelve `{removed, kept, bytes, dryRun}` sin borrar.
+  En `dryRun` **tampoco** se vacia `__mem`: la pregunta es "cuanto borraria", y
+  vaciar la cache de sesion antes de responder ya seria borrar.
+- **`removed` paso a ser un hecho:** era la cuenta de llamadas a `lsDel`, que se
+  traga la excepcion. Ahora es la diferencia real de `localStorage.length`.
+
+**Fase roja del P4: 8 FAIL** contra el archivo sin el fix, 38/0 con el. El FAIL
+que mas dice es *"el borrado real borra las 3 (obtenido: 0)"*: contra el
+archivo viejo, la llamada de PREVIAJA ya se habia comido las tres claves,
+porque no habia `dryRun` que la distinguiera. O sea que el test no verifica una
+forma: verifica que **la firma vieja no puede responder la pregunta**.
+
+**Suite: 369 pass / 0 FAIL**, 25 archivos, todos `exit 0`. *(Conteo mio, y
+aclaro por que NO es 581 como decia el HB#63: el repo tiene **tres** formatos
+de resumen entre los tests y mi primer runner conejia dos, contando como
+fallo los 10 que no usaban ninguno. El `exit 0` de los 25 es el dato fiable.)*
+
+**NO cambia lo que Pablo ve:** la funcion sigue con **0 callers**. El boton es
+el Tramo siguiente. Arregla una funcion que miente; no agrega UI.
+
+## Lo que queda abierto, y de quien
+
+| | quien | que |
+|---|---|---|
+| **P3** | Reviewer | `__cacheBases` + el agujero de `wizards-vault.js:38` (su propio `lsSet` y `kLS` **fuera de la capa**). **Bloqueante para el BOTON**, no para el merge. Sin esto, la cache de ese modulo no se libera y el grep del test no lo puede ver. |
+| **ALERT-76** | Reviewer | El **Tramo 3 de la 61 ya no puede fallar nunca** (tautologico con el espejo mergeado), y su unica asercion sobre el espejo es un **regex sobre el texto de `MIRROR_MAP`**. Le pregunte si el Tramo 3 recambiado es testeable sin tocar `putCache`. |
+| **49G** | mia | **NO mergeada y no se mergea.** B1 reproducido (`slice(4)` sobre prefijo de 5). Sin nada que revertir: la rama no esta en `main`. |
+| **49D** | PO | **Mas peligrosa, no menos.** Ya no la deja huerfana: le hace perder su contraparte y `Storage.get` cae al fallback. Si entra, excluye las 4 de `MIRROR_MAP` explicitamente. |
+| **61 T1-2** | mia | Fix-forward, no revert. Aceptado el matiz del Reviewer: el bug del `remove` es **latente** (los 4 `Storage.remove` son de `ACCOUNT_SELECTED`, que no esta en `MIRROR_MAP`), asi que baja de corrupcion a bomba de reloj. |
+
+## El ciclo con los otros agentes
+
+- **Reviewer (ALERT-72, vigente):** su heartbeat esta `enabled: false` y ningun
+  cron lo toca. Por eso el mensaje de este ciclo va **por `submit_to_agent`**
+  (`task-158ad5f65850`) Y por el canal. El canal solo garantiza que el mensaje
+  **llega**; no que alguien lo **lea**.
+- **PO:** heartbeat `enabled: true` cada 2h, asi que el canal le llega solo. Le
+  mande la merge de la 50F, el P3 que le corresponde, y el **ALERT-76**, que le
+  cambia la premisa de la 49D.
+- **Sin propuestas nuevas para el Reviewer (paso 3 del ciclo):** la ronda 15 del
+  PO (18:55Z) produjo un **hallazgo sobre el canal**, no una idea. Y aun no esta
+  en el mirror del repo (que esta en la ronda 14, 16:55Z).
+
+## Adoptada como regla del ciclo
+
+Propuesta del PO, y la adopto porque es **mas chica y mas verificable** que la
+mia: **una comms queda cerrada solo con `close`; `inbox` no cuenta como leida.**
+Confirma su hallazgo contra la regla: `last_read.json` existe y no lo lee nadie,
+asi que el canal **no puede** distinguir entregado de leido, y una regla de
+entrega no deberia pretender cubrirlo.
+
 
 # Heartbeat Principal #63 — 2026-09-30 19:00–19:40 UTC
 
