@@ -1,7 +1,19 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.17.1 (2026-09-30) — Pool global de requests (Idea 46 t1)
+ * Versión: 2.18.0 (2026-09-30) — 7 wrappers propagan el error en vez de degradar (Idea 47 c2)
+ *   v2.18.0: getCharacterCount, getAccountRaids, getCommerceTransactionsBuys,
+ *   getCommerceTransactionsSells, getAccountBank, getAccountMaterials y
+ *   getAccountLegendaryArmory dejan de tragar el error y devuelven [] / 0.
+ *   Un 0 por "no pude leer" es indistinguible de un 0 real: el usuario Borra y
+ *   re-agrega una API key que funcionaba. Ahora el error sube al call site,
+ *   que es donde esta escrito como surfacearlo.
+ *   NO entra getCommerceListings: ahi [] SI es estado normal (la cuenta no
+ *   tiene nada publicado), no un error tragado. Decision de alcance del PO.
+ *   Consumidores: wallet-dashboard (try/catch por campo, sus _errors
+ *   characters/raids dejaron de ser inalcanzables), inventory-hub,
+ *   inventory-dashboard, raid-tracker, strike-tracker y converter-modal
+ *   (Promise.allSettled; estos dos ultimos ya toleraban el rechazo).
  *   v2.17.1: poolPump ya no pierde el slot si un task tira sincrónico.
  *
  * Cambios v2.17.0:
@@ -314,6 +326,13 @@
   // ========================================================================
   // Character count
   // ========================================================================
+  /**
+   * Obtiene la cantidad de personajes de la cuenta
+   * @param {string} token - API Key
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<number>} - Cantidad de personajes
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a 0)
+   */
   function getCharacterCount(token, opts) {
     opts = opts || {};
     if (!token) return Promise.reject(new Error('Falta access_token'));
@@ -331,8 +350,10 @@
         putCache(key, count, token, TTL.ACCOUNT);
         return count;
       }).catch(function (error) {
+        // Se registra y se propaga. Ver la nota de contrato en el JSDoc:
+        // degradar a 0 acá sería indistinguible de "la cuenta no tiene personajes".
         console.warn(LOGP, 'Error getting character count:', error);
-        return 0;
+        throw error;
       });
     });
   }
@@ -340,6 +361,13 @@
   // ========================================================================
   // Raids
   // ========================================================================
+  /**
+   * Obtiene los IDs de encuentros completados por la cuenta
+   * @param {string} token - API Key
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<Array>} - Array de IDs de encuentros
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   */
   function getAccountRaids(token, opts) {
     opts = opts || {};
     if (!token) return Promise.reject(new Error('Falta access_token'));
@@ -359,8 +387,10 @@
         putCache(key, raids, token, ttl);
         return raids;
       }).catch(function (error) {
+        // Se registra y se propaga. Ver la nota de contrato en el JSDoc:
+        // degradar a [] acá sería indistinguible de "no completaste ningún encuentro".
         console.warn(LOGP, 'Error getting account raids:', error);
-        return [];
+        throw error;
       });
     });
   }
@@ -374,6 +404,7 @@
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>}
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
    */
   function getCommerceTransactionsBuys(token, opts) {
     opts = opts || {};
@@ -395,7 +426,7 @@
         return tx;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting commerce transactions (buys):', error);
-        return [];
+        throw error;
       });
     });
   }
@@ -405,6 +436,7 @@
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>}
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
    */
   function getCommerceTransactionsSells(token, opts) {
     opts = opts || {};
@@ -426,7 +458,7 @@
         return tx;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting commerce transactions (sells):', error);
-        return [];
+        throw error;
       });
     });
   }
@@ -560,6 +592,7 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de items en el banco (null = slot vacío)
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
    */
   function getAccountBank(token, opts) {
     opts = opts || {};
@@ -579,7 +612,7 @@
         return bank;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting account bank:', error);
-        return [];
+        throw error;
       });
     });
   }
@@ -589,6 +622,7 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de { id: number, category: number, binding: string, count: number }
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
    */
   function getAccountMaterials(token, opts) {
     opts = opts || {};
@@ -608,7 +642,7 @@
         return materials;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting account materials:', error);
-        return [];
+        throw error;
       });
     });
   }
@@ -618,6 +652,7 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de items en la armería legendaria
+   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
    */
   function getAccountLegendaryArmory(token, opts) {
     opts = opts || {};
@@ -637,7 +672,7 @@
         return armory;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting legendary armory:', error);
-        return [];
+        throw error;
       });
     });
   }
