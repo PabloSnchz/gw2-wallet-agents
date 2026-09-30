@@ -1,7 +1,13 @@
 /*!
  * js/inventory-dashboard.js — Dashboard de Inventario Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.0.0 (2026-05-07)
+ * Versión: 1.1.0 (2026-09-29)
+ *
+ * Cambios v1.1.0:
+ *  - FASE 2 de la carga (loadCharactersInBackground) pasa de `accounts.map()` a un pool de
+ *    concurrencia (mapWithPool, max 3). Antes disparaba 2 requests por cuenta de golpe
+ *    (27 cuentas = 54 simultáneos, sin pool y con `fetch` crudo, que no reintenta 429).
+ *    Misma concurrencia que la FASE 1. Medido antes/después: pico 27 -> 3.
  *
  * Características:
  *  - Tabla de cuentas vs ítems seleccionados (banco + materiales combinados)
@@ -371,6 +377,38 @@
     loadCharactersInBackground(out);
   }
 
+  // ------------------------------ Pool de concurrencia ------------------------------
+  // La GW2 API impone 600 requests/minuto (verificado en vivo: header X-Rate-Limit-Limit).
+  // La FASE 1 de loadAllInventories ya limita a MAX=3, pero la FASE 2 mapeaba TODAS las
+  // cuentas de una: con 27 cuentas son 54 requests simultáneos, y sin pool no hay backpressure
+  // — al llegar a un límite global, fetchWithRetry reintenta solo en la capa GW2Api, pero
+  // estas llamadas usan fetch crudo y no reintentan nada.
+  // maxConcurrent: 3 = misma concurrencia que la FASE 1. No es un número mágico.
+  async function mapWithPool(items, maxConcurrent, worker) {
+    var results = new Array(items.length);
+    var idx = 0, active = 0;
+
+    await new Promise(function (resolve) {
+      function next() {
+        if (idx >= items.length && active === 0) return resolve();
+        while (active < maxConcurrent && idx < items.length) {
+          var i = idx++;
+          active++;
+          (function (index) {
+            Promise.resolve()
+              .then(function () { return worker(items[index], index); })
+              .then(function (value) { results[index] = value; })
+              .catch(function () { results[index] = undefined; })
+              .then(function () { active--; next(); });
+          })(i);
+        }
+      }
+      next();
+    });
+
+    return results;
+  }
+
   async function loadCharactersInBackground(accounts) {
     // Guardar snapshot de valores antes de actualizar bags
     var activeItems = getActiveItems();
@@ -381,7 +419,9 @@
       });
     });
 
-    var promises = accounts.map(function(acc) {
+    var CONCURRENCY_CHARACTERS = 3;
+
+    await mapWithPool(accounts, CONCURRENCY_CHARACTERS, function(acc) {
       return loadActiveCharacterInventory(acc.token)
         .then(function(charData) {
           acc.activeCharName = charData.name;
@@ -396,7 +436,6 @@
           updateCharCell(acc);
         });
     });
-    await Promise.allSettled(promises);
     console.log(LOG, 'Fase 2 completada: personajes activos cargados');
     updateTotalGoldBadge();
     var currentItems = getActiveItems();
