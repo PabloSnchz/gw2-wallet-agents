@@ -1,7 +1,20 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.23.0 (2026-09-30) — lotes parciales 206 y carrera en getItemsMany
+ * Versión: 2.23.1 (2026-09-30) — el 404 del reintento tiraba los ids válidos
+ *   v2.23.1: CORRIGE una regresión que la v2.23.0 introdujo. El reintento de
+ *   los ids faltantes no tenía handler de rechazo. Los ids que faltaron son,
+ *   por definición, ids que la API NO tiene: al repreguntarlos sola la API
+ *   responde 404 ("all ids provided are invalid"), NO 206 — porque 206
+ *   significa "queda al menos uno válido" (medido: ids=1,2,3 -> 404;
+ *   ids=1,2,3,4,5 -> 206 con los 2 válidos). Ese 404 propagaba y `arr`, con
+ *   los ids válidos que YA TENÍAMOS, se descartaba con él: el fix empeoraba
+ *   el bug que quería matar (dejaba el lote entero sin icono y sin cachear,
+ *   en vez de sólo el id inválido). En getAchievementsMeta, que no tiene
+ *   catch, tumbaba la vista de logros completa. Regla: un reintento es una
+ *   MEJORA, no un requisito; si falla, se devuelve el resultado original.
+ *   Test: tests/idea49.partial-206.retry404.test.js (13 aserciones; 5 FAIL
+ *   contra el archivo sin el fix).
  *   v2.23.0: la API responde 206 cuando SÓLO PARTE de los ids pedidos existen
  *   (medido sin token: ids=1,2,3 -> 404; ids=1,2,3,4,5 -> 206 con 2; ids=all
  *   -> 400). El 206 es un 2xx, así que `!res.ok` NO lo detectaba y el lote se
@@ -338,8 +351,21 @@
         return arr;
       }
       var u2 = url.replace(/([?&])ids=[^&]*/, '$1ids=' + left.join(','));
+      // El reintento es una MEJORA, no un requisito. Los ids que faltaron
+      // son, por definicion, ids que la API no tiene: si se los repregunta
+      // sola, la API responde 404 ("all ids provided are invalid"), NO 206
+      // -- porque 206 significa "queda al menos uno valido". Medido:
+      //   /v2/items?ids=1,2,3      -> 404
+      //   /v2/items?ids=1,2,3,4,5  -> 206 con los 2 validos
+      // Sin este segundo handler de rechazo, ese 404 propagaba y
+      // `arr` -- los ids validos que YA TENIAMOS -- se descartaba con el:
+      // el fix empeoraba el bug que pretendia matar (dejaba sin icono todo
+      // el lote, y sin cachear, en vez de solo el id invalido). Y en
+      // getAchievementsMeta, que no tiene catch, tumbaba la vista entera.
       return fetchWithRetry(u2, opts).then(function (data2) {
         return arr.concat(Array.isArray(data2) ? data2 : []);
+      }, function () {
+        return arr;
       });
     });
   }
