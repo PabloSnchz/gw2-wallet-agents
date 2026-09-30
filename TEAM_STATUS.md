@@ -114,6 +114,35 @@ derivar `MIRROR_MAP` de un `Set` de bases no deja ninguna huerfana.
   distinguir entregado de leido, asi que la regla que queda es "cerrada solo con
   `close`", que si es verificable.
 
+## Un hallazgo del PO que es mio: 7 `.md` existen en los dos lados
+
+El PO midio, responding to una propuesta mia, y el resultado **desmiente mi
+propuesta**: yo sugiriendo "dejar de mantener la copia en tu workspace y
+escribir directo en el repo". Aplicado al pie de la letra **le borra las rondas
+13 y 14 del `PRE_BACKLOG.md`**, que hoy **solo estan en su workspace**.
+
+No es un archivo duplicado: son **7 con el mismo nombre en los dos lados, los 7
+con contenido distinto, y el error va en las dos direcciones** (4 tienen mas el
+repo, 3 tienen mas su workspace). O sea que **no hay un lado que gane**, que es
+justo lo que hace el defecto irresoluble con una regla de "leer el bueno".
+
+**Y por que gana la copia vieja, que es la parte que yaombies:** gana por
+**tamano**. El dashboard de su workspace tiene 72 lineas y el del repo 522. Un
+archivo chico se abre antes y se lee entero. Es **el mismo criterio que el
+`cm: true` constante, con un archivo de por medio.**
+
+Lo que si se cerro: `DASHBOARD_PO_IDEAS.md` y `SESSION_LOG.md` deja de
+mantener las copias de workspace; `PRE_BACKLOG.md` lo sube al repo como copia
+explicita con fecha. Los otros 4 (`MEMORY.md`, `HEARTBEAT.md`, `AGENTS.md`,
+`COMMS_LOG.md`) **no se resuelven este ciclo**: hay que declarar cual es el
+bueno, y no lo decido solo.
+
+> REGLA: **un archivo con el mismo nombre en dos lados no es un duplicado, es
+> una moneda al aire.** Y la copia vieja gana por ser mas chica, asi que "leer
+> el archivo del proyecto" no es una accion neutra.
+
+---
+
 ## Pendiente para el proximo ciclo
 
 1. **49G**: aplicar `slice(5)` + un caso de test que escriba la clave y la
@@ -121,9 +150,20 @@ derivar `MIRROR_MAP` de un `Set` de bases no deja ninguna huerfana.
    los completados (B2), que es el otro bloqueante.
 2. **61 T1-2 fix-forward**: P4 (derivar `MIRROR_MAP`) + el `remove` de la legacy.
 3. **50F**: P3 (`__cacheBases`) antes de que exista el boton.
-4. **Idea 49 punto 1** (badge del LM del 13-oct): desbloqueada, con `modes`
-   declarado "no disponible todavia". Falta decidir si va a Raid o Strike
-   Tracker — pregunta abierta al PO.
+4. ~~**Idea 49 punto 1** (badge del LM del 13-oct)~~ **DECIDIDO por el PO, y
+   por el con el porque escrito** (no lo asumo yo):
+   - **Va en Raid Tracker.** El Modo Legendario es del Nexo de Eternidad, que es
+     un encuentro de raid. Que la recipe que yo estaba reusando viva en
+     `strike-tracker.js` es circunstancial: era el modulo que estaba tocando.
+   - El campo se llama **`modes`**, no `lm`: un objeto con el modo de entrada y
+     su disponibilidad.
+   - **Se declara "no disponible todavia", nunca `true`.** El 13 de octubre se
+     enciende solo, y `lm: true` para que se vea el badge seria la Idea 48
+     exacta: Pablo leeria "lo complete" donde no hay dato de nadie.
+   - Cuando exista el flag, pasa de `unavailable` a `real` **sin cambiar el
+     shape**, porque los dos casos se implementan juntos.
+   El PO pidio que quede como decision suya y escrita por ella, no asumida por
+   el Principal. Anotado asi.
 5. **Tramo 3 de la 61**: el Reviewer lo recomambio. El test de igualdad
    gn:/legacy **pasa por construccion** con el fix; el util es el de que el
    espejo se mantiene **si y solo si nadie escribe por afuera**.
