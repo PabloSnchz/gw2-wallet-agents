@@ -1257,8 +1257,16 @@
         // un rechazo cambia esa celda a "— ⚠" y las otras 26 cuentas de Pablo
         // siguen renderizando igual. Era el riesgo que se pedio verificar antes de
         // escribir esto, y no se cumple.
+        // El TEXTO del throw es parte del contrato, no texto decorativo.
+        // raid-tracker.js:1749 y strike-tracker.js:1121 hacen
+        // `/forma no soportada/.test(error.message)` para decidir si la pista de
+        // permiso tiene sentido. Un wrapper que degrade con otro idioma hace que
+        // esa pista aparezca donde no corresponde. Los otros dos guards de FORMA
+        // (getCharacterCount :698, getAccountRaids :754) ya usan este idioma.
         if (!Array.isArray(data)) {
-          throw new Error('La API no devolvio un array de luck (200 con cuerpo vacio o forma inesperada)');
+          throw new Error('account/luck: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de luck.');
         }
         // La API devuelve [] si la cuenta nunca consumió esencia: eso es 0 real.
         var entry = data.find(function (x) { return x && x.id === 'luck'; });
