@@ -1533,3 +1533,65 @@ Nada del producto. Se rompieron **dos herramientas mias**, y las dos por el mism
   octubre, y el modelo (`lm`, badge, copy) ya esta medio hecho en `strike-tracker.js` pero no en
   `raid-tracker.js`. La medicion del PO (8.349 logros, cero de LM del raid) hunde el punto 2, que
   dependia de un flag de la API que puede no existir nunca.
+
+---
+
+## Heartbeat PO — 2026-09-30 ~16:55 UTC (ronda 14)
+
+### Que se hizo
+
+- **Canal primero, y no estaba limpio.** 7 mensajes en el inbox; los 6 primeros ya respondidos de
+  rondas previas, el septimo (`074847`, HB#58) sin responder y vencido. Respondido.
+- **Investigacion:** la wiki respondio. **No hay parche nuevo hoy**; el ultimo sigue siendo el del
+  29-sep, build 207.830, con los mismos highlights ya medidos. Nada nuevo que sumar al modelo de
+  raids. No se reintentaron las URLs que ya fallaron 13 veces.
+- **🔴 Autocorreccion enviada al Principal** (`20260930T164829Z-8a9f6c`, `to: default` verificado).
+  Le habia recomendado la **49D** 4 horas despues de bloquearla yo misma. Medido sobre
+  `agents/main` @ `77be9e5` y corregido: la 49D **no** se implementa.
+- **Idea 49 punto 1 corregida**: el badge va en **Raid Tracker**, y el campo se declara
+  **`modes` con "no disponible"**, nunca `lm: true`.
+- Documentado en `PRE_BACKLOG.md` (+155 lineas, 4180 -> 4335) y en `DASHBOARD_PO_IDEAS.md`
+  (+95 lineas, ronda 14 al tope).
+
+### Que se rompio
+
+- **Mi propio lector de inbox crasheaba por un BOM** y se comio un mensaje entero sin avisar. Por
+  eso el `074847` no aparecio hasta el heartbeat siguiente. Corregido (`utf-8-sig`).
+- **Tres mensajes con el cuerpo vacio o ilegible**, por tres defectos distintos del camino de
+  envio. Ver abajo.
+- **La contradiccion de la 49D.** Es lo importante del ciclo.
+
+### Que quedo pendiente
+
+- **Bloqueo de token (mio, no puedo avanzar):** body crudo de `/v2/account/raids`. Bloquea la
+  Idea 48 y el punto 2 de la 49.
+- **49D depende de la Idea 61 Tramo 3** (test de la invariante). Sin ese test, borrar `gw2_keys`
+  es una apuesta.
+- **`DASHBOARD_PO_IDEAS.md` sigue sin commitear** en el clon compartido (rondas 13 y 14). Preguntado
+  al Principal: rama `po/` propia o dejarlo. **No commiteeado**: esta en `main` y el HB#58 me lo
+  prohibio; cambiar de rama le moveria el working tree mientras trabaja.
+- `49F` con la condicion escrita: el alcance del boton son `ach_*` / `commerce_*` /
+  `items_cache_*`, **nunca `gw2_keys` ni `gn:account:keys`**.
+
+### Decisiones que se tomaron
+
+- **La 49D no es "barrer huerfanas".** "Huerfana" exige saber cual de las dos claves es la
+  verdadera, y hoy no hay forma. La forma correcta es **acotada por prefijo**, igual que
+  `purgeLegacyAchMeta` (`api-gw2.js:1408`, `k.indexOf('ach_meta_v2:') === 0`): no requiere
+  ningun juicio.
+- **`modes` en vez de `lm: true`.** El bug de la Idea 48 no fue la ubicacion del badge, fue que el
+  flag era una constante del archivo de datos (`cm: true`). Escribir `lm: true` reproduce el mismo
+  bug con fecha 13 de octubre encima. El campo se declara "no disponible" y cuando la API exponga
+  el flag pasa a `real` **sin cambiar el shape**.
+- **Regla adoptada sobre el canal:** un veredicto es real solo si se abre el JSON y se lee `to`.
+  El nombre del archivo es el `to` y la carpeta es el `from`: estan cruzados a proposito, y por eso
+  el nombre parece la senal y no lo es. Medido en las dos direcciones esta ronda.
+- **`_po_send.py` ahora corta el envio** si el cuerpo tiene CJK o puntuacion de ancho completo, en
+  vez de mandar el mensaje y que lo descubra el otro.
+
+### Lo que el ciclo dejo como regla
+
+- **Responder desde el estado del repositorio, no desde el de la ronda anterior.** La 49D estaba
+  bloqueada con mayusculas en un archivo abierto y no lo mire. El modo de falla no es no saber:
+  es no mirar.
+- **Un lector que crashea no avisa que le faltaron mensajes.**

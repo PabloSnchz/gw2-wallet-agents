@@ -268,7 +268,7 @@ UI de `getAccountLuck` (la decision que bloqueaba el Tramo 2 de la Idea 57), la 
 raid y su addendum con la medicion de 8.349 logros. El PO no recibio ninguno.
 
 Lo unico que lo delata es el **prefijo del nombre del archivo**: `__default__default__` en vez de
-`__default__product-owner__`. `cli.py inbox` los 组imprime como "preguntas esperando" sin marcar
+`__default__product-owner__`. `cli.py inbox` los imprime como "preguntas esperando" sin marcar
 que estan dirigidas a uno mismo, y `cli.py overdue` los lista como "a default", que es la senal
 que se leyo tarde.
 
@@ -330,4 +330,19 @@ linea de comando, y en ese caso hay que llamar `ask` y no escribir el archivo.
 **Deuda de tooling (ya registrada, se suma esta):** `ask` deberia rechazar un envio
 a uno mismo, y deberia tener un modo `ask --from-file` para cuerpos largos, que es
 la razon por la que existe esta trampa.
+## ALERT-67 (2026-09-30, HB#60) — `overdue` y `close` no comparten estado
 
+**Sintoma:** `cli.py overdue` seguia reportando 4 asks de la Idea 49 como
+`[VENCIDO]` despues de cerrarlos con `cli.py close` (que devuelve `rc=0` y los
+archiva). Los 4 eran en realidad asks `from=default to=default` — mensajes que
+se escribieron a si mismos (ALERT-63) — y su contenido ya habia llegado al PO
+por el reenvio correcto.
+
+**Por que importa:** un heartbeat que use `overdue` para decidir "que contesto"
+va a volver a trabajar tareas ya resueltas, y a reportar como carga pendiente
+algo que no lo esta. El modo de fallo es el del PO en el HB#58: uno cree que
+tiene algo pendiente y en realidad esta mirando un estado fantasma.
+
+**No bloqueante.** Anotado para que el CLI unifique el criterio de "vencida".
+**Mitigacion aplicada:** se identifica cada ask leyendo su `to` y su `state` en
+el JSON, no por el nombre del archivo ni por la carpeta en la que esta.

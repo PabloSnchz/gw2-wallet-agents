@@ -1,7 +1,100 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T08:15:00Z (Heartbeat PO — **ALERT-41 (Strike Tracker) pasa de BLOQUEADO a DECIDIBLE: 14 de 15 strikes tienen un logro de clear verificado en la API pública**; **IDEA 55: 9 sitios con el token se evaden de la capa `GW2Api` (sin caché, sin retry, sin pool)**; Idea 52 v1.10.1 mergeada)
+> Actualizado: 2026-09-30T16:55:00Z (Heartbeat PO 14 — 🔴 **me contradije: recomendé la 49D 4 h después de bloquearla yo misma; la 49D NO se implementa. La forma correcta es un barrido **acotado por prefijo** al estilo de `purgeLegacyAchMeta()`, no detección de huerfanas**; Idea 49 p1 corregida: campo `modes` declarado "no disponible", nunca `lm: true`; tres defectos del canal medidos)
 > Mantenedor: PO (product-owner)
+
+---
+
+## ACTUALIZACION 2026-09-30 (Heartbeat PO ronda 13) — 🔴 IDEA 61: tu backup sube una lista vieja de cuentas, y al importarlo en otro navegador la app queda sin cuentas
+
+> La pregunta de la ronda **no** fue "¿qué feature falta?". Fue **"¿qué pasa si borro el navegador donde tengo todo?"** — o sea, *probá el backup*. Nunca lo probamos. Decimotercera ronda con 0 web research útil (Reddit 403 por 13ª vez).
+
+### 🔴 La lista de cuentas vive en DOS claves, y solo una está viva
+
+Medido sobre `agents/main` @ `957cc2c`:
+
+| | clave | quién ESCRIBE | quién LEE |
+|---|---|---|---|
+| **viva** | `gw2_keys` (legacy) | `app.js:622`, `accounts-panel.js:181` | `app.js:604`, `accounts-panel.js:170`, `inventory-dashboard.js:231`, `wv-objectives-dashboard.js:169`, `wv-purchase-detail.js:858`, `wv-season-storage.js:496`, `wv-shop-ui.js:273,314` |
+| **congelada** | `gn:account:keys` (nueva) | **solo** `settings-manager.js:242` (import del Gist) | `router.js:559,600`, `wallet-dashboard.js:430`, `settings-manager.js:34` (export del Gist) |
+
+`storage.js` hace lo contrario de lo que se espera:
+- `MIGRATION_MODE = 'copy'` (`storage.js:30`): copia la vieja a la nueva y **no borra la vieja**.
+- `_migrateOne` (`storage.js:364`) arranca con `if (Storage.hasRaw(newKey)) return;` — **si la nueva ya existe, no la vuelve a tocar.**
+- `migrate()` corre sola en cada arranque (`storage.js:380-391`).
+
+**=`gn:account:keys` quedó con una foto de tu lista de cuentas del día que `storage.js` v1.0.1 entró por primera vez, y esa foto nunca se actualiza más.** `gw2_keys` sigue creciendo; la nueva, no.
+
+### Lo que ve Pablo: dos bugs distintos
+
+**Bug A — el backup que sube está viejo.** `gist-sync.js:406` sube `SettingsManager.exportData()` → `exportApiKeys()` → `Storage.get('gn:account:keys')`. Como la nueva existe, **el fallback a `gw2_keys` no se activa**: el Gist sube la foto del primer arranque. Toast: *"Configuración subida correctamente"* — y es verdad, no es tu configuración.
+
+**Bug B — 🔴 importar en una máquina nueva deja la app sin cuentas.** `importFromData` escribe `gn:account:keys`. En un navegador limpio **no existe `gw2_keys`** → `app.js:604` `JSON.parse(null) || []` → **`this.list = []`**. Panel de Cuentas vacío, toast *"sincronizada correctamente"*, `location.reload()`. Y **no es hipotético: es exactamente el escenario para el que existe el botón de Gist.**
+
+### 🔴 Corrección propia a un plan YA EN EL BACKLOG: NO implementen la Idea 49D
+
+Yo propuse el Tramo D ("barrido de huérfanas", 🟢 1-1.5 h). **Tal como está escrito borra `gw2_keys`**, que no es una huérfana: es la lista de 27 cuentas. Es el peor falso positivo posible del plan, y el más caro — no se ve hasta que alguien pierde el navegador. **49D queda bloqueado detrás de la 61.** El barrido tiene que distinguir "llave legacy sin contraparte `gn:`" de "llave legacy que ES la fuente de verdad"; hoy no hay forma.
+
+### Por qué nadie lo vio: cobertura
+
+**42 módulos de `js/`, 25 archivos en `tests/`, 23 con cobertura, 19 sin una sola mención.** Incluye **`settings-manager.js` y `gist-sync.js`, los dos módulos que definen el backup**. Cero tests mencionan `gw2_keys`, `gn:account:keys` ni `MIGRATION_MODE`. `storage.js` no tiene un solo test propio. Los otros 17 sin cobertura: `legendary-data` (86 KB), `wv-shop-ui` (35), `welcome-panel` (28), `wizards-vault` (28), `wv-objectives-dashboard` (25), `wv-season-storage` (24), `homestead-tracker` (19), `render-catologo` (18), `theme-selector` (12), `legendary-tracker` (12), `wv-objectives-ui` (9), `wv-tabs-skin` (6), `luck-curve` (5), `fractal-tracker-theme` (5), `commerce-delivery-theme` (4), `sidebar-nav` (4), `analytics` (2).
+
+**Hallazgo lateral, misma clase:** `MIGRATION_PREFIXES` declara **41 prefijos legacy** y `FALLBACK_MAP` los declara otra vez. Dos listas de la misma verdad en el mismo archivo. Es la Idea 57 aplicada a un archivo que ya existe.
+
+### IDEA 61 — 3 tramos
+
+- **Tramo 1 🟢 (~30 min):** que la copia se actualice, o que `app.js:622` y `accounts-panel.js:181` dejen de escribir `gw2_keys` y passen a `Storage.set(ACCOUNT_KEYS)` — con eso la nueva pasa a ser la viva y el `hasRaw` deja de congelar.
+- **Tramo 2 🟡 (~1 h):** que el import escriba donde la app lee. Si el Tramo 1 va por el segundo camino, sale gratis.
+- **Tramo 3 🟡 (~1-1.5 h):** un test de la invariante — simular `gw2_keys` + `gn:account:keys` y fallar si `Storage.get(ACCOUNT_KEYS)` devuelve un largo distinto del de `gw2_keys`. **El test es la lista**, patrón del Tramo 1 de la 57.
+
+**No va al Reviewer todavía:** el Tramo 1 tiene dos caminos con consecuencias opuestas sobre datos que Pablo tiene en producción. Es decisión de alcance.
+
+---
+
+## ACTUALIZACION 2026-09-30 16:55 UTC — Heartbeat PO ronda 14 — 🔴 la 49D NO, y por que
+
+### Me contradije
+
+En el HB#13 (16:06, este mismo archivo) escribi: **"LA IDEA 49D ESTA BLOQUEADA: tal como esta escrita borra `gw2_keys`"**.
+
+Cuatro horas despues, respondiendo el HB#58, le mande al Principal: *"1. Idea 50 tramo D. 1 a 1.5 h. Sigue siendo lo que mas rinde por minuto del backlog entero. Si solo haces una cosa este ciclo, es esta."*
+
+**Le recomende el unico tramo que borra la lista de 27 cuentas.** No por falta de dato: estaba escrito con mayusculas, en este archivo, que tengo abierto. No lo mire. Y estaba sin commitear, asi que tampoco estaba en el `git log` que si mire.
+
+### El bloqueo no se levanto: cambio de forma
+
+Medido sobre `agents/main` @ `77be9e5`:
+
+| pieza | linea | que dice |
+|---|---|---|
+| la app ya usa la clave nueva | `app.js:611` lee / `app.js:633` escribe | `storage.js:58` = **`gn:account:keys`** |
+| la 61 T1 esta mergeada | `35a2425` | la app lee/escribe la clave nueva |
+| **pero sigue el fallback** | `storage.js:154`, `storage.js:210` | `gn:account:keys` -> `gw2_keys` |
+| el unico barrido que existe | `api-gw2.js:1408` | acota a `k.indexOf('ach_meta_v2:') === 0` |
+
+El riesgo viejo (`gw2_keys` es la fuente de verdad) ya no aplica desde el Tramo 1. **El riesgo nuevo es el fallback:** si el barrido borra `gw2_keys` y hay un caso donde `gn:account:keys` nunca llego a escribirse, no queda copia. Y ese caso existe sin que nadie lo sepa: cualquiera que importo desde el Gist con un build viejo tiene la lista en la vieja.
+
+### La forma correcta de la 49D
+
+**No deteccion de huerfanas. Un barrido acotado por prefijo, igual que `purgeLegacyAchMeta`.**
+
+- "huerfana" exige saber **cual de las dos claves es la verdadera**. Hoy no hay forma de saberlo.
+- "todo lo que empieza por `ach_` y esta vencido" no exige ningun juicio. Es una lista de prefijos.
+
+**Regla para el BACKLOG:** si la 49D vuelve a plantearse como "barrer las llaves sin contraparte", **no se implementa sin la Idea 61 Tramo 3** (el test de la invariante). Ese test es el unico que puede decir que la clave nueva esta escrita antes de borrar la vieja.
+
+### Orden corregido
+
+1. **49F** (`cacheClear()` que borre de verdad + boton) — **30 min, segura, es la que va ahora.** Medido: `api-gw2.js:1632` hoy solo hace `__mem.clear()` y `__inflight.clear()`; no toca localStorage. **Condicion que pido por escrito:** alcance `ach_*` / `commerce_*` / `items_cache_*`, **nunca `gw2_keys` ni `gn:account:keys`**.
+2. **49E** (`getCache` borra la vencida) — 30 min, segura por definicion.
+3. **49G** (`ach_acc` compacta) — el que mas guarda (4.10 -> 0.36 MB) pero toca los 2 consumidores que leen campos del objeto. Tramo largo.
+4. **49D** — NO.
+
+### Idea 49 punto 1, corregida: `modes`, no `lm: true`
+
+El badge va en **Raid Tracker** (el LM es del Nexo de Eternidad, que es un encuentro de raid; que la recipe viva en Strike Tracker es circunstancial).
+
+Lo importante es otro: **el bug de la Idea 48 no fue la ubicacion, fue que el flag era constante (`cm: true`).** Escribir `lm: true` reproduce el mismo bug con fecha 13 de octubre encima. Por eso el campo se declara **"no disponible todavia"** y se llama **`modes`** (objeto con el modo y su disponibilidad), no `lm`. Cuando la API exponga el flag pasa de `unavailable` a `real` **sin cambiar el shape**.
 
 ---
 
@@ -63,7 +156,7 @@ Si el body de `/v2/account/raids` fuera `progress:[{id,cm,li}]` (objeto, no arra
 |---|------|-----------|--------|-----|
 | 🔴 **0** | **IDEA 49G: `ach_acc` en forma compacta.** El Tramo C arregló `ach_meta` (20.22 → 1.71 MB) pero `kLS(base,token)` (`api-gw2.js:250`) mete el fingerprint del token EN EL NOMBRE de la key → `ach_acc` no es una key, son **27, una por cuenta**, y el sharding no las toca. Medido con la forma real de la wiki (`{id,current,max,done,bits}`): 3.000 logros con progreso × 27 = **4.10 MB**, y `+1.71` de `ach_meta` = **5.81 MB contra una cuota de 4.98 MB**. **El punto de quiebre es ~2.700 logros por cuenta**, y un veteran con raids+legendarias llega ahí. Además `TTL.ACH_ACC` son 2 min pero `getCache:324` **no borra la vencida**, y si Pablo rota tokens cada `ach_acc:*` huérfano son 100-364 KB eternos. **Solución: guardar `"id,id,..."` (33 KB/cuenta) → 0.36 MB con 27 cuentas, 11× menos. Suma final 3.14 MB, dentro de la cuota con 1.8 MB de margen.** No es tan trivial como el Tramo C: `getAccountAchievements` tiene **2 consumidores que leen campos del objeto** (`achievements.js:1058` vía `computeProgress:184-186` y `earnedAP:216-217`; `activities.js:902` lee `a.done`) | 🟡 Media | **No implementado. Medido con la forma real del endpoint** | **AHORA** |
 | 🔴 **0.5** | **IDEA 52: `raid-tracker.js` tiene 5 de 30 encuentros que no existen.** El BACKLOG decía *"12 de 12 ids en el catálogo"* — eso era comparar 12, no 30. Medido sobre `WINGS`: **25 de 30**. 4 son renombres 1:1 (`siege_the_stronghold`→`escort`, `desmina`→`soulless_horror`, `dhuum`→`voice_in_the_void`, `gates_of_ahdashim`→`gate`) y **`vloxx` no existe en ninguna parte** (el ala del CM del 29-sep, NO MARCABLE en los dos módulos). Al revés: **5 eventos reales sin cablear.** Es el mismo bug que ALERT-41 en el módulo que todo el mundo creía sano, y es el que Pablo usa todas las semanas | 🟢 Fácil | **No implementado. Fix de dato, sin lógica ni CSS** | **AHORA (30 min)** |
-| 🔴 **1** | **IDEA 49: la caché persistente muere en silencio.** `api-gw2.js:189` — `function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(_){} }` — **se traga el `QuotaExceededError`**. Cuota medida en navegador real: **4.98 MB**. Caché de logros por cuenta: **0.53 MB** (6.991 achievements × 79 B medidos). **27 cuentas = 14.22 MB al 100%, 9.95 MB al 70%, 5.69 MB al 40%.** La app revienta entre la **cuenta ~10 y la ~24**; Pablo tiene **27**. Cuando revienta, la copia en localStorage deja de existir (la de `__mem` sobrevive, por eso no hay error visible), **cada F5 vuelve a ser un arranque en frío de 433 requests ≈ 65 s** — y `cacheClear()` tiene **0 callers y ningún botón**, así que no hay escape. **Lo grave no es la lentitud: es que se presenta como "la Bóveda anda lenta" y no como un fallo.** **Tramo C ✅ MERGEADO (`f98da49`)**. Tramo A ✅ mergeado. **Tramo D 🟢 (1-1.5 h): barrido de huérfanas al arrancar** — sube de "conviene" a necesario. Tramo F 🟢 (30 min): `cacheClear()` que borre de verdad + botón. Tramo E 🟢 (30 min): `getCache` borra las entradas vencidas (hoy el TTL deja de leer pero no libera). Tramo B 🟡 (2-3 h): LRU — **BAJA de prioridad**, era la respuesta a un problema que ya no es el problema. **Orden 49G → 49D → 49F → 49E; B al final** | 🟢 D / 🟢 F / 🟢 E / 🟡 B | **C y A mergeadas. D/F/E pendientes** | **Después de 49G** |
+| 🔴 **1** | **IDEA 49: la caché persistente muere en silencio.** `api-gw2.js:189` — `function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(_){} }` — **se traga el `QuotaExceededError`**. Cuota medida en navegador real: **4.98 MB**. Caché de logros por cuenta: **0.53 MB** (6.991 achievements × 79 B medidos). **27 cuentas = 14.22 MB al 100%, 9.95 MB al 70%, 5.69 MB al 40%.** La app revienta entre la **cuenta ~10 y la ~24**; Pablo tiene **27**. Cuando revienta, la copia en localStorage deja de existir (la de `__mem` sobrevive, por eso no hay error visible), **cada F5 vuelve a ser un arranque en frío de 433 requests ≈ 65 s** — y `cacheClear()` tiene **0 callers y ningún botón**, así que no hay escape. **Lo grave no es la lentitud: es que se presenta como "la Bóveda anda lenta" y no como un fallo.** **Tramo C ✅ MERGEADO (`f98da49`)**. Tramo A ✅ mergeado. **Tramo D 🔴 BLOQUEADO (HB#13): tal como está escrita BORRA `gw2_keys`, que no es una huérfana sino la lista de 27 cuentas — ver IDEA 61. NO implementarlo antes.** Tramo D 🟢 (1-1.5 h): barrido de huérfanas al arrancar — sube de "conviene" a necesario. Tramo F 🟢 (30 min): `cacheClear()` que borre de verdad + botón. Tramo E 🟢 (30 min): `getCache` borra las entradas vencidas (hoy el TTL deja de leer pero no libera). Tramo B 🟡 (2-3 h): LRU — **BAJA de prioridad**, era la respuesta a un problema que ya no es el problema. **Orden 49G → 49D → 49F → 49E; B al final** | 🟢 D / 🟢 F / 🟢 E / 🟡 B | **C y A mergeadas. D/F/E pendientes** | **Después de 49G** |
 | ✅ | **IDEA 48: recalibrar el pool (3 → 6) + ETA en el contador** — **CERRADA.** Tramo A @ `9d77b32` + merge `78a5a7a` (`api-gw2.js` v2.19.0, `POOL_MAX: 6` L129). Tramo B @ `90d2b0e` (`wallet-dashboard.js` v2.9.0, ETA medida con umbrales `ETA_MIN_DONE=3` / `ETA_MIN_MS=1500`) | 🟢 / 🟡 | **Cerrada** | ✅ |
 | ✅ | **IDEA 47: los ceros falsos** — **CERRADA.** Merge @ `110b049` + `776b1ea` (`.catch` en launches tardíos) + `7ca8195` (allSettled + banner) + `92b9cc1` (call site del TP nombra el fallo) | 🟡 | **Cerrada** | ✅ |
 | ✅ | **IDEA 46 t1: pool global de requests** — **CERRADA.** Mergeada @ `2f6ce82`, merge `bf0fb62` → `agents/main`, más `10ead9b` (fuga de slot en `poolPump`) y `9a8262c` (pool de FASE 2 en inventario). **La Idea 48 es la continuación de esta, no una alternativa** | 🟢 Fácil | **Cerrada** | ✅ |

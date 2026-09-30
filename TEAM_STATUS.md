@@ -1,11 +1,229 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
-# Heartbeat Principal #59 — 2026-09-30 16:30–16:50 UTC
+# Heartbeat Principal #60 — 2026-09-30 17:00–17:20 UTC
 
-> **Idea 61 Tramos 1-2: IMPLEMENTADOS, EN RAMA, ESPERANDO VEREDICTO.**
-> `85140bf` en `fix-idea61-claves-congeladas`. **NO mergeado** (ALERT-48: capa de datos).
+> **Dos cosas esperando veredicto del Reviewer, las dos SIN mergear (ALERT-48).**
+> `85140bf` (Idea 61 Tramos 1-2) y `c04496e` (Idea 50 Tramo F).
 
-## Lo que se encontró
+## Lo que se hizo en este ciclo
+
+### 1. La 49D NO se implementa — y el aviso lo dio el PO
+
+El PO detectó que **su propia** recomendación de la 49D (barrido de huerfanas
+al arrancar) estaba mal: tal como estaba escrita **borra `gw2_keys`**, o sea la
+lista de las 27 cuentas de Pablo. LoSelf-auditó y lo retiró.
+
+**Verifiqué su diagnóstico contra el repo y los 3 puntos dan exactamente lo que
+midió.** No es un error de dato: es que respondió desde la lista de su Heartbeat
+09 en vez de mirar su propio `DASHBOARD_PO_IDEAS.md`.
+
+**La 49D queda BLOQUEADA hasta que exista la Idea 61 Tramo 3** — ese test es el
+que dice que la clave nueva quedó escrita antes de borrar la vieja. Sin él, el
+borrado es una apuesta.
+
+### 2. Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
+
+`api-gw2.js:1632` era `try { __mem.clear(); __inflight.clear(); }`: limpiaba la
+cache de la **sesión** y no la de **disco**. La cuota (~4.98 MB medidos) seguía
+llena, así que "limpiar cache" no liberaba nada. Y tiene **0 callers**: no hay
+botón, no hay escape.
+
+Rama `fix-idea50f-cacheclear-real`, commit `c04496e`, `api-gw2.js` v2.29.0.
+**Sin mergear** (ALERT-48). Suite completa **587/0** (antes 538).
+
+**La decisión de diseño que hay que tener presente: allowlist EXACTA de las 18
+claves, no borrado por prefijos.** La propuesta del PO era por familias
+(`ach_*`, `commerce_*`, `items_cache_*`) y **medida es falsa**: las 18 claves no
+comparten ningún prefijo. `wallet` y `luck` son nombres pelados — no arrancan por
+`ach_` ni por `commerce_` — así que un barrido por familias dejaba vivas
+justo `wallet`, que es de las que más cuota gasta.
+
+`kept` no es un extra: es la garantía. No se borran `gn:account:keys` ni
+`gw2_keys` (las 27 cuentas), ni pines, tema ni caches de otros módulos.
+
+**NO cambia lo que Pablo ve** (sigue con 0 callers). El botón es el Tramo
+siguiente, y va con veredicto propio.
+
+### 3. Corrección recíproca entre PO y Principal
+
+Los dos Featured casi cometemos el mismo error, en direcciones opuestas:
+
+- **El PO** respondió desde el estado de la ronda anterior y casi me manda una
+  idea que borra la lista de cuentas.
+- **Yo** armé el inventario grepeando `var key = ...`, me dio 17 claves y
+  concluí que `getItemsMany` no cacheaba. **Falso:** cachea en
+  `items_cache_v1:<lang>`, `api-gw2.js:1511` lo lee y **`:1581` lo escribe con
+  `lsSet` directo, sin pasar por `putCache()`**. Y lo escribí como afirmación en
+  el test, así que el error habría viaja al repo.
+
+**Regla que sale:** un inventario incompleto no se disculpa como "no existe": se
+paga como una afirmación falsa. Y en un allowlist destructivo, esa afirmación
+es la que decide qué se borra.
+
+## Tareas en curso
+
+| # | Qué | Estado | Bloqueante |
+|---|---|---|---|
+| 059 | Idea 61 Tramos 1-2 (`gn:` congelada) | Rama `85140bf`, **sin mergear** | Veredicto del Reviewer |
+| 060 | Idea 50 Tramo F (`cacheClear` real) | Rama `c04496e`, **sin mergear** | Veredicto del Reviewer |
+| — | Idea 50 Tramo E (`getCache` borra vencida) | No hecho, **a propósito** | Ciclo siguiente |
+| — | Botón "limpiar cache" | No hecho | Depende del veredicto de la 060 |
+| — | Idea 48 badge CM / 49 pt.2 | **Bloqueadas** | Body crudo de `/v2/account/raids` con token |
+
+## Propuestas con el Reviewer
+
+| id | Asunto | Enviado | Estado |
+|---|---|---|---|
+| `4b2624` | Idea 61 T1-2: la `gn:` congelada | 16:41:48Z | ⏳ esperando |
+| `982658` | Idea 50 Tramo F: allowlist de 18 y la garantía | 17:09:48Z | ⏳ esperando |
+
+Ambas entregadas por `cli.py ask` y **verificadas archivo por archivo en la
+bandeja del Reviewer con su `to` correcto**.
+
+## Alertas
+
+- **ALERT-48** — sin veredicto, nada de capa de datos se mergea. **Aplicada las
+  dos veces este ciclo.**
+- **ALERT-63** — asks que se escriben a sí mismos. **Cerradas las 4** de la
+  Idea 49 que seguían figurando como vencidas.
+- **ALERT-67 (nueva)** — `cli.py close` archiva pero **`overdue` sigue reportando
+  los mismos archivos**. Un heartbeat que se guíe por `overdue` para decidir
+  "qué contesto" va a trabajar tareas ya resueltas. No bloqueante; el CLI debe
+  unificar el criterio.
+
+## Una norma que sale del ciclo
+
+**Un mensaje está entregado cuando está en la bandeja del otro y su `to` dice el
+otro.** El directorio del que salió (`sent/`) y el nombre del archivo **no**
+cuentan. Escribí dos mensajes a `default/sent/` creyendo que entregaba; ninguno
+llegó. El modo de fallo es el peor porque uno cree que avisó.
+
+## Lo que se le pide a Pablo
+
+Nada urgente. La 50F y la 61 T1-2 están esperando veredicto del Reviewer, y
+ambas están en rama: **nada de esto está en producción** (y no se promovdrá sin
+que lo pidas por nombre).
+
+Lo único que sigue bloqueado y **no puedo resolver sin vos** es el **body crudo
+de una llamada a `/v2/account/raids` con token**. Sin eso, la Idea 48 y el punto
+2 de la Idea 49 no cierran — y no es falta de análisis: el dato todavía no
+existe en el repo. El PO ya escaneó las 8.349 entradas del catálogo y el
+negativo está medido; falta el positivo de la API.
+
+---
+
+
+> **Dos cosas esperando veredicto del Reviewer, las dos SIN mergear (ALERT-48).**
+> `85140bf` (Idea 61 Tramos 1-2) y `c04496e` (Idea 50 Tramo F).
+
+## Lo que se hizo en este ciclo
+
+### 1. La 49D NO se implementa — y el aviso lo dio el PO
+
+El PO detectó que **su propia** recomendación de la 49D (barrido de huerfanas
+al arrancar) estaba mal: tal como estaba escrita **borra `gw2_keys`**, o sea la
+lista de las 27 cuentas de Pablo. Lo受教育Self-auditó y lo retiró.
+
+**Verifiqué su diagnóstico contra el repo y los 3 puntos dan exactamente lo que
+midió.** No es un error de dato: es que respondió desde la lista de su Heartbeat
+09 en vez de mirar su propio `DASHBOARD_PO_IDEAS.md`.
+
+**La 49D queda BLOQUEADA hasta que exista la Idea 61 Tramo 3** — ese test es el
+que dice que la clave nueva quedó escrita antes de borrar la vieja. Sin él, el
+borrado es una apuesta.
+
+### 2. Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
+
+`api-gw2.js:1632` era `try { __mem.clear(); __inflight.clear(); }`: limpiaba la
+cache de la **sesión** y no la de **disco**. La cuota (~4.98 MB medidos) seguía
+llena, así que "limpiar cache" no liberaba nada. Y tiene **0 callers**: no hay
+botón, no hay escape.
+
+Rama `fix-idea50f-cacheclear-real`, commit `c04496e`, `api-gw2.js` v2.29.0.
+**Sin mergear** (ALERT-48). Suite completa **587/0** (antes 538).
+
+**La decisión de diseño que hay que tener presente: allowlist EXACTA de las 18
+claves, no borrado por prefijos.** La propuesta del PO era por familias
+(`ach_*`, `commerce_*`, `items_cache_*`) y **medida es falsa**: las 18 claves no
+comparten ningún prefijo. `wallet` y `luck` son nombres pelados — no arrancan por
+`ach_` ni por `commerce_` — así que un barrido por familias dejaba vivas
+justo `wallet`, que es de las que más cuota gasta.
+
+`kept` no es un extra: es la garantía. No se borran `gn:account:keys` ni
+`gw2_keys` (las 27 cuentas), ni pines, tema ni caches de otros módulos.
+
+**NO cambia lo que Pablo ve** (sigue con 0 callers). El botón es el Tramo
+siguiente, y va con veredicto propio.
+
+### 3. Corrección recíproca entre PO y Principal
+
+Los dos Featured casi cometemos el mismo error, en direcciones opuestas:
+
+- **El PO** respondió desde el estado de la ronda anterior y casi me manda una
+  idea que borra la lista de cuentas.
+- **Yo** armé el inventario grepeando `var key = ...`, me dio 17 claves y
+  concluí que `getItemsMany` no cacheaba. **Falso:** cachea en
+  `items_cache_v1:<lang>`, `api-gw2.js:1511` lo lee y **`:1581` lo escribe con
+  `lsSet` directo, sin pasar por `putCache()`**. Y lo escribí como afirmación en
+  el test, así que el error habría viaja al repo.
+
+**Regla que sale:** un inventario incompleto no se disculpa como "no existe": se
+paga como una afirmación falsa. Y en un allowlist destructivo, esa afirmación
+es la que decide qué se borra.
+
+## Tareas en curso
+
+| # | Qué | Estado | Bloqueante |
+|---|---|---|---|
+| 059 | Idea 61 Tramos 1-2 (`gn:` congelada) | Rama `85140bf`, **sin mergear** | Veredicto del Reviewer |
+| 060 | Idea 50 Tramo F (`cacheClear` real) | Rama `c04496e`, **sin mergear** | Veredicto del Reviewer |
+| — | Idea 50 Tramo E (`getCache` borra vencida) | No hecho, **a propósito** | Ciclo siguiente |
+| — | Botón "limpiar cache" | No hecho | Depende del veredicto de la 060 |
+| — | Idea 48 badge CM / 49 pt.2 | **Bloqueadas** | Body crudo de `/v2/account/raids` con token |
+
+## Propuestas con el Reviewer
+
+| id | Asunto | Enviado | Estado |
+|---|---|---|---|
+| `4b2624` | Idea 61 T1-2: la `gn:` congelada | 16:41:48Z | ⏳ esperando |
+| `982658` | Idea 50 Tramo F: allowlist de 18 y la garantía | 17:09:48Z | ⏳ esperando |
+
+Ambas entregadas por `cli.py ask` y **verificadas archivo por archivo en la
+bandeja del Reviewer con su `to` correcto**.
+
+## Alertas
+
+- **ALERT-48** — sin veredicto, nada de capa de datos se mergea. **Aplicada las
+  dos veces este ciclo.**
+- **ALERT-63** — asks que se escriben a sí mismos. **Cerradas las 4** de la
+  Idea 49 que seguían figurando como vencidas.
+- **ALERT-67 (nueva)** — `cli.py close` archiva pero **`overdue` sigue reportando
+  los mismos archivos**. Un heartbeat que se guíe por `overdue` para decidir
+  "qué contesto" va a trabajar tareas ya resueltas. No bloqueante; el CLI debe
+  unificar el criterio.
+
+## Una norma que sale del ciclo
+
+**Un mensaje está entregado cuando está en la bandeja del otro y su `to` dice el
+otro.** El directorio del que salió (`sent/`) y el nombre del archivo **no**
+cuentan. Escribí dos mensajes a `default/sent/` creyendo que entregaba; ninguno
+llegó. El modo de fallo es el peor porque uno cree que avisó.
+
+## Lo que se le pide a Pablo
+
+Nada urgente. La 50F y la 61 T1-2 están esperando veredicto del Reviewer, y
+ambas están en rama: **nada de esto está en producción** (y no se promovdrá sin
+que lo pidas por nombre).
+
+Lo único que sigue bloqueado y **no puedo resolver sin vos** es el **body crudo
+de una llamada a `/v2/account/raids` con token**. Sin eso, la Idea 48 y el punto
+2 de la Idea 49 no cierran — y no es falta de análisis: el dato todavía no
+existe en el repo. El PO ya escaneó las 8.349 entradas del catálogo y el
+negativo está medido; falta el positivo de la API.
+
+---
+
+# Lo que se encontró
 
 La lista de cuentas de Pablo vivía en **dos claves**, y solo una estaba viva:
 
