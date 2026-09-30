@@ -152,19 +152,33 @@ const marcas = (src.match(/capa de RED/gi) || []).length;
 ok(marcas >= 6, 'los seis @throws corregidos siguen declarando "capa de RED"',
    'quedan ' + marcas + ': si es a proposito, actualizar el porque en el header');
 
-// getAccountLuck queda fuera de los seis a proposito: no tiene JSDoc, y su
-// problema no es documental sino de representacion (0 vs "sin dato"), que
-// decide el Tramo 2 con el Reviewer. Se comprueba que siga sin JSDoc, para
-// que nadie lo "complete" con una promesa nueva sin veredicto.
+// getAccountLuck quedo fuera de los seis porque no tenia JSDoc, y su problema
+// era de representacion (0 vs "sin dato"), no textual.
+//
+// ACTUALIZADO en el Tramo 2 (v2.27.0): el caso esta RESUELTO, y por eso la
+// asercion de abajo ya no es "sigue SIN JSDoc" sino "tiene JSDoc Y el
+// contrato que declara coincide con lo que hace". La asercion vieja seeria
+// porque el caso ya no aplica; pero_relajar a "puede tener JSDoc" seria peor:
+// el test pasaria con un contrato mentiroso, que es el bug que este archivo
+// existe para evitar.
 {
   const f = funciones.find(x => x.fn === 'getAccountLuck');
-  ok(!!f && jsdocDe(f).trim() === '',
-     'getAccountLuck sigue SIN JSDoc (su problema es 0 vs "sin dato", no textual)',
-     'agregar un @throws que prometa no-degrada sin el veredicto del Reviewer ' +
-     'reintroduce el bug de documentacion que este test evita');
+  ok(!!f, 'getAccountLuck sigue declarandose en el archivo');
+  const doc = f ? jsdocDe(f) : '';
+  ok(doc.includes('@throws') && /propaga/i.test(doc),
+     'getAccountLuck declara su @throws de que propaga',
+     'el Tramo 2 lo migro al guard: si no declara que propaga, el contrato ' +
+     'vuelve a mentir por escrito, que es el bug que este test evita');
+
+  // Coherencia: si el JSDoc dice que propaga, el codigo no puede seguir
+  // degradando la FORMA a [] en silencio.
+  const cuerpo = f ? f.body : '';
+  ok(!/Array\.isArray\(data\)\s*\?\s*data\s*:\s*\[\]/.test(cuerpo),
+     'getAccountLuck ya no degrada la forma a []',
+     'si vuelve el `? data : []`, el "@throws propaga" vuelve a mentir y la ' +
+     'columna vuelve a pintar 0% cuando en realidad no se pudo leer');
 }
 
-// --------------------------------------------------------------------------
 section('4. sintaxis del archivo vigilado');
 {
   const { execFileSync } = require('child_process');

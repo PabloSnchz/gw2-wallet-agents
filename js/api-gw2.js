@@ -1,7 +1,25 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.26.0 (2026-09-30) — Idea 57 Tramo 3: los @throws que mentian ahora describen las dos capas
+ * Versión: 2.27.0 (2026-09-30) — Idea 57 Tramo 2: getAccountLuck ya no degrada la FORMA a 0
+ *   v2.27.0: PRIMER cambio de comportamiento de la Idea 57, y el unico que
+ *   altera lo que Pablo ve. getAccountLuck era el septimo de los once wrappers
+ *   que degradaban la FORMA, y el peor de todos: en los otros diez el valor
+ *   degradado es `[]` o `0` y `[]` es obviamente falso para cualquiera que haya
+ *   estado ahi, pero aca el degradado es `0` y 0 ES VERDADERAMENTE POSIBLE (la
+ *   API devuelve `[]` si la cuenta nunca consumio esencia, y ahi 0 es correcto).
+ *   Un 200 con cuerpo vacio — que `jfetch` convierte en `null` — producia "0%
+ *   de suerte" sin error, sin warn y sin rastro en consola. Ahora rechaza, y la
+ *   columna pinta "— ⚠" con el motivo.
+ *   Y NO se toco wallet-dashboard.js, porque no hacia falta: el criterio de UI
+ *   ("distinguir sin-dato de 0") ya estaba cumplido en LAS DOS CAPAS antes de
+ *   este commit — `unreadableCell()` y el guard `typeof s.luck !== 'number'`
+ *   ya existian, y la columna se elige POR COLUMNA (`fieldErr ? ... : ...`),
+ *   asi que un rechazo no borra la fila: con 27 cuentas, las otras 26 siguen
+ *   renderizando. El indistinguible nunca fue la representacion: era que FORMA
+ *   y RED llegaban por caminos distintos y solo RED cargaba la bandera.
+ *   Test: tests/idea57t2-luck-sindato.test.js (19 aserciones; 2 FAIL contra
+ *   el archivo sin el fix, verificado con `git stash push` + `pop`).
  *   v2.26.0: NO cambia el comportamiento de NINGUNA funcion. Es documentacion,
  *   y es el tramo mas barato de la Idea 57 (sin suite nueva, sin capa de datos,
  *   sin riesgo). El problema que arregla: seis wrappers declaraban por escrito
@@ -65,7 +83,7 @@
  *       el Reviewer). Se declara igual, para que "degrada a proposito" y
  *       "degrada por costumbre" queden escritas y no inferidas.
  *
- *   El mas caro de los once es `getAccountLuck`, y no por el codigo: por lo
+ *   El mas caro de los once era `getAccountLuck`, y no por el codigo: por lo
  *   que muestra. Aca el valor degradado no es `[]`, es `0`, y `0` ES UN VALOR
  *   VERDADERAMENTE POSIBLE (la API devuelve `[]` si la cuenta nunca consumio
  *   esencia, y ahi 0 es la respuesta correcta). En el Strike Tracker `[]` es
@@ -74,6 +92,20 @@
  *   declaraba legitimo el valor que es indistinguible del fallo. Es la razon
  *   por la que el Tramo 2 NO es un refactor cosmetico: es un dato que se
  *   cree y es falso.
+ *
+ *   TRAMO 2 (v2.27.0): `getAccountLuck` deja de ser el septimo caso y pasa a
+ *   PROPAGAR. Unico cambio de comportamiento de la Idea 57, y el unico que
+ *   altera lo que ve Pablo: la columna "Suerte (MF)" ya no puede mostrar "0%"
+ *   cuando en realidad no se pudo leer. Antes un 200 con cuerpo vacio
+ *   (`jfetch` devuelve `null`, api-gw2.js:396-408) producia 0% de suerte sin
+ *   error, sin warn y sin rastro en consola; ahora la columna pinta "— ⚠" con
+ *   el motivo, que es la puerta que `unreadableCell()` ya tenia.
+ *
+ *   Y NO se toco wallet-dashboard.js, porque no hacia falta: el criterio de UI
+ *   ("distinguir sin-dato de 0") ya estaba cumplido en las dos capas antes de
+ *   este commit. El indistinguible no era la representacion, era que FORMA y
+ *   RED llegaban por caminos distintos y solo uno cargaba la bandera.
+ *   Test: tests/idea57t2-luck-sindato.test.js
  *
  *   Lo que NO se hizo, a proposito:
  *     - NO se toco ninguna funcion. Esto es capa de datos: ALERT-48 exige
@@ -1170,10 +1202,23 @@
   // ------------------------------------------------------------------------
   // Suerte (Luck) account-wide — /v2/account/luck
   // NO es una moneda de /v2/currencies: no aparece en ese endpoint.
-  // Devuelve el luck total consumido (el "cuánto tengo" crudo). El umbral de
-  // MF% se calcula aparte con window.LuckCurve.
-  // ------------------------------------------------------------------------
-  function getAccountLuck(token, opts) {
+  /**
+   * Devuelve el luck total consumido (el "cuánto tengo" crudo). El umbral de
+   * MF% se calcula aparte con window.LuckCurve.
+   *
+   * CONTRATO REAL (v2.27.0, Tramo 2 de la Idea 57) — PROPAGA, no degrada:
+   * @throws {Error} Capa de FORMA: si la API no devuelve un array (200 con
+   *   cuerpo vacío, que `jfetch` convierte en `null`). Antes esto degradaba a
+   *   0 y la columna "Suerte (MF)" pintaba "0%": un dato que se cree en buena
+   *   fe y es falso. La capa de RED (error de red / 401 / 429) ya propagaba
+   *   desde antes.
+   * @returns {Promise<number>} El luck total. 0 es un valor REAL y legitimo:
+   *   la API devuelve `[]` cuando la cuenta nunca consumió esencia, y ese 0 NO
+   *   es un fallo, así que se resuelve con 0. "0 real" y "no se pudo leer" los
+   *   distingue la UI, que ya tenía las dos puertas cableadas
+   *   (`unreadableCell` y el guard `typeof s.luck !== 'number'`).
+   */
+    function getAccountLuck(token, opts) {
     opts = opts || {};
     if (!token) return Promise.reject(new Error('Falta access_token'));
     var key = 'luck';
@@ -1185,35 +1230,39 @@
 
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        // FORMA: degrada. Y ESTE ES EL PEORO DE LOS ONCE, por una razon que
-        // no aplica a los otros: aca el valor degradado no es `[]`, es `0`.
-        // Y `0` ES UN VALOR VERDADERAMENTE POSIBLE. La API devuelve `[]` si
-        // la cuenta nunca consumio esencia, y en ese caso el resultado
-        // correcto ES 0. El comentario de abajo declara legitimo el valor
-        // que es indistinguible del fallo: el codigo documenta la confusion
-        // en vez de resolverla.
+        // FORMA (v2.27.0, Tramo 2 de la Idea 57): aca YA NO degrada. Distingue
+        // los tres casos que antes colapsaban todos a 0:
+        //   - la API no devolvio la FORA que el endpoint promete (jfetch devuelve
+        //     null ante un 200 con body vacio): es "no se pudo leer", y propaga.
+        //     Antes salia 0% de suerte sin error, sin warn y sin rastro.
+        //   - la API devolvio []: la cuenta nunca consumio esencia. 0 es el valor
+        //     VERDADERAMENTE CORRECTO y se resuelve con 0. No es un fallo.
+        //   - la API devolvio el array con la entrada 'luck': valor real.
         //
-        // Lo que Pablo ve (wallet-dashboard.js:451): la columna "Suerte (MF)"
-        // mostrando "0%". Cero por ciento es una lectura que se cree en buena
-        // fe. Compare con el caso de raids, donde `[]` es obviamente falso
-        // para cualquiera que haya estado ahi: aca no hay nada obviamente
-        // falso, hay un numero plausible. Es peor.
+        // POR QUE PROPAGA Y NO MARCA: la UI ya sabe distinguir, y hace tiempo.
+        // wallet-dashboard.js:79 `unreadableCell()` pinta "— ⚠" y la columna se
+        // elige por `fieldErr ? unreadableCell(fieldErr) : renderLuckCell(s)`
+        // (wallet-dashboard.js:1024). El catch de la columna (wallet-dashboard.js:
+        // 497-509) convierte un rechazo en `_errors.luck`. Y `renderLuckCell`
+        // (wallet-dashboard.js:308-309) ya tiene su propia puerta para el valor no
+        // numerico.
         //
-        // ALCANZABLE, no teórico: `jfetch` devuelve `null` ante un 200 con
-        // body vacío (api-gw2.js:408). O sea que la API contestando 200 sin
-        // cuerpo produce "0% de suerte" sin error visible. Y esta funcion no
-        // tiene console.warn ni rethrow: es la unica de las once donde el
-        // fallo no deja ni rastro en la consola.
+        // O sea: el criterio de UI que pidio no mandar esto al Reviewer sin
+        // resolver ("la UI tiene que poder distinguir sin-dato de 0") YA ESTA
+        // CUMPLIDO, en las dos capas, antes de este commit. El indistinguible no
+        // era la representacion: era que FORMA y RED llegaban por caminos
+        // distintos y solo uno de los dos cargaba la bandera.
         //
-        // Migracion = Tramo 2 de la Idea 57, y es la que mas justificacion
-        // necesita: la forma correcta NO es un guard que lance (el modulo
-        // entero pediria una columna de error mas), sino distinguir el
-        // `null` de forma del `[]` legitimo y propagar SOLO el primero. Va al
-        // Reviewer.
-        var arr = Array.isArray(data) ? data : [];
-        // La API devuelve [] si la cuenta nunca consumió esencia.
-        var entry = arr.find(function (x) { return x && x.id === 'luck'; });
-        var value = Number(entry && entry.value || 0);
+        // Y propagar NO borra la fila: `fieldErr` se evalua POR COLUMNA, asi que
+        // un rechazo cambia esa celda a "— ⚠" y las otras 26 cuentas de Pablo
+        // siguen renderizando igual. Era el riesgo que se pedio verificar antes de
+        // escribir esto, y no se cumple.
+        if (!Array.isArray(data)) {
+          throw new Error('La API no devolvio un array de luck (200 con cuerpo vacio o forma inesperada)');
+        }
+        // La API devuelve [] si la cuenta nunca consumió esencia: eso es 0 real.
+        var entry = data.find(function (x) { return x && x.id === 'luck'; });
+        var value = entry ? Number(entry.value) : 0;
         if (!isFinite(value) || value < 0) value = 0;
         putCache(key, value, token, TTL.LUCK);
         return value;
