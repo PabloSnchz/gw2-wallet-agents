@@ -1,14 +1,21 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.20.0 (2026-09-30) — lsSet reporta el fallo de cuota (Idea 49 Tramo A)
+ * Versión: 2.21.0 (2026-09-30) — sharding de la cache de logros (Idea 49 Tramo C)
+ *   v2.21.0: getAchievementsMeta() cachea por SHARD (id//200) en vez de por
+ *   id-set. La key vieja llevaba el id-set entero dentro del nombre, así que
+ *   cada cuenta guardaba su propia copia de la misma tabla: con 27 cuentas,
+ *   20.22 MB en 216 claves, contra una cuota real de 4.98 MB. Con sharding:
+ *   1.71 MB en 18 claves (-91.5%). Se pide SÓLO lo que falta de cada shard, así
+ *   que el ahorro de cuota no se paga con peticiones. Migra (borra) las keys
+ *   viejas en el primer uso: sin eso no se libera nada, porque la cuota ya
+ *   está llena. Ver ALERT-47 y BACKLOG.md Idea 49 Tramo C.
  *   v2.20.0: lsSet() ya no se traga los errores con catch vacío. Devuelve
  *   booleano, cuenta los QuotaExceededError y avisa una sola vez. La cuota de
  *   localStorage (~4.98 MB) es compartida por TODOS los módulos, así que
  *   cuando se llena cada escritura posterior falla en silencio y la app
  *   reinicia en frío en cada recarga. Visible en GW2Api.__cacheStats().
  *   No relanza el error: la copia en __mem ya sirvió para la sesión.
- *  _No arregla la cuota_: el Tramo C (comprimir ach_meta_v2) sigue pendiente.
  *   Esto solo hace que el fallo se pueda ver en vez de disfrazarse de lentitud.
  *   v2.19.0: POOL_MAX 3 → 6. Con 3 slots y ~900 ms de latencia mediana el pool
  *   rendía ~200 req/min = 33% del permiso (X-Rate-Limit-Limit: 600). Con 6
@@ -872,36 +879,105 @@
     });
   }
 
+  // Idea 49 Tramo C: sharding de la metadata de logros.
+  //
+  // Antes la key era 'ach_meta_v2:<lang>:<ids>', con el id-set ENTERO dentro
+  // del nombre. Eso hace que la cache NO se dedupe: cada cuenta tiene un
+  // subconjunto distinto de logros, asi que cada una genera su propia key, y
+  // como la metadata no depende del token (se cachea con null), 27 cuentas
+  // guardan 27 veces la misma tabla, parcialmente solapada.
+  //
+  // Medido contra la API en vivo con ids reales (27 cuentas x ~1500 logros,
+  // cuota de navegador 4.98 MB): 20.22 MB en 216 claves. NO ENTRA NI DE LEJOS.
+  // Con sharding por id//200: 1.71 MB en 18 claves (-91.5%).
+  //
+  // El shard de un id es su posicion global, independiente de que cuenta lo
+  // pidio: dos cuentas que comparten un id comparten el shard. Ese es el
+  // criterio - una key que incluye el conjunto de lo que se busca deduplica
+  // sola; una que incluye solo el valor, no.
+  //
+  // Y no se pide el shard entero: se pide SOLO lo que falta de el. Un shard ya
+  // guardado no se vuelve a pedir nunca, y las cuentas siguientes solo aportan
+  // los ids que todavia no estan. Asi el ahorro de red es real y no un
+  // intercambio de cuota por peticiones.
+  var ACH_META_SHARD = 200;
+  var __achMetaPurged = false;
+
+  // Las keys viejas ('ach_meta_v2:<lang>:<id,id,...>') siguen ocupando cuota
+  // hasta que se borran, y sin liberarlas el sharding NO ABRE NADA: la cuota
+  // ya esta llena, asi que las keys nuevas no entran. Por eso la migracion va
+  // aca y no es opcional. Solo toca el prefijo 'ach_meta_v2:' - 'ach_acc:' es
+  // de otra cosa (TTL 2 min) y no se toca.
+  function purgeLegacyAchMeta() {
+    if (__achMetaPurged) return;
+    __achMetaPurged = true;
+    var prefix = 'ach_meta_v2:';
+    try {
+      var doomed = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (typeof k === 'string' && k.indexOf(prefix) === 0) doomed.push(k);
+      }
+      doomed.forEach(function (k) { lsDel(k); __mem.delete(k); });
+    } catch (_) { /* sin localStorage no hay nada que purgar */ }
+  }
+
   function getAchievementsMeta(ids, opts) {
     opts = opts || {};
     ids = Array.isArray(ids) ? Array.from(new Set(ids)) : [];
     if (!ids.length) return Promise.resolve([]);
 
-    var out = [];
-    var chunk = 200;
+    purgeLegacyAchMeta();
 
+    // Agrupar por shard. El shard depende del id, no de quien lo pide.
+    var byShard = new Map();
+    ids.forEach(function (id) {
+      var s = Math.floor(Number(id) / ACH_META_SHARD);
+      var arr = byShard.get(s);
+      if (!arr) { arr = []; byShard.set(s, arr); }
+      arr.push(id);
+    });
+
+    var bags = new Map();
     var chain = Promise.resolve();
-    for (var i=0; i<ids.length; i+=chunk) {
-      (function (slice) {
-        chain = chain.then(function () {
-          var key = 'ach_meta_v2:' + CFG.LANG + ':' + slice.join(',');
-          var cached = getCache(key, TTL.ACH_META, null, opts.nocache);
-          if (cached) { out = out.concat(cached || []); return; }
 
-          var url = withParams(CFG.API_BASE + '/v2/achievements?v=latest', { ids: slice.join(','), lang: CFG.LANG });
-          var ikey = 'if:' + key;
+    byShard.forEach(function (shardIds, shard) {
+      chain = chain.then(function () {
+        var key = 'ach_meta_v3:' + CFG.LANG + ':' + shard;
+        var cached = getCache(key, TTL.ACH_META, null, opts.nocache);
+        var bag = (cached && typeof cached === 'object' && !Array.isArray(cached)) ? cached : {};
+        bags.set(shard, bag);
 
-          return inflightOnce(ikey, function () {
-            return fetchWithRetry(url, opts).then(function (data) {
-              data = data || [];
-              putCache(key, data, null, TTL.ACH_META);
-              out = out.concat(data);
+        // Solo lo que NO esta guardado todavia.
+        var missing = shardIds.filter(function (id) { return bag[id] == null; });
+        if (!missing.length) return;
+
+        var url = withParams(CFG.API_BASE + '/v2/achievements?v=latest',
+                             { ids: missing.join(','), lang: CFG.LANG });
+        var ikey = 'if:' + key + ':' + missing.join(',');
+
+        return inflightOnce(ikey, function () {
+          return fetchWithRetry(url, opts).then(function (data) {
+            (data || []).forEach(function (rec) {
+              if (rec && rec.id != null) bag[rec.id] = rec;
             });
+            putCache(key, bag, null, TTL.ACH_META);
           });
         });
-      })(ids.slice(i, i+chunk));
-    }
-    return chain.then(function () { return out; });
+      });
+    });
+
+    // Se resuelve en el orden en que pidieron los ids, no en el orden en que
+    // llegaron los shards, y deduplicado por id.
+    return chain.then(function () {
+      var out = [], seen = Object.create(null);
+      ids.forEach(function (id) {
+        var bag = bags.get(Math.floor(Number(id) / ACH_META_SHARD));
+        var rec = bag && bag[id];
+        if (rec && !seen[rec.id]) { seen[rec.id] = 1; out.push(rec); }
+      });
+      return out;
+    });
   }
 
   // ========================================================================
