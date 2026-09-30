@@ -1,9 +1,134 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T20:00:00Z (Heartbeat PO ronda 16 — 🔴 **IDEA 63: cambiar de cuenta deja la lista de personajes VACÍA y sin una sola palabra, y la causa puede ser un filtro o una página que ni vos pusiste. 194 días, desde el commit que creó el módulo.** Entra también la ronda 15, que estaba solo en el workspace del PO)
+> Actualizado: 2026-09-30T23:00:00Z (Heartbeat PO ronda 18 — 🔴 **ALERT-84: "Armería Legendaria" es un item de menú VISIBLE que decía "Cargando catálogo de legendarias…" PARA SIEMPRE. `loadLegendaryData()` es un stub que resuelve `[]` y el renderer que pone "Cargando" es el último paso. T1 (estado honesto) ya está hecho en `d64e688`; T2-T5 abiertos.** Entra también la ronda 17, que estaba solo en el workspace del PO. Dos P3: el censo de las 8 familias —que NO es idea— y las 3 citas de línea del test ALERT-84, que son de `main` y no de la rama donde viven.)
 > Mantenedor: PO (product-owner)
 
 ---
+## ACTUALIZACION 2026-09-30 23:00 UTC — Heartbeat PO ronda 18 — 🔴 ALERT-84: un item de menú VISIBLE que decía "Cargando…" para siempre
+
+> Encadre (corrección del Principal, aceptada): el **censo de las 8 familias** es NOTA de P3, no idea — queda acá abajo como nota. Lo que va al dashboard es **ALERT-84**, que es de otra clase: no falta una feature, falta un **estado**.
+
+Decimoséptima ronda con 0 web research útil (17ª vez). La pregunta fue **"¿qué pasa en la Bóveda cuando GW2 agrega contenido nuevo?"**, porque gw2treasures acaba de listar el Nexus of Eternity, Tenebral Ward y Convergence.
+
+### El hallazgo
+
+| Pieza | Estado |
+|---|---|
+| `index.html:761` item de menú `navLegendaryArmory`, con icono | ✅ **VISIBLE** |
+| `router.js:125/1562/1816` ruta | ✅ funciona |
+| `index.html:539` `<section id="legendaryArmoryPanel">` | ✅ existe |
+| `index.html:999` `<script legendary-tracker.js>` | ✅ se carga |
+| `legendary-tracker.js:213` `loadLegendaryData()` | 🔴 **STUB**: `not implemented (Phase 2)`, resuelve `[]` |
+| `legendary-tracker.js:189/199` los 2 renderers | 🔴 decían **"Cargando…"** y nada lo reemplaza |
+
+**Lo que se veía:** clic en "Armería Legendaria" → **"Cargando catálogo de legendarias…"** → **para siempre**. Sin timeout, sin error, sin reintento. `doRefresh()` llama al stub que resuelve `[]` en microsegundos, y después llama al renderer — que ES el string de "Cargando". El ciclo termina ahí.
+
+**Es peor que un error:** un error se investiga, un "Cargando" infinito se espera.
+
+### Los 101 KB ya escritos y no cargados
+
+| Archivo | Bytes | ¿Se carga? |
+|---|---|---|
+| `js/legendary-data.js` — catálogo de **206 legendarias** | **85.813** | 🔴 **NO** |
+| `js/render-catologo.js` — grid 5 col + barra de filtros + vista progreso | **17.950** | 🔴 **NO** |
+
+Ambos commiteados, ambos ausentes del HTML. Y `legendary-data.js` ya se autoexpone (`root.LegendaryCatalog`) — `legendary-tracker.js` nunca lo lee.
+
+### Y si se cargaran, NO funcionarían
+
+`render-catologo.js:361` llama `registerRender({filterBar, catalogGrid, skeleton, progress})`.
+
+| Símbolo | lo pide render-catologo | lo ofrece legendary-tracker |
+|---|---|---|
+| `registerRender` | **5 usos** | 🔴 **0** |
+| `getState` | **1 uso** | 🔴 **0** |
+
+API pública real: `initOnce, activate, deactivate, refresh, prefetch, _debug, Route`. **`render-catologo.js` se escribió contra una versión de `legendary-tracker.js` que nunca existió.** El guard `typeof … === 'function'` es falsy → reintenta a 50 ms → `console.warn` → nada.
+
+> **Por qué esto importa en la práctica:** "agregar los dos `<script>`" es la solución obvia y es **incorrecta**. Da el mismo resultado visible (nada) más dos warnings. El orden es: **`loadLegendaryData()` primero → `registerRender` después → recién ahí cargar los archivos.**
+
+### La deriva de catálogo, medida (y salió limpia)
+
+| Catálogo | App | API oficial | Faltantes | Fantasmas |
+|---|---|---|---|---|
+| legendarias | 206 | **206** | **0** | **0** ✅ |
+| raids (encuentros) | 29 | **30** | 1 (`camp`) | 1 (`vloxx`) |
+
+**El catálogo de legendas está perfecto.** Deriva cero, 2 días después de generarse. Eso **descarta** mi hipótesis de la ronda para legendas.
+
+- 🔴 **`vloxx` sigue roto** — el ala de CM del Nexus of Eternity, wing 9, **contenido nuevo de esta semana**. Quinto caso de la Idea 52: se arreglaron 4 renombres, no el que no existe.
+- 🟢 `camp` sin cablear. 1 línea.
+
+### 🔴 La cadena de actualización no es reproducible
+
+```
+_build_legendary_data.py    : OK (versionado)
+_fetch_thematic_prices.py   : OK (versionado)
+_legendary_items_full.json  : *** FALTA ***  <- el input del build
+```
+
+`git log --all --diff-filter=D` **nunca lo muestra borrado** → **nunca fue commiteado**. No está en `.gitignore`. El archivo dice *"NO modificar manualmente. Para actualizaciones, usar `_build_legendary_data.py`"* — **y ese script no se puede correr.** La instrucción apunta a un camino cerrado.
+
+Y el que debería vigilarlo no puede: el propio `legendary-data.js:11` dice *"Pablo mantiene este archivo manualmente. **El PO detecta novedades en Heartbeat.**"* — el refresh depende de que yo me acuerde. Eso no es un proceso, es una coincidencia.
+
+### Tramos
+
+| Tramo | Qué | Dificultad | Estado |
+|---|---|---|---|
+| **T1** | "Módulo en construcción" en vez de "Cargando…" | 🟢 ~10 min | ✅ **HECHO `d64e688`** |
+| **T2** | `vloxx` + `camp` — cierra la Idea 52 | 🟢 ~30 min | 🔴 **abierto, primero de la lista** |
+| **T3** | Implementar `loadLegendaryData()` de verdad | 🔴 ~2-4 h | 🔴 abierto, **va al Reviewer** |
+| **T4** | `registerRender` + `getState`, y recién ahí cargar los 2 scripts | 🔴 ~1-2 h | 🔴 abierto, **va al Reviewer** |
+| **T5** | Build reproducible (que el script baje el input, o versionarlo) | 🟡 ~1 h | 🟡 a definir |
+| T6 | ~~Test de "catálogo == API"~~ | ❌ **NO** | — |
+
+**Por qué NO un test de deriva como red:** la API cambia todos los días y un test que falla en cada patch entrena a ignorar al test. **La red correcta es T5**: si el build es reproducible, regenerar es una orden, no una decisión.
+
+### Regla que sale
+
+*Un esqueleto que llega hasta el menú deja de ser un esqueleto.* La idea sana —"base primero, Phase 2 después"— es correcta **hasta que `index.html` carga el esqueleto y el `router` publica la ruta**. Ahí dejó de ser etapa interna y pasó a ser **una promesa**, y la app no tiene forma de retractarla porque no existe el estado "todavía no".
+
+*Corolario:* si un plan tiene "Phase 3 Commit 1" en el backlog, la pregunta no es "¿está el código escrito?" sino **"¿está cableado, y contra qué?"**.
+
+---
+
+## 📌 P3 (nota, no idea) — ronda 18: el censo de las 8 familias, y por qué NO va al dashboard
+
+**Medidor trackeado:** `node tools/idea50-censo-claves.mjs` (dentro de `46b2d7f`, forzado con `git add -f` porque `tools/.gitignore` ignora todo).
+
+**8 FAMILIAS de clave de caché en 3 módulos**, fuera del registro de `cacheClear`: `characters:cached` · `characters:maps` · `characters:pois` · `characters:prof_icons` · `characters:race_icons` · `gn_activities_stones_` · `gw2_currencies_cache_v1` · `psna:schedule`. + 1 marcador de frescura (~10 B, no crece).
+
+**La que decide si el título del botón es cierto:** `characters:cached:<hash>` — 40 personajes por cuenta × 27 cuentas, TTL 5 min. Con 40 KB de residuo el título cierra el tema; con 2 MB hay que registrar esa clave.
+
+**Por qué esto NO es una idea:** un censo es una lista, y las listas se pudren — el caso 8 siempre aparece por accidente de alguien, no por un test (la Idea 57 aplicada). Además **el script no dice el tamaño**, que es el único número que decide si "Liberar la caché de la API" es cierto, y no se puede medir sin la cuenta de Pablo. Por eso el botón ahora lo DICE solo (`keptBytes`).
+
+**Corrección propia:** mi ronda 17 annunció "8 claves en 4 módulos". El número de módulos estaba mal (son 3: `characters.js`, `activities.js`, `app.js`) y el título del API ahora dice lo correcto. **Regla: un número sin unidad es un número que la próxima vez se cita mal** — y esta vez la unidad la escribí mal yo.
+
+---
+
+## 📌 P3 (nota) — ronda 18b: las 3 citas de línea del test ALERT-84 son de `main`, no de la rama donde viven
+
+Medido con `git show <rev>:index.html` y conteo de líneas, sobre las 3 revisiones:
+
+| Cita en el test y en el comentario del `.js` | `main` / `origin/main` | `feat-idea50-boton-cache` (donde vive) | ¿Cierta? |
+|---|---|---|---|
+| `index.html:750` (item de menú) | **750** | **761** | 🔴 off-by-11 |
+| `index.html:528` (el panel) | **528** | **539** | 🔴 off-by-11 |
+| `index.html:988` (el `<script>`) | **988** | **999** | 🔴 off-by-11 |
+| `router.js:125` (la ruta) | 125 | 125 | ✅ |
+
+**Por qué exactamente 11:** la rama agrega el botón de caché en `index.html:283-292` (+11 líneas antes de todo lo demás). Las 3 citas se tomaron de `main`, que no tiene el botón. Y como el merge va a traer el `index.html` de la rama, **`main` post-merge va a tener las 3 líneas en 761/539/999**: las citas quedan falsas y lo van a quedar para siempre.
+
+**El contraste que lo confirma:** `settings-manager.js:550` cita `index.html:289` — el `title` del botón — y esa **sí es cierta en la rama**. Mismo repo, mismo commit, citation correcta e incorrecta. La diferencia no es una regla del equipo: es si quien escribió la línea estaba mirando el archivo del commit o el de `main`.
+
+**Por qué NO lo escalate como bug:** el test no verifica números de línea (verifica regex sobre contenido), así que **no hay riesgo de fallo funcional**. Es documentación. Pero es documentación del tipo que el propio ALERT-84 vino a arreglar, y ahora está en el archivo que dice *"un módulo a medio hacer que dice la verdad"*.
+
+**Regla que sale:** *una cita de línea sin el árbol al que pertenece es una cita sin unidad.* La unidad de `index.html:750` es **`main@d328969`**. Es la misma clase que el "8 sin unidad" del censo, y en este caso la que insistí en la unidad fui yo.
+
+**Extra del mismo commiteo — el guard de texto ajeno está a medio cubrir:** `tests/alert84….test.js` tiene 2 glitches de generación en los comentarios: **L36** *"lo que hay que`**`PRIMARY`**`: si hay un"* y **L234** *"el PO se **`savings`** de investigar"*. `tools/scan-cjk.py` (el guard que el repo se armó para exactamente este defecto) da **0 matches**: `PRIMARY` y `savings` son ASCII, y el regex solo cubre CJK y cirílico (U+0400-04FF). Es la primera vez que un glitch mío de generación llega a un archivo commiteado; las 2 anteriores fueron en chat. **El guard cubre la mitad de mi defecto, y la mitad que no cubre es la que ya tocó el repo.**
+
+---
+
 
 ## ACTUALIZACION 2026-09-30 20:00 UTC — Heartbeat PO ronda 16 — 🔴 IDEA 63: cambiar de cuenta te puede dejar Personajes en blanco, y no hay forma de saber por qué
 
@@ -215,6 +340,11 @@ Si el body de `/v2/account/raids` fuera `progress:[{id,cm,li}]` (objeto, no arra
 > 🆕 **Reordenado 2026-09-30 08:15 UTC.** Dos cosas cambian de status: **(1) ALERT-41 deja de estar bloqueado** — el "límite honesto" que yo mismo escribí a las 06:30 (que `/v2/achievements` no dice cuál logro es el clear) **era falso**: el campo es `requirement`, y solo viene poblado con `lang=es`. **(2) Aparece la Idea 55.** Y una corrección: **8 de los 17 ids de logro que anoté a las 06:30 no existen**; los de la tabla nueva están todos verificados hoy contra la API viva.
 
 | # | Idea | Dificultad | Estado | ETA |
+| 🔴 **1** | **ALERT-84 T2: `vloxx` + `camp` sin cablear — cierra la Idea 52.** `vloxx` es el ala de CM del Nexus of Eternity (wing 9), **contenido nuevo de esta semana**: la app lo lista y no lo puede marcar. Es el 5º caso de la Idea 52 (se arreglaron los 4 renombres, no el que no existe) | 🟢 | **Abierto. ~30 min, el más barato que queda** | **AHORA** |
+| 🔴 **2** | **ALERT-84 T3 + T4: la Armería Legendaria no se puede completar.** `loadLegendaryData()` es un stub y `render-catologo.js` pide `registerRender` (5 usos) y `getState` (1) que la capa no expone. **Agregar los 2 `<script>` sueltos NO alcanza** — mismo síntoma visible (nada) + 2 warnings | 🔴 | **Abierto, ambos van al Reviewer** (ALERT-48) | T3 2-4 h · T4 1-2 h |
+| ✅ | **ALERT-84 T1: el item de menú ya no dice "Cargando" para siempre** | 🟢 | **HECHO `d64e688`** (rama `feat-idea50-boton-cache`, sin mergear). Cambia el estado que la app dice de sí misma, no la funcionalidad | — |
+| 🟡 **3** | **ALERT-84 T5: la cadena de actualización del catálogo no es reproducible** (`_legendary_items_full.json` nunca fue commiteado y `_build_legendary_data.py` no se puede correr) | 🟡 | **Abierto, a definir con el Principal** | ~1 h |
+| 🟡 **4** | **49G** (`ach_acc` compacto) | 🟡 | sin cambio — sigue cerrando la cuota | — |
 |---|------|-----------|--------|-----|
 | 🔴 **0** | **ALERT-41 RESUELTA: el Strike Tracker se puede re-apuntar a logros, con evidencia pública y sin token.** Escaneé el catálogo entero de `/v2/achievements` (ids 1..9999, lotes de 200 con comas): **8.349 achievements, 96 con "encuentro de incursión" en el `requirement`**. **14 de los 15 strikes del módulo tienen un clear inequívoco**: `old_lions_court` **6797** (*"Completa el encuentro de incursión de la vieja Corte del León"*), `shiverpeaks_pass` **4979**, `voice_claw` **5207**, `fraenir` **5233**, `boneskinner` **5194**, `whisper_of_jormag` **5118**, `cold_war` **5299**, `aetherblade_hideout` **6354**, `xunlai_jade_junkyard` **6084**, `kaineng_overlook` **6243**, `harvest_temple` **6513**, `cosmic_observatory` **7163**, `temple_of_febe` **7116**, `guardians_glade` **9218**. **Único sin clear: `forging_steel`** — el nuevo `vloxx`, un apido de wiki donde la API usa otro nombre (`5957 Reunión en el Ojo`). **Lo que falta NO es un dato: es elegir cuál de los 2-4 candidatos por strike es el clear, leyendo el `requirement`. Son 30 minutos con la lista de 96 del script, sin adivinar y sin el token de Pablo.** Corregí también que **`old_lions_court` NO tiene "0 logros"** (tiene el 6797) y que mi lista tenía 12 de 15 (faltaban `voice_claw`, `fraenir`, `forging_steel`) | 🟢 | **Decidible hoy. La lista de 96 está en `_hb55_strikeclear.js`** | **AHORA (30 min de mapeo)** |
 | 🔴 **0.5** | **IDEA 55: 9 sitios con el token se evaden de la capa `GW2Api`** (de 40 `fetch` crudos a `api.guildwars2.com`, 9 son account-scoped). Todos sin caché, sin `fetchWithRetry`, sin pool: `characters.js:410/420/445`, `activities.js:391/396/745`, `activities-theme.js:488`, `achievements.js:1022`, `meta.js:230/238`, `inventory-dashboard.js:276/284`. **Los dos que duelen:** (a) **`characters.js:410` baja los 364 KB de `/v2/account/achievements` crudo en CADA cambio de cuenta** (`wireGlobal:1392`), y ese mismo payload **ya está cacheado** en `achievements.js:1058` y `activities.js:902` → la app lo baja dos veces, una cacheada y otra no; (b) **`wv-purchase-detail.js:978-980` recorre 27 cuentas en serie con `nocache:true`** debajo de un toast de 1.5 s → **~13 s de UI congelada sin progreso**, y el Wallet Dashboard ya tiene `computeEta` de la Idea 48B. **Tramo 1 🟢:** `characters.js:410` → `GW2Api.getAccountAchievements` (el wrapper ya existe). **Tramo 2 🟢:** sacar el `await` del loop + ETA. **Tramo 3 🟡:** migrar los 9 (cierra parte de la Idea 47: el contrato de error viene gratis con la capa) | 🟢 t1 / 🟢 t2 / 🟡 t3 | **No implementado. Medido sobre el código** | **AHORA (t1: 1 línea)** |
