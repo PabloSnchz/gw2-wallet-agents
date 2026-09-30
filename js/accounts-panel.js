@@ -1,6 +1,6 @@
 /*!
  * js/accounts-panel.js — Panel de Cuentas (cifrado local)
- * v2.0.1 (2026-09-30) - Idea 55 Tramo 3a
+ * v2.0.2 (2026-09-30) - Idea 55 Tramo 3a
  *  - enrichWithGW2API() pide /v2/account por GW2Api.getAccountInfo
  *    en vez de `fetch` crudo. El wrapper ya existia (api-gw2.js:393).
  *    El try/catch por cuenta NO cambio: una cuenta rota sigue sin
@@ -178,7 +178,12 @@
         var found = keys.find(function(k) { return k.value === apiKey; });
         if (found && found.tag !== tipo) { found.tag = tipo; changed = true; }
       });
-      if (changed) localStorage.setItem('gw2_keys', JSON.stringify(keys));
+      if (changed) {
+        // Storage.set escribe la gn: y su legacy. Antes escribia solo la legacy
+        // (localStorage.setItem), y la gn: quedaba con la foto del primer
+        // arranque: es la que sube el Gist.
+        Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, keys);
+      }
     } catch(_) {}
   }
 

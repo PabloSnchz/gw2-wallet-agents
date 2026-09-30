@@ -1,6 +1,6 @@
 /*!
  * js/activities.js — Panel de Actividades (Objetivos / Home Nodes)
- * v3.20.3 (2026-09-30) - Fix: activate() ya no borra la cache de logros de otro modulo
+ * v3.20.4 (2026-09-30) - Fix: activate() ya no borra la cache de logros de otro modulo
  *
  * CAMBIOS v3.20.3:
  * - activate() llamaba a cleanAchievementsCache(), que borra TODAS las claves
@@ -489,7 +489,10 @@
 
   function saveToggles() {
     try {
-      localStorage.setItem('gn_activities_toggles', JSON.stringify(state.toggles));
+      // Storage.set escribe la gn: y su legacy (storage.js MIRROR_MAP). Antes
+      // escribia solo 'gn_activities_toggles', y la gn: que sube el Gist
+      // quedaba con la foto del primer arranque.
+      Storage.set(Storage.STORAGE_KEYS.ACTIVITIES_TOGGLES, state.toggles);
     } catch (e) {
       console.warn(LOG, 'Error saving toggles', e);
     }

@@ -305,3 +305,29 @@ la que importa:
 
 Mientras tanto, la regla para nosotros: **mandar por el CLI, nunca escribir el `inbox/` del otro a
 mano.** Si hay que escribirlo a mano, registrar en `sent/` en el MISMO minuto, o el mensaje no existe.
+
+## ALERT-66 (2026-09-30 16:45 UTC, HB#59) — un recibo en `sent/` NO es un mensaje entregado
+
+Es ALERT-62/63/65 por cuarta vez, y esta vez la fallo **yo**, en el mismo heartbeat
+en que reporte las tres anteriores. Escribi a mano el JSON del pedido al Reviewer en
+`default/sent/`. El archivo exists, esta bien formado, dice `to: Code-Reviewer`, y
+el `sent/` es exactamente donde el emisor mira para creer que envio.
+
+**No fue entregado.** `agentlink.ask()` hace DOS cosas: escribe la pregunta en
+`<to>/inbox/` **y** un recibo en `<from>/sent/`.hacer solo la segunda deja un
+mensaje que no existe para el destinatario.
+
+Como el `to` decia `Code-Reviewer` y el archivo estaba en `sent/`, todo parecia
+correcto. Lo que lo delato fue una verificacion que ya era costumbre: leer el
+inbox del otro. `code-reviewer/inbox/` estaba vacio.
+
+**Regla:** el recibo es la CONSECUENCIA de la entrega, no la entrega. After de
+escribir un pedido a mano, la unica verificacion que vale es abrir
+`<to>/inbox/` y confirmar el archivo. `sent/` no prueba nada. Y `cli.py ask` es el
+unico camino con entrega; el JSON a mano es para cuando el cuerpo no entra por
+linea de comando, y en ese caso hay que llamar `ask` y no escribir el archivo.
+
+**Deuda de tooling (ya registrada, se suma esta):** `ask` deberia rechazar un envio
+a uno mismo, y deberia tener un modo `ask --from-file` para cuerpos largos, que es
+la razon por la que existe esta trampa.
+

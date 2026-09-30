@@ -1,11 +1,11 @@
-﻿/* eslint-disable no-console */
+/* eslint-disable no-console */
 (function () {
   'use strict';
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-  console.info('%cGW2 Wallet app.js v2.7.0 — Bootstrap keys + toasts + router sync + selected-key persistence + WV Targets refresh (conversor extraído)', 'color:#0bf; font-weight:700');
+  console.info('%cGW2 Wallet app.js v2.8.0 — Bootstrap keys + toasts + router sync + selected-key persistence + WV Targets refresh (conversor extraído)', 'color:#0bf; font-weight:700');
  
   /* ========================= Estado ========================= */
   const state = {
@@ -26,7 +26,11 @@
   };
 
   /* ==================== Constantes LS/API ==================== */
-  const LS_KEYS = 'gw2_keys';
+  // La lista de cuentas y la key seleccionada ya NO se leen ni se escriben con
+  // estas constantes: van por Storage (STORAGE_KEYS.ACCOUNT_KEYS /
+  // ACCOUNT_SELECTED). Sus legacies ('gw2_keys' / 'gw2_selected_key_v1') siguen
+  // siendo la fuente de verdad y las mantiene storage.js por MIRROR_MAP, asi
+  // que los 6 modulos que las leen a pelo siguen viendo lo mismo.
   const LS_FAVS = 'gw2_favs'; // legado → migraremos a pins por cuenta
 
   // Iconos de tipo de cuenta (mismos que accounts-panel.js)
@@ -45,7 +49,7 @@
   // (Conversor movido a converter-modal.js)
 
   // NUEVO: persistencia de la key seleccionada (para restaurar tras F5)
-  const LS_SELECTED_KEY = 'gw2_selected_key_v1';
+  // Va por Storage.STORAGE_KEYS.ACCOUNT_SELECTED — ver la nota de LS_FAVS.
 
   // NUEVO: Pins por cuenta (como WV/Meta)
   const LS_WALLET_PINS = 'gw2_wallet_pins_v1';
@@ -601,25 +605,32 @@
 
     load() {
       // Carga listado de keys
-      try { this.list = JSON.parse(localStorage.getItem(LS_KEYS)) || []; }
+      // Storage.get de una clave espejo lee la legacy primero (storage.js
+      // MIRROR_MAP), asi que el valor es el mismo que leia getItem, y la gn:
+      // que sube el Gist deja de quedar con la foto del primer arranque.
+      try { this.list = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_KEYS) || []; }
       catch { this.list = []; }
       state.keys = this.list.slice();
 
       // NUEVO: restaurar selección previa desde localStorage
-      try { this.selected = localStorage.getItem(LS_SELECTED_KEY) || null; }
+      try { this.selected = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_SELECTED) || null; }
       catch { this.selected = null; }
 
       // Si la key guardada no existe más en la lista, anular selección
       if (this.selected && !this.list.some(k => k.value === this.selected)) {
         this.selected = null;
-        try { localStorage.removeItem(LS_SELECTED_KEY); } catch {}
+        // Storage.remove borra la gn: y su legacy: si se borrara solo la legacy,
+        // la gn:account:selected seguiria con el valor viejo.
+        try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}
       }
 
       state.selected = this.selected;
       return this.list;
     },
     save() {
-      try { localStorage.setItem(LS_KEYS, JSON.stringify(this.list)); } catch { }
+      // Storage.set escribe la gn: y su legacy, que es la que leen 6 modulos
+      // a pelo. Escribir solo la legacy dejaba la gn: congelada.
+      try { Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, this.list); } catch { }
       state.keys = this.list.slice();
     },
     setSelected(token, opts) {
@@ -629,8 +640,8 @@
 
       // NUEVO: persistir selección (o limpiar si es null)
       try {
-        if (this.selected) localStorage.setItem(LS_SELECTED_KEY, this.selected);
-        else localStorage.removeItem(LS_SELECTED_KEY);
+        if (this.selected) Storage.set(Storage.STORAGE_KEYS.ACCOUNT_SELECTED, this.selected);
+        else Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED);
       } catch {}
 
       const gs = el.keySelectGlobal;
