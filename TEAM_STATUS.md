@@ -69,10 +69,10 @@ El PO entrego **4 ideas nuevas** en este ciclo, respondiendo las 2 preguntas del
 
 | # | Idea | Estado |
 |---|---|---|
-| **49G** | **`ach_acc` en forma compacta: 4.10 MB → 0.36 MB.** El sharding cierra `ach_meta` pero NO cierra la cuota: `ach_acc` son 27 keys (una por cuenta, el fingerprint va en el nombre) y el sharding no las toca. Suma final 3.14 MB de 4.98. Es 🟡 media, no verde: `getAccountAchievements` tiene 2 consumidores que leen campos del objeto. | **PROPUESTA, sin implementing** |
+| **49G** | **`ach_acc` en forma compacta: 4.10 MB → 0.36 MB.** El sharding cierra `ach_meta` pero NO cierra la cuota: `ach_acc` son 27 keys (una por cuenta, el fingerprint va en el nombre) y el sharding no las toca. Suma final 3.14 MB de 4.98. Es 🟡 media, no verde: `getAccountAchievements` tiene 2 consumidores que leen campos del objeto. | **PROPUESTA, sin implementar** |
 | 50 | La cuota no se libera nunca: `lsDel`/`cacheClear` con 0 callers y el TTL no borra. | Propuesta |
 | 52 | `raid-tracker.js`: 5 de 30 encuentros no existen en la API. | Propuesta |
-| 53 | Strike Tracker: re-apuntarlo a logros o borrarlo. | Propuesta |
+| 53 | Strike Tracker: re-apuntarlo a logros o borrarlo. Es la misma pregunta de ALERT-41: sin backend no hay modulo. | **DECISION DE PRODUCTO, no del Principal.** |
 
 **El PO tambien reporto 2 hipotesis muertas propias**, antes de que llegaran como ALERT: su cifra de
 11.88 MB para `ach_acc` estaba mal (medida con una forma de registro inventada; la correcta es 4.10 MB), y
@@ -81,14 +81,14 @@ en la API. Casi manda una ALERT contra un modulo sano.
 
 ## Alertas
 
-- **ALERT-48 (nueva) — 2 bugs de la cache mergeados sin revision.** El Tramo C se mergeo por merito en el
+- **ALERT-49 (nueva) — 2 bugs de la cache mergeados sin revision.** El Tramo C se mergeo por merito en el
   HB#46 sin validacion del Reviewer, y tenia 2 defectos reales. El "por merito" funciona cuando el riesgo es
   estetico, **no cuando el cambio es de capa de datos y reescribe la estrategia de claves**. La revision
   existia y habia costado 20 minutos.
-- **ALERT-49 (nueva) — colision de ramas en el worktree compartido.** El commit del PO (`0b9721d`) cayo
+- **ALERT-50 (nueva) — colision de ramas en el worktree compartido.** El commit del PO (`0b9721d`) cayo
   dentro de `fix/idea49c-shard-races` porque el Principal cambio de rama mientras el PO trabajaba en el mismo
   worktree. Resultado: benigno (era un `.md`), pero el riesgo real es que un commit de un agente termine en
-  la rama de otro sin que ninguno lo note. Los dos agentes lo detectaron y lo-AMos stroke sin drama, que es
+  la rama de otro sin que ninguno lo note. Los dos agentes lo detectaron y lo resolvieron sin drama, que es
   exactamente por lo que funciona.
 - **ALERT-41 sigue ABIERTA** (no es de este ciclo): el Strike Tracker no tiene backend. Bloqueado hasta que
   Pablo haga **una llamada a `/v2/account/raids` con un token real** (permiso `progression`) y pegue el body.
@@ -101,8 +101,12 @@ en la API. Casi manda una ALERT contra un modulo sano.
   Pablo haga **una llamada a `/v2/account/raids` con un token real** (permiso `progression`) y pegue el body crudo.
   No se arregla a ciegas: cambiar 15 ids sin verificarlos sería repetir exactamente el error que el PO denuncia.
   `raid-tracker.js` sí funciona (12/12 ids en catálogo), salvo `vloxx`.
-- **Idea 49 — el sharding no alcanza solo.** Tramo C mergeado (35 shards, 3.58 MB, -94%), pero con el resto de la caché
-  el total medido sigue en **~14.49 MB contra 4.98 MB de cuota**. Siguiente tramo sin definir (consultado al PO, punto 3).
+- **Idea 49 — el sharding no alcanza solo.** Tramo C mergeado y **corregido** (0.81 MB con el drop de los 5 campos
+  muertos), pero `ach_acc` son **27 keys** (el fingerprint del token va en el nombre) y el sharding no las toca.
+  Secuencia acordada con el PO: **49G** (compacto, la que cierra la cuota) -> **49D** (barrido de huerfanas) ->
+  **49F/49E**. El **LRU (Tramo B) baja**: era la respuesta a un problema que ya no es el problema.
+- **Idea 52 — 5 de 30 encuentros de `raid-tracker.js` no existen** (4 renombres 1:1 + `vloxx`, que no esta en
+  ninguna parte). 30 min, fix de dato, y es el modulo que Pablo usa todas las semanas. **Entra al frente.**
 - **Estilos inline de `inventory-dashboard.js`.** Quedan **2** `border-radius` (762, 883); el item original declaraba
   4 estilos con líneas 462/473/709/830 que **ya no existen**. En revisión (029).
 - **Coberturable account-scoped multicuenta** (PO): 12 endpoints `/v2/account/*` sin tocar, `skins` (10.632) el mayor.
@@ -114,7 +118,7 @@ en la API. Casi manda una ALERT contra un modulo sano.
 
 - **ALERT-46 (nueva, HB#47) — las cifras del BACKLOG sobre `inventory-dashboard.js` estaban desactualizadas.** Declaraba
   4 estilos inline en líneas 462/473/709/830; el archivo real tiene 2 `border-radius` y ningún `box-shadow`/`transition`.
-  Los números de línea correlates con el **error de P2** que acabo de corregir. **Lección:** antes de propagating un
+  Los números de línea correlates con el **error de P2** que acabo de corregir. **Lección:** antes de propagar un
   hallazgo de líneas, re-verificar contra el archivo, porque los merges de las Ideas 47/48/47 movieron todo.
 - **ALERT-45 — 404 ≠ timeout.** Las 4 tareas del HB#46 (`task-b781ce950d38`, `task-ec29dfb1ec3f`, `task-d5466d886f71`,
   `task-5ccb7fb3377d`) devolvieron **404**, no `failed`. Es **TTL vencido**: la petición se entregó, la respuesta ya no
