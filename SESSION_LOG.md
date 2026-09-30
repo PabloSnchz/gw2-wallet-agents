@@ -820,3 +820,54 @@ No arregle nada. Corregir esto no es mecanico: hay que decidir que son los ids c
 
 ### Repetible
 Un catalogo de ids pegado en el codigo envejece sin que nadie lo note. Los ids de `raid-tracker.js` seellen bien contra la API; los de `strike-tracker.js`, no. **Regla: antes de confiar en ids hardcodeados, contrastarlos contra `/v2/raids` en vivo.** Un `curl` de 2 segundos que habria detectado esto hace meses.
+
+## 2026-09-30T04:00 UTC — Heartbeat #44
+
+### Contexto
+- Heartbeat disparado por el resumen de prioridades del PO (rama `po/idea49-cache-quota` @ `b181d17`).
+- El PO propuso la **Idea 49**: la cache persistente de `localStorage` muere en silencio porque `api-gw2.js:189` `lsSet()` se traga el `QuotaExceededError` con `catch(_){}`.
+- Medidas del PO: cuota **4.98 MB** (navegador real) y cache de logros **0.53 MB/cuenta** -> 27 cuentas = 14.22 MB.
+
+### Diagnostico: la atribucion de bytes del PO no se sostiene
+
+Volví a medir las dos piezas por separado, y el Tramo C (su propuesta, la que mas rinde) apunta a la parte chica.
+
+**1. Los 79 B/entrada del PO son de la forma equivocada.** El PO lo dice y lo marca como limite, asi que lo tomo como un limite consciente: uso la forma del endpoint **publico** `/v2/achievements` (`{id, name, description, tiers, icon, ...}`) para estimar el endpoint **account-scoped** `/v2/account/achievements`, que es mucho mas chico: `{id, done}` = **24 B**, o `{id, current, max, done}` = **46 B**. Medido contra la API, no estimado.
+
+**2. La cache que realmente revienta la cuota es `ach_meta_v2`, y el PO no la midio.** Es la metadata de logros, y es **~25x mas grande por entrada** que `ach_acc`:
+
+| clave | que guarda | B/entrada (medido) | TTL | MB por id-set de cuenta |
+|---|---|---|---|---|
+| `ach_acc:<fp>` | logros de la cuenta | 24-46 | 2 min | **0.17** |
+| `ach_meta_v2:es:<ids>` | metadata de logros | **536** | 12 h | **3.6** |
+
+`getAchievementsMeta()` (api-gw2.js:838) chunkea de a 200 ids y escribe **una clave por chunk**: 6991 ids = **35 claves**. Y la clave es `ach_meta_v2:es:` + los ids unidos por comas, o sea que **cada cuenta con un id-set distinto escribe su propia copia completa**. Con 27 cuentas el volumen no gestionado es **~96 MB** contra 4.98 MB de cuota.
+
+**3. Y hay algo que el PO no podia ver desde la medicion, porque no es un problema de cuota.** `activities.js:activate()` llamaba a `cleanAchievementsCache()`, que borra toda clave `localStorage` con prefijo `ach_` — o sea, **exactamente las dos claves de arriba**. Y `router.js:1661` y `1758` invocan `Activities.activate()` en cada navegacion a `#/activities`. Traduccion: **abrir el panel de Actividades borraba la cache de logros de todas las cuentas**, y la pagina de Logros arrancaba en frio cada vez.
+
+Eso explica por que el problema no se venia manifestando: **el borrado accidental era lo que mantenia la cuota a raya**, no el diseno de la cache. Los dos sintomas que el PO atribuyo a la cuota (app que se pone lenta, F5 en frio) tenian en parte esta causa, que es mas barata de arreglar y mas grave, porque el sintoma no es "la cuota se lleno" sino "nadie diseno esto".
+
+### Que se hizo
+
+**Fix: `activate()` ya no borra la cache de otro modulo.** Regla aplicada: **un modulo no borra la cache de otro**; limpiar cache es accion explicita del usuario, no de entrar a un panel.
+- `cleanAchievementsCache()` **fuera** de `activate()`.
+- `cleanActivitiesCache()` **se queda**: borra prefijos `psna:` y `ACTIVITIES_CACHE_KEYS`, que son datos del propio modulo.
+- `cleanAchievementsCache()` **sigue definida** para llamadas a proposito. No se borro ninguna funcion.
+- Sin CSS, sin cambio de UI. `activities.js` v3.20.3, buster de `index.html` en el mismo commit (ALERT-24).
+- Fix `d7cbe0d`, merge `9e211b5` en `agents/main`. Rama borrada (nunca se pusheo). Runner nuevo: `tests/idea49.activities-cache-wipe.test.js` **16/16**, suite completa **159/0**.
+
+El bug se reprodujo antes de arreglarlo: el test falla en la asercion que exige el wipe, y pasa cuando se exige su ausencia.
+
+### Lo que NO hice, y por que
+
+- **No implemente el Tramo C del PO.** No porque sea mala idea, sino porque con el fix de arriba la cuenta cambia: `ach_acc` son 0.17 MB/cuenta (4.6 MB las 27) frente a 3.6 MB/cuenta de metadata. Compactar la chica no alcanza por si sola. El orden correcto es tratar `ach_meta_v2` primero, y ahi comprimir si tiene sentido.
+- **No toque el `lsSet()` del PO** (Tramo A). Habia un WIP **sin commitear en `js/api-gw2.js` en el clon compartido** que ya hacia exactamente eso: `lsSet` devuelve booleano, cuenta los fallos de cuota y avisa una vez. **CORRECCION DE PROCEDENCIA (HB#45):** ese WIP **no es del PO**. Lo escribio el Principal en este mismo ciclo, con su test propio, y verificandolo en las dos direcciones. Quedar sin commitear era el modo de falla de **ALERT-36** (trabajo varado que un `git checkout` de otro heartbeat borra: ya paso una vez en este ciclo, cuando el merge `9e211b5` movio la rama debajo de este trabajo). **Se commitea en este ciclo**, con la atribucion correcta. Que quede escrito porque "parecio de otro" es exactamente como un trabajo desaparece sin que nadie lo note.
+- **No toque produccion.** Sigue congelada; este fix esta en `agents/main` nomas.
+
+### Correcciones propias
+
+Perdi tiempo con dos errores mios en el camino: un heredoc que `cmd` no soporta, y un parser de la suite de tests que contaba la palabra "FAIL" del encabezado de los tests como fallo (los 6 tests dan exit 0). Ambos de tooling, ninguno toco el repo.
+
+### Repetible
+
+Un `catch(_){}` que se traga el error no es un detalle de robustez: es el que convierte "el usuario tiene 27 cuentas" en "la boveda anda lenta", sin dejar rastro. Y un borrado de cache que nadie considero funciono durante 6 meses y mantuvo el sistema en pie, tapando el problema de cuota que el PO estaba por medir al reves.

@@ -186,7 +186,45 @@
   function lsGet(key) {
     try { var j = localStorage.getItem(key); return j ? JSON.parse(j) : null; } catch (_) { return null; }
   }
-  function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {} }
+  // Idea 49 Tramo A: antes esto era `catch (_) {}`, o sea tragaba CUALQUIER
+  // error sin dejar rastro. El que importa es el de cuota: la cuota de
+  // localStorage (~4.98 MB medidos en navegador real) es COMPARTIDA por todas
+  // las claves cacheadas de la pagina, no por modulo. Cuando se llena, cada
+  // escritura posterior falla y la app vuelve a arrancar en frio en cada
+  // recarga, sin que nada lo diga: se presenta como "la Boveda anda lenta".
+  //
+  // Esto estaba enmascarado porque activities.js borraba la familia 'ach_*' en
+  // cada navegacion a #/activities (wipe accidental = alivio de cuota). Al
+  // quitar ese wipe (mismo heartbeat), la cuota se llena de verdad, asi que el
+  // fallo deja de seripotetico y hay que poder nombrarlo.
+  //
+  // NO se relanza el error: la copia en __mem ya sirvio para esta sesion, y
+  // un throw aca seria peor que el bug que se esta corrigiendo. Se cuenta y se
+  // avisa UNA vez (no una por clave: son cientos de escrituras por carga).
+  var __lsQuotaFails = 0;
+  var __lsQuotaWarned = false;
+  function isQuotaError(e) {
+    if (!e) return false;
+    return e.name === 'QuotaExceededError' ||
+           e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+           e.code === 22 || e.code === 1014;   // legacy IE/Edge
+  }
+  function lsSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) {
+      if (isQuotaError(e)) {
+        __lsQuotaFails++;
+        if (!__lsQuotaWarned) {
+          __lsQuotaWarned = true;
+          console.warn('[api-gw2] localStorage LLENO: la cache ya NO se guarda entre recargas.' +
+            ' El error era silencioso (catch vacio) y la cuota es compartida por todos los' +
+            ' modulos, asi que esto afecta a TODA la cache, no solo a la de logros.' +
+            ' Ver BACKLOG.md Idea 49 (Tramo C: comprimir los logros es lo que lo arregla).');
+        }
+      }
+      return false;
+    }
+  }
   function lsDel(key) { try { localStorage.removeItem(key); } catch (_) {} }
   function now() { return Date.now(); }
   function isFresh(entry, ttl) { return !!entry && typeof entry.ts === 'number' && (now() - entry.ts) <= ttl; }
@@ -946,6 +984,12 @@
     (arr || []).forEach(function (o) { if (o && o[key] != null) map.set(o[key], o); });
     return map;
   }
+  // Idea 49 Tramo A: expone el fallo de cuota para que sea inspeccionable y no
+  // solo una linea de consola. quotaFails > 0 significa que la cache dejo de
+  // persistir entre recargas; mientras siga en 0 el problema no existe.
+  function cacheStats() {
+    return { quotaFails: __lsQuotaFails, quotaWarned: __lsQuotaWarned };
+  }
   function cacheClear() {
     try { __mem.clear(); __inflight.clear(); } catch (_){}
   }
@@ -1022,6 +1066,7 @@
       setPoolMax: function (n) { var x = +n; if (isFinite(x) && x >= 1 && x <= 20) { CFG.POOL_MAX = x|0; poolPump(); } }
     },
     __cacheClear: cacheClear,
+    __cacheStats: cacheStats,
     __indexArrayByKey: indexArrayByKey
   };
 
