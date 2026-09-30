@@ -48,18 +48,26 @@ function ok(c, msg, why) {
  * el modulo veria: cuerpo vacio con 200 tiene que terminar siendo `null`, que
  * es justamente el caso que antes se comia el guard.
  * ------------------------------------------------------------------------ */
-function cargarApi(respuesta) {
+function nuevoLocalStorage() {
+  return {
+    _d: {},
+    getItem(k) { return Object.prototype.hasOwnProperty.call(this._d, k) ? this._d[k] : null; },
+    setItem(k, v) { this._d[k] = String(v); },
+    removeItem(k) { delete this._d[k]; },
+    get length() { return Object.keys(this._d).length; },
+    key() { return null; }
+  };
+}
+
+function cargarApi(respuesta, storage) {
   const src = fs.readFileSync(API, 'utf8');
   const sandbox = {
     console: { warn() {}, error() {}, log() {}, info() {}, debug() {} },
-    localStorage: {
-      _d: {},
-      getItem(k) { return Object.prototype.hasOwnProperty.call(this._d, k) ? this._d[k] : null; },
-      setItem(k, v) { this._d[k] = String(v); },
-      removeItem(k) { delete this._d[k]; },
-      get length() { return Object.keys(this._d).length; },
-      key() { return null; }
-    },
+    // P4.2 del Code-Reviewer (HB#58): el `localStorage` es INYECTABLE. Antes
+    // cada llamada a cargarApi() creaba el suyo, y la seccion 4 usaba dos
+    // sandboxes distintos: la cache nunca se compartia entre ellos, y
+    // `v2 === 999` pasaba con o sin el fix porque no estaba probando nada.
+    localStorage: storage || nuevoLocalStorage(),
     setTimeout, clearTimeout,
     fetch: function (url) {
       const r = respuesta(url);
@@ -93,15 +101,25 @@ const CASOS = [
     nombre: 'FORMA: 200 con cuerpo vacio -> RECHAZA (no 0 silencioso)',
     status: 200, body: '',
     espera: 'rechaza',
+    esForma: true,
     porQue: 'jfetch devuelve null ante un 200 sin cuerpo. Antes el guard lo ' +
             'convertia en 0 y la UI pintaba "0%" sin error: un dato falso ' +
             'que se cree en buena fe.'
   },
   {
-    nombre: 'FORMA: 200 con cuerpo que no es JSON -> RECHAZA',
+    // NO es un caso de FORMA. El nombre lo decia "FORMA:" desde antes, y era
+    // falso: con un cuerpo que no es JSON, `jfetch` tira al parsear, ANTES de
+    // que el guard `Array.isArray` llegue a ejecutarse. El rechazo lo produce
+    // el parser, no el guard de forma, asi que este caso NUNCA estuvo probando
+    // el fix. Se renombra para que el nombre no prometa una cobertura que no
+    // hay, y no se le exige el idioma de forma (su motivo es correcto: dice
+    // que el JSON no era valido).
+    nombre: 'JSON no parseable (200) -> RECHAZA en jfetch, antes del guard de FORMA',
     status: 200, body: '<html>error del CDN</html>',
     espera: 'rechaza',
-    porQue: 'mismo camino: la forma que el endpoint promete no llego.'
+    porQue: 'el parser falla primero. El guard de FORMA no llega a correr: por ' +
+            'eso este caso no cubre el fix, y el nombre viejo ("FORMA:") ' +
+            'prometia una cobertura que no existia.'
   },
   {
     nombre: '[] legitimo -> RESUELVE 0 (no es un fallo)',
@@ -173,6 +191,23 @@ function crearBox(c) {
         ok(!!r.resultado.motivo && r.resultado.motivo.length > 0,
            '   ...y el motivo nombra la causa, no dice "error desconocido"',
            'un rechazo sin motivo es indistinguible de un 401 para el usuario');
+        // P4.1 del Code-Reviewer (HB#58): `length > 0` es la asercion que dejo
+        // pasar P3. El bug era que el mensaje no contenia la cadena que los
+        // consumidores filtran, asi que "no vacio" no dice nada del contrato.
+        // docs/ONBOARDING.md:243 lo documenta: `message` empieza con
+        // "<endpoint>: forma no soportada (". Si esto falla, el motivo no es
+        // parseable por raid-tracker.js:1749 ni strike-tracker.js:1121.
+        //
+        // SOLO para los casos de FORMA. Un fallo de RED tiene que propagar SU
+        // motivo ("error de servidor", "requires scope ..."), y exigirle el
+        // idioma de forma seria un test que obliga a mentir sobre la causa.
+        if (c.esForma) {
+          ok(/^account\/luck: forma no soportada \(/.test(r.resultado.motivo || ''),
+             '   ...y el motivo habla el idioma del contrato ("<endpoint>: forma no soportada (")',
+             'motivo="' + (r.resultado.motivo || '') + '" -- los consumidores filtran por esa ' +
+             'cadena, asi que con otro texto raid-tracker/strike-tracker muestran la pista ' +
+             'de permiso donde no corresponde');
+        }
       }
     } else {
       const esperado = Number(c.espera.split(':')[1]);
@@ -232,16 +267,31 @@ function crearBox(c) {
   section('4. un fallo no puede quedar cacheado como si fuera un valor');
   /* ===================================================================== */
   {
-    const box = crearBox({ status: 200, body: '' });
-    const api = cargarApi(function (url) { return box.respuesta(url); });
-    try { await api.GW2Api.getAccountLuck(TOKEN, { nocache: true }); } catch (e) { /* esperado */ }
+    // MISMO sandbox (mismo localStorage) en las dos llamadas: sin eso no se
+    // esta probando la cache, se estan probando dos modulos que no se conocen.
+    const storage = nuevoLocalStorage();
 
-    // La segunda llamada, SIN nocache: si el fallo se cacheo, esta devolveria
-    // un valor en vez de volver a preguntar a la API.
-    const box2 = crearBox({ status: 200, body: JSON.stringify([{ id: 'luck', value: 999 }]) });
-    const api2 = cargarApi(function (url) { return box2.respuesta(url); });
+    // Un fetch que responde distinto segun cuantas veces lo llamaron: primero
+    // el cuerpo vacio que hace fallar, despues el valor bueno.
+    let llamadas = 0;
+    const fetch = function (url) {
+      const r = (llamadas++ === 0)
+        ? { status: 200, body: '', headers: {} }                                  // 1a: FORMA
+        : { status: 200, body: JSON.stringify([{ id: 'luck', value: 999 }]), headers: {} }; // 2a: real
+      return crearBox(r).respuesta(url);
+    };
+
+    const api = cargarApi(fetch, storage);
+    let v1 = null;
+    try { v1 = await api.GW2Api.getAccountLuck(TOKEN); } catch (e) { v1 = 'rechaza'; }
+    ok(v1 === 'rechaza',
+       'la primera llamada (cuerpo vacio) rechaza',
+       'resolvio ' + JSON.stringify(v1) + ' en vez de rechazar');
+
+    // La segunda llamada, SIN nocache, en el MISMO modulo: si el fallo se
+    // cacheo, esta devolveria el valor cacheado del fallo en vez de 999.
     let v2 = null;
-    try { v2 = await api2.GW2Api.getAccountLuck(TOKEN); } catch (e) { v2 = 'rechaza:' + e.message; }
+    try { v2 = await api.GW2Api.getAccountLuck(TOKEN); } catch (e) { v2 = 'rechaza:' + e.message; }
     ok(v2 === 999,
        'un FORMA fallido no deja un valor cacheado que el siguiente reading herede',
        'el fallo quedo cacheado y el proximo loadAccountSummary lee ' +

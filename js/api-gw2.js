@@ -1,7 +1,22 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.27.0 (2026-09-30) — Idea 57 Tramo 2: getAccountLuck ya no degrada la FORMA a 0
+ * Versión: 2.28.0 (2026-09-30) — Idea 57 Tramo 4: el idioma del throw de FORMA es parte del contrato
+ *   v2.28.0: NO cambia lo que Pablo ve. Cambia el TEXTO de un throw.
+ *   El mensaje de un guard de FORMA es contrato, no decoracion, porque dos
+ *   consumidores lo leen por texto: `raid-tracker.js:1749` y
+ *   `strike-tracker.js:1121` hacen `/forma no soportada/.test(error.message)`
+ *   para decidir si la pista de permiso tiene sentido. Los tres guards que
+ *   existian usaban dos idiomas: los de la v2.24.0/v2.24.1 decian "forma no
+ *   soportada (...)" y el de luck decia "La API no devolvio un array of...".
+ *   Los 5 wrappers que faltan migrar entran con el idioma del contrato, y si
+ *   el de luck quedara fuera, el primer consumidor que filtre por esa cadena
+ *   falla en silencio. No se unifico con un helper exportado: eso no evita el
+ *   acoplamiento por texto, lo esconde.
+ *   Test: tests/idea57t4-idioma-contrato.test.js (14 aserciones; 2 FAIL contra
+ *   el archivo sin el fix, verificado con `git stash push` + `pop`). Recorre
+ *   todos los guards `Array.isArray` del archivo: un wrapper nuevo cae en el
+ *   FAIL sin que nadie tenga que acordarse de actualizar una lista.
  *   v2.27.0: PRIMER cambio de comportamiento de la Idea 57, y el unico que
  *   altera lo que Pablo ve. getAccountLuck era el septimo de los once wrappers
  *   que degradaban la FORMA, y el peor de todos: en los otros diez el valor
@@ -1257,8 +1272,16 @@
         // un rechazo cambia esa celda a "— ⚠" y las otras 26 cuentas de Pablo
         // siguen renderizando igual. Era el riesgo que se pedio verificar antes de
         // escribir esto, y no se cumple.
+        // El TEXTO del throw es parte del contrato, no texto decorativo.
+        // raid-tracker.js:1749 y strike-tracker.js:1121 hacen
+        // `/forma no soportada/.test(error.message)` para decidir si la pista de
+        // permiso tiene sentido. Un wrapper que degrade con otro idioma hace que
+        // esa pista aparezca donde no corresponde. Los otros dos guards de FORMA
+        // (getCharacterCount :698, getAccountRaids :754) ya usan este idioma.
         if (!Array.isArray(data)) {
-          throw new Error('La API no devolvio un array de luck (200 con cuerpo vacio o forma inesperada)');
+          throw new Error('account/luck: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de luck.');
         }
         // La API devuelve [] si la cuenta nunca consumió esencia: eso es 0 real.
         var entry = data.find(function (x) { return x && x.id === 'luck'; });
