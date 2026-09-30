@@ -230,6 +230,35 @@ Está escrito en tres lugares a propósito: el **JSDoc** de la función (para qu
 
 **Estado: la API no tiene consumidor todavía.** No hay UI. Se documenta explícitamente para que no se lea como deuda oculta. Cablear la vista es el paso siguiente; cuando se haga, tiene que respetar el contrato de tres estados.
 
+#### Extensión (v2.24.0 / v2.24.1): el contrato tiene **dos capas**, no una
+
+Los guards de FORMA (`api-gw2.js` v2.24.0 en `getAccountRaids`, v2.24.1 en
+`getCharacterCount`) extends el mismo criterio a una segunda capa. Ya no alcanza
+con preguntarse "¿el error de RED degrada?": también hay que preguntarse
+"¿la FORMA de la respuesta degrada?".
+
+| Capa | Qué hace | Cómo se detecta en el consumidor |
+|------|----------|-----------------------------------|
+| **RED** | `fetch` falla, 401/403/404, cuota llena, timeout | `error.message` sin el prefijo del guard |
+| **FORMA** | la API responde `200` con un body que no soportamos (típicamente **vacío**, y `jfetch` devuelve `null` en `:408`) | `error.message` empieza con `"<endpoint>: forma no soportada ("` |
+
+El caso `null` **no es teórico**: es lo que produce un `200` sin cuerpo. Antes de
+los guards, `getAccountRaids` daba "0 encuentros completados" y `getCharacterCount`
+daba "0 personajes" en el Wallet Dashboard — indistinguibles del estado bueno, sin
+error visible.
+
+**Consecuencia para la UI:** el mensaje de permiso ("verificá que la API key tenga
+`progression`") es **incorrecto** cuando el fallo es de FORMA: el permiso puede estar
+perfecto. `raid-tracker.js` y `strike-tracker.js` filtran por
+`/forma no soportada/` antes de mostrarlo. **Si agregás un consumidor nuevo, copiá
+ese filtro** (o el de `wallet-dashboard.js`, vía `unreadableReason`), no la
+pista de permiso incondicional.
+
+**Y no lo "normalices":** un `Array.isArray(data) ? data : []` reintroducido por
+costumbre en estos dos wrappers deshace el guard y devuelve el bug. El `throw` va
+**antes** del `putCache`, justamente para que una forma no soportada no escriba
+clave.
+
 ### 🧹 `meta.js` v3.4.0 → v3.4.1 (solo bump)
 
 El guard `LEY_LINE_ENDPOINT_RETIRED` (`f533d67`) ya estaba en `agents/main`, pero el query string de `index.html` seguía en `?v=3.4.0`: **el fix existía en el repo pero no en la app**. Cualquier navegador con el archivo cacheado seguía ejecutando el código viejo y emitiendo el request a `/v2/events` (retirado, 503).

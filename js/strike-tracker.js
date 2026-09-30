@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * js/strike-tracker.js — Seguimiento de Strike Missions
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
  * Versión: 1.0.0 (2026-06-03)
@@ -1114,7 +1114,14 @@
       state.error = error.message;
       var gridContainer = document.getElementById('strikesGrid');
       if (gridContainer) {
-        gridContainer.innerHTML = `<div class="error" style="text-align: center; padding: 40px; color: var(--color-red);">❌ Error al cargar datos de strikes: ${esc(error.message)}<br><small>Verificá que la API key tenga permiso "progression"</small></div>`;
+        // F1 del Code-Reviewer (task-b20623f46caa, follow-up 1): ver el
+        // mismo comentario en raid-tracker.js. Con el guard de FORMA de la
+        // v2.24.0, el fallo probable NO es el permiso: es la forma de la
+        // respuesta. La pista de permiso solo aplica al resto.
+        var hint = /forma no soportada/.test(error && error.message || '')
+          ? ''
+          : '<br><small>Verificá que la API key tenga permiso "progression"</small>';
+        gridContainer.innerHTML = `<div class="error" style="text-align: center; padding: 40px; color: var(--color-red);">❌ Error al cargar datos de strikes: ${esc(error.message)}${hint}</div>`;
       }
     } finally {
       state.loading = false;

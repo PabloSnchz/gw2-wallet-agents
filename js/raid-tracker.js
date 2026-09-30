@@ -1739,7 +1739,17 @@
         hideSkeleton();
         var gridContainer = document.getElementById('raidWingsGrid');
         if (gridContainer) {
-          gridContainer.innerHTML = `<div class="error" style="text-align: center; padding: 40px; color: var(--color-red);">❌ Error al cargar datos de raids: ${esc(error.message)}<br><small>Verificá que la API key tenga permiso "progression"</small></div>`;
+          // F1 del Code-Reviewer (task-b20623f46caa, follow-up 1): desde la
+          // v2.24.0 la API tambien puede rechazar por FORMA, y ese es un
+          // caso en el que el permiso esta perfecto. Sugerir siempre
+          // "verifica la key" manda a Pablo a borrar y re-agregar la key,
+          // que es el bucle hostil de ALERT-32. La primera linea ya trae el
+          // motivo real, asi que la pista de permiso solo va cuando el
+          // fallo NO es de forma.
+          var hint = /forma no soportada/.test(error && error.message || '')
+            ? ''
+            : '<br><small>Verificá que la API key tenga permiso "progression"</small>';
+          gridContainer.innerHTML = `<div class="error" style="text-align: center; padding: 40px; color: var(--color-red);">❌ Error al cargar datos de raids: ${esc(error.message)}${hint}</div>`;
         }
       } finally {
         state.loading = false;
