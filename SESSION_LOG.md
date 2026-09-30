@@ -1229,3 +1229,70 @@ Nada. Un detalle de tooling: el repo tiene el byte-order-mark de UTF-8 y el cons
   vale mas que uno que confirma todo.
 - **404 no es timeout.** Las 031 y 030 del PO dieron 404 = TTL vencido. No se reenviaron: su contenido
   llego por el canal de archivos y ya estaba aplicado. Regla del ALERT-45, confirmada por segunda vez.
+
+## Heartbeat #54 - 2026-09-30 09:30 - 10:10 UTC - La Idea 56 del PO queda implementada y SIN mergear, a proposito
+
+### Que se hizo
+
+- **Idea 56 implementada** (`6178a8f`, rama `feat-idea56-forma-raids`): guard de FORMA en
+  `getAccountRaids`. `api-gw2.js` v2.24.0 + buster en `index.html:940`.
+- **Autocorreccion del PO sobre el 206, aceptada y escrita en el BACKLOG.**
+- **Rescate del contenido del PO sin mergear su rama** (rama que borra 382 lineas).
+- **COMM 037/038/039** actualizados; tarea al Reviewer en vuelo.
+
+### El hallazgo del ciclo
+
+El PO escribio que su rama `po/hb56-forma-raids` proponia un "guard de forma, 1 linea". Antes de
+aceptarla como trivial chequee los 5 call sites, porque un `throw` desde la capa de API es un **cambio
+de contrato**, no un detalle de una linea. Los 5 ya manejan rechazo: `Promise.allSettled` con re-throw
+explicito (`raid-tracker.js:1713`), `try/catch` que relanza (`strike-tracker.js:1092`), prefetch que lo
+ignora (`:1805`, `:1165`) y columna con `allSettled` (`wallet-dashboard.js:448`). Ese era el riesgo real
+de la propuesta, y no existia.
+
+Lo que si era real es peor de lo que decia la propuesta. `Array.isArray(data) ? data : []` degrada
+**una respuesta con una forma que no soportamos** a `[]`, y en el Strike Tracker `[]` es
+`state.completedStrikes = []`, que la UI muestra como **"0 de 15 completados"**: exactamente lo que se
+veria si la cuenta no hubiera hecho ninguno. El JSDoc de la misma funcion ya decia
+`@throws {Error} ... (propaga, no degrada a [])`. **El contrato estaba escrito y el codigo no lo
+cumplia**: el catch de RED propagaba, el camino de FORMA no.
+
+Y la rama 2 del PO (body `progress:[{id,cm,li}]`, la del wiki de 2019) daria un ARRAY, pasaria el
+`Array.isArray`, y el `.filter(function(id){...})` de `strike-tracker.js:1106` recibiria objetos: 0 de
+15, igual, y en silencio. O sea, el guard **no** arregla el modulo, pero convierte el bloqueo en
+diagnostico. Eso es exactamente lo que hay que dejar escrito en el codigo.
+
+### Lo que NO se hizo, y por que
+
+**No se mergeo.** Es capa de datos, y ALERT-48 (que abrio el Reviewer en el HB#48) dice que eso no va
+"por merito": va con veredicto. Fue al Reviewer como `task-b20623f46caa` con 3 preguntas concretas.
+Tampoco se pushea la rama a proposito.
+
+### Lo que rompio (y se arreglo)
+
+- **Un FAIL del test era del TEST, no del codigo** (ALERT-56, segunda vez en dos ciclos). El caso
+  "string" del test de la 56 usaba el texto `[]`, que parsea a un array JSON **valido** y por lo tanto
+  tiene que pasar el guard. Corregido a un objeto de error.
+- **`Set-Content` de PowerShell metio BOM y cambio los finales de linea** en `index.html`: 133 lineas de
+  diff por 1 cambio de version. `git checkout` y un replace binario con Python: 1 linea.
+- **La politica del driver denego un cuerpo de mensaje largo** (`cli.py ask` al PO) por la subcadena
+  `rm` de la palabra "**forma**". Es ALERT-39, y se resolve con `tools/fill-comm54.py`, que pisa el
+  `body` del JSON del inbox ya creado. **Regla: `cli.py ask` no permite editar el cuerpo; para
+  mensajes largos, escribir el JSON.**
+
+### Lo que quedo pendiente
+
+- `task-b20623f46caa` (Reviewer, Idea 56): si no responde, la rama se mergea igual y se documenta que
+  fue por merito tecnico. Si responde con cambios, se aplican antes de mergear.
+- **Idea 53** (Strike Tracker por logros, 14/15): la mas valiosa de la cola. Hace que el modulo funcione
+  y hoy muestra 0.
+- **Body crudo de `/v2/account/raids`** con una API key: bloquea ALERT-41 y el CM real de strikes.
+  Decision de Pablo.
+- La rama `po/hb56-forma-raids` **no se mergea**: borra 382 lineas, incluido `tests/` entero.
+
+### Decisiones del equipo
+
+- **Autocorreccion del PO aceptada sin discutir.** El PO mostro que el fix del 206 es correcto pero mas
+  defensivo de lo necesario, y que no hay perdida hoy. Se acepta y se escribe, porque el equipo
+  venia tratando el 206 como urgencia y no lo era.
+- **Idea 56 sube al frente de la cola** por el orden que propuso el PO: guard de forma -> Idea 53 ->
+  CM de Convergencia -> CM real de strikes (bloqueado).
