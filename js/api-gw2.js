@@ -1,7 +1,19 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.22.0 (2026-09-30) — fix de concurrencia y nocache en el sharding
+ * Versión: 2.23.0 (2026-09-30) — lotes parciales 206 y carrera en getItemsMany
+ *   v2.23.0: la API responde 206 cuando SÓLO PARTE de los ids pedidos existen
+ *   (medido sin token: ids=1,2,3 -> 404; ids=1,2,3,4,5 -> 206 con 2; ids=all
+ *   -> 400). El 206 es un 2xx, así que `!res.ok` NO lo detectaba y el lote se
+ *   aceptaba como completo. Ahora fetchBatchWithRepair() reintenta SÓLO los ids
+ *   que faltaron, con un piso para no entrar en loop. Regla: un lote se valida
+ *   contra los IDS PEDIDOS, nunca contra el largo de la respuesta, y nunca se
+ *   rellena por posición (todos los consumidores buscan por `obj.id`).
+ *   Además, getItemsMany() resolvía desde `out`, un array local que solo muta
+ *   el llamador que ganó la carrera del inflightOnce → la segunda llamada
+ *   concurrente recibía [] sin error visible. Ahora resuelve desde la cache,
+ *   igual que getAchievementsMeta. Ese defecto ya estaba corregido en
+ *   getAchievementsMeta (Idea 49, HB#48) y nunca llegó a getItemsMany.
  *   v2.22.0: corrige 2 defectos del sharding de v2.21.0, encontrados por el
  *   Code Reviewer y reproducidos con test. (1) Dos cargas concurrentes del
  *   mismo shard en frío compartían el inflightOnce, así que sólo la primera
@@ -288,6 +300,48 @@
       if (val != null) u.searchParams.set(k, String(val));
     });
     return u.toString();
+  }
+
+  // ------------------------------------------------------------------
+  // Lotes parciales: la API responde 206 cuando SOLO PARTE de los ids
+  // pedidos existen (medido 2026-09-30 sin token):
+  //   /v2/items?ids=1,2,3      -> 404 "all ids provided are invalid"
+  //   /v2/items?ids=1,2,3,4,5  -> 206 con SOLO los 2 validos
+  //   /v2/items?ids=all        -> 400
+  // El 206 es un 2xx, asi que `!res.ok` NO lo detecta y el lote se acepta
+  // como completo. La regla es: un lote se valida contra los IDS PEDIDOS,
+  // nunca contra el largo de la respuesta.
+  //
+  // NO se rellena por posicion NUNCA. Todos los consumidores buscan por
+  // `obj.id`, asi que la posicion no importa; el dano real de no validar
+  // es el dato faltante que se cachea como si estuviera completo.
+  // ------------------------------------------------------------------
+  function missingFromBatch(requested, received) {
+    var got = Object.create(null);
+    (received || []).forEach(function (o) {
+      if (o && o.id != null) got[String(o.id)] = 1;
+    });
+    return requested.filter(function (id) { return !got[String(id)]; });
+  }
+
+  // Reintenta SOLO los ids que faltaban del 206. Con un piso de intentos
+  // para que un id genuinamente invalido no dispare un loop: si no existe
+  // en el catalogo, la API lo va a seguir tirando, y hay que devolver algo.
+  function fetchBatchWithRepair(url, requested, opts) {
+    return fetchWithRetry(url, opts).then(function (data) {
+      var arr = Array.isArray(data) ? data : [];
+      var left = missingFromBatch(requested, arr);
+      if (!left.length) return arr;
+      if (left.length === requested.length) {
+        // No se filtro nada: o el endpoint no devuelve `id`, o el lote
+        // entero fallo. No tiene sentido reintentar el mismo lote.
+        return arr;
+      }
+      var u2 = url.replace(/([?&])ids=[^&]*/, '$1ids=' + left.join(','));
+      return fetchWithRetry(u2, opts).then(function (data2) {
+        return arr.concat(Array.isArray(data2) ? data2 : []);
+      });
+    });
   }
 
   function jfetch(url, opts) {
@@ -686,7 +740,10 @@
           var ikey = 'if:' + key;
 
           return inflightOnce(ikey, function () {
-            return fetchWithRetry(url, opts).then(function (data) {
+            // Idea 49 (206 parcial): ver getItemsMany. `out` se arma con
+            // concat, asi que un id faltante no corren a nadie: el dato
+            // incorrecto no puede aparecer, solo el ausente.
+            return fetchBatchWithRepair(url, slice, opts).then(function (data) {
               var prices = Array.isArray(data) ? data : [];
               putCache(key, prices, null, TTL.COMM_PRICES);
               out = out.concat(prices);
@@ -1013,7 +1070,12 @@
         var ikey = 'if:' + key + ':' + missing.join(',');
 
         return inflightOnce(ikey, function () {
-          return fetchWithRetry(url, opts).then(function (data) {
+          // Idea 49 (206 parcial): se reintenta SOLO lo que falto. Sin esto
+          // un 206 cacheaba el shard incompleto con putCache y los ids
+          // ausentes quedaban fuera del bag hasta que venciera TTL.ACH_META:
+          // achievements.js:1069 armaba metaById incompleto, con logros sin
+          // nombre, sin icono, sin tiers y earnedAP = 0 en silencio.
+          return fetchBatchWithRepair(url, missing, opts).then(function (data) {
             (data || []).forEach(function (rec) {
               if (rec && rec.id != null) bag[rec.id] = projectAchMeta(rec);
             });
@@ -1078,7 +1140,13 @@
           var url = withParams(CFG.API_BASE + '/v2/items', { ids: slice.join(','), lang: CFG.LANG });
           var ikey = 'if:items:' + CFG.LANG + ':' + slice.join(',');
           return inflightOnce(ikey, function () {
-            return fetchWithRetry(url, opts).then(function (arr) {
+            // Idea 49 (206 parcial): el 206 es un 2xx, asi que `!res.ok` NO lo
+            // ve. Sin reintentar lo que falto, un id invalido intercalado en
+            // el lote dejaba ese item sin icono en el render, y como no se
+            // cachea, el siguiente render lo volvia a pedir y recien ahi
+            // aparecia. El consumidor busca por `it.id`, asi que no hay
+            // corrimiento de posiciones: el dano es de dato faltante.
+            return fetchBatchWithRepair(url, slice, opts).then(function (arr) {
               (arr || []).forEach(function (it) {
                 out.push(it);
                 per[String(it.id)] = { ts: now(), val: it };
@@ -1092,16 +1160,45 @@
     }
 
     return chain.then(function () {
-      // Cap de 500 entradas: eliminar los 100 más viejos si se excede
-      var keys = Object.keys(per);
+      // La resolucion final se arma desde la cache, NO desde `out` ni desde
+      // `per`. Los dos son locales de esta llamada, y el producer de cada
+      // lote se COMPARTE por inflightOnce entre llamadas concurrentes del
+      // mismo id-set: solo la primera muta sus arrays, y la segunda resuelve
+      // contra los suyos, que quedaron vacios -> [] sin ningun error visible.
+      // Es el mismo defecto que se corrigio en getAchievementsMeta (el
+      // BUG 1 de idea49.shard-concurrency.test.js), que nunca llego aqui.
+      // Ademas escribir `per` desde el final pisaba el del otro con un
+      // objeto vacio. Releyendo, quien llego segundo ve lo que escribio el
+      // primero, y el cap de 500 se aplica sobre el estado combinado.
+      var cur = lsGet(lkey);
+      var fresh = (cur && cur.data && typeof cur.data === 'object') ? cur.data : {};
+      // Se siembra con `per` (los aciertos de cache de la entrada) y se
+      // superpone `fresh` (lo que escribieron los producers). `per` solo esta
+      // completo si esta llamada gano la carrera del inflight; `fresh` solo
+      // tiene lo que se escribio durante ESTA invocacion. La union de los dos
+      // es lo que la resolucion necesita.
+      var perNow = Object.assign({}, per, fresh);
+
+      var keys = Object.keys(perNow);
       if (keys.length > 500) {
-        var sorted = keys.sort(function(a, b) {
-          return (per[a]?.ts || 0) - (per[b]?.ts || 0);
+        var sorted = keys.sort(function (a, b) {
+          return (perNow[a]?.ts || 0) - (perNow[b]?.ts || 0);
         });
-        sorted.slice(0, keys.length - 400).forEach(function(k) { delete per[k]; });
+        sorted.slice(0, keys.length - 400).forEach(function (k) { delete perNow[k]; });
       }
-      lsSet(lkey, { ts: now(), data: per });
-      return out;
+      lsSet(lkey, { ts: now(), data: perNow });
+
+      // Se resuelve en el orden en que pidieron los ids, deduplicado por id,
+      // e incluyendo lo que ya estaba cacheado al entrar.
+      var seen = Object.create(null);
+      var res = [];
+      ids.forEach(function (id) {
+        var c = perNow[String(id)];
+        if (!c || !opts.nocache && !isFresh(c, TTL.ITEMS)) return;
+        var v = c.val;
+        if (v && v.id != null && !seen[v.id]) { seen[v.id] = 1; res.push(v); }
+      });
+      return res;
     });
   }
 
