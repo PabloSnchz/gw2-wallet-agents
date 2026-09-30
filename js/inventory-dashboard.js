@@ -289,11 +289,13 @@
         return { name: activeChar, bags: [] };
       } finally {
         clearTimeout(t2);
+        c2.abort();
       }
     } catch(e) {
       return { name: null, bags: [] };
     } finally {
       clearTimeout(t1);
+      c1.abort();
     }
   }
 
