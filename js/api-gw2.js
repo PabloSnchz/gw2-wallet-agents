@@ -1,7 +1,18 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.21.0 (2026-09-30) — sharding de la cache de logros (Idea 49 Tramo C)
+ * Versión: 2.22.0 (2026-09-30) — fix de concurrencia y nocache en el sharding
+ *   v2.22.0: corrige 2 defectos del sharding de v2.21.0, encontrados por el
+ *   Code Reviewer y reproducidos con test. (1) Dos cargas concurrentes del
+ *   mismo shard en frío compartían el inflightOnce, así que sólo la primera
+ *   mutaba su bag local y la segunda resolvía contra {} → devolvía [] y
+ *   achievements.js quedaba con logros sin nombre, icono ni tiers, y earnedAP
+ *   en 0 sin ningún error. Ahora la resolución final relee el shard del caché.
+ *   (2) nocache devolvía null de getCache → bag vacío → putCache pisaba el
+ *   shard entero con el subconjunto de una sola cuenta. Ahora el bag se lee
+ *   siempre y se mergea: un shard es compartido por todas las cuentas.
+ *   Además poda los 5 campos que la API manda y NADIE lee (bits, requirement,
+ *   locked_text, prerequisites, point_cap) ANTES de guardar.
  *   v2.21.0: getAchievementsMeta() cachea por SHARD (id//200) en vez de por
  *   id-set. La key vieja llevaba el id-set entero dentro del nombre, así que
  *   cada cuenta guardaba su propia copia de la misma tabla: con 27 cuentas,
@@ -10,6 +21,17 @@
  *   que el ahorro de cuota no se paga con peticiones. Migra (borra) las keys
  *   viejas en el primer uso: sin eso no se libera nada, porque la cuota ya
  *   está llena. Ver ALERT-47 y BACKLOG.md Idea 49 Tramo C.
+ *
+ *   ⚠️ Cifras de la v2.21.0: las tres versiones que circulaban (18 claves /
+ *   1.71 MB en el header, "35 shards, 3.58 MB" en el commit, 18.64 MB → 1.85 MB
+ *   en 40 claves en la corrida del test) NO reproducen con datos reales.
+ *   Medido contra la API en vivo (tools/idea49c-measure.mjs, 3458 logros,
+ *   lang=es, 27 cuentas × ~1500 logros solapados, cuota 4.98 MB):
+ *     patrón viejo (key por id-set): 20.22 MB
+ *     sharding, sin podar:           1.75 MB en 20 claves (35.2% de la cuota)
+ *     sharding, podando 5 campos:    0.81 MB en 20 claves (16.4% de la cuota)
+ *   El sharding sigue siendo necesario (sin él la cuota se excede ~4×), pero
+ *   por sí solo NO cierra el problema: `ach_acc` es la otra mitad.
  *   v2.20.0: lsSet() ya no se traga los errores con catch vacío. Devuelve
  *   booleano, cuenta los QuotaExceededError y avisa una sola vez. La cuota de
  *   localStorage (~4.98 MB) es compartida por TODOS los módulos, así que
@@ -903,6 +925,32 @@
   var ACH_META_SHARD = 200;
   var __achMetaPurged = false;
 
+  // Campos que la API manda y la aplicacion NO lee. Se podan ANTES de
+  // guardar, no al leer: dropearlos en el consumidor no ahorra un byte en
+  // disco, que es justo lo que se esta intentando liberar.
+  //
+  // Verificado con grep sobre TODO js/: cero apariciones de .bits,
+  // .requirement, .locked_text, .prerequisites y .point_cap. El unico
+  // consumidor es achievements.js:1067 -> metaById, y de cada registro solo
+  // usa id, name, icon, description, flags, tiers, rewards y type.
+  // 'type' NO se poda: achievements.js:527 lo lee.
+  //
+  // Medido contra la API en vivo (3458 logros reales, lang=es, 27 cuentas x
+  // ~1500 logros solapados, cuota 4.98 MB): la metadata cacheada baja de
+  // 1.75 MB (35.2% de la cuota) a 0.81 MB (16.4%). Los 3458 logros tienen al
+  // menos uno de estos campos.
+  var ACH_META_DROP = ['bits', 'requirement', 'locked_text', 'prerequisites', 'point_cap'];
+
+  function projectAchMeta(rec) {
+    if (!rec || rec.id == null) return rec;
+    var out = {};
+    var keys = Object.keys(rec);
+    for (var i = 0; i < keys.length; i++) {
+      if (ACH_META_DROP.indexOf(keys[i]) === -1) out[keys[i]] = rec[keys[i]];
+    }
+    return out;
+  }
+
   // Las keys viejas ('ach_meta_v2:<lang>:<id,id,...>') siguen ocupando cuota
   // hasta que se borran, y sin liberarlas el sharding NO ABRE NADA: la cuota
   // ya esta llena, asi que las keys nuevas no entran. Por eso la migracion va
@@ -938,18 +986,26 @@
       arr.push(id);
     });
 
-    var bags = new Map();
     var chain = Promise.resolve();
 
     byShard.forEach(function (shardIds, shard) {
       chain = chain.then(function () {
         var key = 'ach_meta_v3:' + CFG.LANG + ':' + shard;
-        var cached = getCache(key, TTL.ACH_META, null, opts.nocache);
-        var bag = (cached && typeof cached === 'object' && !Array.isArray(cached)) ? cached : {};
-        bags.set(shard, bag);
 
-        // Solo lo que NO esta guardado todavia.
-        var missing = shardIds.filter(function (id) { return bag[id] == null; });
+        // El bag se lee SIEMPRE, incluso con nocache, y siempre se mergea
+        // sobre lo que habia. Un shard es compartido por todas las cuentas
+        // (el shard depende del id, no de quien lo pide): pisarlo con el
+        // subconjunto de una sola cuenta dejaria al resto sin metadata, y el
+        // siguiente lector tendria que volver a pedirla. nocache significa
+        // "refresca lo que te pido", NO "olvida lo que ya sabes".
+        var cached = getCache(key, TTL.ACH_META, null, false);
+        var bag = (cached && typeof cached === 'object' && !Array.isArray(cached)) ? cached : {};
+
+        // Solo lo que NO esta guardado todavia. Con nocache se vuelve a pedir
+        // lo pedido, pero igual encima del bag existente.
+        var missing = opts.nocache
+          ? shardIds.slice()
+          : shardIds.filter(function (id) { return bag[id] == null; });
         if (!missing.length) return;
 
         var url = withParams(CFG.API_BASE + '/v2/achievements?v=latest',
@@ -959,7 +1015,7 @@
         return inflightOnce(ikey, function () {
           return fetchWithRetry(url, opts).then(function (data) {
             (data || []).forEach(function (rec) {
-              if (rec && rec.id != null) bag[rec.id] = rec;
+              if (rec && rec.id != null) bag[rec.id] = projectAchMeta(rec);
             });
             putCache(key, bag, null, TTL.ACH_META);
           });
@@ -969,11 +1025,21 @@
 
     // Se resuelve en el orden en que pidieron los ids, no en el orden en que
     // llegaron los shards, y deduplicado por id.
+    //
+    // El bag se RELEE del cache y no se usa el objeto local. Dos cargas
+    // concurrentes del mismo shard en frio comparten el inflightOnce, asi que
+    // solo la primera muta su bag local; la segunda resolveria contra un {}
+    // y devolveria [] —y achievements.js:1069 armaria metaById incompleto,
+    // con earnedAP en 0 y sin ningun error visible. Releer garantiza que quien
+    // llego segundo vea lo que escribio quien llego primero.
     return chain.then(function () {
       var out = [], seen = Object.create(null);
       ids.forEach(function (id) {
-        var bag = bags.get(Math.floor(Number(id) / ACH_META_SHARD));
-        var rec = bag && bag[id];
+        var shard = Math.floor(Number(id) / ACH_META_SHARD);
+        var key = 'ach_meta_v3:' + CFG.LANG + ':' + shard;
+        var bag = getCache(key, TTL.ACH_META, null, false);
+        if (!bag || typeof bag !== 'object') return;
+        var rec = bag[id];
         if (rec && !seen[rec.id]) { seen[rec.id] = 1; out.push(rec); }
       });
       return out;

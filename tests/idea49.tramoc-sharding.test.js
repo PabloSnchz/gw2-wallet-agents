@@ -259,6 +259,24 @@ const legacyBytes = (() => {
      Array.isArray(meta.rewards) && meta.type,
      'conserva los 8 campos que achievements.js SI lee (tiers/flags/rewards/description/name/icon/type/id)');
 
+  // -------------------------------------------------------------------------
+  // [4b] Los campos que NADIE lee no se guardan. El ahorro tiene que estar en
+  //      disco: podarlos al leer no libera un byte de la cuota.
+  // -------------------------------------------------------------------------
+  console.log('\n[4b] Los 5 campos que nadie lee se podan al GUARDAR');
+  const m4b = mount();
+  await m4b.api.getAchievementsMeta([7], {});
+  const guardado = JSON.parse(m4b.store.get('ach_meta_v3:es:0')).data['7'];
+  ['bits', 'requirement', 'locked_text', 'prerequisites', 'point_cap'].forEach(function (k) {
+    ok(!(k in guardado), 'no guarda el campo "' + k + '"');
+  });
+  ok('type' in guardado, 'pero SI guarda "type" (achievements.js:527 lo lee)');
+  ['id', 'name', 'icon', 'description', 'flags', 'tiers', 'rewards', 'type'].forEach(function (k) {
+    ok(k in guardado, 'sigue guardando "' + k + '"');
+  });
+  const conDrop = m4b.bytes();
+  ok(conDrop < 400, 'el registro cacheado pesa menos de 400 B sin los campos muertos (obtenido: ' + conDrop + ' B)');
+
   // Id invalido: no debe romper el shard entero.
   console.log('\n[5] Un id que no existe no rompe el shard');
   const m5 = mount();
