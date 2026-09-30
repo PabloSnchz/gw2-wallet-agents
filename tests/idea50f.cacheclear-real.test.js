@@ -293,7 +293,12 @@ const p2 = mount();
 p2.store.set('wv_season', '{}');
 p2.store.set('wv_account_v2:abcd.1234', '{}');
 p2.store.set('wv_obj_meta:es:0,500', '{}');
-p2.sandbox.WizardsVault = { __cacheBases: { exact: ['wv_season', 'wv_account_v2'], prefix: ['wv_obj_'] } };
+// El registro es GLOBAL: el modulo se anota a si mismo con un push, y la capa
+// recorre la lista sin nombrarlo. Antes (P2 del Reviewer) la capa hacia
+// `if (root.WizardsVault)`, o sea que la lista de MODULOS si estaba central.
+p2.sandbox.__cacheBaseProviders = [
+  { __cacheBases: { exact: ['wv_season', 'wv_account_v2'], prefix: ['wv_obj_'] } }
+];
 const r2b = p2.sandbox.GW2Api.__cacheClear();
 eq(r2b.removed, 3, 'declaradas DESPUES de cargar la capa, las 3 se borran: el registro se lee al pulsar');
 eq(p2.store.size, 0, 'no queda ninguna de las declaradas');
@@ -370,16 +375,66 @@ ok(bases.prefix.indexOf('items_cache_v1:') !== -1,
 
 // (f) LA RED: la persistencia de temporada no es cache. Hoy ningun prefijo la
 // alcanza, asi que esta seccion verifica el ORIGEN del peligro y no un
-// resultado: si alguien agrega el prefijo corto `wv`, `wv:season:index` y
-// `wv:season:current` se comen los pines y los marks del usuario. Por eso van
-// en `CACHE_PRESERVE` y por eso la excepcion se evalua ANTES que los prefijos.
-const wvPreserve = ['wv:season:index', 'wv:season:current'];
+// resultado: si alguien agrega el prefijo corto `wv`, las 4 familias de
+// `wv-season-storage.js` se comen los pines y los marks del usuario. Por eso va
+// en `CACHE_PRESERVE_PREFIX` como PREFIXO y no como 2 claves exactas: el modulo
+// tiene 4 familias, no 2, y con exactas la red tenia agujeros justo en el modo
+// al que el codigo esta EXPERIMENTADO a migrar (`SINGLE_SEASON_MODE=false`).
+//
+// Las 4, verificadas contra el archivo real (`wv-season-storage.js:26-30`):
+//   KEY_INDEX      `wv:season:index`       (single-season y multi)
+//   CURRENT_KEY    `wv:season:current`      (single-season)
+//   FILE_PREFIX    `wv:season:YY:SEQ`       (multi-season)
+//   SHADOW_SUFFIX  `wv:season:*.__shadow`   (escritura atomica)
+const wvPreserve = [
+  'wv:season:index',
+  'wv:season:current',
+  'wv:season:2024:1',            // multi-season: la que la red de exactas no cubria
+  'wv:season:current.__shadow'   // la transversoria: se borra en el mismo ciclo, pero existe
+];
 const p4 = mount();
 wvPreserve.forEach(k => p4.store.set(k, '{"season_info":1,"keys":{}}'));
-p4.sandbox.WizardsVault = { __cacheBases: { exact: [], prefix: ['wv'] } };  // el prefijo peligroso
+p4.sandbox.__cacheBaseProviders = [{ __cacheBases: { exact: [], prefix: ['wv'] } }];  // el prefijo peligroso
 const r4 = p4.sandbox.GW2Api.__cacheClear();
 eq(r4.removed, 0, 'con el prefijo corto `wv`, PRESERVE gana y la persistencia no se borra');
 wvPreserve.forEach(k => ok(p4.store.has(k), 'sigue presente pese al prefijo que la alcanzaba: ' + k));
+eq(p4.store.size, wvPreserve.length, 'las 4 familias de wv:season: sobreviven, no 2');
+
+// (g) El REGISTRO es global: la capa API no nombra ningun modulo (P2 del
+// Reviewer). Con `if (root.WizardsVault)` la lista de MODULOS quedaba central
+// igual, y cada modulo nuevo era una edicion mas de `api-gw2.js`: eso es una
+// lista central con otro nombre, y contradecía el principio que escribi en el
+// commit. Ahora el costo de agregar un modulo es 1 linea en el modulo.
+//
+// La asercion esta ACOTADA al cuerpo de `collectCacheBases`, que es donde vive
+// el registro, y NO al archivo entero: `api-gw2.js` si nombra `WizardsVault` en
+// la seccion de delegacion WV (`_WV()`, linea ~1658), que es el contrato de
+// retrocompatibilidad y no tiene nada que ver con la cache. Escribirla sobre el
+// archivo entero hacia fallar por una razon correcta, que es la trampa de
+// medir mas de lo que el invariante dice.
+const srcApi = fs.readFileSync(path.join(ROOT, 'js', 'api-gw2.js'), 'utf8');
+const collectBody = (srcApi.match(/function collectCacheBases\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+ok(collectBody.indexOf('__cacheBaseProviders') !== -1,
+  'la capa recorre el registro global __cacheBaseProviders');
+ok(collectBody.indexOf('WizardsVault') === -1,
+  'la LECTURA DEL REGISTRO no nombra ningun modulo: sin "WizardsVault" en collectCacheBases()');
+ok(srcWV.indexOf('__cacheBaseProviders') !== -1,
+  'el modulo se anota a si mismo en el registro global, con su propia linea');
+
+// (h) El registro se COLECTA UNA VEZ por clic, no por clave (P3 del Reviewer).
+// `isCacheKey` corre una vez por cada clave de localStorage (~4.98 MB medidos):
+// colectar adentro serian 2 arrays nuevos (`slice()`) + 23 `indexOf` POR clave,
+// en el unico loop que recorre el store entero. El momento del clic lo decide
+// `cacheClear`, que la colecta al empezar: por eso esto no rompe el "se lee al
+// pulsar" que (b) mide.
+const isCacheBody = (srcApi.match(/function isCacheKey\([^)]*\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+const sig = srcApi.match(/function isCacheKey\(([^)]*)\)/);
+ok(!!sig && sig[1].indexOf('bases') !== -1,
+  'isCacheKey recibe el registro por parametro: ' + (sig ? '(' + sig[1] + ')' : 'no encontrada'));
+ok(isCacheBody.indexOf('collectCacheBases') === -1,
+  'isCacheKey NO colecta por clave (serian 2 arrays + 23 indexOf POR clave del store)');
+ok(/var bases = collectCacheBases\(\);[\s\S]{0,200}localStorage\.key\(/.test(srcApi),
+  'cacheClear colecta el registro UNA vez, antes del loop que recorre el store');
 
 console.log('\n' + (fail === 0 ? 'TODO OK' : 'HAY FALLOS') + ' — ' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);

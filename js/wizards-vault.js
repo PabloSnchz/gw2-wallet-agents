@@ -603,8 +603,9 @@
     //   1. el boton de limpiar cache no las podia borrar, y
     //   2. un grep sobre `putCache` no las veia, asi que el test de la 50F
     //      daba verde con la cache del WV sin cubrir.
-    // Las declara el modulo que las escribe y no una lista central, asi que el
-    // inventario se mantiene solo y `api-gw2.js` no tiene que saber de WV.
+    // Las declara el modulo que las escribe, y se anota SOLO en el registro
+    // global de una linea de abajo. `api-gw2.js` no nombra ningun modulo: lo
+    // que se movio aca fue la lista de BASES, no la lista de modulos.
     //
     // `exact` matchea la clave o la clave seguida de `:` (esta capa sufija con
     // `:<fpToken>`, ver `kLS`). `prefix` matchea por inicio.
@@ -689,6 +690,13 @@
 
   // ----------------------------- Integración con GW2Api (contrato v1.1.0) -----------------------------
   root.WizardsVault = WizardsVault;
+
+  // Idea 50 P3: se anota en el registro global de proveedores de cache. Es la
+  // UNICA linea que cuesta agregar un modulo: la capa API recorre
+  // `root.__cacheBaseProviders` y no nombra ningun modulo, asi que no hay lista
+  // central que mantener. La declaracion es estatica (esta arriba, en el
+  // objeto) y la LECTURA sigue siendo al pulsar, en `collectCacheBases()`.
+  (root.__cacheBaseProviders = root.__cacheBaseProviders || []).push(WizardsVault);
 
   if (root.GW2Api) {
     var ap = root.GW2Api;

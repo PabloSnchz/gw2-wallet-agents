@@ -14,11 +14,18 @@
  *   pestaña de WV, el `dryRun` del `confirm()` contaría 0 bytes y prometería una
  *   liberación que no ocurre, que es el bug que la v2.29.0 vino a arreglar.
  *   Leerlo al cargar ataría el borrado al orden de `index.html`.
- *   Cada módulo declara lo suyo (`WizardsVault.__cacheBases`), así que el
- *   inventario no es una lista que haya que mantener a mano.
- *   `CACHE_PRESERVE` protege `wv:season:index` y `wv:season:current`, que son
- *   la PERSISTENCIA oficial de temporada y no cache: un prefijo corto como `wv`
+ *   Cada módulo declara lo suyo (`__cacheBases`) y se anota SOLO en el registro
+ *   global `root.__cacheBaseProviders`, con una línea. Esta capa NO nombra
+ *   ningún módulo: si los nombrara, la lista de módulos seguiría siendo central
+ *   y cada módulo nuevo sería una edición más de este archivo.
+ *   `CACHE_PRESERVE_PREFIX` protege `wv:season:` como PREFIXO (no 2 claves
+ *   exactas): son las 4 familias de `wv-season-storage.js` —`wv:season:index`,
+ *   `wv:season:current`, `wv:season:YY:SEQ` y `wv:season:*.__shadow`—, que son
+ *   la PERSISTENCIA oficial de temporada y no cache. Un prefijo corto como `wv`
  *   se las comería. Se evalúan ANTES que los prefijos, para que sean una red.
+ *   El registro se colecta UNA VEZ por clic y se pasa a `isCacheKey(k, bases)`:
+ *   por clave serían 2 arrays nuevos + 23 `indexOf` en el loop que recorre todo
+ *   el store.
  *   MEDIDO: 18 bases de esta capa + 5 del WV = 23 (no 22: el recuento del
  *   Reviewer decía 6 declaraciones de WV donde hay 5). `GW2Api.__cacheBases()`
  *   expone el registro en solo lectura, para que el alcance sea medible y no
@@ -1721,44 +1728,51 @@
   //     `<script>` de `index.html`.
   // Leyendolo al pulsar, las dos cosas quedan bien sin depender de ninguna.
   //
-  // Cada modulo declara sus bases junto a la cache que define y expone
-  // `__cacheBases`, asi que el inventario no es una lista que hay que mantener
-  // sincronizada a mano. `wizards-vault.js` es el primero: tiene su propio
-  // `lsSet` FUERA de esta capa, que era el punto ciego que el grep no veía.
+  // Cada modulo declara sus bases junto a la cache que define y se ANOTA SOLO en
+  // `root.__cacheBaseProviders` (una linea, al final de su propio IIFE). Esta
+  // capa NO nombra ningun modulo: leer un modulo por su nombre aca seria una
+  // lista central de modulos disfrazada de registro, y cada modulo nuevo seria
+  // una edicion mas de este archivo. Agregar un modulo = 1 linea en el modulo,
+  // 0 en la capa. `wizards-vault.js` es el primero: tiene su propio `lsSet`
+  // FUERA de esta capa, que era el punto ciego que el grep no veía.
   //
   // MEDIDO: 18 bases de esta capa (14 exactas + 4 prefijos) + 5 del WV
   // (4 exactas + 1 prefijo) = 23. No son 22: el conteo del Reviewer decia 6
   // declaraciones de WV donde hay 5.
   function collectCacheBases() {
     var bases = { exact: CACHE_KEYS_EXACT.slice(), prefix: CACHE_KEYS_PREFIX.slice() };
-    var mods = [];
     // Se leen en el momento de la llamada, no al cargar: asi el orden de
-    // `index.html` es irrelevante.
-    try { if (root.WizardsVault && root.WizardsVault.__cacheBases) mods.push(root.WizardsVault); } catch (_) {}
+    // `index.html` es irrelevante. `|| []` porque ningun modulo puede haber
+    // hecho push todavia.
+    var mods = root.__cacheBaseProviders || [];
     for (var i = 0; i < mods.length; i++) {
-      var d = mods[i].__cacheBases || {};
+      var d = mods[i] && mods[i].__cacheBases;
+      if (!d) continue;
       var ex = d.exact || [], pf = d.prefix || [];
       for (var j = 0; j < ex.length; j++) if (bases.exact.indexOf(ex[j]) === -1) bases.exact.push(ex[j]);
       for (var m = 0; m < pf.length; m++) if (bases.prefix.indexOf(pf[m]) === -1) bases.prefix.push(pf[m]);
     }
     return bases;
   }
-  // Claves que NO son cache y que ningun prefijo puede comerse.
+  // Prefijos que NO son cache y que ningun prefijo de cache puede comerse.
   //
-  // `wv:season:index` y `wv:season:current` son la PERSISTENCIA oficial de
-  // temporada (`wv-season-storage.js`: season_info, pins, marks, prefs), no una
-  // cache: borrarlas es perder lo que el usuario marco a mano. Hoy ningun
-  // prefijo declarado las alcanza, asi que esta lista no cambia el resultado:
-  // es la RED. El borde peligroso esta a un centimetro, y es un prefijo corto:
-  // `wv` se las comeria a las dos. La asercion que lo ata vive en el test, y
-  // falla si alguien agrega un prefijo corto sin agregar la excepcion aqui.
-  var CACHE_PRESERVE = [
-    'wv:season:index',
-    'wv:season:current'
-  ];
+  // `wv:season:` es la PERSISTENCIA oficial de temporada (`wv-season-storage.js`:
+  // season_info, pins, marks, prefs), no una cache: borrarla es perder lo que el
+  // usuario marco a mano. Va como PREFIXO y no como 2 claves exactas porque el
+  // modulo tiene 4 familias, no 2, y 3 de ellas no existian todavia:
+  //   - `wv:season:index`   (KEY_INDEX)
+  //   - `wv:season:current`  (CURRENT_KEY, single-season)
+  //   - `wv:season:YY:SEQ`   (FILE_PREFIX, multi-season, `SINGLE_SEASON_MODE=false`)
+  //   - `wv:season:*.__shadow` (SHADOW_SUFFIX, escritura atomica)
+  // Hoy el riesgo es cero: ningun prefijo de cache empieza por `wv`. Por eso
+  // esto es la RED y no una nota: el dia que alguien declare el prefijo corto
+  // `wv`, las 4 familias se comen de una y esto las salva. Una red con agujeros
+  // en el modo al que el codigo esta EXPERIMENTADO a migrar no es la red que
+  // dice ser.
+  var CACHE_PRESERVE_PREFIX = ['wv:season:'];
   function isPreserved(k) {
-    for (var i = 0; i < CACHE_PRESERVE.length; i++) {
-      if (k === CACHE_PRESERVE[i]) return true;
+    for (var i = 0; i < CACHE_PRESERVE_PREFIX.length; i++) {
+      if (k.lastIndexOf(CACHE_PRESERVE_PREFIX[i], 0) === 0) return true;
     }
     return false;
   }
@@ -1766,13 +1780,17 @@
   // forma real en localStorage es `wallet:abcd…wxyz`. Por eso el match de las
   // exactas tiene que tolerar el sufijo, pero NO cualquier cosa: tiene que
   // ser la key exacta sola, o la key exacta seguida de `:`.
-  function isCacheKey(k) {
+  // `bases` se COLECTA UNA VEZ y se pasa por parametro, en vez de.collectarlo
+  // adentro. Con ~4.98 MB esto son 2 arrays nuevos (`slice()`) + 23 `indexOf`
+  // POR CADA clave de localStorage, y es el unico loop que recorre el store
+  // entero. No rompe la invariante "se lee al pulsar": el que decide el momento
+  // es `cacheClear`, que la colecta una vez al empezar el clic.
+  function isCacheKey(k, bases) {
     if (typeof k !== 'string' || !k) return false;
     // Lo preservado se descarta PRIMERO: si un prefijo lo alcanzara, la
-    // excepcion gana. Es el orden que hace que `CACHE_PRESERVE` sea una red y
-    // no una nota.
+    // excepcion gana. Es el orden que hace que `CACHE_PRESERVE_PREFIX` sea una
+    // red y no una nota.
     if (isPreserved(k)) return false;
-    var bases = collectCacheBases();
     for (var i = 0; i < bases.prefix.length; i++) {
       if (k.lastIndexOf(bases.prefix[i], 0) === 0) return true;
     }
@@ -1817,9 +1835,13 @@
       // se saltean claves.
       var doomed = [];
       var before = localStorage.length;
+      // El registro se lee UNA vez al empezar el clic (ver `isCacheKey`), no
+      // por clave: leerlo adentro seria 2 arrays nuevos + 23 `indexOf` por cada
+      // clave del store.
+      var bases = collectCacheBases();
       for (var i = 0; i < before; i++) {
         var k = localStorage.key(i);
-        if (!isCacheKey(k)) { kept++; continue; }
+        if (!isCacheKey(k, bases)) { kept++; continue; }
         doomed.push(k);
         try { bytes += (localStorage.getItem(k) || '').length; } catch (_) {}
       }
