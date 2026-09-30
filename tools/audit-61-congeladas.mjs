@@ -127,6 +127,32 @@ for (const { legacy, gn } of pares) {
   filas.push({ gn, legacy, clase, escLegacyW, escLegacyR, escGNW, escGNR });
 }
 
+/* ── Los pares ESPEJO (MIRROR_MAP), contados SIEMPRE ────────────────────────
+ *
+ * NO se arman desde `filas`. `filas` se saltea un par cuando nadie lo nombra
+ * (`if (!escLegacyW.length && !escGNR.length && ...) continue`), y un par
+ * espejo sin escritores ni lectores desapareceria del agregado justo cuando
+ * es el que mas importa. El agregado sale de MIRROR_MAP directo.
+ *
+ * Y el par se arma leyendo MIRROR_MAP, no MIGRATION_PREFIXES: hasta hoy las 4
+ * gn: de MIRROR_MAP caian dentro de MIGRATION_PREFIXES POR COINCIDENCIA. Si
+ * manana una sale, el par desaparece de aqui y el `ESCRITORES CRUDOS: 0`
+ * seguiria en verde sin mirar nada. La asercion que ata las dos cosas vive en
+ * tests/idea61-claves-congeladas.test.js (pieza 3), no aca: el audit no se
+ * autovigila.
+ */
+const mStartM = storage.indexOf('const MIRROR_MAP = {');
+const espejo = [...storage.slice(mStartM, mStartM + 1200)
+  .matchAll(/'(gn:[^']+)':\s*'([^']+)'/g)]
+  .map(m => ({ gn: m[1], legacy: m[2] }));
+
+const suma = (metodo, campo) => espejo.reduce(
+  (n, p) => n + corpus.filter(c => usaCrudo(c, metodo, p[campo])).length, 0);
+
+const escLegW = suma('setItem', 'legacy');   // escribe la legacy a pelo, fuera de Storage
+const escLegR = suma('getItem', 'legacy');   // lee la legacy a pelo (esto es lo normal)
+const escGnR  = suma('getItem', 'gn');       // lee la gn: a pelo, saltandose Storage
+
 const orden = { CONGELADA: 0, 'DUAL-WRITE': 1, 'SOLO-LEGACY': 2 };
 filas.sort((a, b) => orden[a.clase] - orden[b.clase] || a.gn.localeCompare(b.gn));
 
@@ -142,3 +168,22 @@ for (const f of filas) {
 }
 console.log('CONGELADAS: ' + n.CONGELADA + ' | DUAL-WRITE: ' + n['DUAL-WRITE'] +
             ' | SOLO-LEGACY: ' + n['SOLO-LEGACY']);
+
+/* El invariante de los pares ESPEJO, en la forma que CIERRA la puerta a la 49D.
+ *
+ * NO es "si y solo si NADIE escribe por afuera". `_resyncMirrors` existe
+ * justamente para tolerar escritores externos: si un modulo escribe la legacy a
+ * pelo, el espejo se refresca igual en el siguiente arranque. O sea que el
+ * espejo se mantiene AUNQUE alguien escriba por afuera, y la palabra "solo"
+ * Describe algo que el codigo no promete.
+ *
+ * Lo que SI es cierto por construccion, y es lo que la 49D necesita: la gn: se
+ * mantiene para todo LECTOR que pase por Storage, haya o no escritor crudo
+ * (Storage.get lee la legacy primero). Y lo que hay que FORBIDAR no es el
+ * escritor crudo de la legacy — que es el que hoy escribe, y sin el la lista de
+ * cuentas se pierde — sino el LECTOR CRUDO de la gn:, que es el unico que se
+ * saltaria el espejo. Los dos cuentan 0.
+ */
+console.log('ESCRITORES CRUDOS (legacy espejo): ' + escLegW +
+            ' | LECTORES CRUDOS (legacy espejo): ' + escLegR +
+            ' | LECTORES CRUDOS (gn: espejo): ' + escGnR);
