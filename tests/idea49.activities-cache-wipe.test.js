@@ -87,8 +87,15 @@ ok(/var key = 'ach_meta_v3:' \+ CFG.LANG \+ ':' \+ shard;/.test(apiSrc),
    "getAchievementsMeta usa baseKey 'ach_meta_v3:' + lang + ':' + shard");
 ok(/ACH_META:\s+12 \* 60 \* 60 \* 1000/.test(apiSrc), 'TTL.ACH_META = 12 h (la entrada mas cara)');
 ok(/ACH_ACC:\s+2 \* 60 \* 1000/.test(apiSrc), 'TTL.ACH_ACC = 2 min');
-ok(/var missing = shardIds\.filter\(function \(id\) \{ return bag\[id\] == null; \}\);/.test(apiSrc),
+// El camino normal solo pide lo que falta del shard. Con nocache se vuelve a
+// pedir lo pedido, pero mergeado sobre el bag existente (fix del BUG 2 del
+// HB#48: nocache no puede encoger un shard compartido).
+ok(/var missing = opts\.nocache[\s\S]{0,160}?shardIds\.filter\(function \(id\) \{ return bag\[id\] == null; \}\)/.test(apiSrc),
    'de un shard ya guardado solo se pide lo que falta (el sharding no degrada la cache)');
+ok(/opts\.nocache\s*\?\s*shardIds\.slice\(\)/.test(apiSrc),
+   'con nocache se re-pide lo pedido, pero el bag se mergea y no se pisa el shard');
+ok(/var cached = getCache\(key, TTL\.ACH_META, null, false\);/.test(apiSrc),
+   'el bag se lee SIEMPRE para poder mergear, incluso con nocache');
 
 // ── 4. Router: cuantas veces se llega a activate() por navegacion ───────────
 console.log('\n[4] router.js llama Activities.activate() al entrar a #/activities');
