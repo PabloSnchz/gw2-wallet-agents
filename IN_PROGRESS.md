@@ -47,3 +47,10 @@
 2. Cuando una rama se mergea a main → se mueve a READY_FOR_PROMOTION.md.
 3. Cuando una rama se descarta → se elimina de esta lista.
 4. **Nunca mergear el tip de una rama atrasada.** Todas las ramas de este tabla estan 9-144 commits detras de `agents/main`; un `git merge` borraria trabajo mas nuevo (`homestead-tracker.js`, `luck-curve.js`, `fractal-tracker-theme.js`, 567 lineas de `wallet-dashboard.js`). Usar `git cherry-pick <commit>`.
+
+- **`fix-idea50p3-registro-estatico`** — **MERGEADA en `main` (HB#67, fast-forward).**
+  Veredicto `task-19ca4a2448b8`: APROBADO CON CAMBIOS; los 4 cambios en `0d1d0aa`.
+  Registro global `__cacheBaseProviders`, red `wv:season:` como prefijo (4 familias,
+  no 2), `collectCacheBases()` colectada 1 vez por clic, y el runner con el 4o
+  formato (fin de la 2a fuente de verdad). Suite 694/0 en 27 de 27. La rama se
+  puede borrar.

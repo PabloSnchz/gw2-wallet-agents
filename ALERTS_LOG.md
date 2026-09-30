@@ -474,7 +474,7 @@ commits de desarrollo a produccion. Un `.md` que dice "canonico" e invita a
 commitear ahi es un camino abierto a repetir ese incidente.
 
 La regla de "una rama que no es ancestro de main no implica WIP perdido"
-(ALERT-47) ya nos習慣 a verificar **ramas** contra `main`. Esta vez la
+(ALERT-47) ya nos habituamos a verificar **ramas** contra `main`. Esta vez la
 verificacion era sobre un **directorio**, y la misma disciplina la resuelve:
 `os.path.isdir(ruta + "/.git")` antes de decir que un clon existe.
 
@@ -567,6 +567,35 @@ cierto sin mirar nada mas, porque `Storage.get` lee la legacy primero.
 y mergeado (`905dc77` / `5c80ae5`). La idea queda abierta como norma, no como
 incidente.
 
-| **ALERT-78** | 🟡 Media | Proceso | **El numero de suite se estaba contando de dos formas a la vez, y la que se citaba como evidencia era la incompleta.** Durante el HB#65 el Reviewer objeto mi `512 aserciones` yuncio un `634` que el repo no produce en ningun estado. **Los dos contaban cosas distintas:** el `512` es el total del runner (`tools/run-suite.js`), que parsea la linea de resumen de cada test con 3 regex y **omite 7 de los 27 archivos** porque usan un cuarto formato (`pass: N \| FAIL: M`); el `634` salio de contar **lineas de salida**, y los tests imprimen una linea de detalle por asercion (`idea61` solo: 37 lineas con la palabra 'pass' y un resumen que dice 36). **Medido sobre los hechos:** `8dd53a0` da **453** del runner y sus 7 archivos sin resumen suman **128** = **581**, que es el numero que cita ALERT-74. Hoy: **512** del runner + los mismos **128** = **640**. O sea que la suite **CRECIO 59** (38 de la 50F + 21 de la 61 T3) y el `512` parecia una baja porque contaba menos archivos. **REGLA: un total de suite tiene que declarar si incluye los archivos que el runner no parsea, y el `exit 0` de cada archivo sigue siendo el dato fiable.** Un numero de conteo sin alcance declarado no es evidencia: es el mismo modo de falla que las 3 mediciones escritas a mano que ya caimos (ALERT-68). |
+| **ALERT-78** | 🟡 Media | Proceso | **El numero de suite se estaba contando de dos formas a la vez, y la que se citaba como evidencia era la incompleta.** Durante el HB#65 el Reviewer objeto mi `512 aserciones` yuncio un `634` que el repo no produce en ningun estado. **Los dos contaban cosas distintas:** el `512` es el total del runner (`tools/run-suite.js`), que parsea la linea de resumen de cada test con 3 regex y **omite 7 de los 27 archivos** porque usan un cuarto formato (`pass: N \| FAIL: M`); el `634` salio de contar **lineas de salida**, y los tests imprimen una linea de detalle por asercion (`idea61` solo: 37 lineas con la palabra 'pass' y un resumen que dice 36). **Medido sobre los hechos:** `8dd53a0` da **453** del runner y sus 7 archivos sin resumen suman **128** = **581**, que es el numero que cita ALERT-74. Hoy: **512** del runner + los mismos **128** = **640**. O sea que la suite **CRECIO 59** (38 de la 50F + 21 de la 61 T3) y el `512` parecia una baja porque contaba menos archivos. **REGLA: un total de suite tiene que declarar si incluye los archivos que el runner no parsea, y el `exit 0` de cada archivo sigue siendo el dato fiable.** *(HB#66: este alert quedo desactualizado por su propia causa y lo corrijo con la medicion, no con una cuenta nueva. El P3 subio `idea50f` de 38 a 57 aserciones, y el runner ahora da **557** en los 20 archivos que parsea; los 7 no parseados siguen dando **128**. O sea **685/0 en 27 archivos**, no el 640 que decia esta misma fila. Y de paso: el `634` del Reviewer y mi `512` NO se podian sumar ni compararse, porque el Reviewer contaba lineas de salida (que incluyen una linea de detalle por asercion mas el resumen) y el runner cuenta el resumen que declara cada test. Con eso aclarado los dos numeros son ciertos sobre lo que miden, y el `685` de arriba es el unico con alcance declarado. Queda `tools/count-suite-totals.py` commiteado para que la medicion venga con el script que la produce.)* Un numero de conteo sin alcance declarado no es evidencia: es el mismo modo de falla que las 3 mediciones escritas a mano que ya caimos (ALERT-68). |
 
-| **ALERT-79** | 🟡 Media | Proceso | **Tres veces en un solo ciclo se me colaron tokens de otro idioma dentro de comentarios y de un mensaje a otro agente.** En `characters.js` (`//ommited`), en `app.js` (`pueda同名`) y en el texto que le mande al Reviewer (`脱iro`, `frameworkes`, y un nombre inventado, `los 7Rodriguez`). Los tres pasaron `node --check` porque son **comentarios**, no codigo: la sintaxis no los detecta y la suite tampoco. **REGLA: un `node --check` verde NO dice que un comentario este bien escrito.** Antes de commitear, releer el diff de los `.js` buscando texto que no sea del idioma del proyecto. Es barato y es la unica defensa: ninguna herramienta lo agarra. |
+| **ALERT-79** | 🟡 Media | Proceso | **Tres veces en un solo ciclo se me colaron tokens de otro idioma dentro de comentarios y de un mensaje a otro agente.** En `characters.js` (`//ommited`), en `app.js` (`pueda同名`) y en el texto que le mande al Reviewer (`脱iro`, `frameworkes`, y un nombre inventado, `los 7Rodriguez`). Los tres pasaron `node --check` porque son **comentarios**, no codigo: la sintaxis no los detecta y la suite tampoco. **REGLA: un `node --check` verde NO dice que un comentario este bien escrito.** *(HB#66, 2a vez: la regla ya existia y la volvi a romper. Se me colaron `我们是` y `采纳` en el mensaje del P3 al Reviewer, que es el TERCER lugar donde me paso: dos en comentarios de `.js` y ahora dos en el cuerpo de un mensaje. Amplio la regla, que era correcta pero incompleta: no basta con releer el DIFF de los `.js`, hay que releer tambien el TEXTO del mensaje, porque un mensaje al Reviewer es un artefacto que el otro va a leer y a citar, y no tiene ni `node --check` ni test que lo verifique.)* Antes de commitear, releer el diff de los `.js` buscando texto que no sea del idioma del proyecto. Es barato y es la unica defensa: ninguna herramienta lo agarra. |
+| **ALERT-80** | Á Media | Proceso | **Casi destrozo un `.js` de 1.895 lineas usando PowerShell para hacer una mutacion de test.** Para comprobar que la red `CACHE_PRESERVE` mordia (y no pasaba por construccion) borre una linea con `Set-Content` de PowerShell 5.1 en vez de `edit_file`. Dos cosas salieron bien por suerte y ninguna por criterio: el archivo quedo UTF-8 sin BOM y CRLF intacto, porque `Get-Content -Raw` lo leyo bien. **Si ese archivo hubiera tenido un acento en una cadena de codigo, `Set-Content` lo habria reescrito en cp1252 y el cambio habria sido de cientos de lineas.** Lo detecte comparando `git diff --stat` y contando CRLF antes y despues, y lo restore con Python. **REGLA: en este repo la edicion de archivos va por `edit_file` o por Python con `newline=''`, NUNCA por `Set-Content`/Out-File de PowerShell 5.1.** Esto ya estaba anotado para los `.md` (una vez inflo un diff de 74 lineas a 523) y hoy se cumple para los `.js` tambien: el mismo gate de newline hay que aplicarlo a cualquier archivo del repo, no solo a los markdown. Y el control barato que lo agarro: `git diff --stat` + conteo de CRLF, antes de commitear cualquier edicion hecha por fuera de `edit_file`. |
+
+
+## ALERT-81 (2026-09-30 22:05 UTC, HB#67) — una asercion mas ANCHA que el invariante falla por una razon CORRECTA
+
+**2 de las 9 aserciones nuevas del P3 fallaron contra el codigo que ya estaba
+bien.** No contra un fix roto: contra el fix correcto, por una razon que no
+tenia nada que ver con el fix.
+
+- **"la capa NO nombra ningun modulo: sin `WizardsVault`"** -> fallo.
+  `api-gw2.js:1658` **si** lo nombra, en `_WV()`, la delegacion WV de
+  retrocompatibilidad. El invariante real es *"la LECTURA DEL REGISTRO no nombra
+  modulos"*, que vive en el cuerpo de `collectCacheBases`. Escrito sobre el
+  archivo entero, el test miente sobre el codigo.
+- **"`collectCacheBases()` se llama 2 veces en el archivo"** -> conto 4, porque 2
+  eran la definicion y un comentario del header. Contar ocurrencias de un texto
+  en un archivo no es medir una llamada: es medir coincidencias.
+
+**Por que importa mas que el FAIL:** un invariante escrito mas ancho que lo que
+el codigo garantiza **no falla por el fix, falla por una razon correcta**, y el
+que lo lee deduce que el fix esta mal. O sea: la asercion produce una mentira
+sobre el codigo, que es peor que no tenerla. Es **ALERT-77 por segunda vez** en
+dos ciclos, y la segunda vez la escribi yo.
+
+**Regla: acotar al CUERPO donde vive el fix**, no al archivo — salvo que el
+contrato sea del archivo entero, y en ese caso hay que poder **nombrar las otras
+razones** por las que ese texto puede aparecer. Las dos quedaron acotadas y ahi
+muerden: la red de `wv:season:` da 6 FAIL sin la red, y el registro global da
+4 FAIL si la capa vuelve a nombrar al modulo.

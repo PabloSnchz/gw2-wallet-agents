@@ -10,7 +10,7 @@
 ## Lo que contesto el Reviewer (ALERT-76 cerrado por el lado del Recambio)
 
 `task-158ad5f65850` → **APROBADO CON CAMBIOS** el recambio del Tramo 3. Tres cosas
-que改变 lo que yo tinha escrito:
+que cambiaron lo que yo habia escrito:
 
 1. **P3 no va en este Tramo.** Verifico por medicion que las 18 bases de la capa
    de cache contra las 4 `gn:` de `MIRROR_MAP` y sus 4 legacies dan
@@ -40,7 +40,7 @@ lo que `_resyncMirrors` hace.
 
 ## El agujero que cerro la pieza 3, y era real
 
-El Reviewer lo名义o y lo verifique: **`tools/audit-61-congeladas.mjs` armaba sus
+El Reviewer lo nombro y lo verifique: **`tools/audit-61-congeladas.mjs` armaba sus
 pares desde `MIGRATION_PREFIXES` y NO MENCIONABA `MIRROR_MAP`.** Hoy las 4 `gn:`
 de `MIRROR_MAP` caen adentro **por coincidencia, no por construccion**. Si manana
 una sale de `MIGRATION_PREFIXES`, el par desaparece del recuento, el `n === 0`
@@ -616,3 +616,223 @@ produccion del 30-09. Corregido contra el disco.
 **Suite: 538 aserciones / 0 FAIL (27 archivos).** Test propio de 26 aserciones con **17 FAIL en rojo** contra el archivo sin el fix. Ojo con el conteo: **ALERT-78** — el `512` del runner omite 7 archivos; el total real es **640**, y **crecio** de 581 (ALERT-78).
 
 **T3 NO entra.** Persistir filtros por cuenta (como `wallet-dashboard.js:358/374/398`) es **preferencia de uso, no un dato roto**: el reset de T1 y la persistencia son decisiones **CONTRARIAS**. Escalado a Pablo, y la pregunta abierta al Reviewer es exactamente esa.
+
+## Idea 50 P3 - el registro de las bases de los OTROS modulos (HB#66)
+
+> El Reviewer **RECHAZO** la primera propuesta de P3 y **APROBO CON CAMBIOS** la
+> variante de registro estatico. Esta implementa esa. Recogido de
+> `task-a42d69c93c58` (COMMS_LOG fila 070), que el HB#65 dejo en la cola.
+>
+> **Commits: `376f0d5` + `9adf6dd`, rama `fix-idea50p3-registro-estatico`, SIN MERGEAR.**
+> Es capa de datos -> **ALERT-48**: va con veredicto antes de mergear.
+> Enviado al Reviewer: `task-19ca4a2448b8` (COMMS_LOG fila 073).
+
+### Lo que cambia, y lo que NO
+
+- **NO cambia lo que Pablo ve.** `cacheClear` sigue con **0 callers** y el boton
+  sigue sin existir. El boton es el Tramo siguiente; P3 era lo que faltaba para
+  que el boton pueda alcanzar la cache del WV.
+- Lo que si cambia: el borrado ya puede llegar a la cache del **Wizard's Vault**,
+  que antes era **inalcanzable**.
+
+### El punto del diseno: por que el registro se lee AL PULSAR
+
+Las otras dos formas fallan, y cada una por un motivo distinto:
+
+- **Registrar en la escritura** (`putCache`): es un hecho de **SESION** aplicado
+  a un hecho de **DISCO**. En una sesion nueva donde Pablo no abrio la pestana
+  de WV, el registro esta vacio: el boton no toca las claves `wv_*` que hay en
+  disco desde la semana pasada, y el `dryRun` del `confirm()` cuenta 0 bytes y
+  **promete una liberacion que no ocurre**. Eso es el bug que la v2.29.0 vino a
+  arreglar, reintroducido por la puerta de atras.
+- **Leer el registro al cargar el modulo**: ataria el borrado al orden de los
+  `<script>` de `index.html`.
+
+Leyendolo al pulsar, las dos cosas quedan bien sin depender de ninguna.
+
+### Que se implemento
+
+- `wizards-vault.js` expone **`WizardsVault.__cacheBases`** (5 declaraciones: 4
+  exactas + el prefijo `wv_obj_`). El que declara su cache es el modulo que la
+  escribe, asi que el inventario no es una lista que haya que mantener a mano.
+  **El agujero de `wizards-vault.js:38` no era un agujero: era un modulo entero
+  con su propio `lsSet` y su propio `kLS`, FUERA de la capa API.** Por eso un
+  grep sobre `putCache` no lo veia, y por eso el test de la 50F daba verde sin
+  cubrirlo.
+- **`CACHE_PRESERVE`** protege `wv:season:index` y `wv:season:current`, que son
+  la **PERSISTENCIA oficial de temporada** y no cache. Se evalua **ANTES** que
+  los prefijos, para que sea una red y no una nota: el borde peligroso esta a un
+  centimetro y es un prefijo corto, `wv` se las comeria a las dos.
+- **`GW2Api.__cacheBases()`** expone el registro en solo lectura, para que el
+  alcance sea **medible**. El Reviewer escribio "cuanto de los 4.98 MB es de las
+  22 no lo se y no lo voy a inventar": con esto se mide en vez de estimar.
+- La unica otra via de escritura con `lsSet` directo es `api-gw2.js:1545`
+  (`items_cache_v1:`), y queda cubierta por la allowlist con asercion propia.
+
+### ALERT-78: el total de suite, con su alcance declarado
+
+Mi `512` y el `634` del Reviewer **no se comparaban**: el mio era el resumen que
+declara el runner, y el suyo contaba **lineas de salida** (que incluyen una linea
+de detalle por asercion mas el resumen). Los dos eran ciertos sobre lo que
+median.
+
+- `tools/run-suite.js` parsea 3 formatos de linea de resumen y **omite 7 de los
+  27 archivos**, que usan un cuarto.
+- **Hoy: 557** en los 20 que el runner parsea, **+ 128** de los 7 medidos por
+  separado = **685 aserciones / 0 FAIL en 27 archivos**.
+- Los 7 dan 0 FAIL y `exit 0`, verificados archivo por archivo.
+- Queda `tools/count-suite-totals.py` commiteado para que la medicion venga con
+  el script que la produce.
+- **Aclaracion sobre la linea del HB#65:** decia "538" y "el total real es 640"
+  en la misma linea, y esos dos vienen de epocas distintas (640 sale de sumar 128
+  al `512` de una epoca anterior). Al cierre del HB#65 el total era **666**. No
+  se corrige la linea vieja porque es el registro de lo que se creia entonces.
+
+### MEDIDO, y corrige el recuento del veredicto
+
+El alcance son **23** bases, no 22: 18 de esta capa (14 exactas + 4 prefijos) y
+5 del WV (4 exactas + 1 prefijo). El veredicto decia "6 declaraciones" de WV
+donde hay 5. Dos veces el mismo tipo de error, y por eso el `__cacheBases()`.
+
+### Verificacion
+
+- Seccion 7 de `tests/idea50f.cacheclear-real.test.js`: **+19 aserciones** (38 -> 57).
+- **Fase roja: 12 FAIL** contra el archivo sin el fix, **sin abortar** (las dos
+  guardas siguen el criterio de la seccion 4: el reporte tiene que decir QUE
+  falta y no solo "se rompio").
+- **Mutacion comprobada:** quitar `CACHE_PRESERVE` da **2 FAIL**. O sea que la red
+  pasa porque hace algo y no por construccion. Sin esta comprobacion, (f) habria
+  sido una asercion que no puede fallar.
+- Suite **557/0** en lo que el runner parsea. `node --check` limpio en los dos
+  `.js`, y `git diff --stat` confirma que las ediciones son quirurgicas (96 y 22
+  lineas, sin reescritura de archivo).
+
+### ALERT-79: la regla existia y la volvi a romper
+
+Se me colaron `我们是` y `采纳` **en el cuerpo del mensaje del P3 al Reviewer**.
+Es el **tercer** lugar donde me pasa: dos en comentarios de `.js` y ahora dos en
+un mensaje. Amplio la regla, que era correcta pero incompleta: **no basta con
+releer el DIFF de los `.js`, hay que releer el TEXTO del mensaje**, porque un
+mensaje al Reviewer es un artefacto que el otro va a leer y a citar, y no tiene ni
+`node --check` ni test que lo verifique.
+
+### ALERT-80: casi destrozo un `.js` con PowerShell
+
+Para comprobar que la red mordia, borre una linea de `api-gw2.js` con
+`Set-Content` de PowerShell 5.1 en vez de `edit_file`. **Salio bien por suerte, no
+por criterio** (1.895 lineas, UTF-8 sin BOM y CRLF intactos). Si ese archivo
+hubiera tenido un acento en una cadena de codigo, `Set-Content` lo habria
+reescrito en cp1252 y el diff habria sido de cientos de lineas. Lo detecte
+comparando `git diff --stat` y el conteo de CRLF antes y despues, y lo
+restore con Python. **La edicion de archivos en este repo va por `edit_file` o
+por Python con `newline=''`, nunca por `Set-Content`/Out-File.** El gate de
+newline ya existia para los `.md` (una vez inflo un diff de 74 lineas a 523) y
+hoy se cumple para los `.js` tambien.
+
+### Lo que NO hice, para que no haya que preguntar
+
+- **El boton.** `cacheClear` sigue con 0 callers.
+- **No agrege `__cacheBases` a los otros 5 modulos** (`characters.js`,
+  `homestead-tracker.js`, `activities.js`, `app.js`, `legendary-tracker.js`).
+  Responderi la pregunta del copy del boton con la **opcion 1, "limpiar cache de
+  la API", alcance honesto de 23 bases**: con el registro estatico, ampliar
+  despues es **agregar declaraciones y no reescribir el borrado**, asi que la
+  decision no es irreversible. Y esos 5 modulos son alcance del boton, no de P3.
+- **No mergee nada.** P3 espera veredicto.
+
+
+---
+
+## HB#67 (2026-09-30 22:05 UTC) — el P3 MERGEADO, y 2 de mis 9 aserciones fallaron contra el codigo correcto
+
+**Que entro:** `fix-idea50p3-registro-estatico` -> `main`, 4 commits
+(`376f0d5` P3, `9adf6dd` herramienta, `6d50323` typo, `0d1d0aa` los 4 cambios del
+Reviewer). Merge fast-forward: `main` estaba 0 atras. Veredicto de
+`task-19ca4a2448b8`: **APROBADO CON CAMBIOS**, y los 4 cambios estan aplicados.
+
+### El Reviewer no acepto mi evidencia: la reverifico
+
+| Que | Lo que dio el Reviewer |
+|---|---|
+| Test 50F | 57 / 0 |
+| Fase roja | 45 / **12** FAIL (coincide exacto) |
+| Mutacion `CACHE_PRESERVE` | **3 FAIL**, no 2 (P5) |
+| Recuento de bases | 23 y 5: **me da la razon**, corrige su propio "22 / 6" |
+
+Eso ultimo es lo que mas vale del veredicto: le corrijo un numero y lo acepta en
+vez de defenderlo. Los 3 requisitos duros los dio por **hechos, no construidos**,
+y la (a) —que el registro se lea al pulsar— la comprobo por los dos lados.
+
+### Los 4 cambios, y por que 3 de ellos son el mismo error mio
+
+**P1** la red tenia agujeros justo donde el codigo esta disenado para ir:
+`wv-season-storage.js` tiene **4** familias de persistencia, no 2 (verificado en
+`:26-30`), y las 2 que faltaban son `wv:season:YY:SEQ` y `wv:season:*.__shadow`
+— o sea, el modo multi-season, que es al que el propio modulo esta
+*experimentado a migrar* (`SINGLE_SEASON_MODE` hoy `true`). Hoy el riesgo es
+cero. Lo que no es cero es que la lista se llamara "la RED" en un commit.
+
+**P2** el comentario que **escribi yo** —"api-gw2.js no tiene que saber de
+WV"— era **falso**, y la contradiccion era el bug de diseno: `:1737` hacia
+`if (root.WizardsVault && root.WizardsVault.__cacheBases)`. La base si sabia de
+WV. Lo que movi fue la lista de **bases**, no la de **modulos**, asi que los 5
+modulos pendientes requerian 5 ediciones mas de la capa: una lista central con
+otro nombre. Ahora es un registro global (`__cacheBaseProviders`): agregar un
+modulo es **1 linea en el modulo, 0 en la capa**.
+
+**P3** `collectCacheBases()` corria **dentro** de `isCacheKey()`, que corre una
+vez por clave: con ~4.98 MB, 2 arrays nuevos + 23 `indexOf` POR CADA clave, en
+el unico loop que recorre el store entero. Ahora se colecta 1 vez por clic.
+
+**P4** y este es el que mas me duele, porque **reproduce la deuda que ALERT-78
+venia senalando**: el runner decia `(27 archivos)` habiendo parseado 20, y mi
+respuesta fue agregar un **segundo script** para contar los 7 que faltaban. Dos
+fuentes de verdad para el mismo numero es exactamente el problema. Ahora el
+runner parsea el 4o formato y el script paralelo **se borro**.
+
+### ALERT-81: 2 de las 9 aserciones nuevas fallaron contra el codigo CORRECTO
+
+La fase roja no es solo un ritual de merge: aca fue lo que **me corrigio a mi**.
+
+- **"la capa NO nombra ningun modulo"** -> fallo. Porque `api-gw2.js:1658` **si**
+  nombra `WizardsVault`, en la delegacion WV (`_WV()`), que es el contrato de
+  retrocompatibilidad y no tiene nada que ver con la cache.
+- **"`collectCacheBases()` se llama 2 veces"** -> conto 4. Porque 2 eran la
+  definicion y un comentario.
+
+Las dos son **ALERT-77 de nuevo**: un invariante escrito mas ancho que lo que el
+codigo garantiza no falla por el fix, **falla por una razon correcta**, y el que
+lo lee deduce que el fix esta mal — o sea, la asercion miente sobre el codigo.
+Las dos quedaron **acotadas a donde vive el fix** (el cuerpo de
+`collectCacheBases`, el cuerpo de `isCacheKey`), y ahi si muerden. **Regla
+general: acotar al CUERPO donde esta el fix, no al archivo, salvo que el
+contrato sea del archivo entero** — y si es del archivo entero, hay que poder
+nombrar las otras razones por las que puede aparecer ese texto.
+
+### Verificacion
+
+- **Suite: 694 aserciones / 0 FAIL, 27 de 27 archivos, alcance completo.**
+  (antes 557 en 20 + 128 en los 7, medido por dos scripts; ahora una sola fuente.
+  694 = 685 + las 9 nuevas.)
+- Test 50F: 66 / 0 (era 57).
+- **Fase roja por MUTACION, las 4 correcciones una por una**
+  (`tools/mutate-p3-registry.py`): P1 red vacia **6 FAIL**, P2 lista central
+  **4 FAIL**, P3 colecta por clave **1 FAIL**, P2b modulo sin anotar **5 FAIL**.
+  Un test que solo se verifico en verde no esta verificado.
+
+### Lo que NO hice, y por que
+
+- **El boton.** `cacheClear` sigue con **0 callers**. Es lo unico que falta, y el
+  Reviewer dejo anotado una cosa que hay que resolver antes de escribirlo:
+  `cacheClear` solo limpia la `__mem` de **una** capa, y `wizards-vault.js:40-41`
+  tiene su propia `__mem`/`__inflight`. Sin un hook (`onClear` o
+  `__cacheClearMem()`), borrar el disco y seguir sirviendo de memoria hace que
+  **los bytes liberados se vuelvan a consumir** y el boton parezca que no hizo
+  nada.
+- **No agregue `__cacheBases` a los otros 5 modulos.** Con el registro global,
+  ampliar despues es agregar declaraciones, no reescribir el borrado: la
+  decision de copy no es irreversible.
+- **No mergee la 49G**, que sigue RECHAZADA (ALERT-73).
+- **La pregunta de T1-vs-T3 (Idea 63) sigue abierta y no es mia.** El Reviewer
+  dio **timeout** a los 1800s. No lo doy por perdido — un timeout no es un "no" —
+  pero la 63 quedo mergeada igual porque es estado local de UI, no capa de datos.

@@ -1706,3 +1706,47 @@ Nada del producto. Se rompieron **dos herramientas mias**, y las dos por el mism
   corta y la mas reciente. Ese es el orden de confianza, y es al reves de la
   intuicion de "lo ultimo es lo corregido".
 
+
+## 2026-09-30 — Heartbeat #66: el registro estatico de las bases (Idea 50 P3)
+
+**Que se hizo.** Recogido el veredicto de P3 (fila 070): el Reviewer **rechazo** la
+propuesta de registrar las bases en la escritura y **aprobo con cambios** la de
+registro estatico. Implementada esa variante, con el punto del diseno resuelto:
+el registro se lee **AL PULSAR**.
+
+**Commits:** `376f0d5` (el fix) + `9adf6dd` (el script de medicion).
+Rama `fix-idea50p3-registro-estatico`, **SIN MERGEAR** (ALERT-48: capa de datos,
+espera veredicto). Al Reviewer: `task-19ca4a2448b8` (fila 073).
+
+**Por que el punto del diseno es el que es.** Registrar al escribir es un hecho
+de sesion aplicado a un hecho de disco. En una sesion nueva sin haber abierto la
+pestana de WV, el registro esta vacio, el `dryRun` del `confirm()` cuenta 0 bytes
+y **promete una liberacion que no ocurre**: el bug que la v2.29.0 vino a
+arreglar, por la puerta de atras. Leerlo al cargar lo ataria al orden de
+`index.html`. Leyendolo al pulsar, las dos cosas quedan bien.
+
+**Que se rompio.** Nada. El `.js` que casi destrozo con `Set-Content` de
+PowerShell salio intacto **por suerte y no por criterio** (ALERT-80). Lo detecte
+con `git diff --stat` + conteo de CRLF antes y despues, y lo restore con Python.
+
+**Que quedo pendiente.**
+- El veredicto del Reviewer sobre P3 (`task-19ca4a2448b8`).
+- **El boton**: `cacheClear` sigue con 0 callers. Es el Tramo siguiente y ya no
+  esta bloqueado por P3.
+- Copia del boton: se respondio **opcion 1** ("limpiar cache de la API", 23
+  bases). Pablo puede cambiarla; con el registro estatico, ampliar despues es
+  agregar declaraciones, no reescribir el borrado.
+- La 49G (RECHAZADA) y la 49D siguen abiertas, y siguen sin tocarse.
+
+**Que decidimos entre nosotros.**
+- Que el registro lo declara **el modulo que escribe su cache**, y no una lista
+  central: si no, el inventario se desincroniza solo y nadie se entera.
+- Que `CACHE_PRESERVE` se evalua **antes** que los prefijos, para que sea una
+  red y no una nota.
+- Que un total de suite se publica **con su alcance declarado**, o no se publica
+  (ALERT-78): 685/0 en 27 archivos = 557 del runner en 20 + 128 de los 7 que
+  usa un cuarto formato. Mi `512` y el `634` del Reviewer no se comparaban.
+- Que el alcance son **23** bases y **5** declaraciones de WV, no 22 y 6: el
+  recuento del veredicto estaba mal y lo medi contra el archivo.
+- Que la pregunta del copy del boton **si tiene respuesta** y laPuede cer:
+  opcion 1, porque con este diseno la decision es reversible a bajo costo.
