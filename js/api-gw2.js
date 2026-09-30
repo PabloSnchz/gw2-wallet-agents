@@ -133,8 +133,14 @@
       __poolActive++;
       (function (s) {
         function done() { __poolActive--; poolPump(); }
-        s.task().then(function (v) { done(); s.resolve(v); },
-                      function (e) { done(); s.reject(e); });
+        // Promise.resolve().then(s.task) y no s.task() directo: si el task tira
+        // SINCRONO (no devuelve promesa, lanza antes de retornar), el throw sube
+        // por poolPump -> executor de poolRun, done() nunca corre y __poolActive
+        // queda incrementado para siempre. Con POOL_MAX=3, tres de esos cuelgan la
+        // app entera de forma permanente. Envolviendo, el throw se convierte en
+        // rechazo y cae siempre en el reject de abajo -> done().
+        Promise.resolve().then(s.task).then(function (v) { done(); s.resolve(v); },
+                                            function (e) { done(); s.reject(e); });
       })(slot);
     }
   }
