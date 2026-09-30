@@ -616,9 +616,9 @@ cierto sin mirar nada mas, porque `Storage.get` lee la legacy primero.
 y mergeado (`905dc77` / `5c80ae5`). La idea queda abierta como norma, no como
 incidente.
 
-| **ALERT-78** | 🟡 Media | Proceso | **El numero de suite se estaba contando de dos formas a la vez, y la que se citaba como evidencia era la incompleta.** Durante el HB#65 el Reviewer objeto mi `512 aserciones` yuncio un `634` que el repo no produce en ningun estado. **Los dos contaban cosas distintas:** el `512` es el total del runner (`tools/run-suite.js`), que parsea la linea de resumen de cada test con 3 regex y **omite 7 de los 27 archivos** porque usan un cuarto formato (`pass: N \| FAIL: M`); el `634` salio de contar **lineas de salida**, y los tests imprimen una linea de detalle por asercion (`idea61` solo: 37 lineas con la palabra 'pass' y un resumen que dice 36). **Medido sobre los hechos:** `8dd53a0` da **453** del runner y sus 7 archivos sin resumen suman **128** = **581**, que es el numero que cita ALERT-74. Hoy: **512** del runner + los mismos **128** = **640**. O sea que la suite **CRECIO 59** (38 de la 50F + 21 de la 61 T3) y el `512` parecia una baja porque contaba menos archivos. **REGLA: un total de suite tiene que declarar si incluye los archivos que el runner no parsea, y el `exit 0` de cada archivo sigue siendo el dato fiable.** *(HB#66: este alert quedo desactualizado por su propia causa y lo corrijo con la medicion, no con una cuenta nueva. El P3 subio `idea50f` de 38 a 57 aserciones, y el runner ahora da **557** en los 20 archivos que parsea; los 7 no parseados siguen dando **128**. O sea **685/0 en 27 archivos**, no el 640 que decia esta misma fila. Y de paso: el `634` del Reviewer y mi `512` NO se podian sumar ni compararse, porque el Reviewer contaba lineas de salida (que incluyen una linea de detalle por asercion mas el resumen) y el runner cuenta el resumen que declara cada test. Con eso aclarado los dos numeros son ciertos sobre lo que miden, y el `685` de arriba es el unico con alcance declarado. Queda `tools/count-suite-totals.py` commiteado para que la medicion venga con el script que la produce.)* Un numero de conteo sin alcance declarado no es evidencia: es el mismo modo de falla que las 3 mediciones escritas a mano que ya caimos (ALERT-68). |
+| **ALERT-78** | 🟡 Media | Proceso | **El numero de suite se estaba contando de dos formas a la vez, y la que se citaba como evidencia era la incompleta.** Durante el HB#65 el Reviewer objeto mi `512 aserciones` yuncio un `634` que el repo no produce en ningun estado. **Los dos contaban cosas distintas:** el `512` es el total del runner (`tools/run-suite.js`), que parsea la linea de resumen de cada test con 3 regex y **omite 7 de los 27 archivos** porque usan un cuarto formato (`pass: N \| FAIL: M`); el `634` salio de contar **lineas de salida**, y los tests imprimen una linea de detalle por asercion (`idea61` solo: 37 lineas con la palabra 'pass' y un resumen que dice 36). **Medido sobre los hechos:** `8dd53a0` da **453** del runner y sus 7 archivos sin resumen suman **128** = **581**, que es el numero que cita ALERT-74. Hoy: **512** del runner + los mismos **128** = **640**. O sea que la suite **CRECIO 59** (38 de la 50F + 21 de la 61 T3) y el `512` parecia una baja porque contaba menos archivos. **REGLA: un total de suite tiene que declarar si incluye los archivos que el runner no parsea, y el `exit 0` de cada archivo sigue siendo el dato fiable.** *(HB#66: este alert quedo desactualizado por su propia causa y lo corrijo con la medicion, no con una cuenta nueva. El P3 subio `idea50f` de 38 a 57 aserciones, y el runner ahora da **557** en los 20 archivos que parsea; los 7 no parseados siguen dando **128**. O sea **685/0 en 27 archivos**, no el 640 que decia esta misma fila. Y de paso: el `634` del Reviewer y mi `512` NO se podian sumar ni compararse, porque el Reviewer contaba lineas de salida (que incluyen una linea de detalle por asercion mas el resumen) y el runner cuenta el resumen que declara cada test. Con eso aclarado los dos numeros son ciertos sobre lo que miden, y el `685` de arriba es el unico con alcance declarado. Queda `tools/count-suite-totals.py` commiteado para que la medicion venga con el script que la produce.)* *(HB#71: **esa ultima frase era FALSA y el error era mio** -- verificado con `dir`, `git check-ignore` y `git ls-tree HEAD`: ese archivo **no existe en disco ni en HEAD**, y `tools/.gitignore` lo ignora, asi que nunca entro. La regla que la fila aplicar ("el numero viene con el script que lo produce") era la que la propia fila incumplia. El script que SI produce el total es **`tools/run-suite.js`**, que SI esta trackeado. Ver ALERT-90.)* Un numero de conteo sin alcance declarado no es evidencia: es el mismo modo de falla que las 3 mediciones escritas a mano que ya caimos (ALERT-68). |
 
-| **ALERT-79** | 🟡 Media | Proceso | **Tres veces en un solo ciclo se me colaron tokens de otro idioma dentro de comentarios y de un mensaje a otro agente.** En `characters.js` (`//ommited`), en `app.js` (`pueda同名`) y en el texto que le mande al Reviewer (`脱iro`, `frameworkes`, y un nombre inventado, `los 7Rodriguez`). Los tres pasaron `node --check` porque son **comentarios**, no codigo: la sintaxis no los detecta y la suite tampoco. **REGLA: un `node --check` verde NO dice que un comentario este bien escrito.** *(HB#66, 2a vez: la regla ya existia y la volvi a romper. Se me colaron `我们是` y `采纳` en el mensaje del P3 al Reviewer, que es el TERCER lugar donde me paso: dos en comentarios de `.js` y ahora dos en el cuerpo de un mensaje. Amplio la regla, que era correcta pero incompleta: no basta con releer el DIFF de los `.js`, hay que releer tambien el TEXTO del mensaje, porque un mensaje al Reviewer es un artefacto que el otro va a leer y a citar, y no tiene ni `node --check` ni test que lo verifique.)* Antes de commitear, releer el diff de los `.js` buscando texto que no sea del idioma del proyecto. Es barato y es la unica defensa: ninguna herramienta lo agarra. |
+| **ALERT-79** | 🟡 Media | Proceso | **Tres veces en un solo ciclo se me colaron tokens de otro idioma dentro de comentarios y de un mensaje a otro agente.** En `characters.js` (`//ommited`), en `app.js` (`pueda同名`) y en el texto que le mande al Reviewer (`脱iro`, `frameworkes`, y un nombre inventado, `los 7Rodriguez`). Los tres pasaron `node --check` porque son **comentarios**, no codigo: la sintaxis no los detecta y la suite tampoco. **REGLA: un `node --check` verde NO dice que un comentario este bien escrito.** *(HB#66, 2a vez: la regla ya existia y la volvi a romper. Se me colaron `我们是` y `采纳` en el mensaje del P3 al Reviewer, que es el TERCER lugar donde me paso: dos en comentarios de `.js` y ahora dos en el cuerpo de un mensaje. Amplio la regla, que era correcta pero incompleta: no basta con releer el DIFF de los `.js`, hay que releer tambien el TEXTO del mensaje, porque un mensaje al Reviewer es un artefacto que el otro va a leer y a citar, y no tiene ni `node --check` ni test que lo verifique.)* Antes de commitear, releer el diff de los `.js` buscando texto que no sea del idioma del proyecto. Es barato y es la unica defensa: ninguna herramienta lo agarra. *(HB#71: **el escaneo sirve, un regex que REEMPLAZA todo el CJK de un `.md` no.** Corri uno sobre `TEAM_STATUS.md` para quitarme de encima un escape mio y **borre la evidencia de un escape ya documentado**: la fila de ALERT-79 cita literalmente los dos caracteres que se me colaron en el mensaje al Reviewer, y el regex los sustituyo por `<dos ideogramas CJK>`. Tuve que restituirla a mano. **REGLA: en un `.md` de este repo el CJK preexistente es EVIDENCIA, no un error: son los escapes que las alertas citan.** La forma correcta es comparar **contra HEAD archivo por archivo** y actuar solo sobre lo que es nuevo, no normalizar el archivo entero. Y `tools/scan-cjk.py` **no cubre los `.md`**: da 0 sobre ellos, asi que el escaneo tiene que correr sobre el `.py`/`.js` que genera el texto, que es donde esta el error antes de que llegue al `.md`.* |
 | **ALERT-80** | Á Media | Proceso | **Casi destrozo un `.js` de 1.895 lineas usando PowerShell para hacer una mutacion de test.** Para comprobar que la red `CACHE_PRESERVE` mordia (y no pasaba por construccion) borre una linea con `Set-Content` de PowerShell 5.1 en vez de `edit_file`. Dos cosas salieron bien por suerte y ninguna por criterio: el archivo quedo UTF-8 sin BOM y CRLF intacto, porque `Get-Content -Raw` lo leyo bien. **Si ese archivo hubiera tenido un acento en una cadena de codigo, `Set-Content` lo habria reescrito en cp1252 y el cambio habria sido de cientos de lineas.** Lo detecte comparando `git diff --stat` y contando CRLF antes y despues, y lo restore con Python. **REGLA: en este repo la edicion de archivos va por `edit_file` o por Python con `newline=''`, NUNCA por `Set-Content`/Out-File de PowerShell 5.1.** Esto ya estaba anotado para los `.md` (una vez inflo un diff de 74 lineas a 523) y hoy se cumple para los `.js` tambien: el mismo gate de newline hay que aplicarlo a cualquier archivo del repo, no solo a los markdown. Y el control barato que lo agarro: `git diff --stat` + conteo de CRLF, antes de commitear cualquier edicion hecha por fuera de `edit_file`. |
 
 
@@ -684,7 +684,7 @@ existe: un `node --check` no ve un comentario y la suite no ve un `.md`.
 
 | # | Fecha | Sev | Ambito | Descripcion | Estado | Resolucion / Regla |
 |---|-------|-----|--------|-------------|--------|--------------------|
-| **ALERT-84** | 2026-09-30 | alta | UI/leyenda | "Armeria Legendaria" es un item de menu **visible** que decia "Cargando catalogo de legendarias..." **para siempre**. Cadena medida: `index.html:750` (item con icono, VISIBLE) -> `router.js:125/1562` (ruta registrada) -> `index.html:528` (section) -> `index.html:988` (script) -> `loadLegendaryData()` es un **stub** que resuelve `[]` -> `renderCatalogSkeleton()` escribe "Cargando" y **nada lo reemplaza**. Sin timeout, sin error, sin reintento. Los 101 KB de `legendary-data.js` (85.813 B, 206 legendarias) y `render-catologo.js` (17.950 B) estan **commiteados y NO cargados**. | **T1 APLICADO** (sin commitear) | Un error se investiga; un "Cargando" infinito se espera. **Un esqueleto que llega hasta el menu deja de ser un esqueleto**: la idea sana ("base primero, Phase 2 despues") es correcta hasta que `index.html` carga el esqueleto y el router publica la ruta; ahi pasa a ser una PROMESA, y la app no puede retractarla porque no existe el estado "todavia no". Corolatorio para planes: si hay un "Phase 3 Commit 1" en el backlog, la pregunta no es "¿esta el codigo escrito?" sino "¿esta cableado, y contra que?". T3/T4 siguen ABIERTOS (2-4 h cada uno, van al Reviewer). |
+| **ALERT-84** | 2026-09-30 | alta | UI/leyenda | "Armeria Legendaria" es un item de menu **visible** que decia "Cargando catalogo de legendarias..." **para siempre**. Cadena medida: `index.html:750` (item con icono, VISIBLE) -> `router.js:125/1562` (ruta registrada) -> `index.html:528` (section) -> `index.html:988` (script) -> `loadLegendaryData()` es un **stub** que resuelve `[]` -> `renderCatalogSkeleton()` escribe "Cargando" y **nada lo reemplaza**. Sin timeout, sin error, sin reintento. Los 101 KB de `legendary-data.js` (85.813 B, 206 legendarias) y `render-catologo.js` (17.950 B) estan **commiteados y NO cargados**. | **T1 APLICADO Y COMMITEADO** (`d64e688`, verificado en el HB#71: la fila decia "sin commitear" y el commit existia desde el HB#70) | Un error se investiga; un "Cargando" infinito se espera. **Un esqueleto que llega hasta el menu deja de ser un esqueleto**: la idea sana ("base primero, Phase 2 despues") es correcta hasta que `index.html` carga el esqueleto y el router publica la ruta; ahi pasa a ser una PROMESA, y la app no puede retractarla porque no existe el estado "todavia no". Corolatorio para planes: si hay un "Phase 3 Commit 1" en el backlog, la pregunta no es "¿esta el codigo escrito?" sino "¿esta cableado, y contra que?". T3/T4 siguen ABIERTOS (2-4 h cada uno, van al Reviewer). |
 | **ALERT-85** | 2026-09-30 | alta | Repo | **ALERT-59 en vivo: DOS ESCRITORES en `gw2-dev`, confirmado dentro de este ciclo.** El PO aviso antes de empezar: *"Working tree tiene M js/settings-manager.js, M tests/idea50-boton-cache.test.js. NO los toque, NO commitee (ALERT-59)"*. Durante el ciclo, `index.html:289` paso a un texto que **el Principal no escribio** (`title="Liberar la cach� de la API y del WV (el boton dice cuantos bytes libera y cuantos quedan)"`, que **PIERDE** el "no toca cuentas, pines ni ajustes"), y `settings-manager.js` subio a `v1.0.4` con un bloque de comentario que tampoco es mio. Los archivos se quedaron quietos (mtime estable en 2 lecturas separadas a 20 s), asi que el segundo escritor termino; pero sus cambios **estan sin commitear en el working tree**. | **ABIERTA — no se commiteo nada** | El Principal **no commiteo** (instruccion explicita del PO) y **no piso** el texto ajeno: la version en disco se conservo intacta y se ajusto el test para que mida el **invariante** ("el title declara que cuentas/pines/ajustes no se borran") y no la frase. **Regla: cuando dos escritores comparten el working tree, la asercion no se escribe pineando la prosa propia.** Un assert que mide *mi* redaccion no es una red: es una firma, y falla por redaccion en vez de por perdida de alcance. |
 
 **Sobre los 2 FAIL de `idea47-commit2` / `idea47-commit4` ("`api-gw2.js?v=` alineado con su header"):**
@@ -879,3 +879,89 @@ merge las dejaba falsas para siempre. Corregidas a las de este arbol, y las dos
 citas (test y `legendary-tracker.js`) **declaran que arbol son**. La cita nueva
 no es decorativa: el test verifica que `index.html:761` siga siendo el item de
 menu, asi que si un merge futuro las mueve, el test lo dice en vez de mentir.
+
+
+## ALERT-89 - El invariante de encounters estaba vigilado en UNA sola direccion, y la aritmetica lo hacia invisible
+
+**La Idea 52 dejo el catalogo de raids midiendo que "todo encuentro del modulo
+existe en la API"** (direccion `app -> API`, los fantasmas). **La mitad inversa no
+estaba vigilada**: que no haya un evento de la API que el modulo no declare. Y no
+era un detalle de redaccion: las dos mitades dan el mismo numero.
+
+| Medida | Valor |
+|---|---|
+| encuentros que declara el modulo (`ALL.length`) | 30 |
+| eventos del catalogo de la API (`API.size`) | 30 |
+| **fantasmas** (`app -> API`, vigilado) | 1 -> `vloxx`, en la allowlist |
+| **faltantes** (`API -> app`, NO vigilado) | 1 -> **`camp`**, en ninguna parte |
+
+Los dos totales coinciden **y hay un id equivocado en cada lado**. La constante
+`ALL.length === 30` es justamente la que hace esto parecer seguro: es una
+**asercion que pasa por construccion** (misma familia que ALERT-77). Cuenta los
+encuentros, pero cuenta **los dos lados por separado y nunca los compara**.
+
+**Lo que mas importa: `vloxx` NO estaba roto.** La ronda 17 del PO lo marco como
+roto y como "el fix mas urgente del backlog". Es una decision de producto
+**medida** -- `/v2/raids` no expone el ala Nexus of Eternity -- y el test la
+tenia fijada desde antes (`idea52:110` en `FANTASMA_CONOCIDO`, y `:145-147` que
+afirma que `vloxx` NO esta en la API, medido, no supuesto). Lo que si estaba
+roto era **la otra mitad, que nadie miraba**.
+
+**`camp` NO se agrego, a proposito.** El fixture congelado
+(`tests/fixtures/raids-catalogo-2026-09-30.json`) lo trae como
+`{"id": "camp", "type": "Checkpoint"}`: **sin `name`**. Agregarlo al modulo
+obligaria a inventar el nombre y el icono, y un hallazgo con datos inventados es
+peor que un hueco declarado. Queda en `FALTANTE_CONOCIDO` con el motivo escrito,
+igual que `vloxx` esta en `FANTASMA_CONOCIDO`; **la lista es la allowlist, asi
+que cualquier OTRO faltante nuevo falla igual que un fantasma nuevo.**
+
+**REGLA: cuando un invariante es una relacion entre dos conjuntos, "A ⊆ B" y
+"B ⊆ A" son DOS invariantes, y el que no se vigila es el que puede fallar con
+la suite en verde.** La asercion que cuenta los elementos de A no dice nada de
+B. Y el sintoma es indistinguible del modulo sano: la cuenta cuadra.
+
+Fase roja: la guarda sin allowlist da **1 FAIL nombrando `camp`**. Con la
+allowlist, `35/0`. Suite **823/0 FAIL, 30 de 30 archivos** (era 822).
+Commits: rama `alert89-direccion-inversa-raids`, `1176be6`.
+Scripts que producen la medicion, con el commit: `tools/alert89-direccion-inversa.py`
+(las dos direcciones contra el fixture), `tools/alert89-camp-dato.py` (por que
+`camp` no se agrega).
+
+
+## ALERT-90 - Tercera instancia de ALERT-88, y esta es mia: una ALERT que cita un script que NUNCA fue commiteado
+
+ALERT-88 (HB#70) fue "un veredicto que nombra lineas de un arbol que ya no
+existia". Esta es la misma regla y el artefacto es otro: **una fila de
+`ALERTS_LOG.md` que afirma el estado de un archivo sin mirarlo.**
+
+La fila de **ALERT-78** cierra diciendo:
+
+> *"Queda `tools/count-suite-totals.py` commiteado para que la medicion venga con
+> el script que la produce."*
+
+Verificado en el HB#71, con tres comandos y no uno:
+
+```
+dir /b tools\count-suite-totals.py        -> NO-EXISTE-EN-DISCO
+git check-ignore -v tools\count-suite-totals.py
+        -> tools/.gitignore:1:*  "tools\count-suite-totals.py"
+git ls-tree HEAD tools/ --name-only | findstr /i count   -> (vacio)
+```
+
+**No esta en disco, no esta en HEAD, y `tools/.gitignore` lo ignora**, asi que
+tampoco es un archivo que "se perdio al borrar una rama": nunca entro. Y la
+regla que la fila estaba aplicando -- *el numero tiene que venir con el script
+que lo produce* -- es **justo la que la propia fila incumple**.
+
+**El script que SI produce el total es `tools/run-suite.js`, y SI esta trackeado**
+(es el que corre los 30 tests e imprime `TOTAL: N aserciones / M FAIL`). Asi que
+la correccion no es crear el script fantasma: es **corregir la cita** para que
+apunte al artefacto real.
+
+**REGLA: cuando una fila de un log dice "queda commiteado", el commit tiene que
+existir Y hay que haber mirado el archivo.** Es la misma regla de `IN_PROGRESS.md`
+apuntando a un clon que ya no existia (ALERT-71) y de TEAM_STATUS declarando un
+merge que no estaba. **Un `.md` propio es una hipotesis mia sobre el disco, no un
+dato** -- y el disco es el unico que la puede refutar. Un numero de suite sin el
+script que lo produce es un numero de oido (ALERT-68, ALERT-78), y un nombre de
+archivo sin el archivo es el mismo numero en el eje equivocado.
