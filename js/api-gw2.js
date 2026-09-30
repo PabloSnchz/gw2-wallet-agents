@@ -1,7 +1,27 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.25.0 (2026-09-30) — Idea 57 Tramo 1: los 11 sitios que degradan por FORMA declaran su contrato
+ * Versión: 2.26.0 (2026-09-30) — Idea 57 Tramo 3: los @throws que mentian ahora describen las dos capas
+ *   v2.26.0: NO cambia el comportamiento de NINGUNA funcion. Es documentacion,
+ *   y es el tramo mas barato de la Idea 57 (sin suite nueva, sin capa de datos,
+ *   sin riesgo). El problema que arregla: seis wrappers declaraban por escrito
+ *   "propaga, no degrada a []" y tres lineas mas abajo hacian
+ *   `Array.isArray(data) ? data : []`. La explicacion de la contradiccion
+ *   estaba a ~40 lineas del `@throws`, o sea que leer el contrato de la
+ *   funcion — lo que hace cualquier consumidor, y lo que hizo el Code
+ *   Reviewer al encontrar el bug de getCharacterCount — daba la respuesta
+ *   OPUESTA a la real. Ese es el mecanismo por el que nace el wrapper
+ *   siguiente: no es que nadie mire, es que el que mira lee un contrato falso.
+ *   Los seis `@throws` corregidos describen ahora RED (propaga) y FORMA
+ *   (degrada) por separado, con la deuda y el call site al lado. Arreglar el
+ *   JSDoc es prevention: elimina la causa de que el proximo nazca mal.
+ *   getAccountLuck queda SIN JSDoc a proposito: su problema no es textual sino
+ *   de representacion (0% medido vs "sin dato"), y lo decide el Tramo 2 con
+ *   veredicto del Reviewer. El test lo verifica para que nadie lo "complete"
+ *   con una promesa nueva sin veredicto.
+ *   Test: tests/idea57t3-jsdoc-honesto.test.js (11 aserciones; 8 FAIL contra
+ *   el archivo sin los JSDoc corregidos).
+ *
  *   v2.25.0: NO cambia el comportamiento de ninguna funcion. Instala una
  *   REGLA y pone los contratos en el sitio donde se Incumplen.
  *
@@ -28,10 +48,18 @@
  *       No se contaron; el test lo verifica explicitamente para que una
  *       reversa silenciosa a `? data : []` no pase.
  *     - 2 son `fetchBatchWithRepair` (un helper de lote con 3 call sites).
- *     - 7 degradan y su JSDoc dice "propaga, no degrada a []": buys, sells,
- *       delivery, bank, materials, armory, y el caso de getAccountLuck. El
- *       `catch` de RED cumple la promesa en las seis primeras; el camino de
- *       FORMA no. En la septima (getAccountLuck) no hay ni catch ni warn.
+ *     - 7 degradan, y su JSDoc hasta la v2.25.0 DECIA "propaga, no degrada
+ *       a []": buys, sells, delivery, bank, materials, armory, y el caso de
+ *       getAccountLuck. El `catch` de RED cumplia la promesa en las seis
+ *       primeras; el camino de FORMA no. En la septima (getAccountLuck) no
+ *       hay ni catch ni warn.
+ *       TRAMO 3 (v2.26.0): esos seis `@throws` mentian por escrito y ahora
+ *       describen las DOS capas, con la deuda del camino de FORMA escrita
+ *       al lado. No cambio comportamiento: el unico proposito es que el
+ *       contrato que se lee sea el que el codigo cumple hoy, y que la deuda
+ *       este en el mismo bloque que la promise, no en un comentario a 40
+ *       lineas de distancia. Un JSDoc que promete lo contrario de lo que
+ *       hace es la causa raiz de que el proximo wrapper nazca mal.
  *     - 1 degrada LEGITIMAMENTE: getCommerceListings, porque es el catalogo
  *       global del mercado y `[]` es un estado normal (Idea 47, decidido con
  *       el Reviewer). Se declara igual, para que "degrada a proposito" y
@@ -718,7 +746,21 @@
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>}
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *
+   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
+   * aca. Prometia que el error se propagaba sin excepciones y el codigo de
+   * abajo si degrada. Hay DOS caminos de error y no se comportan igual:
+   *   - capa de RED (fetch falla, 401, 403): el `.catch` de abajo PROPAGA.
+   *   - capa de FORMA (respuesta 200 con una forma que no soportamos, o
+   *     cuerpo vacio, que `jfetch` devuelve como `null`): degrada a `[]` en
+   *     silencio, sin aviso y sin warning.
+   * `[]` aqui significa indistinguible entre "no tenes ordenes" (verdad) y
+   * "no supe leerte las ordenes" (mentira). El call site
+   * (converter-modal.js:734) ya tiene `buysStatus = 'error'` y usa
+   * allSettled, asi que puede distinguir: migrar al guard de la v2.24.0 es
+   * seguro. Eso es el Tramo 2 de la Idea 57, pendiente de veredicto del
+   * Reviewer (ALERT-48: es capa de datos, no se mergea "por merito").
    */
   function getCommerceTransactionsBuys(token, opts) {
     opts = opts || {};
@@ -757,7 +799,13 @@
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>}
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *
+   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
+   * aca. Mismo caso que getCommerceTransactionsBuys, una funcion mas arriba:
+   * RED propaga, FORMA degrada a `[]` en silencio. El call site ya usa
+   * allSettled y arma `sellsStatus`, asi que puede distinguir.
+   * Migracion al guard = Tramo 2 de la Idea 57 (va al Reviewer).
    */
   function getCommerceTransactionsSells(token, opts) {
     opts = opts || {};
@@ -812,10 +860,26 @@
    * Por eso acá el error se PROPAGA. La UI debe distinguir tres estados:
    * pendiente / vacío real / no se pudo leer.
    *
+   * ⚠️ POR QUE ESTE ES EL CASO EXTREMO (Idea 57 Tramo 3, v2.26.0)
+   * El parrafo de arriba no es una aspiracion: es el unico `@throws` del
+   * archivo que describe por que el error NO puede degradarse. Y aun asi
+   * el codigo no lo cumple entero. El `catch` de RED propaga, pero el camino
+   * de FORMA (200 con cuerpo vacio -> `jfetch` devuelve `null`, o una forma
+   * no soportada) entra como `[]` en silencio, exactamente el estado que el
+   * parrafo de arriba dice que mentiria.
+   *
+   * O sea: el 403 por falta de scope SI se ve (propaga), y ese es el caso
+   * que el parrafo menciona. El otro caso — la API responde 200 y no se
+   * entiende — no se ve, y es el que todavia no esta arreglado. Por eso este
+   * bloque se deja explicito y no se "normaliza": si alguien migra esta
+   * funcion al guard, tiene que hacerlo leiendolo, no por routine.
+   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
+   *
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de entradas pendientes de recoger
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *   La capa de FORMA degrada a `[]`. Ver la nota de arriba.
    */
   function getCommerceDelivery(token, opts) {
     opts = opts || {};
@@ -962,7 +1026,15 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de items en el banco (null = slot vacío)
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *
+   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
+   * aca. El codigo de abajo degrada a `[]` en el camino de FORMA, sin aviso.
+   * `[]` aqui es indistinguible entre "banco vacio" y "no supe leer tu
+   * banco". Los call sites (inventory-hub.js:216, inventory-dashboard.js:331)
+   * ya usan allSettled y arman `state.readErrors`, asi que pueden
+   * distinguir: migrar al guard de la v2.24.0 es seguro.
+   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
    */
   function getAccountBank(token, opts) {
     opts = opts || {};
@@ -999,7 +1071,13 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de { id: number, category: number, binding: string, count: number }
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *
+   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
+   * aca. Mismo caso que getAccountBank, una funcion mas arriba: RED
+   * propaga, FORMA degrada a `[]` en silencio. Call site con allSettled y
+   * `readErrors` ya armados.
+   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
    */
   function getAccountMaterials(token, opts) {
     opts = opts || {};
@@ -1033,7 +1111,13 @@
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
    * @returns {Promise<Array>} - Array de items en la armería legendaria
-   * @throws {Error} si la API no se pudo leer (propaga, no degrada a [])
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   *
+   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
+   * aca. Mismo caso que getAccountBank y getAccountMaterials: RED propaga,
+   * FORMA degrada a `[]` en silencio. Call site con allSettled y `readErrors`
+   * ya armados (inventory-hub.js:218).
+   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
    */
   function getAccountLegendaryArmory(token, opts) {
     opts = opts || {};
