@@ -1,8 +1,24 @@
 /*!
  * js/wallet-dashboard.js — Dashboard de Cartera Multi-Cuenta
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.8.1 (2026-09-30) — .catch no-op en los launches de summary (Idea 47 c3)
+ * Versión: 2.9.0 (2026-09-30) — ETA medida en el contador de carga (Idea 48, Tramo B)
  *
+ * v2.9.0: el contador "Cargando cuentas... 4/27" ahora dice cuánto falta.
+ *   Con el pool global el recorrido se serializa (api-gw2 v2.19.0, POOL_MAX 6)
+ *   y entre cuenta y cuenta pasaban segundos: el usuario ve 4/27 -> 5/27 con
+ *   pausas y no tiene forma de distinguir "va lento" de "se colgó".
+ *   La ETA se MIDE sobre cuentas completadas por segundo, no se estima con una
+ *   latencia promedio: sale de lo que esta corrida ya hizo. Y no se muestra
+ *   hasta tener 3 cuentas y 1,5 s de elapsed, porque con 1 cuenta el promedio
+ *   es ruido y una ETA que sale de una sola muestra es exactamente el modo de
+ *   falla del proyecto (rotacion de fractales, /v2/events).
+ *   Cierra la Idea 46 t2 con datos de la maquina del usuario.
+ *   Lo que NO se hizo, y por que: el texto "limitado por la API (600/min)" que
+ *   la 46 t2 imaginaba. Con POOL_MAX=6 y hasta 3 cuentas en vuelo la cola esta
+ *   no vacia practicamente todo el recorrido, asi que el texto estaria en
+ *   pantalla el 100% del tiempo y no informaria nada. La ETA ya contesta la
+ *   pregunta ("¿esto va normal?"). Si el PO quiere la senal explicita, el
+ *   umbral honesto es "ETA > 45 s", no "hay cola".
  * v2.8.1: charP, apP, raidsP y luckP se lanzan los cuatro en un bloque
  *   sincrono y cada uno recibe su handler recien en su propio await. Con los
  *   4 propagando (api-gw2 v2.18.0), un rechazo de apP/raidsP/luckP durante
@@ -102,7 +118,7 @@
   var _refreshInFlight = null;
 
   // ------------------------------ Progreso multicuenta (Idea 45) ----------
-  // Con muchas cuentas, "Cargando carteras..." no distingue entre:
+  // Antes: "Cargando carteras..." sin más. Con muchas cuentas, "Cargando carteras..." no distingue entre:
   //   (a) todavía está cargando, (b) se colgó, (c) la 14 de 27 falló y la UI
   //       muestra 13 filas como si ese fuera el total.
   // El último caso es el peor: un fallo de red silencioso se ve EXACTAMENTE
@@ -135,8 +151,50 @@
     return { message: msg, status: status, endpoint: ep, kind: kind };
   }
 
+  // ---- ETA del contador (Idea 48, Tramo B) ---------------------------------
+  // El contador mide cuentas completadas, no requests. Por eso la ETA se
+  // calcula sobre cuentas/segundo observadas en ESTA corrida, y no sobre
+  // poolStats(): el pool no sabe cuantas cuentas le faltan, y multiplicar su
+  // throughput por un total de requests obligaria a hardcodear cuantos requests
+  // hace una cuenta — que es justamente el dato que cambia con la cache.
+  //
+  // Umbrales de muestra. La ETA NO se muestra hasta tener:
+  //   - ETA_MIN_DONE cuentas completadas: con 1 sola cuenta el promedio sale de
+  //     una muestra y cualquier ETA es ruido.
+  //   - ETA_MIN_MS de elapsed: los primeros requests de una sesion nueva son
+  //     los mas lentos (conexion, TLS, cache fria), asi que un promedio
+  //     temprano exagera el tiempo restante.
+  // Mostrar una ETA antes de eso seria el mismo modo de falla que la rotacion
+  // de fractales y /v2/events: un numero inventado con formato de dato real.
+  var ETA_MIN_DONE = 3;
+  var ETA_MIN_MS = 1500;
+
+  function nowMs() { return Date.now(); }
+
+  // Devuelve {ms, secs} o null si todavia no hay muestra suficiente.
+  // Funcion pura salvo por nowMs(): recibe el tiempo como parametro para que el
+  // test pueda ejercitarla sin reloj.
+  function computeEta(startedAt, done, total, tNow) {
+    if (!total || done >= total) return null;
+    if (done < ETA_MIN_DONE) return null;
+    var elapsed = tNow - startedAt;
+    if (!(elapsed >= ETA_MIN_MS)) return null;
+    var remaining = total - done;
+    var ms = (elapsed / done) * remaining;
+    if (!isFinite(ms) || ms <= 0) return null;
+    return { ms: ms, secs: Math.ceil(ms / 1000) };
+  }
+
+  // "~12 s" / "~2 min". Redondea hacia arriba a segundos: un "~11 s" que en
+  // realidad son 11.4 y termina en 12 Promete menos de lo que cumple.
+  function fmtEta(secs) {
+    if (secs < 60) return '~' + secs + ' s';
+    var m = Math.ceil(secs / 60);
+    return '~' + m + ' min';
+  }
+
   function progressReset(total) {
-    _progress = { done: 0, total: total || 0, current: [], errors: [] };
+    _progress = { done: 0, total: total || 0, current: [], errors: [], startedAt: nowMs() };
     updateProgressStatus();
   }
 
@@ -156,6 +214,8 @@
   function updateProgressStatus() {
     if (!_progress.total) return;
     var msg = 'Cargando cuentas... ' + _progress.done + '/' + _progress.total;
+    var eta = computeEta(_progress.startedAt, _progress.done, _progress.total, nowMs());
+    if (eta) msg += ' — ' + fmtEta(eta.secs) + ' restantes';
     if (_progress.errors.length) {
       msg += ' · ' + _progress.errors.length + ' con error';
     }
@@ -1292,8 +1352,18 @@
           done: _progress.done,
           total: _progress.total,
           inFlight: _progress.current.slice(),
-          errors: _progress.errors.slice()
+          errors: _progress.errors.slice(),
+          startedAt: _progress.startedAt
         },
+        // Superficie de la ETA (Idea 48 Tramo B) para poder testearla y para
+        // que un _debug() en consola responda "¿cuanto falta?" sin cronometrar.
+        eta: (function () {
+          var e = computeEta(_progress.startedAt, _progress.done, _progress.total, nowMs());
+          return e ? { ms: Math.round(e.ms), secs: e.secs, text: fmtEta(e.secs) } : null;
+        })(),
+        etaMath: computeEta,
+        etaFmt: fmtEta,
+        etaThresholds: { minDone: ETA_MIN_DONE, minMs: ETA_MIN_MS },
         accounts: state.accounts.map(function(a) {
           return { label: a.label, error: a.error || null };
         }),
@@ -1304,5 +1374,5 @@
 
   root.WalletDashboard = WalletDashboard;
 
-  console.info(LOG, 'ready v2.8.1 — los 4 launches con .catch no-op: el error por columna de characters y raids ahora corre (Idea 47 c3)');
+  console.info(LOG, 'ready v2.9.0 — el contador de carga mide y muestra la ETA (Idea 48 Tramo B)');
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
