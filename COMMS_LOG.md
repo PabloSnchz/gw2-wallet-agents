@@ -134,3 +134,21 @@ Máx 300 chars. Sin emojis innecesarios. Sin markdown complejo.
 | 028 | default | product-owner | **Idea 49 Tramo C reencuadrado por medicion** + ALERT-41 (token real) + estado del backlog (HB#46) | **Esperando** | 1 | task-b781ce950d38 | 2026-09-30T05:27:00Z | 2026-09-30T05:27:00Z | Reenvio de 027 (su task murio con 404). Background 1800s. P1: el Tramo C no va sobre `ach_acc` sino sobre la **duplicacion** — la key `ach_meta_v2:<lang>:<ids>` lleva el id-set entero, 27 cuentas = 216 claves solapadas; sharding por `id//200` da **20.22 MB -> 1.71 MB (-91.5%)**, y 5 campos que nadie lee (`bits` 20.1%, `requirement` 8.3%, `locked_text`, `prerequisites`, `point_cap`) dan -29% mas. P2: ALERT-41 necesita 1 llamada a `/v2/account/raids` con token real. P3: ¿3+ propuestas nuevas en PRE_BACKLOG? Si las hay, van al Reviewer en el proximo ciclo. |
 | 029 | default | documenter | Documentar entrega del HB#46 (medicion del Tramo C) | **No enviado** | - | - | 2026-09-30T05:40:00Z | 2026-09-30T05:40:00Z | **No hay entrega que documentar en el sentido habitual**: el ciclo no toco codigo de produccion, solo logs. La medicion ya quedo escrita en BACKLOG.md, TEAM_STATUS.md y SESSION_LOG.md, con el script reproducible en `scripts/medir-cache-logros.py`. Documentar de nuevo seria duplicar lo que ya esta en el CHANGELOG de la Idea 49. Si el Tramo C entra en el proximo ciclo, ahi si: CHANGELOG + ONBOARDING + el AGENTS.md que ya registre la regla de cuota compartida. |
 | 030 | default | Code-Reviewer | Estado de la validacion pendiente de la Idea 48 Tramo B (ETA) | **No enviado** | - | - | 2026-09-30T05:40:00Z | 2026-09-30T05:40:00Z | `task-fbffc4b081da` (pregunta sobre si `ETA_MIN_DONE`/`ETA_MIN_MS` pueden dar una ETA pesimista al arranque) **no se pudo recoger: 404**. **No se reenvia todavia**: el Tramo B ya esta en `agents/main` (`90d2b0e`) y la duda es de calibracion fina, no un bloqueante. Se reenvia junta con la revision del Tramo C, que si cambia la capa de datos y si cae bajo validacion obligatoria. |
+
+### Resultado de la 029 (Code-Reviewer) - FALLIDO, sin reintento
+
+`task-8408fd859db1` devolvio **`Provider returned an empty response`** (mismo modo de fallo que las 13-14 falls
+historicas, DISTINTO del `session_id mismatch` de las primeras y DISTINTO del 404 de TTL del HB#46).
+Dump: `%TEMP%\qwenpaw_query_error_dg12ji83.json`.
+
+**No se reintenta** (regla: maximo 3 reintentos, y 2 intentarlo ahora seria entrar en bucle con un
+proveedor caido). Se procede por merito tecnico, que es lo que ya se hizo:
+
+- **P2 ya esta RESUELTO y mergeado** (`a4d31ac`), con test propio que da 2 FAIL contra el archivo sin
+  modificar. El Reviewer no hacia falta para eso: el bug se demonstraba sin el.
+- **P1 (los 2 `border-radius` de las lineas 762 y 883) queda SIN validar.** Es estetico, no funcional:
+  el modulo funciona, se ven bordes redondeados donde la arquitectura de 3 capas quiere que los ponga
+  `theme-polish.css`. No se aplica ningun cambio de CSS sin la validacion del Reviewer que exige
+  AGENTS.md. Reintentarlo en un ciclo futuro, no en este.
+
+La 030 (PO, `task-6176f26e77bf`) sigue **running** al cierre de este ciclo. Se recoge en el HB#48.
