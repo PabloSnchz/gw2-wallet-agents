@@ -117,6 +117,32 @@ eq(ghosts.length, Object.keys(FANTASMA_CONOCIDO).length,
    'la lista de fantasmas es la allowlist y solo la allowlist (' +
    ghosts.map(g => g.id).join(', ') + ')');
 
+// ALERT-89. La direccion INVERSA. Todo lo de arriba mira "app -> API": que
+// cada encuentro del modulo exista en el catalogo. La otra mitad del invariante
+// es "API -> app": que no haya un evento de la API que el modulo no declare, y
+// ESO NO ESTABA VIGILADO. Consecuencia medida, no temida: el suite puede estar
+// en verde con `ALL.length === 30` y `API.size === 30` mientras un id esta
+// equivocado en cada lado. Los dos errores se CANCELAN en la cuenta, asi que la
+// asercion que "cuenta los encounters" no los ve: cuenta los dos lados.
+//
+// La constante `ALL.length === 30` de arriba es justamente la que hace esto
+// parecer seguro. Es una asercion que pasa por construccion.
+const FALTANTE_CONOCIDO = {
+  // El catalogo de la API declara `camp` (Checkpoint, mount_balrior) y el modulo
+  // no lo tiene. NO se agrega el encuentro porque el fixture congelado trae solo
+  // `{id, type}`: sin `name` oficial habria que inventar el nombre y el icono, y
+  // un hallazgo con datos inventados es peor que un hueco declarado. Es el mismo
+  // criterio de ALERT-84: cambiar el ESTADO que la app dice de si misma, no
+  // rellenar el hueco con una suposicion. Se cierra cuando el catalogo traiga el
+  // nombre real; la lista es la allowlist, asi que cualquier OTRO faltante nuevo
+  // falla igual que un fantasma nuevo.
+  camp: 'hueco de datos: el fixture no trae el name oficial, no se inventa',
+};
+const faltantes = Array.from(API.keys()).filter(id => !ALL.some(e => e.id === id));
+eq(faltantes.length, Object.keys(FALTANTE_CONOCIDO).length,
+   'la lista de faltantes es la allowlist y solo la allowlist (faltan: ' +
+   (faltantes.join(', ') || 'ninguno') + ')');
+
 console.log('\n--- 2. Los 4 ids corregidos existen y caen en el ala correcta ---');
 // La correspondencia se prueba por ALA, no por nombre: "Siege the Stronghold" y
 // "escort" no se parecen, pero los dos son el unico evento del wing
