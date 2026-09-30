@@ -1,5 +1,13 @@
-﻿/*!
+/*!
  * js/accounts-panel.js — Panel de Cuentas (cifrado local)
+ * v2.0.1 (2026-09-30) - Idea 55 Tramo 3a
+ *  - enrichWithGW2API() pide /v2/account por GW2Api.getAccountInfo
+ *    en vez de `fetch` crudo. El wrapper ya existia (api-gw2.js:393).
+ *    El try/catch por cuenta NO cambio: una cuenta rota sigue sin
+ *    cortar el enriquecimiento de las otras.
+ *  - /v2/account/home/nodes SIGUE crudo a proposito: no tiene wrapper
+ *    en la capa y es otro endpoint.
+ *
  * v2.0.0 (2026-05-03) — Rediseño "Profile Card" premium
  *
  * MEJORAS v2.0.0:
@@ -800,8 +808,10 @@
     for (var i = 0; i < accounts.length; i++) {
       var acc = accounts[i], apiKey = acc.apiKey?.value || acc.apiKey; if (!apiKey) continue;
       try {
-        var info = await (await fetch('https://api.guildwars2.com/v2/account?access_token=' + encodeURIComponent(apiKey))).json();
+        var info = await root.GW2Api.getAccountInfo(apiKey);
         acc.gw2 = acc.gw2 || {}; acc.gw2.accountName = info.name; acc.gw2.created = info.created; acc.gw2.achievementPoints = info.achievement_points; acc.gw2.characterSlots = info.slots; acc.gw2.bagSlots = info.bag_slots; acc.gw2.bankSlots = info.bank_slots; acc.gw2.materialStorage = info.material_storage;
+        // /v2/account/home/nodes sigue crudo a proposito: NO tiene wrapper en la
+        // capa y no es lo que esta Rama del Idea 55. Queda anotado como pendiente.
         var nodes = await (await fetch('https://api.guildwars2.com/v2/account/home/nodes?access_token=' + encodeURIComponent(apiKey))).json();
         acc.expansions = acc.expansions || {};
         if (nodes.some(function(n) { return n.includes('hot') || n.includes('heart_of_thorns'); })) acc.expansions.heartOfThorns = true;

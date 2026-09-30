@@ -93,8 +93,15 @@ ok(iCatch > -1 && iCatch < body.indexOf("Solicitando PvP stats"),
 
 // Y el resto de la funcion tiene que seguir ahi, en orden.
 ok(/pvp\/stats\?access_token=/.test(body), 'la carga de PvP stats sigue despues');
-ok(/\/v2\/account\?access_token=/.test(body), 'la carga de account info sigue despues');
 ok(/wvw\/ranks\?ids=all/.test(body), 'la resolucion de rango WvW sigue despues');
+// SUPERSEDIDO por el Tramo 3a (HB#51): esta asercion exigia que /v2/account
+// SIGUERA crudo en characters.js, y el Tramo 3a lo migro a GW2Api.getAccountInfo.
+// Mantener la asercion vieja habria fijado el bug como invariante. Ahora lo que
+// se exige es que la carga siga existiendo Y que pase por la capa; el detalle
+// del contrato de error vive en tests/idea55.account-layer.test.js.
+// Antes: ok(/\/v2\/account\?access_token=/.test(body), 'la carga de account info sigue despues');
+ok(/getAccountInfo\(token\)/.test(body),
+   'la carga de account info sigue despues y ahora pasa por la capa (Tramo 3a)');
 
 // El `catch` del try externo tiene que seguir existiendo: sigue cubriendo
 // PvP/account, que NO se migraron en este tramo.
@@ -106,12 +113,14 @@ console.log('\n[4] El buster subio en el MISMO commit (ALERT-24, REGLA 2)');
 
 const mChar = html.match(/js\/characters\.js\?v=([\d.]+)/);
 ok(!!mChar, 'index.html sigue cargando characters.js con buster de version');
-ok(mChar && mChar[1] === '2.4.0',
-   'el buster es 2.4.0, la version del fix  (encontrado: ' + (mChar ? mChar[1] : '?') + ')');
-ok(/js\/characters\.js — Panel de Personajes y Localización\s*\n \* v2\.4\.0/.test(src),
-   'la cabecera del archivo declara v2.4.0');
+ok(mChar && mChar[1] === '2.4.1',
+   'el buster es 2.4.1, la version vigente  (encontrado: ' + (mChar ? mChar[1] : '?') + ')');
+ok(/js\/characters\.js — Panel de Personajes y Localización\s*\n \* v2\.4\.1/.test(src),
+   'la cabecera del archivo declara v2.4.1');
 ok(/CAMBIOS v2\.4\.0 \(Idea 55 Tramo 1\)/.test(src),
-   'la cabecera documenta el cambio y su motivo');
+   'la cabecera documenta el Tramo 1 y su motivo');
+ok(/CAMBIOS v2\.4\.1 \(Idea 55 Tramo 3a\)/.test(src),
+   'la cabecera documenta el Tramo 3a y su motivo');
 
 // ── 5. Lo que el tramo NO toca (para que un merge a ciegas no lo revierta) ─
 console.log('\n[5] Lo que el Tramo 1 deja intacto a proposito');
