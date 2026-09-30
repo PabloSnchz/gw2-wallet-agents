@@ -126,6 +126,8 @@ Contra 4.98 MB de cuota. El Tramo C del PO apuntaba a comprimir `ach_acc` (~13×
 
 **El botón de "limpiar caché" tampoco está resuelto** (ver Idea 50 P3 abajo): `cacheClear()` sigue con **0 callers** y no hay ningún botón. Falta además un **hook** de limpieza de memoria por módulo — `cacheClear` solo limpia la `__mem` de una capa, y `wizards-vault.js:40-41` tiene su propia `__mem`/`__inflight`; sin ese hook los bytes liberados se vuelven a servir desde memoria y el botón parecerá que no hizo nada.
 
+**El contrato que el botón va a necesitar, ya fijo (Tramo F)**: `cacheClear(opts)` acepta `{dryRun: true}` y devuelve `{removed, kept, bytes, dryRun}` **sin borrar nada**. En `dryRun` tampoco vacía `__mem`, porque la pregunta es "cuánto liberaría" y vaciar la sesión antes de responder ya sería borrar. `removed` es la **diferencia real de `localStorage.length` antes y después**, no un conteo de intenciones: por eso un borrado fallido ya no puede reportarse como liberado. La firma se fijó ahora, con `dryRun` de nacimiento, para que el botón no tenga que cambiar una función ya mergeada.
+
 **5 módulos todavía no declaran sus bases de cache**: `characters.js`, `homestead-tracker.js`, `activities.js`, `app.js` y `legendary-tracker.js`.
 
 ### Lección de test que salió de acá

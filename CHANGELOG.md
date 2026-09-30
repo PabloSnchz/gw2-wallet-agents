@@ -57,6 +57,24 @@ y el versionado **SemVer** (https://semver.org/).
   - **5 módulos todavía no declaran sus bases**: `characters.js`, `homestead-tracker.js`, `activities.js`, `app.js` y `legendary-tracker.js`.
   - **La Idea 49G sigue RECHAZADA (ALERT-73) y deliberadamente sin mergear**: no forma parte de este cambio.
 
+- **fix(cache): `cacheClear()` dejó de limpiar solo la sesión y ahora borra de verdad; nace con `dryRun` (Idea 50 Tramo F — `c04496e` + `a330d30`, merge `86b351a`; `js/api-gw2.js` v2.28.0 → v2.29.0)**:
+
+  **⚠️ NO cambia lo que Pablo ve.** La función sigue con **0 callers** y el botón sigue sin existir. Arregla una función que mentía, no agrega UI. Tramo F y P3 son el mismo camino visto desde las dos puntas: primero la función tiene que ser verdad, después se le pone el botón.
+
+  **Bug**: `cacheClear()` hacía `try { __mem.clear(); __inflight.clear(); }`, o sea limpiaba la cache de la **SESIÓN** y no la de **DISCO**: la cuota de `localStorage` (~4.98 MB medidos en navegador real) seguía llena y el borrado no liberaba un solo byte. El efecto era invisible solo porque no había botón — cualquier botón que se hubiera colgado de esta función habría sido un botón que no hacía nada.
+
+  **Fix, en dos commits**:
+  - `c04496e` — borra de verdad, por **allowlist EXACTA** de las claves de la capa y **no por prefijos**. El motivo está medido y no es obvio: `wallet` y `luck` son nombres **pelados**, así que un barrido por familias habría dejado vivas justo las claves que más cuota gastan.
+  - `a330d30` (P4 del Reviewer) — `cacheClear(opts)` acepta `{dryRun: true}` y devuelve `{removed, kept, bytes, dryRun}` **sin borrar**. En `dryRun` tampoco vacía `__mem`: la pregunta es "cuánto liberaría" y vaciar la sesión antes de responder ya sería borrar. Petición explícita del Reviewer para que el botón no tenga que cambiar una firma ya mergeada.
+
+  **El detalle que hace que el número signifique algo**: `removed` pasó de contar llamadas a `lsDel` —que **se traga la excepción**, o sea que contaba una intención— a ser **la diferencia real de `localStorage.length` antes y después**. Con la forma anterior, un borrado fallido se contaba como borrado.
+
+  **Garantía verificada por el test**: NO toca `gn:account:keys` ni `gw2_keys` (las 27 cuentas), ni pines, ni tema, ni las caches de otros módulos.
+
+  **Verificación**: test nuevo `tests/idea50f.cacheclear-real.test.js` (**57 pass / 0 FAIL** al cierre del Tramo; el archivo no existía antes y nació aquí — lo que P3 lo llevó a 66). Fase roja **8 FAIL** contra el archivo sin el fix, registrada en el mensaje de merge `86b351a`. Suite: **369 pass / 0 FAIL, 25 archivos**, todos exit 0.
+
+  **Nota de proceso (ALERT-75)**: el Reviewer escribió **dos veredictos contradictorios sobre este mismo Tramo** —`APROBADO CON CAMBIOS, "Mergealo"` a las 18:44:32Z y `RECHAZADO` a las 18:55:33Z. Contrastado contra el archivo real (`git show c04496e:js/api-gw2.js`), el código está bien y el que se equivocó fue el resumen. **El resumen no pisa al artefacto que resume.**
+
 - **fix(cache): Actividades ya no borra la cache de logros de otros módulos, y `lsSet` deja de tragarse el `QuotaExceededError` (Idea 49, Tramos 1 y A — `d7cbe0d` + merge `9e211b5`, `fb55fe2` + buster `4e5296b`; `js/activities.js` v3.20.3, `js/api-gw2.js` v2.20.0)**:
 
   **Tramo 1 — un módulo borraba la cache de otro (`activities.js` v3.20.2 → v3.20.3)**
@@ -260,6 +278,7 @@ y el versionado **SemVer** (https://semver.org/).
 
 ### Build
 - **Idea 49 Tramo A**: `index.html` pasa a `js/api-gw2.js?v=2.20.0` (`4e5296b`). Sin este bump el fix existiría en el repo y no en la app: un navegador con el archivo cacheado seguiría ejecutando la v2.19.0 con el `QuotaExceededError` tragado. El bump de `activities.js` a `?v=3.20.3` va dentro de `d7cbe0d`. Mismo modo de falla que ya se registró con `meta.js` en el HB#33.
+- **Idea 50 Tramo F**: `index.html` pasa a `js/api-gw2.js?v=2.29.0` (línea 940, dentro de `c04496e`). Sin el bump el fix existiría en el repo y no en la app: un navegador con el archivo cacheado seguiría ejecutando la v2.28.0, en la que `cacheClear()` solo limpiaba la sesión. Mismo modo de falla que las dos entradas siguientes y que la de `meta.js` v3.4.0 en el HB#33.
 - **Idea 50 P3**: `index.html` pasa a `js/api-gw2.js?v=2.30.0` (línea 940) y `js/wizards-vault.js?v=1.3.1` (línea 942). Sin estos bumps el registro de bases existiría en el repo y no en la app: un navegador con los archivos cacheados seguiría con la v2.29.0, sin registro de bases, y el botón borraría solo las 18 de la capa. Mismo modo de falla que las dos entradas anteriores.
 - **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
 
