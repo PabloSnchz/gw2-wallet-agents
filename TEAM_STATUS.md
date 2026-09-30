@@ -1,6 +1,7 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-30T00:50:00Z
+> Actualizado: 2026-09-30T02:30:00Z
+> Heartbeat #41 (02:30 UTC): (1) **El Code Reviewer RESPONDIO** `task-ec29dfb1ec3f` (Idea 47): veredicto *aprobado con cambios*, 7 hallazgos. Descarto un riesgo que yo temia (el camino de error de los 8 wrappers **no** cachea el valor falso, porque `putCache` esta dentro del `.then` de exito) y corrigio dos cosas mias: el scope real son **5 wrappers, no 8**, y mi lectura del riesgo en raid/strike estaba invertida (esos dos modulos ya renderizan el error). (2) **Rescate de WIP paralelo**: encontrei los 4 commits de la Idea 47 sin pushear, uno de ellos (c4) **sin commitear** en un worktree, y sus tests con **1 FAIL**. (3) **El FAIL era del test, no del codigo**: el regex `No se pudo\w* leer` no puede matchear "pudieron" porque la subcadena es p-u-d-**i**, no p-u-d-**o**. Corregido a `No se pud\w+ leer`. (4) Mergeado a `agents/main` @ `110b049`. **105/105 aserciones OK, sintaxis 7/7.**
 > Heartbeat #38 (00:30 UTC): (1) **PO entregó la Idea 47 y es la más seria del ciclo** — 8 wrappers de `api-gw2.js` convierten "no pude leer" en "no tenes nada". **La verifiqué contra el código real y el PO acertó**: los 7 call sites existen, el patrón de los 8 es idéntico, y `getCommerceDelivery` efectivamente propaga. (2) **Descubrí que la Idea 45 t2 está a medio dead por construcción**: los `try/catch` que escriben `summary._errors.characters` y `.raids` son inalcanzables. (3) **Enviado al Reviewer** (`task-ec29dfb1ec3f`) para decidir Opción A vs B. (4) **Rescate de repo:** un heartbeat paralelo mergeó 6 commits a `agents/main` mientras corría este; hice `--ff-only` antes de tocar nada y audité su trabajo (smoke test 8 OK / 0 FAIL). (5) **Borré 2 ramas bomba del remoto**, una de las cuales duplicaba un commit ya mergeado y además **revertía un cache-buster**.
 > Heartbeat #37 (00:00 UTC): (1) **El Reviewer RESPONDIO** `task-f80666adeb79`, fin de la racha de 14 timeouts. Veredicto *aprobado con cambios* con 6 hallazgos. (2) **Reproduje y arregle el unico bloqueante** (n2, fuga de slot en `poolPump`): commit `10ead9b`, merge `25e6cc5`, `api-gw2.js` v2.17.1. (3) **Rescate del WIP paralelo del HB#36**: `mapWithPool` en la FASE 2 de inventario estaba sin commitear; re-verificado y mergeado, `9a8262c` / `c0cd18f`, v1.1.0. (4) PO consultado: 2 decisiones de alcance abiertas (COMM 027).
 > Heartbeat #36 (22:00 UTC): (1) **PO entrego 6 hallazgos verificados y 2 autocorrecciones.** Una era mia: el PO cerro la Idea 45 como `IMPLEMENTADA @ ee0494d` y eso era **parcialmente falso**. (2) **Rescate de trabajo varado**: el tramo 2 de la Idea 45 (`db1b7d3`, `wallet-dashboard` v2.8.0) vivia sin mergear en `origin/chore/po-ideas-46`, mientras `main` servia el buster `?v=2.8.0` apuntando a un archivo cuyo header decia 2.7.0. Rescatado con cherry-pick `2806296`. (3) **Implementada Idea 46 t1: pool global de requests** en `api-gw2.js` v2.17.0, commit `2f6ce82`, mergeado a `agents/main` desde un worktree aislado. (4) **Detectado un Heartbeat #36 paralelo** escribiendo en el mismo clon local; ver ALERT-23.
@@ -9,6 +10,57 @@
 > Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
 
 > Heartbeat #33: (1) **Documentador recuperado y productivo** — completó `task-d1308a9671e0` (2º vez consecutiva que responde). Documentó los 2 fixes de datos falsos en commit `e7672bc`. (2) **Audité sus 3 discrepancias contra el código real** — 1 era certa, 2 no. (3) **Corregí el CHANGELOG**: decía que el fix de fractals no estaba mergeado y **sí lo está** (`27b8394`). (4) **Bumpeé `meta.js` v3.4.0 → v3.4.1**: el fix de Ley Line nunca bumpeó la query string, así que no llegó al navegador por cache. (5) **Implementé el item #43 (Commerce Delivery)** — la fricción real que reportó el PO: «me muestra el ítem del TP como venta pasada sin decirme que no lo cobré». Endpoint **verificado en vivo** (401 con token falso ≠ 404 de inexistente). (6) **PO cerró la idea #40** por sí mismo: pets no tiene endpoint account-scoped. (7) Reviewer: **14º falla consecutiva**.
+
+---
+
+## Heartbeat #41 (02:30 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | OK Activo | Heartbeat #41. Rescate y merge de los 4 commits de la Idea 47, correccion del test c4, push a `agents/main` @ `110b049`. |
+| **code-reviewer** | OK RESPONDIO | `task-ec29dfb1ec3f` (Idea 47) COMPLETADA. Veredicto *aprobado con cambios*, 7 hallazgos (P1-P7). **Segundo heartbeat seguido que responde**: la intermitencia sigue, asi que no se puede asumir que siga asi. |
+| **documenter** | - | No consultado este ciclo: aun no habia entrega cerrada que documentar. |
+| **product-owner** | TIMEOUT, pero PRODUJO | `task-dbb64f500af6` (COMM 027) **TIMEOUT a los 900s**. Sin embargo la **Idea 48 si llego al repo** (`2cdacce`). El timeout es del canal de respuesta, no del trabajo. |
+| **architect** | - | Excluido por diseno. |
+
+### Trabajo completado en este ciclo
+
+**El Reviewer acorto el scope de la Idea 47 de 8 wrappers a 5, y yo lo habia firmado en 8.** El caso de commerce no se arregla propagando: `converter-modal.js` ya usaba `Promise.allSettled`, y el call site hacia `status === 'fulfilled' ? value : []`, que deshacia el contrato nuevo y ademas duplicaba el `console.warn`. El fix de commerce **no esta en `api-gw2.js`, esta en esas lineas del convertidor**. Los 5 que si necesitan propagar: `getCharacterCount`, `getAccountRaids`, `getAccountBank`, `getAccountMaterials`, `getAccountLegendaryArmory`.
+
+**Tambien me dijo que mi analisis del riesgo en raid/strike estaba al reves.** Escribi que ahi "no completaste nada" y "no pude leer si lo completaste" son la misma columna, y que por eso era la peor superficie. Con propagacion, esas dos columnas **ya tienen el catch que renderiza el error** (`raid-tracker.js:1741`, `strike-tracker.js:1113`): `Error al cargar raids: ...`. Cero trabajo de UI. El riesgo real esta en 2 modulos, no en 4.
+
+**Un riesgo que yo temia era falso: los 8 wrappers no contaminan la cache.** `putCache` esta dentro del `.then` de exito, no del `.catch`, asi que un error nunca escribe un `[]` cacheado. Verificado por el Reviewer contra `main` @ `f80fb88`.
+
+**El Reviewer tambien dijo que la Idea 47 revierte una decision suya, y que el changelog deberia decirlo asi.** Su JSDoc de `getCommerceDelivery` decia textualmente que buys/sells degradan a `[]` "revisado por el Code Reviewer". Su justificacion era correcta **para commerce** y sigue siendolo. La Idea 47 no descubre un descuido: corrige una decision suya que era valida para commerce e invalida para inventario. "fix: errores tragados" seria una descripcion incompleta.
+
+**Rescate de trabajo paralelo (ALERT-36).** Al arrancar, `git worktree list` mostro dos worktrees con trabajo de la Idea 47. Uno tenia **4 commits sin pushear y un quinto sin commitear**, mas 9 archivos de scratch. Ese trabajo era de un heartbeat concurrente y estaba a 24 minutos de su ultima escritura: si lo hubiera pisado, se perdia (el modo de falla de ALERT-18 y ALERT-23).
+
+Antes de mergear, audite los 4 commits contra el veredicto del Reviewer. Cumplian: c1 = `allSettled` + superficie de error (P3), c2 = propagacion con `getCommerceListings` correctamente excluido (P5), c4 = el fix del call site de commerce (P1). Corri el test de c4 y **fallo 1 de 37**.
+
+**El FAIL era un bug del test, no del codigo.** La asercion pedia 3 `console.warn` de lectura, y el regex era `No se pudo\w* leer`. El `\w*` estaba ahi para cubrir el plural, pero **"pudieron" no contiene la subcadena "pudo"**: es p-u-d-**i**, no p-u-d-**o**. El `\w*` no tenia nada que recuperar porque la diferencia esta en la cuarta letra, no despues. El regex matcheaba solo el singular de la caja del TP y fallaba con los otros dos. Corregido a `No se pud\w+ leer`. El codigo de produccion estaba bien desde el principio.
+
+Mergeado a `agents/main` @ `110b049` (commits `7ca8195`, `9860a2e`, `776b1ea`, `92b9cc1`).
+
+**Verificacion:** `node --check` limpio en los 7 archivos tocados. Suite completa desde `main`: c1 29/29, c2 31/31, c4 37/37, commerce-delivery 8/8 = **105 aserciones, 0 FAIL**.
+
+### Pendientes
+
+- Idea 48 Tramo A - `POOL_MAX` 3 a 6. **30-45 min, el item mas barato del backlog.** El PO lo midio en vivo: con `POOL_MAX=3` el pool rinde ~200 req/min = **33% del permiso** (`X-Rate-Limit-Limit: 600` confirmado). Con 27 cuentas, el Dashboard Cartera tarda **32.7 s** en la primera pantalla con datos; con 6, **16.4 s**. `fetchWithRetry` ya tiene backoff para 429. **No implementado en este heartbeat a proposito**: `api-gw2.js` es el archivo que la Idea 47 acaba de tocar en 2 commits, y meter los dos cambios de contrato en el mismo ciclo hace el commit irrevisable.
+- Idea 48 Tramo B - ETA en el contador de carga (2-3h). Cierra la Idea 46 t2 con datos reales en vez de con una estimacion. `poolStats()` ya expone `queued`/`waitMs`.
+- PO: **7 heartbeats consecutivos con 0 web research.** Google devuelve basura y `wiki.guildwars2.com` 404ea. No bloquea (sus ultimos hallazgos vinieron de medir la API, no de buscar), pero el backlog se llena solo de lo que el PO puede **medir**, no de lo que los usuarios **piden**.
+- ALERT-27 sigue abierta y acota la Idea 42: el limite de ArenaNet es de **tasa**, no de concurrencia. El pool amortigua picos, no excedentes sostenidos. Falta un token bucket; la Idea 42 (324 requests) no debe entrar sin resolverlo.
+- PROMOTIONS.md creado (`0467cfe`): produccion **CONGELADA**, solo entra con pedido literal de Pablo que nombre el feature.
+
+### Alertas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| **ALERT-36** | **Trabajo de 5 commits casi se pierde en un worktree paralelo.** c4 estaba sin commitear en `_wt_main`, con 9 archivos de scratch sin trackear. | Alta - **Regla: al arrancar un heartbeat, `git worktree list` ANTES de tocar nada, y `git log --oneline origin/main..HEAD` en CADA worktree.** Un heartbeat concurrente que muere a mitad de camino deja el trabajo ahi, no commiteado en ninguna rama. |
+| **ALERT-37** | **Un test puede fallar porque el test esta mal, no porque el codigo este mal.** `idea47-commit4` daba 36/37 y el defecto era el regex. | Media - **Regla: antes de "arreglar" el codigo para que pase el test, comprobar si el test dice lo que quiere decir.** Un `\w*` puesto para cubrir una variante linguistica no cubre una diferencia en la cuarta letra. |
+| **ALERT-31** | Media | **RESUELTA.** Los wrappers propagan (`9860a2e`) y sus 10 call sites fueron auditados uno por uno. `getCommerceListings` queda afuera, con el motivo escrito en el JSDoc (P5). |
+| **ALERT-32** | Media | **RESUELTA.** Los prefetch de raid/strike ya ignoran el fallo y las columnas de error ya renderizaban. El riesgo real quedo en 2 modulos, no en 4. |
 
 ---
 
