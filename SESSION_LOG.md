@@ -1,5 +1,60 @@
 # SESSION_LOG.md — Registro de sesiones
 
+# Heartbeat PO #16 — 2026-09-30 20:00 UTC
+
+## Qué se hizo
+
+- **Investigación de producto (sin código de producción, sin tocar la capa de datos).**
+  Quinceava ronda consecutiva con 0 web research útil (Reddit 403 por 15ª vez;
+  `gw2treasures.com/feeds` 404 por 3ª). La pregunta fue **"¿qué sobrevive a un F5?"**
+  — el inventario inverso de lo que la app persiste.
+- **🔴 IDEA 63 (nueva): cambiar de cuenta puede dejar la lista de Personajes vacía y
+  sin una sola palabra.** Medido sobre `agents/main` @ `aed761c`, reverificado después
+  de que `origin/main` avanzara:
+  - **13 filtros en 3 módulos, los 3 sobreviven al cambio de cuenta.** Ninguno de los
+    handlers de `gn:tokenchange` los limpia (`characters.js:1469-1479`,
+    `achievements.js:1100-1107`, y el de `app.js`).
+  - En **2 de los 3**, si el filtro vacía la lista, **no hay texto**: `renderCards`
+    (`characters.js:1227`) itera un array vacío y `app.js:527-531` vacía los
+    contenedores y hace `return`. Solo **Logros** lo hace bien
+    (`achievements.js:674`, *"No hay logros que coincidan con los filtros"*), y ese
+    mensaje es precisamente lo que les falta a los otros dos.
+  - **El agravante, independiente de los filtros:** `state.pagination.page` tampoco se
+    resetea al cambiar de cuenta (solo en los 3 handlers de filtro, `:1045/1051/1057`),
+    así que `slice((page-1)*20, +20)` (`renderList:1103`) **da vacío sin un solo filtro
+    activo**: cuenta A de 30 personajes en página 2 → cuenta B de 12 → `slice(20,40)` =
+    nada. Y `renderPagination():1389` marca activo un botón de página que no existe.
+  - **Desde `0a3d25a` (2026-03-20), el commit que creó el módulo: 194 días.** Los tres
+    mecanismos entran en el mismo commit, así que **no es una regresión: nunca estuvo
+    bien.** `findstr` de "sin resultados"/"no hay personajes" en `characters.js` → 0
+    apariciones: el estado vacío nunca existió.
+- **Se agregaron al mirror las rondas 15 y 16** (`DASHBOARD_PO_IDEAS.md`, 74 líneas).
+  La ronda 15 (Idea 62) estaba solo en el workspace del PO — el HB#64 del Principal ya
+  lo había señalado; queda cerrado.
+
+## Qué se rompió
+
+- **Yo. Rompí la codificación de `DASHBOARD_PO_IDEAS.md` y la arreglé antes de commitear.**
+  Pasé el archivo por `Get-Content -Raw | Set-Content -Encoding UTF8` de PowerShell 5.1
+  para corregir un typo: **agregó BOM y recodificó el archivo entero** (523 líneas de
+  diff donde debía haber 74). Lo detecté comparando los bytes con la versión de HEAD,
+  lo restauré con `git checkout --` y rehice los edits solo con edición de texto.
+  **Nadie debe round-trippear un `.md` UTF-8 por PowerShell 5.1 en este repo.**
+- Segundo error de la ronda, mismo tipo y más grave: **creé un stub vacío de la ronda 14**
+  al insertar la 16, por dar por hecho que "restaurarla" era reescribir su sección.
+  La ronda 14 estaba intacta más abajo en el archivo; el stub sobraba.
+
+## Qué quedó pendiente
+
+- **63 T1 🟢 ~30 min, 3 líneas** — reset de `state.filters` + `page = 1` en los handlers
+  de tokenchange. Cierra el bug de datos. **No va al Reviewer:** estado local de UI.
+- **63 T2 🟢 ~20 min** — estado vacío con texto + botón limpiar, reutilizando el patrón
+  que ya funciona (`achievements.js:674`).
+- **63 T3 🟡 ~1-1.5 h — decisión de Pablo, no del PO** — persistir filtros por cuenta,
+  como ya hace el Wallet Dashboard con `sort`/`selectedCurrencies`/`summaryFields`.
+  **Bloqueada por T1+T2.**
+- Secuencia: **63 T1 → 63 T2 → [decisión] → 63 T3**. Después: 49G, 62 T1 (una línea), 53.
+
 # Heartbeat Principal #57 — 2026-09-30 15:55 UTC
 
 ## Qué se hizo
