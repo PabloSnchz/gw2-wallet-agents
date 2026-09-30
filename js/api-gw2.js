@@ -1,7 +1,21 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.18.0 (2026-09-30) — 7 wrappers propagan el error en vez de degradar (Idea 47 c2)
+ * Versión: 2.19.0 (2026-09-30) — POOL_MAX 3 → 6, calibrado por medición (Idea 48 Tramo A)
+ *   v2.19.0: POOL_MAX 3 → 6. Con 3 slots y ~900 ms de latencia mediana el pool
+ *   rendía ~200 req/min = 33% del permiso (X-Rate-Limit-Limit: 600). Con 6
+ *   rinde ~400/min y la primera pantalla del Dashboard Cartera con 27 cuentas
+ *   baja de 32.7 s a 16.4 s. El 3 no lo eligió nadie: se heredó de los pools
+ *   locales de cada dashboard y nunca se midió.
+ *   NO arregla el 429 (ALERT-27): el límite de ArenaNet es de tasa, no de
+ *   concurrencia. El pool amortigua picos, no excedentes sostenidos. Un
+ *   recorrido de 27 cuentas entra; un agregado de varios simultáneos puede
+ *   reventarlo igual. El token bucket sigue siendo previo a la Idea 42.
+ *   Verificado con tests/idea48.poolmax.test.js, que carga este archivo real
+ *   con un fetch falso de latencia conocida: el pico nunca excede POOL_MAX,
+ *   3 → 6 reduce el tiempo de la tanda, y no se filtra ningún slot.
+ *   Sin cambio de comportamiento observable: mismos resultados, mismos
+ *   errores, misma cache. Solo cambia CUANTOS requests pueden estar en vuelo.
  *   v2.18.0: getCharacterCount, getAccountRaids, getCommerceTransactionsBuys,
  *   getCommerceTransactionsSells, getAccountBank, getAccountMaterials y
  *   getAccountLegendaryArmory dejan de tragar el error y devuelven [] / 0.
@@ -101,14 +115,25 @@
     LANG: 'es',
     RETRIES: 2,
     RETRY_BASE_MS: 600,
-    POOL_MAX: 3
+    // POOL_MAX 3 -> 6 (Idea 48, Tramo A). Medido, no elegido: con 3 slots y
+    // ~900 ms de latencia mediana el pool rendia ~200 req/min = 33% del
+    // permiso (X-Rate-Limit-Limit: 600). Con 6 rinde ~400/min y la primera
+    // pantalla del Dashboard Cartera con 27 cuentas baja de 32.7 s a 16.4 s.
+    //
+    // SUBIR ESTE NUMERO NO ARREGLA EL 429 (ALERT-27): el limite de ArenaNet es
+    // de TASA, no de concurrencia. El pool amortigua picos, no excedentes
+    // sostenidos. Con 6 slots y 900 ms el techo teorico es ~400/min, por debajo
+    // de 600, asi que un recorrido con 27 cuentas entra. Un agregado de varios
+    // recorridos simultaneos lo puede reventar igual: para eso falta el token
+    // bucket, que es lo que tiene que preceder a la Idea 42.
+    POOL_MAX: 6
   };
 
   var __mem = new Map();
   var __inflight = new Map();
 
   // ---- Pool global de requests (Idea 46, t1) ------------------------------
-  // El limite MAX=3 vivia duplicado dentro de cada dashboard, o sea que era
+  // El limite MAX vivia duplicado dentro de cada dashboard, o sea que era
   // LOCAL: dos dashboards cargando a la vez = 6, y inventory-dashboard hacia
   // Promise.all de 3 DENTRO del pool = 9 requests simultaneos reales, contra
   // un MAX=3 que el codigo creia tener.
@@ -149,7 +174,7 @@
         // Promise.resolve().then(s.task) y no s.task() directo: si el task tira
         // SINCRONO (no devuelve promesa, lanza antes de retornar), el throw sube
         // por poolPump -> executor de poolRun, done() nunca corre y __poolActive
-        // queda incrementado para siempre. Con POOL_MAX=3, tres de esos cuelgan la
+        // queda incrementado para siempre. Con POOL_MAX=6, seis de esos cuelgan la
         // app entera de forma permanente. Envolviendo, el throw se convierte en
         // rechazo y cae siempre en el reject de abajo -> done().
         Promise.resolve().then(s.task).then(function (v) { done(); s.resolve(v); },
