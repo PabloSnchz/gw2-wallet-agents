@@ -11,6 +11,52 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **fix(cache): el borrado de caché ya alcanza la cache del Wizard's Vault, y el inventario de bases dejó de ser una lista central (Idea 50 P3 — `376f0d5` + `9adf6dd` + `0d1d0aa`; `js/api-gw2.js` v2.30.0, `js/wizards-vault.js` v1.3.1)**:
+
+  **Estado: MERGEADO a `agents/main`** por fast-forward. Veredicto del Code-Reviewer (`task-19ca4a2448b8`): **APROBADO CON CAMBIOS**; los 4 cambios pedidos se aplicaron antes del merge (`0d1d0aa`).
+
+  **⚠️ NO cambia lo que Pablo ve.** `cacheClear` sigue con **0 callers** y el botón sigue sin existir. Lo único que cambia es que el borrado **ya puede alcanzar** la cache del Wizard's Vault, que antes era inalcanzable.
+
+  **El punto ciego que cierra (motivo medido)**: `wizards-vault.js` escribe su cache con su **propio `lsSet` y su propio `kLS`, FUERA de la capa API**. Un grep sobre `putCache` no la veía, y el test de la 50F daba **verde sin cubrirla**.
+
+  **El diseño, que es lo no obvio: el registro es ESTÁTICO y se LEE AL PULSAR** (`collectCacheBases()`), no en la escritura ni al cargar el módulo. Las otras dos formas fallan, cada una por un motivo distinto:
+  - **Registrar al escribir** (`putCache`) es un **hecho de SESIÓN aplicado a un hecho de DISCO**. En una sesión nueva donde Pablo no abrió la pestaña de WV, el registro está vacío: el botón no toca las claves `wv_*` que hay en disco desde la semana pasada, y el `dryRun` del **futuro `confirm()`** contaría 0 bytes y **prometería una liberación que no ocurre**. Es el bug que la v2.29.0 vino a arreglar, reintroducido por la puerta de atrás.
+  - **Leer el registro al cargar el módulo** lo ata al **orden de los `<script>`** de `index.html`.
+
+  Leyéndolo al pulsar, las dos cosas quedan bien sin depender de ninguna.
+
+  **Cada módulo se anota solo, con UNA línea**: registro global `root.__cacheBaseProviders` (`(root.__cacheBaseProviders = root.__cacheBaseProviders || []).push(WizardsVault)`, `wizards-vault.js:699`). **La capa API NO nombra ningún módulo**: agregar un módulo es **1 línea en el módulo y 0 en la capa**. El que declara su cache es el módulo que la escribe, así que el inventario no es una lista a mantener a mano.
+
+  **La red de preservación** es el **prefijo** `wv:season:` (`CACHE_PRESERVE_PREFIX`), no claves exactas, porque `wv-season-storage.js` tiene **4 familias** de persistencia, no 2: `wv:season:index` (`KEY_INDEX`), `wv:season:current` (`CURRENT_KEY`), `wv:season:YY:SEQ` (`FILE_PREFIX`, multi-season; hoy dormida porque `SINGLE_SEASON_MODE = true`) y `wv:season:*.__shadow` (`SHADOW_SUFFIX`, escritura atómica). Se evalúa **ANTES** que los prefijos de cache: el borde peligroso es un prefijo corto, y el día que alguien declare `wv`, las 4 familias se comen de una y esto las salva. Hoy el riesgo es cero — por eso es **la red y no una nota**.
+
+  **Alcance medido: 23 bases**, no 22 — **18 de la capa API (14 exactas + 4 prefijos)** + **5 del WV (4 exactas + 1 prefijo)**. El recuento del veredicto decía 6 declaraciones de WV donde hay 5 (`wizards-vault.js:615`: `exact: ['wv_season','wv_account_v2','wv_listings_all','wv_acc_listings']`, `prefix: ['wv_obj_']`). `GW2Api.__cacheBases()` expone el registro en **solo lectura**, para que el alcance sea medible en vez de estimado.
+
+  **Los 4 cambios que pidió el Code-Reviewer (`0d1d0aa`), ninguno bloqueante de datos:**
+  1. **P1 — la red tenía agujeros justo donde el código está diseñado para ir.** `CACHE_PRESERVE` listaba 2 claves exactas sobre un módulo con 4 familias; ahora es un prefijo.
+  2. **P2 — "api-gw2.js no tiene que saber de WV" era un comentario FALSO, y la contradicción era el bug de diseño.** Era literalmente `if (root.WizardsVault && root.WizardsVault.__cacheBases)`: lo que se movió fue la lista de **BASES**, no la de **MÓDULOS**, y eso convertía el registro en una lista central con otro nombre (los 5 módulos pendientes exigían 5 ediciones más de la capa). Sustituido por el registro global.
+  3. **P3 (Reviewer) — la colecta estaba en el loop caliente.** `collectCacheBases()` corría DENTRO de `isCacheKey()`, que corre una vez por clave de `localStorage`: con ~4.98 MB son 2 arrays nuevos (`slice()`) + 23 `indexOf` **por clave**, en el único loop que recorre el store entero. Ahora se colecta **una vez** al empezar el clic y se pasa por parámetro. No rompe el "se lee al pulsar": lo que decide el momento es `cacheClear`.
+  4. **P4 — la suite mentía en su propia línea de resumen, y el arreglo con un segundo script la empeoró.** `run-suite.js` imprimía `TOTAL: 557 ... (27 archivos)` habiendo parseado 20; la respuesta de medir los 7 que faltaban por separado eran **dos fuentes de verdad para el mismo número**. Ahora el runner parsea el **4º formato** de línea de resumen (`pass: N | FAIL: M`, usado por 7 de los 27 archivos) y **`tools/count-suite-totals.py` se BORRA**. La línea de total ahora declara su alcance: `27 de 27 archivos, alcance completo`.
+
+  **Correcciones de comentarios** (mismo commit): el typo `Revieweredia` → `Reviewer decia` (`api-gw2.js:1730`, ALERT-79, commit `6d50323`) y el BOM UTF-8 restaurado en `wizards-vault.js`.
+
+  **Verificación:**
+  - **Test**: `tests/idea50f.cacheclear-real.test.js` **66 pass / 0 FAIL** (era 57; +9 aserciones, 3 de ellas nacidas de 2 fallos que corrigieron al propio autor — ver ALERT-81 en `ALERTS_LOG.md`).
+  - **Fase roja por MUTACIÓN** (no solo en verde), con la herramienta nueva `tools/mutate-p3-registry.py`, una corrección por vez:
+
+    | Mutación | FAIL que muerde |
+    |---|---|
+    | P1 — red de preservación vacía | **6** |
+    | P2 — lista central de módulos | **4** |
+    | P3 — colecta por clave | **1** |
+    | P2b — módulo sin anotar en el registro | **5** |
+
+  - **Suite completa: 694 aserciones / 0 FAIL, 27 de 27 archivos, alcance completo** (verificado con `node tools/run-suite.js`). Antes: 685/0 medido por dos scripts (557 del runner en 20 + 128 de los 7).
+
+  **Pendiente, y es el Tramo siguiente:**
+  - **El botón de "limpiar caché" sigue sin existir.** Es lo único que bloquea, y además necesita un **hook** (`onClear` o `__cacheClearMem()`): `cacheClear` solo limpia la `__mem` de una capa, y `wizards-vault.js:40-41` tiene su propia `__mem`/`__inflight` — sin ese hook los bytes liberados se vuelven a servir desde memoria y el botón parecerá que no hizo nada (anotado por el Reviewer).
+  - **5 módulos todavía no declaran sus bases**: `characters.js`, `homestead-tracker.js`, `activities.js`, `app.js` y `legendary-tracker.js`.
+  - **La Idea 49G sigue RECHAZADA (ALERT-73) y deliberadamente sin mergear**: no forma parte de este cambio.
+
 - **fix(cache): Actividades ya no borra la cache de logros de otros módulos, y `lsSet` deja de tragarse el `QuotaExceededError` (Idea 49, Tramos 1 y A — `d7cbe0d` + merge `9e211b5`, `fb55fe2` + buster `4e5296b`; `js/activities.js` v3.20.3, `js/api-gw2.js` v2.20.0)**:
 
   **Tramo 1 — un módulo borraba la cache de otro (`activities.js` v3.20.2 → v3.20.3)**
@@ -214,6 +260,7 @@ y el versionado **SemVer** (https://semver.org/).
 
 ### Build
 - **Idea 49 Tramo A**: `index.html` pasa a `js/api-gw2.js?v=2.20.0` (`4e5296b`). Sin este bump el fix existiría en el repo y no en la app: un navegador con el archivo cacheado seguiría ejecutando la v2.19.0 con el `QuotaExceededError` tragado. El bump de `activities.js` a `?v=3.20.3` va dentro de `d7cbe0d`. Mismo modo de falla que ya se registró con `meta.js` en el HB#33.
+- **Idea 50 P3**: `index.html` pasa a `js/api-gw2.js?v=2.30.0` (línea 940) y `js/wizards-vault.js?v=1.3.1` (línea 942). Sin estos bumps el registro de bases existiría en el repo y no en la app: un navegador con los archivos cacheados seguiría con la v2.29.0, sin registro de bases, y el botón borraría solo las 18 de la capa. Mismo modo de falla que las dos entradas anteriores.
 - **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
 
 ---

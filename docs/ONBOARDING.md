@@ -124,6 +124,10 @@ El wipe del Tramo 1 **era lo único que mantenía la cuota a raya, por accidente
 
 Contra 4.98 MB de cuota. El Tramo C del PO apuntaba a comprimir `ach_acc` (~13× menos); comprimido solo, **no alcanza** — debería ir sobre `ach_meta_v2`. Pregunta abierta al PO (COMMS_LOG 027). Después, **Tramo B**: LRU sobre `gw2_*` (hoy el único cap del código es `items_cache_v1` a 500).
 
+**El botón de "limpiar caché" tampoco está resuelto** (ver Idea 50 P3 abajo): `cacheClear()` sigue con **0 callers** y no hay ningún botón. Falta además un **hook** de limpieza de memoria por módulo — `cacheClear` solo limpia la `__mem` de una capa, y `wizards-vault.js:40-41` tiene su propia `__mem`/`__inflight`; sin ese hook los bytes liberados se vuelven a servir desde memoria y el botón parecerá que no hizo nada.
+
+**5 módulos todavía no declaran sus bases de cache**: `characters.js`, `homestead-tracker.js`, `activities.js`, `app.js` y `legendary-tracker.js`.
+
 ### Lección de test que salió de acá
 
 El runner del Tramo A monta un `localStorage` que **lanza `QuotaExceededError` de verdad sobre el archivo real**, en vez de copiar el código a un test, y se verificó **en las dos direcciones**: 11/11 con el fix, 4/11 (7 FAIL) contra el archivo sin modificar. Un test que solo puede dar verde no prueba nada.
@@ -131,6 +135,64 @@ El runner del Tramo A monta un `localStorage` que **lanza `QuotaExceededError` d
 Dos trampas del propio sandbox, ninguna del código de producción:
 - `putCache()` está dentro del `.then` de éxito → un `fetch` que falla nunca llega a `lsSet()`. El mock de red tiene que **tener éxito**.
 - **Nunca pongas el mismo nombre dos veces en el literal de globals**: `console: fake` seguido de `console` real hace que el real gane en silencio y el test "vea" un aviso que sí se imprimía (ALERT-44). Resuelto con un `Proxy` que reenvía todo y captura solo `warn`.
+
+### Regla 3 — El que declara su cache es el módulo que la escribe (Idea 50 P3)
+
+Commits en `agents/main`: `376f0d5` + `9adf6dd` + `6d50323` (typo `Revieweredia` → `Reviewer decia`, ALERT-79) + `0d1d0aa` (`js/api-gw2.js` **v2.29.0 → v2.30.0**, `js/wizards-vault.js` **v1.3.0 → v1.3.1**). Mergeado por fast-forward. Veredicto del Code-Reviewer `task-19ca4a2448b8`: **APROBADO CON CAMBIOS** (los 4 cambios aplicados en `0d1d0aa`).
+
+> **No cambia lo que Pablo ve.** `cacheClear()` sigue con **0 callers** y el botón sigue sin existir. Lo único que cambia es que el borrado **ya puede alcanzar** la cache del Wizard's Vault, que antes era **inalcanzable**.
+
+**El punto ciego, medido:** `wizards-vault.js` escribe su cache con su **propio `lsSet` y su propio `kLS`, FUERA de la capa API**. Un grep sobre `putCache` no la veía, y el test de la 50F daba **verde sin cubrirla**. Ninguna herramienta que busque "las llamadas a `putCache`" puede encontrar esa cache — el que la escribe es el que la declara.
+
+```js
+// js/wizards-vault.js — en el objeto del módulo
+__cacheBases: {
+  exact:  ['wv_season', 'wv_account_v2', 'wv_listings_all', 'wv_acc_listings'],
+  prefix: ['wv_obj_']
+},
+
+// js/wizards-vault.js — UNA línea, al final de su propio IIFE
+(root.__cacheBaseProviders = root.__cacheBaseProviders || []).push(WizardsVault);
+
+// js/api-gw2.js — la capa recorre el registro SIN nombrar a nadie
+function collectCacheBases() { /* lee root.__cacheBaseProviders + las suyas */ }
+GW2Api.__cacheBases();  // solo lectura, para que el alcance sea MEDIBLE
+```
+
+**La capa API NO nombra ningún módulo.** Agregar un módulo es **1 línea en el módulo y 0 en la capa**. La primera versión de P3 tenía `if (root.WizardsVault && root.WizardsVault.__cacheBases)` en `api-gw2.js`: lo que se había movido era la lista de **BASES**, no la de **MÓDULOS**, y el resultado era una lista central de módulos con otro nombre — los 5 módulos pendientes exigían 5 ediciones más de la capa.
+
+**El registro se lee AL PULSAR, y esa es la parte no obvia.** Las otras dos formas fallan, cada una por un motivo distinto:
+
+| Cuándo se lee | Por qué falla |
+|---|---|
+| **En la escritura** (`putCache`) | Es un **hecho de SESIÓN aplicado a un hecho de DISCO**. En una sesión nueva donde nadie abrió la pestaña de WV, el registro está vacío: no toca las claves `wv_*` que hay en disco desde la semana pasada, y el `dryRun` del **futuro `confirm()`** del botón contaría 0 bytes y **prometería una liberación que no ocurre**. Es el bug que la v2.29.0 vino a arreglar, por la puerta de atrás. |
+| **Al cargar el módulo** | Ata el borrado al **orden de los `<script>`** de `index.html`. |
+
+**Regla para el próximo módulo que cachee en `localStorage`:** declara `__cacheBases` junto a tu cache, anótate en `root.__cacheBaseProviders`, y no toques `api-gw2.js`.
+
+**Alcance medido: 23 bases, no 22.** 18 de la capa API (14 exactas + 4 prefijos) + 5 del WV (4 exactas + 1 prefijo). El recuento del veredicto del Reviewer decía 6 declaraciones de WV donde hay 5.
+
+### Regla 4 — La red de preservación son PREFIJOS, no claves exactas
+
+`wv:season:` es la **persistencia oficial de temporada**, no cache: borrarla es perder lo que el usuario marcó a mano. `wv-season-storage.js` tiene **4 familias**, no 2:
+
+| Constante | Forma |
+|---|---|
+| `KEY_INDEX` | `wv:season:index` |
+| `CURRENT_KEY` | `wv:season:current` |
+| `FILE_PREFIX` | `wv:season:YY:SEQ` (multi-season; hoy `SINGLE_SEASON_MODE = true`, o sea **dormida**) |
+| `SHADOW_SUFFIX` | `wv:season:*.__shadow` (escritura atómica) |
+
+Por eso es `CACHE_PRESERVE_PREFIX = ['wv:season:']` — **una entrada para las 4**. Y se evalúa **ANTES** que los prefijos de cache (`api-gw2.js`, `isCacheKey()`): el borde peligroso es un **prefijo corto**, y el día que alguien declare el prefijo `wv`, las 4 familias se comen de una y esto las salva.
+
+> Hoy el riesgo es **cero** (ningún prefijo de cache empieza por `wv`). Por eso esto es **la red y no una nota**: una red con agujeros en el modo al que el código está **experimentado a migrar** no es la red que dice ser.
+
+### Cómo se verificó (y por qué la fase roja manda)
+
+- `tests/idea50f.cacheclear-real.test.js`: **66 pass / 0 FAIL** (era 57). Sección 7.
+- **Fase roja por mutación** con `tools/mutate-p3-registry.py`, una corrección por vez: red vacía **6 FAIL**, lista central de módulos **4 FAIL**, colecta por clave **1 FAIL**, módulo sin anotar **5 FAIL**. Un test que solo puede dar verde no prueba que la red sirva.
+- **Suite completa: 694 aserciones / 0 FAIL, 27 de 27 archivos, alcance completo.** El runner (`tools/run-suite.js`) parsea **4 formatos** de línea de resumen; el 4º (`pass: N | FAIL: M`) lo usan 7 de los 27 archivos. Antes se medían por separado (557 en 20 + 128 en los 7) y `tools/count-suite-totals.py` quedó **borrado**: dos fuentes de verdad para el mismo número es exactamente la deuda que ese script había SIGNALADO (ALERT-78).
+- Un total sin alcance declarado no es un dato: la línea de total ahora dice `27 de 27 archivos`.
 
 ---
 
