@@ -211,6 +211,31 @@ ok(/3\.4 KB/.test(msg),
 ok(msg.indexOf('Se conservan 2 claves') !== -1,
   'y dice cuantas conserva: el `kept` es la garantia, y tiene que ser visible');
 ok(/¿Liberar la caché de la API\?/.test(msg), 'la pregunta es una pregunta de cache, no generica');
+
+// ── 4b. EL COPY NO PROMETE MAS DE LO QUE PASA ────────────────────────────
+// El Reviewer senalo (nota al pie de la fila 073) que `cacheClear` solo vacia
+// la `__mem` de UNA capa, y que `wizards-vault.js:40-41` tiene SU PROPIA
+// `__mem`/`__inflight` que el borrado NO alcanza. O sea que despues de este
+// boton el WV sigue sirviendo desde memoria.
+//
+// La primera version de este boton decia "la proxima carga volvera a descargar
+// los datos", y para el WV eso era FALSO. No es un detalle de redaccion: es
+// exactamente el modo de falla de un dato sin alcance declarado (ALERT-68 y
+// ALERT-78), aplicado al unico texto que el usuario lee antes de confirmar una
+// operacion destructiva. Por eso el limite esta escrito Y asertado.
+console.log('\n[4b] el copy declara el alcance real: la `__mem` del WV no se toca');
+const srcSM = fs.readFileSync(path.join(ROOT, 'js', 'settings-manager.js'), 'utf8');
+const clearApiBody = (srcSM.match(/function clearApiCache\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+const wvSrc = fs.readFileSync(path.join(ROOT, 'js', 'wizards-vault.js'), 'utf8');
+ok(/var __mem = new Map\(\)/.test(wvSrc) && /var __inflight = new Map\(\)/.test(wvSrc),
+  'el WV tiene su propia cache de sesion (wizards-vault.js:40-41): la limitacion es REAL, no teorica');
+ok(clearApiBody.indexOf('WizardsVault') === -1,
+  'y el boton no la alcanza todavia: no hay hook, es el tramo siguiente');
+ok(/en memoria/.test(msg), 'el confirm lo dice: el copy no promete una recarga global');
+ok(msg.indexOf('La API volverá a descargar') !== -1,
+  'lo que promete es "la API volvera a descargar los datos", que es lo unico que pasa de verdad');
+ok(/hasta que recargues la página/.test(msg),
+  'y dice HASTA CUANDO: el alcance del dato esta escrito, no es una promesa abierta');
 const okT = a.toasts.filter(t => t.kind === 'success');
 eq(okT.length, 1, 'un unico toast de exito');
 ok(okT.length === 1 && okT[0].msg.indexOf('3 claves') !== -1,
@@ -257,17 +282,16 @@ eq(n.store.size, 1, 'y no toco la store');
 // vista. Se aserta para que la decision quede ESCRITA: si manana se cambia,
 // esto tiene que fallar y obligar a razonar, no a notar el cambio.
 console.log('\n[7] el boton no recarga la pagina, y eso esta dicho');
-const clearBody = (src.match(/function clearApiCache\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
-ok(clearBody !== '', 'clearApiCache() existe');
-ok(clearBody.indexOf('location.reload') === -1,
+ok(clearApiBody !== '', 'clearApiCache() existe');
+ok(clearApiBody.indexOf('location.reload') === -1,
   'no recarga: vaciar __mem ya alcanza para que la proxima lectura salga de la red');
-ok(clearBody.indexOf('__cacheClear({ dryRun: true })') !== -1 ||
-   /__cacheClear\(\{\s*dryRun:\s*true\s*\}\)/.test(clearBody),
+ok(clearApiBody.indexOf('__cacheClear({ dryRun: true })') !== -1 ||
+   /__cacheClear\(\{\s*dryRun:\s*true\s*\}\)/.test(clearApiBody),
   'el primer llamado es SIEMPRE en dryRun: es lo que hace que cancelar no borre');
-ok(clearBody.indexOf('confirm(') !== -1, 'pide confirmacion antes de borrar de verdad');
-const iDry = clearBody.indexOf('dryRun: true');
-const iConf = clearBody.indexOf('confirm(');
-const iReal = clearBody.lastIndexOf('__cacheClear()');
+ok(clearApiBody.indexOf('confirm(') !== -1, 'pide confirmacion antes de borrar de verdad');
+const iDry = clearApiBody.indexOf('dryRun: true');
+const iConf = clearApiBody.indexOf('confirm(');
+const iReal = clearApiBody.lastIndexOf('__cacheClear()');
 ok(iDry < iConf && iConf < iReal,
   'el orden es dryRun -> confirm -> borrado real (posiciones ' + [iDry, iConf, iReal].join(' < ') + ')');
 

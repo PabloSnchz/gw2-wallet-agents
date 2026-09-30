@@ -507,10 +507,19 @@
   //   3. Recien ahi se borra de verdad.
   //
   // Lo que NO hace, a proposito: `location.reload()`. `__cacheClear` tambien
-  // vacia la cache de sesion (`__mem`), asi que la siguiente lectura sale de la
-  // red sola. Recargar es un cambio de comportamiento mas grande (tira el
-  // estado de la vista) y no hace falta para que el boton cumpla: queda
-  // planteada para el Reviewer, no resuelta por mi.
+  // vacia la cache de sesion de ESTA capa (`__mem`), asi que la siguiente
+  // lectura sale de la red sola. Recargar es un cambio de comportamiento mas
+  // grande (tira el estado de la vista) y no hace falta para que el boton
+  // cumpla: queda planteada para el Reviewer, no resuelta por mi.
+  //
+  // Y lo que el copy NO promete, que es lo mismo pero del lado de los otros
+  // modulos: `wizards-vault.js:40-41` tiene SU PROPIA `__mem`/`__inflight`, y
+  // `cacheClear` no la alcanza. O sea que tras este boton el WV sigue
+  // sirviendo desde memoria hasta que se recargue la pagina. Es una limitacion
+  // CONOCIDA y Dicha, no una sorpresa: el Reviewer la senalo (nota al pie de
+  // la fila 073) y el hook que la arregla (`onClear` o `__cacheClearMem()`) es
+  // el tramo siguiente, no este. Un copy que dijera "todo se vuelve a
+  // descargar" seria falso para el modulo mas pesado con MB en disco.
   function fmtBytes(n) {
     if (!n || n < 0) return '0 B';
     if (n < 1024) return n + ' B';
@@ -532,7 +541,7 @@
     var msg = '¿Liberar la caché de la API?\n\n' +
       '• Se borrarán ' + dry.removed + ' claves (' + fmtBytes(dry.bytes) + ')\n' +
       '• Se conservan ' + dry.kept + ' claves: cuentas, pines, tema y ajustes\n\n' +
-      'La próxima carga volverá a descargar los datos.';
+      'La API volverá a descargar los datos. Lo que otros módulos ya tienen en memoria (el WV) se conserva hasta que recargues la página.';
     if (!confirm(msg)) return;   // 2. Cancelar NO borra nada: el dryRun no habia borrado nada
     // 3. Ahora si.
     var res = api.__cacheClear();
