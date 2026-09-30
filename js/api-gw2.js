@@ -1,7 +1,41 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.28.0 (2026-09-30) — Idea 57 Tramo 4: el idioma del throw de FORMA es parte del contrato
+ * Versión: 2.29.0 (2026-09-30) — Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
+ *   v2.29.0: **NO cambia lo que Pablo ve** (la funcion tiene 0 callers: el boton
+ *   sigue sin existir y es el Tramo siguiente). Lo que cambia es que la funcion
+ *   deja de mentir: antes `cacheClear()` limpiaba `__mem` y `__inflight`, o sea
+ *   la cache de la SESION, y no la de DISCO. La cuota de localStorage (~4.98 MB
+ *   medidos) seguia llena, asi que "limpiar cache" no liberaba nada.
+ *   Ahora borra de verdad las 18 claves que escribe esta capa y devuelve
+ *   `{removed, kept}`. `kept` es la garantia, no un extra: lo que NO se borra
+ *   son `gn:account:keys` y `gw2_keys` (la lista de las 27 cuentas), los pines,
+ *   el tema y las caches de otros modulos (`gw2_currencies_cache_v1` la escribe
+ *   `app.js:46` y nunca pasa por aca). Un "limpiar cache" que se come la lista
+ *   de cuentas es el modo de fallo mas caro que puede tener ese boton.
+ *   **El borrado es por allowlist EXACTA y no por prefijos, y es decision de
+ *   diseno:** medidas sobre el archivo, las 18 claves no comparten ningun
+ *   prefijo — `wallet` y `luck` son nombres pelados. Un barrido por familias
+ *   (`ach_*`, `commerce_*`) dejaria vivas justamente `wallet`, que es de las que
+ *   mas cuota gasta. La propuesta del PO era por prefijos; se midio y se
+ *   descarto. La unica defensa contra una lista que envejezca en silencio es la
+ *   seccion 5 del test, que recorre las DOS vias de escritura.
+ *   Test: tests/idea50f.cacheclear-real.test.js (24 aserciones; 8 FAIL contra el
+ *   archivo sin el fix, verificado en rojo antes de tocar el codigo).
+ *   P4 del Code-Reviewer, aplicado en el mismo commit porque el cambia la
+ *   FIRMA y cambiar una firma despues del merge es mas caro que nacer con ella:
+ *   `cacheClear(opts)` acepta `{dryRun: true}` y devuelve
+ *   `{removed, kept, bytes, dryRun}` sin borrar nada. `bytes` es lo que le dice
+ *   al usuario si vale la pena apretar el boton: `kept` dice que NO se toco, y
+ *   no dice si vale la pena tocar. En `dryRun` tampoco se vacia `__mem`, porque
+ *   la pregunta es "cuanto borraria" y vaciar la cache de sesion antes de
+ *   responder ya seria borrar. Y `removed` ahora cuenta lo BORRADO (la
+ *   diferencia de `localStorage.length` antes y despues) en vez de las llamadas
+ *   a `lsDel`, que se traga la excepcion y hacia que el numero fuera una
+ *   intencion y no un hecho. Sigue con 0 callers: el boton es el Tramo siguiente.
+ *   Ojo con el inventario: `getItemsMany` cachea en `items_cache_v1:<lang>`
+ *   (`api-gw2.js:1511` lee, `:1581` escribe) con `lsSet` DIRECTO, sin pasar por
+ *   `putCache()`. Un inventario hecho solo sobre `var key = ...` no la ve.
  *   v2.28.0: NO cambia lo que Pablo ve. Cambia el TEXTO de un throw.
  *   El mensaje de un guard de FORMA es contrato, no decoracion, porque dos
  *   consumidores lo leen por texto: `raid-tracker.js:1749` y
@@ -1629,8 +1663,88 @@
   function cacheStats() {
     return { quotaFails: __lsQuotaFails, quotaWarned: __lsQuotaWarned };
   }
-  function cacheClear() {
-    try { __mem.clear(); __inflight.clear(); } catch (_){}
+  // Idea 50 Tramo F: las claves que ESTA CAPA escribe en localStorage.
+  //
+  // No es una lista de prefijos y esa es la decision, no un detalle de estilo.
+  // Medidas sobre el archivo (las dos vias de escritura: `putCache()` y el
+  // `lsSet(lkey, ...)` directo de `getItemsMany`), son 18 y NO comparten
+  // ningun prefijo: `wallet` y `luck` son nombres pelados. Un borrado por
+  // familias del tipo `ach_*`/`commerce_*` dejaria vivas justamente `wallet`,
+  // que es de las que mas cuota gasta, y la cuota seguiria sin liberarse.
+  //
+  // Se matchea la clave EXACTA o el exacto prefijo con su `:`included. El `:` va
+  // en el prefijo a proposito: sin el, `commerce_prices` se comeria cualquier
+  // clave que empiece con esas letras.
+  var CACHE_KEYS_EXACT = [
+    'tokeninfo', 'account_info', 'char_count', 'account_raids',
+    'commerce_transactions_buys', 'commerce_transactions_sells',
+    'commerce_delivery', 'commerce_listings', 'account_bank',
+    'account_materials', 'account_armory', 'wallet', 'luck', 'ach_acc'
+  ];
+  var CACHE_KEYS_PREFIX = [
+    'commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:'
+  ];
+  // Las que tienen tokenfname la key con `:<fpToken>` (ver `kLS`), asi que la
+  // forma real en localStorage es `wallet:abcd…wxyz`. Por eso el match de las
+  // exactas tiene que tolerar el sufijo, pero NO cualquier cosa: tiene que
+  // ser la key exacta sola, o la key exacta seguida de `:`.
+  function isCacheKey(k) {
+    if (typeof k !== 'string' || !k) return false;
+    for (var i = 0; i < CACHE_KEYS_PREFIX.length; i++) {
+      if (k.lastIndexOf(CACHE_KEYS_PREFIX[i], 0) === 0) return true;
+    }
+    for (var j = 0; j < CACHE_KEYS_EXACT.length; j++) {
+      var base = CACHE_KEYS_EXACT[j];
+      if (k === base || k.lastIndexOf(base + ':', 0) === 0) return true;
+    }
+    return false;
+  }
+  // Idea 50 Tramo F: antes esto era `try { __mem.clear(); __inflight.clear(); }`,
+  // o sea que limpiaba la cache de la SESION y no la de DISCO: la cuota de
+  // localStorage (~4.98 MB medidos) seguia llena, y `cacheClear` tiene ademas
+  // 0 callers, asi que no habia ni boton. Con la cuota llena, cada escritura
+  // posterior falla y la app reinicia en frio en cada recarga.
+  //
+  // Devuelve `{removed, kept}` a proposito: `kept` es la garantia. Lo que NO
+  // se borro son las claves de cuentas (`gn:account:keys` y su legacy
+  // `gw2_keys`, la lista de las 27 cuentas), los pines, el tema y las caches
+  // de otros modulos (`gw2_currencies_cache_v1` la escribe app.js:46 y no
+  // pasa por aqui). Que un "limpiar cache" se coma la lista de cuentas es el
+  // modo de fallo mas caro que puede tener este boton, asi que la garantia se
+  // mide y no se promete.
+  // P4 del Code-Reviewer: la funcion NACIO con `dryRun` y no lo gana despues.
+  // Sigue con 0 callers (el boton es el Tramo siguiente), pero cambiar la firma
+  // despues del merge es mas caro que nacer con ella: el boton va a necesitar
+  // preguntar cuanto se libera ANTES de un confirm(), y `kept` no sirve para
+  // eso — `kept` dice que NO se toco, y no dice si vale la pena tocar.
+  function cacheClear(opts) {
+    var dryRun = !!(opts && opts.dryRun);
+    var removed = 0, kept = 0, bytes = 0;
+    // En `dryRun` NO se toca ni la cache de sesion: la pregunta es "cuanto
+    // borraria", y vaciar `__mem` antes de responder ya seria borrar.
+    try { if (!dryRun) { __mem.clear(); __inflight.clear(); } } catch (_) {}
+    try {
+      // Se recopila primero y se borra despues: `removeItem` durante el
+      // recorrido muta `localStorage.length` y `key(i)`, y borrando en vivo
+      // se saltean claves.
+      var doomed = [];
+      var before = localStorage.length;
+      for (var i = 0; i < before; i++) {
+        var k = localStorage.key(i);
+        if (!isCacheKey(k)) { kept++; continue; }
+        doomed.push(k);
+        try { bytes += (localStorage.getItem(k) || '').length; } catch (_) {}
+      }
+      if (dryRun) {
+        removed = doomed.length;   // nada se borra: esto es lo que se borraria
+      } else {
+        doomed.forEach(function (k) { lsDel(k); });
+        // `removed` cuenta lo BORRADO y no las llamadas a `lsDel`: `lsDel` se
+        // traga la excepcion, asi que contar llamadas da un numero que miente.
+        removed = before - localStorage.length;
+      }
+    } catch (_) { /* localStorage puede no existir (modo privado): no es un error */ }
+    return { removed: removed, kept: kept, bytes: bytes, dryRun: dryRun };
   }
 
   // ========================================================================
