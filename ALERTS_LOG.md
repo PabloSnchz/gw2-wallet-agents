@@ -346,3 +346,104 @@ tiene algo pendiente y en realidad esta mirando un estado fantasma.
 **No bloqueante.** Anotado para que el CLI unifique el criterio de "vencida".
 **Mitigacion aplicada:** se identifica cada ask leyendo su `to` y su `state` en
 el JSON, no por el nombre del archivo ni por la carpeta en la que esta.
+
+## ALERT-68 — una medición escrita a mano dio una cifra 26% más alta que la real (HB#61)
+
+**El BACKLOG afirmaba que `ach_acc` pesaba 4.10 MB con 27 cuentas, y son 3.24 MB.**
+
+La cifra venía de `tools/idea49g-achacc-measure.mjs`, que mide una forma
+`{id, current, max, done, bits:[1..12]}`. Dos desvíos, ambos en el mismo sentido:
+
+1. **`bits` no lo lee nadie.** Ni en esa forma ni en la que manda la API
+   (allí va como string binario): el campo no tiene **ni una lectura en todo
+   `js/`** — grep: cero apariciones de `.bits` fuera de un comentario. Solo él
+   son **0.52 MB en 27 cuentas**.
+2. **Era el peor caso posible.** Esa forma pone el 50% de los logros como
+   `{id, done:true}` y el otro 50% con los 12 bits. Con la mezcla real de una
+   cuenta veteran (45% completados, 5% en progreso repetible) la forma cruda da
+   **123 KB/cuenta, no 164**.
+
+**Remedido con la forma que el código REALMENTE consume**
+(`tools/idea49g-medir-honesto.mjs`, 3000 logros, 27 cuentas, cuota real 4.98 MB):
+
+| forma | KB/cuenta | ×27 | +0.81 (`ach_meta`) |
+|---|---|---|---|
+| API cruda tal cual | 123 | 3.24 MB | 4.05 MB |
+| podada a `{id,current,max,done}` | 103 | 2.72 MB | 3.53 MB |
+| **compacta (49G)** | **20** | **0.53 MB** | **1.34 MB** |
+
+La conclusión de fondo no cambia (la cuota sigue siendo el techo), pero la
+magnitud del problema era menor de lo anunciado y la del arreglo es mayor: el
+techo de logros por cuenta pasa de **~2.700 a ~6.900**.
+
+**Es la TERCER vez que una medición escrita a mano queda mal en este equipo.**
+Las otras dos:
+
+- el conteo de "siete wrappers que degradaban por forma" que eran **once**
+  (Idea 57 T1, encontrado por el Reviewer leyendo un JSDoc);
+- mi propio inventario de **17 claves en la 50F que eran 18**, porque
+  `getItemsMany` escribe por `lsSet` directo y no pasa por `putCache`
+  (ALERT-66 / commit `c04496e`).
+
+**Lo que las tres tienen en común es que el número estaba en un comentario o en
+la salida de un script, y nadie lo recontó.** Las dos primeras se detectaron
+leyendo el código; esta se detectó haciendo la medición con la forma que el
+código consume.
+
+> **Regla:** un número de peso o de cantidad que se pone en un BACKLOG tiene que
+> ir acompañado del **script que lo produjo, committed**, y ese script tiene que
+> modelar lo que el código **consume**, no lo que la API/documentación **manda**.
+> La diferencia entre las dos cosas es justamente donde viven estos errores.
+> `tools/idea49g-medir-honesto.mjs` queda en el repo por eso, aunque `tools/`
+> esté gitignored (add -f`).
+
+---
+
+## ALERT-69 — un FAIL de migración que devuelve un valor imposible es del arnés, no del código (HB#61)
+
+La sección 4 del test de la 49G (leer la cache vieja sin migrarla) falló al
+primer intento con `llego 0`. **El bug era del test:**
+
+- Armé la key de la cache a mano: `ach_acc:1111.5555`. Pero `fpToken` une con
+  **`'…'` (U+2026, 3 bytes), no con `'.'`**. La key nunca existió, `getCache`
+  no encontró nada, el wrapper fue a la red, y el mock devolvió `[]`.
+- Yo leí ese `0` como "la migración no funciona" y casi reporté un bug de
+  `api-gw2.js` que no existía.
+
+Se detectó instrumentando `getCache`/`lsGet` con `console.log` — y **la
+primera instrumentación no Printsó nada**, porque el sandbox del test define
+`console.log` como no-op. El `[GW2Api] listo` sí apareció porque ese mensaje va
+por `console.info`. Sin el log visible, el `0` no tenía explicación.
+
+**Regla:**
+
+1. **Un fallo de migración que devuelve `0` donde se esperaban `N` registros es
+   el arnés, no el código.** Un fallo de migración real devuelve la versión
+   vieja, no nada. `0` significa "nunca llegaste a leer la entrada".
+2. **En un test de migración, no construir la key a mano: que sea el módulo el
+   que la escriba** y el test la use. Es el mismo criterio del HB#59 con
+   `fpToken`/key, aplicado a otro sitio.
+3. **Un sandbox con `console.log` silencioso oculta su propia instrumentación.**
+   Si un `console.log` de debug no aparece, primero sospechá del sandbox.
+
+---
+
+## ALERT-70 — ALERT-66, cuarta vez, en el ciclo donde se iba a corregir (HB#61)
+
+`default/sent/20260930T170833Z…50f01.json` es el recibo de la Idea 50F. **El
+archivo no estaba en el `inbox` del Reviewer.** Es ALERT-62/63/65/66 por cuarta
+vez.
+
+La regla del HB#60 ya estaba escrita y escrita bien ("el recibo es la
+CONSECUENCIA de la entrega, no la entrega"), y aun así se repitió.
+
+> **Lo que creo que explica por qué un registro no alcanza:** la regla cambió una
+> *decisión*, pero el fallo está en un *gesto*. `sent/` es un paso que se hace
+> por inercia porque siempre se hizo, y una regla escrita no borra la inercia de
+> un gesto que nadie está mirando.
+
+Mitigación aplicada en la 49G (este mismo ciclo): el pedido se entregó
+**verificando `Code-Reviewer/inbox/`** — `to: Code-Reviewer`, cuerpo de 6.854
+caracteres, las 6 preguntas presentes — **y no se escribió nada en `sent/`**.
+Lo que hay que hacer por defecto es **mirar el inbox del otro después de
+enviar**, porque el paso por defecto tiene que ser el que verifica.

@@ -1,340 +1,156 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
-# Heartbeat Principal #60 — 2026-09-30 17:00–17:20 UTC
+# Heartbeat Principal #61 — 2026-09-30 17:00–18:20 UTC
 
-> **Dos cosas esperando veredicto del Reviewer, las dos SIN mergear (ALERT-48).**
-> `85140bf` (Idea 61 Tramos 1-2) y `c04496e` (Idea 50 Tramo F).
-
-## Lo que se hizo en este ciclo
-
-### 1. La 49D NO se implementa — y el aviso lo dio el PO
-
-El PO detectó que **su propia** recomendación de la 49D (barrido de huerfanas
-al arrancar) estaba mal: tal como estaba escrita **borra `gw2_keys`**, o sea la
-lista de las 27 cuentas de Pablo. LoSelf-auditó y lo retiró.
-
-**Verifiqué su diagnóstico contra el repo y los 3 puntos dan exactamente lo que
-midió.** No es un error de dato: es que respondió desde la lista de su Heartbeat
-09 en vez de mirar su propio `DASHBOARD_PO_IDEAS.md`.
-
-**La 49D queda BLOQUEADA hasta que exista la Idea 61 Tramo 3** — ese test es el
-que dice que la clave nueva quedó escrita antes de borrar la vieja. Sin él, el
-borrado es una apuesta.
-
-### 2. Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
-
-`api-gw2.js:1632` era `try { __mem.clear(); __inflight.clear(); }`: limpiaba la
-cache de la **sesión** y no la de **disco**. La cuota (~4.98 MB medidos) seguía
-llena, así que "limpiar cache" no liberaba nada. Y tiene **0 callers**: no hay
-botón, no hay escape.
-
-Rama `fix-idea50f-cacheclear-real`, commit `c04496e`, `api-gw2.js` v2.29.0.
-**Sin mergear** (ALERT-48). Suite completa **587/0** (antes 538).
-
-**La decisión de diseño que hay que tener presente: allowlist EXACTA de las 18
-claves, no borrado por prefijos.** La propuesta del PO era por familias
-(`ach_*`, `commerce_*`, `items_cache_*`) y **medida es falsa**: las 18 claves no
-comparten ningún prefijo. `wallet` y `luck` son nombres pelados — no arrancan por
-`ach_` ni por `commerce_` — así que un barrido por familias dejaba vivas
-justo `wallet`, que es de las que más cuota gasta.
-
-`kept` no es un extra: es la garantía. No se borran `gn:account:keys` ni
-`gw2_keys` (las 27 cuentas), ni pines, tema ni caches de otros módulos.
-
-**NO cambia lo que Pablo ve** (sigue con 0 callers). El botón es el Tramo
-siguiente, y va con veredicto propio.
-
-### 3. Corrección recíproca entre PO y Principal
-
-Los dos Featured casi cometemos el mismo error, en direcciones opuestas:
-
-- **El PO** respondió desde el estado de la ronda anterior y casi me manda una
-  idea que borra la lista de cuentas.
-- **Yo** armé el inventario grepeando `var key = ...`, me dio 17 claves y
-  concluí que `getItemsMany` no cacheaba. **Falso:** cachea en
-  `items_cache_v1:<lang>`, `api-gw2.js:1511` lo lee y **`:1581` lo escribe con
-  `lsSet` directo, sin pasar por `putCache()`**. Y lo escribí como afirmación en
-  el test, así que el error habría viaja al repo.
-
-**Regla que sale:** un inventario incompleto no se disculpa como "no existe": se
-paga como una afirmación falsa. Y en un allowlist destructivo, esa afirmación
-es la que decide qué se borra.
-
-## Tareas en curso
-
-| # | Qué | Estado | Bloqueante |
-|---|---|---|---|
-| 059 | Idea 61 Tramos 1-2 (`gn:` congelada) | Rama `85140bf`, **sin mergear** | Veredicto del Reviewer |
-| 060 | Idea 50 Tramo F (`cacheClear` real) | Rama `c04496e`, **sin mergear** | Veredicto del Reviewer |
-| — | Idea 50 Tramo E (`getCache` borra vencida) | No hecho, **a propósito** | Ciclo siguiente |
-| — | Botón "limpiar cache" | No hecho | Depende del veredicto de la 060 |
-| — | Idea 48 badge CM / 49 pt.2 | **Bloqueadas** | Body crudo de `/v2/account/raids` con token |
-
-## Propuestas con el Reviewer
-
-| id | Asunto | Enviado | Estado |
-|---|---|---|---|
-| `4b2624` | Idea 61 T1-2: la `gn:` congelada | 16:41:48Z | ⏳ esperando |
-| `982658` | Idea 50 Tramo F: allowlist de 18 y la garantía | 17:09:48Z | ⏳ esperando |
-
-Ambas entregadas por `cli.py ask` y **verificadas archivo por archivo en la
-bandeja del Reviewer con su `to` correcto**.
-
-## Alertas
-
-- **ALERT-48** — sin veredicto, nada de capa de datos se mergea. **Aplicada las
-  dos veces este ciclo.**
-- **ALERT-63** — asks que se escriben a sí mismos. **Cerradas las 4** de la
-  Idea 49 que seguían figurando como vencidas.
-- **ALERT-67 (nueva)** — `cli.py close` archiva pero **`overdue` sigue reportando
-  los mismos archivos**. Un heartbeat que se guíe por `overdue` para decidir
-  "qué contesto" va a trabajar tareas ya resueltas. No bloqueante; el CLI debe
-  unificar el criterio.
-
-## Una norma que sale del ciclo
-
-**Un mensaje está entregado cuando está en la bandeja del otro y su `to` dice el
-otro.** El directorio del que salió (`sent/`) y el nombre del archivo **no**
-cuentan. Escribí dos mensajes a `default/sent/` creyendo que entregaba; ninguno
-llegó. El modo de fallo es el peor porque uno cree que avisó.
-
-## Lo que se le pide a Pablo
-
-Nada urgente. La 50F y la 61 T1-2 están esperando veredicto del Reviewer, y
-ambas están en rama: **nada de esto está en producción** (y no se promovdrá sin
-que lo pidas por nombre).
-
-Lo único que sigue bloqueado y **no puedo resolver sin vos** es el **body crudo
-de una llamada a `/v2/account/raids` con token**. Sin eso, la Idea 48 y el punto
-2 de la Idea 49 no cierran — y no es falta de análisis: el dato todavía no
-existe en el repo. El PO ya escaneó las 8.349 entradas del catálogo y el
-negativo está medido; falta el positivo de la API.
-
----
-
-
-> **Dos cosas esperando veredicto del Reviewer, las dos SIN mergear (ALERT-48).**
-> `85140bf` (Idea 61 Tramos 1-2) y `c04496e` (Idea 50 Tramo F).
+> **Tres cosas esperando veredicto del Reviewer, las TRES sin mergear (ALERT-48).**
+> `85140bf` (Idea 61 Tramos 1-2), `c04496e` (Idea 50 Tramo F),
+> `1a47d5c` (Idea 49G, enviado en este ciclo).
 
 ## Lo que se hizo en este ciclo
 
-### 1. La 49D NO se implementa — y el aviso lo dio el PO
+### 1. Idea 49G: `ach_acc` compacta — y la medición del BACKLOG estaba mal
 
-El PO detectó que **su propia** recomendación de la 49D (barrido de huerfanas
-al arrancar) estaba mal: tal como estaba escrita **borra `gw2_keys`**, o sea la
-lista de las 27 cuentas de Pablo. Lo受教育Self-auditó y lo retiró.
+El item de mayor impacto medido que quedaba abierto. El Tramo C ya había
+compactado la *metadata* de logros a 0.81 MB, pero **`ach_acc` son 27 keys, una
+por cuenta**, con el fingerprint del token en el nombre: el sharding no las
+toca. Son la otra mitad de la cuota, y son las que la revientan.
 
-**Verifiqué su diagnóstico contra el repo y los 3 puntos dan exactamente lo que
-midió.** No es un error de dato: es que respondió desde la lista de su Heartbeat
-09 en vez de mirar su propio `DASHBOARD_PO_IDEAS.md`.
+Rama `feat-idea49g-ach-acc-compacta`, commit `1a47d5c`, **sin mergear**.
+`api-gw2.js` v2.29.0. Suite completa **588/0** en 25 archivos.
 
-**La 49D queda BLOQUEADA hasta que exista la Idea 61 Tramo 3** — ese test es el
-que dice que la clave nueva quedó escrita antes de borrar la vieja. Sin él, el
-borrado es una apuesta.
+#### El número del BACKLOG era 4.10 MB y no es
 
-### 2. Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
+El BACKLOG afirmaba "4.10 MB" con punto de quiebre en ~2.700 logros por cuenta.
+Esa cifra viene de `tools/idea49g-achacc-measure.mjs`, que mide una forma
+`{id, current, max, done, bits:[1..12]}`. Dos desvíos:
 
-`api-gw2.js:1632` era `try { __mem.clear(); __inflight.clear(); }`: limpiaba la
-cache de la **sesión** y no la de **disco**. La cuota (~4.98 MB medidos) seguía
-llena, así que "limpiar cache" no liberaba nada. Y tiene **0 callers**: no hay
-botón, no hay escape.
+1. **`bits` no lo lee nadie.** Ni en esa forma ni en la real: la API lo manda
+   como string binario, pero el campo no tiene **ni una lectura en todo `js/`**
+   (grep: cero apariciones de `.bits` fuera de un comentario). Solo él son
+   **0.52 MB en 27 cuentas**.
+2. **Era el peor caso.** Esa forma pone el 50% como `{id,done:true}` y el otro
+   50% con los 12 bits. Con la mezcla real de una cuenta veteran (45%
+   completados, 5% en progreso repetible) la forma cruda da **123 KB, no 164**.
 
-Rama `fix-idea50f-cacheclear-real`, commit `c04496e`, `api-gw2.js` v2.29.0.
-**Sin mergear** (ALERT-48). Suite completa **587/0** (antes 538).
+Remedido con la forma que el código **realmente** consume
+(`tools/idea49g-medir-honesto.mjs`), 3000 logros, 27 cuentas, cuota real
+4.98 MB:
 
-**La decisión de diseño que hay que tener presente: allowlist EXACTA de las 18
-claves, no borrado por prefijos.** La propuesta del PO era por familias
-(`ach_*`, `commerce_*`, `items_cache_*`) y **medida es falsa**: las 18 claves no
-comparten ningún prefijo. `wallet` y `luck` son nombres pelados — no arrancan por
-`ach_` ni por `commerce_` — así que un barrido por familias dejaba vivas
-justo `wallet`, que es de las que más cuota gasta.
+| forma | KB/cuenta | ×27 | +0.81 (ach_meta) | estado |
+|---|---|---|---|---|
+| API cruda tal cual | 123 | 3.24 MB | 4.05 MB | entra, aire 0.93 |
+| podada a `{id,current,max,done}` | 103 | 2.72 MB | 3.53 MB | entra, aire 1.45 |
+| **compacta (esta)** | **20** | **0.53 MB** | **1.34 MB** | entra, aire 3.64 |
 
-`kept` no es un extra: es la garantía. No se borran `gn:account:keys` ni
-`gw2_keys` (las 27 cuentas), ni pines, tema ni caches de otros módulos.
+La conclusión de fondo no cambia —la cuota sigue siendo el techo— pero **la
+magnitud del problema era menor de lo anunciado y la del arreglo es mayor**: el
+techo de logros por cuenta pasa de ~2.700 a ~6.900.
 
-**NO cambia lo que Pablo ve** (sigue con 0 callers). El botón es el Tramo
-siguiente, y va con veredicto propio.
+> **Es la tercera vez que una medición escrita a mano queda mal en este
+> equipo.** La primera fue el conteo de "siete wrappers" que eran once (Idea 57
+> T1); la segunda, mi propio inventario de 17 claves en la 50F que eran 18. La
+> diferencia con estas dos es que **las dos anteriores se detectaron leyendo el
+> código**, y esta se detectó haciendo la medición con la forma que el código
+> consume. `tools/idea49g-medir-honesto.mjs` queda en el repo justamente por eso.
 
-### 3. Corrección recíproca entre PO y Principal
+#### La decisión de diseño: no se toca el contrato del wrapper
 
-Los dos Featured casi cometemos el mismo error, en direcciones opuestas:
+Hay **4 consumidores y todos leen campos del objeto**, no la lista entera:
+`achievements.js:1073` (`a.id`), `:189` (`current`,`max`,`done`), `:221`
+(`current`,`done`), `characters.js:449`, `activities.js:908`.
 
-- **El PO** respondió desde el estado de la ronda anterior y casi me manda una
-  idea que borra la lista de cuentas.
-- **Yo** armé el inventario grepeando `var key = ...`, me dio 17 claves y
-  concluí que `getItemsMany` no cacheaba. **Falso:** cachea en
-  `items_cache_v1:<lang>`, `api-gw2.js:1511` lo lee y **`:1581` lo escribe con
-  `lsSet` directo, sin pasar por `putCache()`**. Y lo escribí como afirmación en
-  el test, así que el error habría viaja al repo.
+Se compacta **al escribir** y se expande **al leer**, así que los tres módulos
+siguen recibiendo el mismo array de objetos y **no se tocó ninguno de ellos**.
+La alternativa era editar 3 módulos enteros por un ahorro de disco que se
+consigue sin eso.
 
-**Regla que sale:** un inventario incompleto no se disculpa como "no existe": se
-paga como una afirmación falsa. Y en un allowlist destructivo, esa afirmación
-es la que decide qué se borra.
+- **`bits` no se guarda pero sí se sirve.** Se deja de escribir en disco; la
+  respuesta de red sigue intacta. El corte es "no lo lee nadie hoy" y un día
+  podría aparecer un consumidor, así que podarlo *antes* de la red (que
+  obligaría al wrapper a conocer el contrato de sus consumidores) se dejó
+  como pregunta al Reviewer (P2).
+- **`max` NO se puede podar** y es el único caso con motivo no obvio:
+  `computeProgress` (`achievements.js:199`) hace `if (!target && max) target = max`
+  cuando la metadata no trae tiers. Sin `max`, los logros sin tiers calcularían
+  el porcentaje contra `current` y darían 100% siempre.
+- **Migración lazy**, sin tocar la versión vieja: `decodeAchAcc` ve un array y lo
+  devuelve tal cual. La vieja expira por TTL (2 min) y la siguiente escritura usa
+  la nueva. Las 27 cuentas migran cada una por su lado, sin estado compartido.
 
-## Tareas en curso
+Formato: `"v1:C:<id>,…|P:<id>:<cur>:<max>,…"`. El prefijo `v1:` versiona la
+entrada para que un cambio futuro de formato vuelva a pedir en vez de intentar
+expandir algo incompatible.
 
-| # | Qué | Estado | Bloqueante |
-|---|---|---|---|
-| 059 | Idea 61 Tramos 1-2 (`gn:` congelada) | Rama `85140bf`, **sin mergear** | Veredicto del Reviewer |
-| 060 | Idea 50 Tramo F (`cacheClear` real) | Rama `c04496e`, **sin mergear** | Veredicto del Reviewer |
-| — | Idea 50 Tramo E (`getCache` borra vencida) | No hecho, **a propósito** | Ciclo siguiente |
-| — | Botón "limpiar cache" | No hecho | Depende del veredicto de la 060 |
-| — | Idea 48 badge CM / 49 pt.2 | **Bloqueadas** | Body crudo de `/v2/account/raids` con token |
+**Verificación:** `node --check` limpio; test propio de 25 aserciones con
+**fase roja verificada (3 FAIL contra el archivo sin el fix)** antes de tocar
+una línea de `api-gw2.js`; suite completa 588/0; la sección 5 del test recorre
+los 3 archivos consumidores y falla si alguno lee un campo fuera de
+`{id, current, max, done}`.
 
-## Propuestas con el Reviewer
+`index.html`: **1 línea** (el buster). Con `Set-Content` de PowerShell el diff
+salía de 133 líneas por el BOM y los finales de línea — rehecho con Node.
 
-| id | Asunto | Enviado | Estado |
-|---|---|---|---|
-| `4b2624` | Idea 61 T1-2: la `gn:` congelada | 16:41:48Z | ⏳ esperando |
-| `982658` | Idea 50 Tramo F: allowlist de 18 y la garantía | 17:09:48Z | ⏳ esperando |
+### 2. ALERT-66 se rompió de nuevo en el mismo ciclo que se reporta
 
-Ambas entregadas por `cli.py ask` y **verificadas archivo por archivo en la
-bandeja del Reviewer con su `to` correcto**.
+`default/sent/20260930T170833Z…50f01.json` es el recibo de la Idea 50F. El
+archivo **no estaba en el inbox del Reviewer**. Cuatro veces ya (ALERT-62/63/65/66).
 
-## Alertas
+Aplicando la regla que el HB#60 dejó escrita, la 49G se entregó **verificando el
+inbox del otro**, no escribiendo un recibo: `20260930T181500Z…49g01.json` está
+en `Code-Reviewer/inbox/` con `to: Code-Reviewer`, cuerpo de 6.854 caracteres y
+las 6 preguntas presentes. Sin escribir nada en `sent/`.
 
-- **ALERT-48** — sin veredicto, nada de capa de datos se mergea. **Aplicada las
-  dos veces este ciclo.**
-- **ALERT-63** — asks que se escriben a sí mismos. **Cerradas las 4** de la
-  Idea 49 que seguían figurando como vencidas.
-- **ALERT-67 (nueva)** — `cli.py close` archiva pero **`overdue` sigue reportando
-  los mismos archivos**. Un heartbeat que se guíe por `overdue` para decidir
-  "qué contesto" va a trabajar tareas ya resueltas. No bloqueante; el CLI debe
-  unificar el criterio.
+> **Lo que aprendí del 4.º caso:** la regla ya estaba escrita y escrita bien, y
+> aun así se repitió. Un registro no corrige el hábito si el hábito está en el
+> gesto, no en la decisión. Lo que sí corrige es que el paso por defecto sea
+> **mirar el inbox del otro después de enviar**, porque `sent/` no es un paso
+> que unosiega haciendo.
 
-## Una norma que sale del ciclo
+### 3. La regla de `overdue` del HB#60 se confirmó en vivo (ALERT-67)
 
-**Un mensaje está entregado cuando está en la bandeja del otro y su `to` dice el
-otro.** El directorio del que salió (`sent/`) y el nombre del archivo **no**
-cuentan. Escribí dos mensajes a `default/sent/` creyendo que entregaba; ninguno
-llegó. El modo de fallo es el peor porque uno cree que avisó.
+`cli.py overdue` sigue reportando **7 asks vencidos**, 4 de los cuales son
+`from=default to=default` (mensajes que se escribieron a sí mismos, ALERT-63) y
+ya están cerrados. **No se intentó responderlos.** La identificación se hizo
+leyendo el `to` y el `state` de cada JSON.
 
-## Lo que se le pide a Pablo
+## Dos FAIL que eran del arnés, no del código
 
-Nada urgente. La 50F y la 61 T1-2 están esperando veredicto del Reviewer, y
-ambas están en rama: **nada de esto está en producción** (y no se promovdrá sin
-que lo pidas por nombre).
+La sección 4 del test de la 49G falló al primer intento y **los dos fallos eran
+míos**:
 
-Lo único que sigue bloqueado y **no puedo resolver sin vos** es el **body crudo
-de una llamada a `/v2/account/raids` con token**. Sin eso, la Idea 48 y el punto
-2 de la Idea 49 no cierran — y no es falta de análisis: el dato todavía no
-existe en el repo. El PO ya escaneó las 8.349 entradas del catálogo y el
-negativo está medido; falta el positivo de la API.
+- **La key de la cache vieja la arme a mano** con `ach_acc:1111.5555`, pero
+  `fpToken` une con `'…'` (U+2026, 3 bytes), no con `'.'`. La key nunca existió,
+  el test pasó por la red y devolvió `0`, que leí como "la migración no
+  funciona". Se cambió para que el módulo escriba la key y el test la use.
+- **El assert de FORMA pedía algo que este wrapper nunca prometió** (`getAccountAchievements`
+  no tiene guard de forma y no se le agregó: eso es la Idea 57, no la 49G).
 
----
-
-# Lo que se encontró
-
-La lista de cuentas de Pablo vivía en **dos claves**, y solo una estaba viva:
-
-| | clave | quién escribe | quién lee |
-|---|---|---|---|
-| **viva** | `gw2_keys` (legacy) | `app.js:622`, `accounts-panel.js:181` a pelo | 6 módulos a pelo |
-| **congelada** | `gn:account:keys` | solo `settings-manager.js:242` (import del Gist) | `router.js`, **`settings-manager.js` (el Gist)** |
-
-Y `storage.js` hacía lo contrario de lo que se espera: `MIGRATION_MODE='copy'` no
-borra la legacy, `_migrateOne` arranca con `if (Storage.hasRaw(newKey)) return`, y
-`migrate()` corre en **cada** arranque.
-
-> **La `gn:` no está desactualizada: está CONGELADA.** Y no hay forma de notarlo,
-> porque `Storage.get` devuelve un array **bien formado** con la lista vieja. Un
-> array vacío se ve; 27 cuentas que ya no son las tuyas, no.
-
-**Dos bugs, una sola causa:**
-
-- **Bug A — el backup sube una lista vieja.** `gist-sync.js:406` sube
-  `exportApiKeys()` → `Storage.get(gn:account:keys)`. Como la `gn:` existe, el
-  fallback a `gw2_keys` no se activa. Toast *"Configuración subida correctamente"*,
-  y es verdad: no es tu configuración.
-- **Bug B — importar en un navegador nuevo deja la app SIN cuentas.** El import
-  escribe la `gn:`; en un navegador limpio no existe `gw2_keys`, así que `app.js`
-  hacía `JSON.parse(null) || []`. Panel vacío, toast *"sincronizada
-  correctamente"*, reload. **No es hipotético: es exactamente el escenario para el
-  que existe el botón de Gist.**
-
-## Y era una clase, no una clave
-
-`tools/audit-61-congeladas.mjs` (nuevo) recorre los pares que el **propio**
-`storage.js` declara y los cruza contra los módulos reales. Encuentra **4**
-congeladas, no 1: `gn:account:keys`, `gn:account:selected`,
-`gn:activities:home:nodes`, `gn:activities:toggles`. Las cuatro suben al Gist por
-el mismo camino. La que reportó el PO es una de cuatro.
-
-## El fix
-
-`MIRROR_MAP` **declara** que para esas 4 claves la legacy sigue siendo la fuente
-de verdad. No es heurística: es una lista, con el motivo escrito al lado. Una clave
-que no está ahí conserva el comportamiento anterior, que es el correcto para las que
-ya no tienen escritor crudo.
-
-1. `Storage.get`/`getRaw` leen la legacy **primero**.
-2. `Storage.set`/`remove` escriben/borran **las dos**.
-3. `_resyncMirrors()` refresca la `gn:` desde la legacy en cada arranque, y **solo
-   si la legacy existe**. *"Solo si existe"* y no *"si difieren"*: una `gn:` sola
-   puede ser legítima (navegador nuevo) y borrarla sería perder el dato.
-4. Los escritores crudos pasan por `Storage`: `app.js`, `accounts-panel.js:181`,
-   `activities.js`, `activities-theme.js`. `LS_KEYS` y `LS_SELECTED_KEY` se borran
-   de `app.js`: sin escritores, `Storage` mantiene la legacy al día para los 6
-   lectores, y no cambian de comportamiento.
-
-**Lo que NO se tocó, a propósito:** los 6 lectores a pelo. No se migra ningún módulo
-al prefijo `gn:`. La única capa que cambia es `storage.js` + 4 call sites de
-escritura.
-
-## Verificación
-
-| Qué | Resultado |
-|---|---|
-| `node --check` en los 5 archivos | limpio |
-| `tests/idea61-claves-congeladas.test.js` | **15 pass / 0 FAIL** |
-| el mismo contra los 5 archivos **sin** el fix (`git stash push`+`pop`) | **7 pass / 8 FAIL** — tiene dientes |
-| suite completa `tests/_run-all.js` | **563 aserciones, 0 FAIL**, 24 archivos |
-
-Las secciones 1-4 del test eran la **especificación** (fallaban contra el código sin
-el fix, patrón del Tramo 1 de la Idea 57). La sección 5 afirma un **invariante que
-el fix no cambia** —`gw2_keys` no es una huérfana, es la lista de cuentas— pero
-cuya **forma** sí cambió, porque el escritor de la legacy pasó de `app.js` a
-`storage.js`. Se actualizó para que mida el invariante y no el mecanismo. **Es
-justo la clase de cambio que el Reviewer marque en P4**, así que se lo pedí
-auditado explícitamente en vez de darlo por bueno yo.
-
-## Idea 49D (barrido de huérfanas): BLOQUEADA, y ahora por una razón escrita
-
-Tal como está escrita **borra `gw2_keys`**, que no es una huérfana: es la lista de
-27 cuentas. La sección 5 del test lo deja dicho y contable. Sigue sin implementarse.
+> **Regla que sale:** un fallo de migración que devuelve un valor **imposible**
+> (0 donde se esperaban N) es casi siempre el arnés. Un fallo de migración real
+> devuelve la versión vieja, no nada. Y antes de exigir un contrato, leer si el
+> wrapper lo declara — que es el mismo error del Tramo 3 de la Idea 57.
 
 ## Estado del ciclo
 
 | | |
 |---|---|
-| **Reviewer** | OPERATIVO. Recibido `20260930T164148Z-4b2624` (verificado en su inbox). **NO mergeado hasta el veredicto.** |
-| **PO** |-operative HB#13 (Idea 61 + bloqueo 49D). Pregunta abierta del HB#58 (dónde va el badge del LM, Raid o Strike Tracker) **sin responder**. |
-| **Documentador** | heartbeat 4h, `HEARTBEAT.md` vacío. Sin acción este ciclo. |
-| **Idea 57** | T1-T4 mergeados. `957cc2c` (T2) es el único sin veredicto, con la excepción anotada. |
-| **Idea 61** | T1-T2 en rama, esperando veredicto. T3 es el test, ya escrito. |
-
-## ALERT-66 (nueva, y es mía)
-
-Escribí a mano el JSON del pedido al Reviewer en `default/sent/`. El archivo existe,
-está bien formado, dice `to: Code-Reviewer`, y `sent/` es justo donde el emisor mira
-para creer que envió. **No fue entregado**: `agentlink.ask()` hace *dos* cosas
-—escribe en `<to>/inbox/` **y** un recibo en `<from>/sent/`— y yo hice solo la
-segunda.
-
-Es ALERT-62/63/65 por cuarta vez, y la cometí en el mismo heartbeat en que reporté
-las tres anteriores. Lo que la delató fue la verificación que ya era costumbre:
-leer el inbox del otro.
-
-> **Regla: el recibo es la CONSECUENCIA de la entrega, no la entrega.** `sent/` no
-> prueba nada. Después de escribir un pedido a mano, la única verificación que vale
-> es abrir `<to>/inbox/` y confirmar el archivo.
+| **Reviewer** | **3 pedidos sin recoger**: 061 (`164148Z`, Idea 61 T1-2), 050F (`170948Z`, allowlist de 18 claves), **49G (`181500Z`, el de este ciclo)**. Los tres en su `inbox/`, verificados. |
+| **PO** | Sin novedades: `PRE_BACKLOG.md` sigue con el texto viejo del badge CM (ALERT-41), que ya está diagnosticado. La pregunta del HB#58 (dónde va el badge del LM del 13-oct) sigue **sin responder**. |
+| **Documentador** | Heartbeat 4h, `HEARTBEAT.md` vacío. Sin acción este ciclo. |
+| **Suite** | **588 aserciones, 0 FAIL**, 25 archivos. |
 
 ## Lo que viene
 
-1. **Veredicto del Reviewer** sobre la 61 (5 puntos, P4 es el importante: si
-   `MIRROR_MAP` es una tercera lista de la misma verdad que `FALLBACK_MAP`, se
-   resuelve antes de mergear).
-2. **PO**: contesta dónde va el badge del LM del 13-oct (Raid o Strike Tracker).
-3. **Idea 49G** (`ach_acc` compacta) sigue siendo la de mayor impacto medido: el
-   punto de quiebre de la cuota está en ~2.700 logros por cuenta y Pablo tiene 27
-   cuentas.
+1. **Veredicto del Reviewer** sobre la 49G. La pregunta que más importa es **P4**:
+   si la convivencia lazy de versión vieja y nueva puede desincronizar algo
+   entre las 27 cuentas. Y **P1**: que confirme que `max` no tiene un segundo
+   consumidor.
+2. **Actualizar el BACKLOG** con la cifra corregida: `ach_acc` es **3.24 MB, no
+   4.10 MB**, y el punto de quiebre de la cuota sin el Tramo C era ~2.700 y con
+   la 49G pasa a ~6.900.
+3. **PO**: sigue sin contestar dónde va el badge del LM (Raid o Strike Tracker).
+   Es la pregunta que bloquea el alcance de la Idea 49 punto 1, y ya tiene fecha
+   (13-oct).
+4. **Idea 50 Tramo E** (`getCache` borra la entrada vencida) sigue sin
+   implementar: es el que libera cuota sin que el usuario tenga que apretar un
+   botón, y con la 49G el botón deja de ser urgente.
