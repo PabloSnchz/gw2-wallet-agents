@@ -12,6 +12,16 @@
  * - Global (welcomeSeen)
  * 
  * v1.0.2: Agregados métodos exportData() e importFromData() para sincronización con GitHub Gist
+ * v1.0.4: El `confirm()` del botón deja de ENUMERAR qué conserva y pasa a
+ *   decir los BYTES que quedan (`keptBytes` de `__cacheClear`). Motivo medido:
+ *   el `kept` incluye 8 familias de clave de cache de otros módulos que no
+ *   están en el registro, así que el número arrastraba cache mientras la frase
+ *   al lado la negaba; y una enumeración de categorías deja de ser cierta en
+ *   el mismo commit en que un módulo registra su clave. El conteo de bytes
+ *   sobrevive a eso. Test: tests/idea50-boton-cache.test.js, sección 4c (11
+ *   aserciones; 7 FAIL contra el archivo sin el fix).
+ * v1.0.3: Botón "Limpiar caché" de la barra de utilities (Idea 50, Tramo siguiente a F y P3).
+ *          Llama a `GW2Api.__cacheClear` con dryRun -> confirm -> borrado real.
  */
 
 (function(root) {
@@ -484,16 +494,99 @@
   }
   
   // =======================================================================
+  // 2b. LIBERAR LA CACHÉ DE LA API  (Idea 50, Tramo siguiente a F y P3)
+  // =======================================================================
+  //
+  // Por que vive acá y no en `api-gw2.js`: el borrado YA existe y ya esta
+  // probado (`GW2Api.__cacheClear`, ver `tests/idea50f.cacheclear-real.test.js`).
+  // Lo que faltaba era el BOTON, y el boton es UI. Este modulo ya es el dueño de
+  // los botones de la barra de utilities (Backup / Restaurar), ya tiene el
+  // `confirm()` de accion destructiva y el `toast` de resultado, y ya tiene el
+  // guard `__settingsWired` que evita el doble binding. Agregar un modulo
+  // propio seria un `<script>` mas y un segundo lugar con el mismo patron.
+  //
+  // El flujo es dryRun -> confirm -> borrado real, y el orden NO es estetico:
+  //   1. `__cacheClear({dryRun:true})` NO borra nada y dice cuantas claves y
+  //      cuantos bytes se liberarian. Es lo unico que permite que el `confirm()`
+  //      sea una PREGUNTA y no una DCHECK.
+  //   2. Si `removed` es 0 no se pregunta: un confirm que anuncia "0 claves" es
+  //      una mentira, y el peor caso de un boton destructivo es el que pide
+  //      permiso para no hacer nada.
+  //   3. Recien ahi se borra de verdad.
+  //
+  // Lo que NO hace, a proposito: `location.reload()`. `__cacheClear` tambien
+  // vacia la cache de sesion de ESTA capa (`__mem`), asi que la siguiente
+  // lectura sale de la red sola. Recargar es un cambio de comportamiento mas
+  // grande (tira el estado de la vista) y no hace falta para que el boton
+  // cumpla: queda planteada para el Reviewer, no resuelta por mi.
+  //
+  // Y lo que el copy NO promete, que es lo mismo pero del lado de los otros
+  // modulos: `wizards-vault.js:40-41` tiene SU PROPIA `__mem`/`__inflight`, y
+  // `cacheClear` no la alcanza. O sea que tras este boton el WV sigue
+  // sirviendo desde memoria hasta que se recargue la pagina. Es una limitacion
+  // CONOCIDA y Dicha, no una sorpresa: el Reviewer la senalo (nota al pie de
+  // la fila 073) y el hook que la arregla (`onClear` o `__cacheClearMem()`) es
+  // el tramo siguiente, no este. Un copy que dijera "todo se vuelve a
+  // descargar" seria falso para el modulo mas pesado con MB en disco.
+  function fmtBytes(n) {
+    if (!n || n < 0) return '0 B';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+  function clearApiCache() {
+    var api = window.GW2Api;
+    if (!api || typeof api.__cacheClear !== 'function') {
+      if (window.toast) window.toast('error', 'La capa de API no está disponible', { ttl: 3000 });
+      return;
+    }
+    // 1. La pregunta primero. En `dryRun` no se toca ni disco ni sesion.
+    var dry = api.__cacheClear({ dryRun: true });
+    if (!dry || !dry.removed) {
+      if (window.toast) window.toast('warning', 'No hay caché de la API para liberar', { ttl: 2500 });
+      return;
+    }
+    // La PREGUNTA nombra el mismo alcance que el `title` del boton
+    // (`index.html:289`): API **y WV**. El registro de la P3 son las 18 bases de
+    // la capa API MAS las 5 de `wizards-vault.js:615-618`, asi que decir "de la
+    // API" y borrar el WV es el mismo delta sin declarar que H1, en el unico
+    // texto que Pablo lee antes de confirmar. La ultima linea ya nombraba el WV
+    // (por su `__mem`), y esa mencion podia leerse como "el WV no se toca": lo
+    // que no se toca es su CACHE DE SESION. Las dos cosas quedan separadas.
+    var msg = '¿Liberar la caché de la API y del WV?\n\n' +
+      '• Se borrarán ' + dry.removed + ' claves (' + fmtBytes(dry.bytes) + ')\n' +
+      // La segunda linea NO enumera QUE se conserva. La version anterior decia
+      // "cuentas, pines, tema y ajustes", y eso era una afirmacion sobre las
+      // CATEGORIAS que hoy es FALSA por lo mismo que el numero: el `kept` del
+      // dryRun incluye las 8 claves de cache de otros modulos que no estan en
+      // el registro (characters.js, activities.js, app.js), asi que el numero
+      // arrastraba cache mientras la frase la negaba. Y la enumeracion no
+      // sobrevive: los BYTES siguen siendo ciertos cuando manana un modulo
+      // registre su clave; una lista de categorias deja de serlo en el mismo
+      // commit. El tamano es el dato que Pablo puede comparar con la cuota.
+      '• Se conservan ' + dry.kept + ' claves (' + fmtBytes(dry.keptBytes) + ')\n\n' +
+      'La API volverá a descargar los datos, y el WV también. Lo que otros módulos ya tienen en memoria (incluido el WV) se conserva hasta que recargues la página.';
+    if (!confirm(msg)) return;   // 2. Cancelar NO borra nada: el dryRun no habia borrado nada
+    // 3. Ahora si.
+    var res = api.__cacheClear();
+    if (window.toast) {
+      window.toast('success', 'Caché liberada: ' + (res ? res.removed : 0) + ' claves (' +
+        fmtBytes(res ? res.bytes : 0) + ')', { ttl: 3500 });
+    }
+  }
+
+  // =======================================================================
   // 3. INICIALIZACIÓN
   // =======================================================================
   
   function init() {
-    console.info(LOG, 'Settings Manager v1.0.2 inicializado');
+    console.info(LOG, 'Settings Manager v1.0.4 inicializado');
     
     // Buscar botones en el DOM (se ejecuta después de que index.html cargue)
     function bindButtons() {
       var exportBtn = document.getElementById('exportSettingsBtn');
       var importBtn = document.getElementById('importSettingsBtn');
+      var clearCacheBtn = document.getElementById('clearCacheBtn');
       
       if (exportBtn && !exportBtn.__settingsWired) {
         exportBtn.__settingsWired = true;
@@ -515,6 +608,14 @@
               alert('Error: ' + err.message);
             }
           });
+        });
+      }
+      
+      if (clearCacheBtn && !clearCacheBtn.__settingsWired) {
+        clearCacheBtn.__settingsWired = true;
+        clearCacheBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          clearApiCache();
         });
       }
     }

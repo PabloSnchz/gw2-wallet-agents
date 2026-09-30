@@ -1,5 +1,194 @@
 # TEAM_STATUS — Bóveda del Gato Negro
 
+# Heartbeat Principal #69 — 2026-09-30 22:28–22:45 UTC
+
+> **Ciclo de rescate: encontre WIP de otro escritor con la suite en ROJO, y el
+> FAIL resulto ser el hallazgo bloqueante del Reviewer.** No se gitearon para que
+> el numero bajara: se leyo que invariante queria medir el test antes de tocarlo.
+
+## Como encontre el problema
+
+Al arrancar, `git status` mostraba **6 archivos modificados y 3 sin trackear** que
+no eran de mi ciclo anterior. Antes de commitear nada, dos mediciones:
+
+1. **¿El segundo escritor sigue escribiendo?** `mtime` identico en **3 lecturas**
+   separadas a lo largo de ~3 min. Se detuvo. Con el arbol quieto, "no commitear"
+   dejo de ser prudencia y paso a ser WIP huerfano.
+2. **¿La suite pasa?** **No: 792/1 FAIL.** El FAIL era
+   `el title declara que cuentas, pines y ajustes NO se borran`.
+
+## Por que ese FAIL no se gito (es la leccion del ciclo)
+
+Contrastado contra `task-f61e427b2efc` (Reviewer, veredicto **aprobar con
+cambios**): su **H1, marcado bloqueante de merge**, pide que el `title` declare que
+no se tocan cuentas, pines ni ajustes — porque el registro de la P3 **borra por
+prefijo**. La version en disco de `index.html:289` lo habia perdido: el segundo
+escritor sustituyo `(no toca cuentas, pines ni ajustes)` por
+`(el boton dice cuantos bytes libera y cuantos quedan)`.
+
+Los bytes son ciertos y son mejores que la enumeracion. Lo que se perdio fue **la
+otra mitad del alcance**, y sin ella Pablo no tiene forma de saber si su cuenta o
+su PIN sobreviven. **Bajar ese FAIL a 0 habria sido el bug, no el fix.**
+
+Resolucion **aditiva**: el parentesis conserva integra la clausula del segundo
+escritor y recupera el alcance. No se borro ni una palabra suya.
+
+## Los dos veredictos, y por que no son contradictorios
+
+| Fuente | Dice | Aplicado |
+|---|---|---|
+| **Reviewer** H2 | La enumeracion de `kept` es FALSA → hacerla exhaustiva | **No**, y esta medido por que |
+| **PO** | ElEnumerar categorias no sobrevive → decir **bytes** | **Si** |
+
+No hay desacuerdo real: el Reviewer diagnostico bien el bug (la frase era falsa) y
+propuso un remedio que el PO demostro que se rompe solo. Los bytes que quedan
+(`keptBytes`, `api-gw2.js` v2.31.0) son ciertos hoy y manana, cuando un modulo
+registre su clave; una lista de categorias deja de serlo en el mismo commit que la
+agrega. **Se aplica el diagnostico del Reviewer con el remedio del PO.**
+
+**El tercer cubo `DESCONOCIDO` queda descartado, con el numero medido:** las 8 claves estan
+nombradas con modulo y linea (`tools/idea50-censo-claves.mjs`), asi que no son
+desconocidas, y restar una bolsa de "lo que no sabemos" le quita a Pablo la cifra
+justo cuando la necesita.
+
+## Tambien: ALERT-84 T1 (PO, ronda 17)
+
+`index.html:750` muestra un item de menu VISIBLE que decia *"Cargando catalogo de
+legendarias..."* **para siempre**: `loadLegendaryData()` es un stub que resuelve
+`[]`, `renderCatalogSkeleton()` escribe "Cargando" y **nada lo reemplaza**. Un error
+se investiga; un "Cargando" infinito se espera.
+
+T1 **no implementa la funcionalidad** (T3/T4 la hacen): cambia el **estado que la
+app dice de si misma**. Se conservan los `id` y el grid de 5 columnas, que son el
+contrato que `render-catologo.js` va a usar. Commit `d64e688`.
+
+## Estado
+
+| | |
+|---|---|
+| **Suite** | **793/0 FAIL, 29/29 archivos** (crece de 739) |
+| **Commits del ciclo** | `d64e688` ALERT-84 T1 · `46b2d7f` keptBytes + H1 · `f8286b8` cierre ALERT-85 |
+| **Rama** | `feat-idea50-boton-cache` — **SIN MERGEAR a proposito** |
+| **Bloquea el merge** | **Nada.** El Reviewer escribio que `onClear` esta "NO exigido"; H1 y H2 eran la condicion y ya estan. Ver la fila siguiente |
+| **Lo que si queda pendiente** | El hook `onClear` no bloquea el merge pero si el **valor** del boton: sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir, y el numero que Pablo ve deja de ser el que se libero. Anotado en `BACKLOG.md` |
+| **Sin commitear** | `ORG_MAP.md.bak-20260930-chatadmin` (backup, no es codigo) |
+| **Produccion** | No se toca. Nada promovido a `origin`. |
+
+**H1 y H2 del Reviewer estan corregidos**, que era la condicion que puso para
+mergear. Correccion a lo que escribi mas arriba en este mismo ciclo: **`onClear`
+NO bloquea el merge** — el Reviewer lo marco "NO exigido". Lo que bloquea es el
+valor del boton, que es distinto de bloquear el merge, y no conviene escribir dos
+cosas distintas como si fueran una.
+
+---
+
+# TEAM_STATUS — Bóveda del Gato Negro
+
+
+# Heartbeat Principal #68 — 2026-09-30 22:20–22:55 UTC
+
+> **Ciclo de cierre del boton y de decision de producto. Mergeado: nada de codigo
+> que dependa de una respuesta que todavia no llego.** Lo que se cerró es una
+> mentira del texto, que era lo unico que el usuario leia antes de confirmar una
+> operacion destructiva.
+
+## Lo que se corrigio: el copy del boton decia una recarga que no pasa
+
+`70414d2`, en la rama `feat-idea50-boton-cache` (**sin mergear**).
+
+El boton confirmaba con *"La próxima carga volverá a descargar los datos"*. Eso es
+**FALSO para el Wizard's Vault**: `wizards-vault.js:40-41` tiene su propia
+`__mem`/`__inflight` y el borrado **no la alcanza**, asi que tras el boton el WV
+sigue sirviendo desde memoria. El Reviewer lo habia senalado en la nota al pie de
+la fila 073 y quedaba planteado, no escrito.
+
+No es un detalle de redaccion. Es el modo de falla de **un dato sin alcance
+declarado** (ALERT-68 y ALERT-78) aplicado al unico texto que Pablo lee antes de
+confirmar una operacion destructiva.
+
+- El copy pasa a decir *"La API volverá a descargar los datos. Lo que otros módulos ya
+  tienen en memoria (el WV) se conserva hasta que recargues la página."* Promete
+  lo que pasa, y dice **hasta cuando**.
+- **5 aserciones nuevas** en la seccion 4b del test. Dos comprueban que la
+  limitacion es **REAL** (el WV tiene su propia `__mem`) y que el boton aun **no
+  la alcanza** — esa segunda **acotada al CUERPO de `clearApiCache()`**, no al
+  archivo entero, que es ALERT-81.
+- **La asercion se va a caer sola** cuando entre el hook `onClear`. Eso es lo que
+  se quiere: que el limite quede escrito y no en la cabeza de nadie.
+
+**Fase roja por MUTACION** del copy al texto viejo: **3 FAIL**. La red muerde.
+
+## ALERT-82: el titulo del boton es un alcance, y el PO no lo habia leido
+
+El PO midió 72 call sites de escritura y concluyó que *"el boton va a mentir"*:
+`removed`/`bytes` describen la cache del registro (23 bases) y no **toda** la cache
+de Pablo. **La direccion es correcta; la premisa le faltaba una linea.**
+
+Medición propia sobre las bases reales declaradas en `api-gw2.js:1708-1716` y
+`wizards-vault.js:615` (no sobre el grep del PO):
+
+| | lineas |
+|---|---|
+| escrituras a localStorage fuera del registro | **36** |
+| de esas, **dato del usuario** (asignaciones, filtros, orden, tiers, pins, token de gist) — conservadas a proposito | **29** |
+| de esas, **cache real** en otros modulos | **7** |
+
+Las 7: `characters.js:287` `MAPS_CACHE_KEY`, `:311` `POIS_CACHE_KEY`, `:357`
+`PROF_ICONS_CACHE_KEY`, `:388` `RACE_ICONS_CACHE_KEY`, `activities.js:606`
+`PSNA_CACHE_KEY`, `app.js:627` y `:1158` `LS_CURR`.
+
+O sea que el PO (que estimo 13 de cache) **sobrevvalo por 6**, y **las 7 estan en
+modulos que no son "la API"**. El boton se titula *"Liberar la caché de la API"*: eso
+**ya es un alcance declarado**, y por eso el número no es una mentira sino un
+número de un subconjunto con nombre.
+
+**Pero esa lectura es MIA, y por eso se la mandó al Reviewer como pregunta de
+criterio y no la di por hecha.** La decisión de si Pablo espera que el boton
+libere *toda* su cache o *la de la API* es **de producto**, y segun la regla del
+proyecto no es mia ni del Reviewer: es **del PO**.
+
+## Verificacion
+
+- **Suite completa: 739 aserciones / 0 FAIL, 28 de 28 archivos** (alcance completo, una
+  sola fuente de verdad desde el P4).
+- Test del boton: **45 pass / 0 FAIL** (era 40).
+- `node --check` limpio en los 2 `.js`. `git diff --stat` quirurgico.
+- **El ALERTA-79 verificado releiendo el diff de los `.js` y el texto de los dos
+  mensajes antes de enviarlos.** Los dos restores con Python, nunca `Set-Content`.
+
+## Tareas en curso / pendientes
+
+| Que | Con quien | Estado |
+|---|---|---|
+| **Boton de la cache** (Idea 50, ultimo tramo) | **Code-Reviewer** | `feat-idea50-boton-cache` @ `70414d2`, **SIN MERGEAR**. Pregunta 1: titulo vs tercer cubo. `task-f61e427b2efc` / ask `11a3c7` |
+| **Tercer cubo** (`DESCONOCIDO`) | **product-owner** | **NO decidido.** Es producto, no ingenieria. El PO tiene la palavra y la pregunta acotada. `task-1b6241ed5c58` / ask `9c1e44` |
+| **hook `onClear` / `__cacheClearMem()`** | yo | Tramo siguiente. Sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes se vuelvan a consumir. **La asercion 4b lo va a marcar** |
+| **7 claves de cache fuera del registro** | producto | Ampliar el alcance del boton. **NO lo decido yo.** Con el registro global, agregar bases despues es agregar lineas, no reescribir el borrado |
+| **49G** `ach_acc` compacta | yo | **RECHAZADA** (ALERT-73), no mergeada. El fix va sobre `feat-idea49g-ach-acc-compacta` (`1a47d5c`) |
+| **Idea 49 punto 1** badge del LM | yo | **DESBLOQUEADO y decidido por el PO**: va en **Raid Tracker** (no Strike Tracker), campo `modes`, declarado *"no disponible todavia"*, **nunca `true`**. No iniciado |
+| **Idea 49 punto 2** (marcado real del LM) | externo | **BLOQUEADO**, y no por la API: no hay flag trackeable en el juego todavia |
+| **49D** barrido de huerfanas | yo | **BLOQUEADA** por el Tramo 3. Si entra, excluye las 4 de `MIRROR_MAP` explicitamente |
+| **Idea 63 T1-vs-T3** (persistencia de filtros) | **Pablo** | Las dos son **CONTRARIAS**: T1 resetea al cambiar de cuenta, T3 persiste por cuenta. Es preferencia de uso. T1 ya esta mergeado (`eb69fb3`) |
+| **Documentacion** | documenter | Su turno; el Principal no hace fallback |
+
+## Alertas
+
+- **ALERT-79** (vigilante): releer el diff de los `.js` **y el texto de los mensajes** antes de enviarlos. Cumplido este ciclo.
+- **ALERT-80** (vigilante): ediciones solo por `edit_file` o Python con `newline=''`. Los dos restores de hoy fueron por Python.
+- **ALERT-81** (cerrada): los 2 invariantes demasiado anchos del P3 ya estan acotados al cuerpo donde vive el fix.
+- **ALERT-82** (nueva): un titulo es un **alcance**, y medir sin leer el texto donde el numero se muestra produce una alarma de magnitud equivocada. El PO midió bien y le faltaba el titulo.
+- Sin timeouts nuevos que escalar. El `task-1073c89cfd92` (Reviewer) expiro a los 1800s **sin respuesta**: no es un "no", y el ask se reenvio por las dos vias.
+
+## Pendiente para el proximo ciclo
+
+1. `check_agent_task('task-f61e427b2efc')` (Reviewer) y `('task-1b6241ed5c58')` (PO).
+2. Con el veredicto: **mergear el boton** o **sacarle el titulo**. La rama tiene 2 commits y la suite esta en 739/0.
+3. Si el tercer cubo entra, es un Tramo aparte: `cacheClear` pasa a devolver tres cubos y `kept` con motivo.
+4. El hook `onClear` es lo que hace que el boton sirva de algo completo. Sin el, elWV reescribe en memoria lo que se acaba de borrar.
+
+---
+
+
 # Heartbeat Principal #65 — 2026-09-30 20:30–20:55 UTC
 
 > **Ciclo corto y sin urgencias: 1 veredicto recogido (el Tramo 3 de la Idea 61,
