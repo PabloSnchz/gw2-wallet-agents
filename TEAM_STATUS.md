@@ -1,6 +1,8 @@
 # TEAM_STATUS.md — Estado del equipo
 
-> Actualizado: 2026-09-30T05:10:00Z
+> Actualizado: 2026-09-30T05:40:00Z
+> Heartbeat #46 (05:40 UTC): (1) **Rescaté la documentación de la Idea 49 que estaba sin commitear** desde el HB#45 — 4 archivos, 115 líneas (CHANGELOG, README, ONBOARDING, AGENTS.md). Es exactamente ALERT-43: el trabajo estaba a salvo solo porque nadie lo pisó. Auditado antes de commitear contra los commits reales (`fb55fe2`, `4e5296b`, `d7cbe0d`); la documentación es fiel. Commit `61b7c69`. (2) **Las respuestas del PO y del Reviewer del ciclo anterior NO se pudieron recoger: los `task_id` devuelven 404** (`task-100c75d090d5`, `task-dbb64f500af6`). El registro de la tarea ya no existe en el servidor. Reenvié las 3 preguntas al PO con id nuevo (`task-b781ce950d38`). **Esto no es un timeout del PO: es que la tarea dejó de existir.** Son dos fallos distintos y confundirlos es lo que produjo 14 "timeouts" del Reviewer que en realidad eran tareas nunca recogidas. (3) **Medí el Tramo C de la Idea 49 en vez de implementarlo a ciegas, y la medición reencuadra el problema entero** (abajo). (4) Audité el rescate `_wt_47` (`06675b0`): correcto en su análisis, y su conclusión —no mergearlo— sigue siendo la correcta. (5) Producción CONGELADA, sin tocar.
+>
 > Heartbeat #45 (05:10 UTC): (1) **Cerré la Idea 49 Tramo A** (`fb55fe2` + buster `4e5296b`, ambos en `agents/main`). `api-gw2.js` v2.20.0: `lsSet` era `catch(_){}` — se tragaba el `QuotaExceededError` entero. Ahora devuelve booleano, cuenta los fallos y avisa **una sola vez**; se expone `GW2Api.__cacheStats()`. **No relanza el error a propósito:** la copia en `__mem` ya sirvió para la sesión y lanzar ahí sería peor que el bug. (2) **Este tramo no era opcional, y esa es la parte que vale la pena.** El HB#44 mergeó quitar el wipe de `activities.js` (`9e211b5`) — bien hecho, un módulo no debe borrar la cache de otro. **Pero ese wipe era lo único que mantenía la cuota a raya**, por accidente. Sin el Tramo A, el fix anterior no cambiaba "Logros tarda" por "todo reinicia en frío": lo cambiaba por **"todo reinicia en frío, en más sitios, y sin decir nada"**, porque la cuota es **compartida por todos los módulos**, no solo por el de logros. Un arreglo que tapa un síntoma puede destapar otro peor; por eso van en el mismo ciclo y no en el siguiente. (3) **Verificado en las dos direcciones:** el runner da **11/11** con el fix y **4/11 (7 FAIL)** contra el archivo sin modificar, montando un `localStorage` que lanza `QuotaExceededError` de verdad sobre el archivo real. Suite completa **170/0**. (4) **Corregí un error de procedencia del HB#44:** su SESSION_LOG atribuía este WIP al PO y lo dejaba sin commitear "para que el PO lo commitee en su rama". Es **mío**, de este ciclo. No lo corregí por vanidad: sin commitear era **ALERT-36** puro, y casi lo pierde — el merge `9e211b5` de un heartbeat concurrente **ya me movió la rama debajo del trabajo** a mitad de sesión, y lo único que lo salvo fue un backup explícito. (5) PO consultado (`task-100c75d090d5`, 3 preguntas acotadas). (6) **Producción CONGELADA**, sin tocar.
 > Heartbeat #43 (04:30 UTC): (1) **Resolvi el diagnostico que me pidio el PO y salio mas grave que las dos ramas que planteo.** El PO pregunto si el badge CM del Strike Tracker era cosmetico o si el parseo estaba roto. **Ninguna de las dos.** `/v2/raids` devuelve hoy **6 entradas** (`X-Result-Total: 6`) y con forma `{id, wings:[{id, events:[...]}]}`; los ids que puede devolver el endpoint de cuenta son los de `events[]`. **Los 15 ids de strike del codigo no estan ahi**: `/v2/raids?ids=<id>` da `all ids provided are invalid` para los 15. Con el filtro `completed.filter(id => strikeIds.indexOf(id) !== -1)`, el resultado es **siempre `[]`** -> **el Strike Tracker no le muestra a nadie lo que completo.** El badge CM era el sintoma menos grave: el problema es que no hay datos. **Limite: no tuve token, no pude llamar a `/v2/account/raids`** (ver ALERT-41). (2) **`raid-tracker.js` si esta bien**: sus 12 ids de encuentro (`gorseval`, `xera`, `cairn`, `samarog`, `deimos`, `qadim`, ...) **si** estan en el catalogo. Salvo `vloxx`. (3) **Limpieza de rama**: `fix-idea47-commerce-callsite` (`ddd3047`) esta **superada** — su unico commit (`24e190e`) ya esta en `main`; la rama es main viejo. Borrada local (queda `legacy/`). (4) PO y Reviewer: sin respuesta (timeout de plataforma, como los 15 anteriores).
 > Heartbeat #42 (03:30 UTC): (1) La task del PO `task-dbb64f500af6` (COMM 027) **volvio a timeout** a los 900 s — pero su trabajo **si llego al repo**: la Idea 48 entro como `2cdacce`, y el Tramo A ya estaba mergeado en `agents/main` @ `78a5a7a` (03:09 UTC) por un heartbeat paralelo, 21 minutos despues de que TEAM_STATUS lo listara como pendiente. (2) **Audite ese trabajo ajeno antes de avanzar**: el bump de `POOL_MAX` 3 a 6 esta justificado con la medicion del PO, y su test **mide en vez de copiar** — corre contra el archivo real en un sandbox y el commit documenta que corrio contra el archivo SIN modificar con 2 FAIL. **Verifique la suite yo mismo: 122 aserciones, 0 FAIL.** (3) **Avance el siguiente item del BACKLOG: Idea 48 Tramo B (ETA en el contador)**, implemented en la rama `feat-idea48b-eta-contador`, con 29 aserciones propias. **4) Encontre un throttle que el bump del Tramo A no tocaba** y que el PO no habia visto. (5) Logs actualizados. (6) ⚠️ **BLOQUEADO**: el `git commit` fue **denegado por la politica del driver** (falso positivo: el mensaje de commit contenia la secuencia "rm", dentro de la palabra "**fo**rma**to**"). Los 3 archivos quedan **staged y sin commitear**. Requiere que Pablo commitee, o que autorice reintentar.
@@ -13,6 +15,90 @@
 > Heartbeat #32: (1) COMM 016 **resuelto** — el PO aceptó las 3 correcciones factuales tras verificarlas en vivo, y **descartó su propia propuesta** del Convergence Achievement Tracker (DROP, no downgrade). (2) **Hallazgo crítico del PO**: la rotación diaria de fractales que muestra el panel de Actividades era **información inventada** — hardcodeada y presentada como "dailies de hoy". (3) Rescate de su rama, que estaba brakeda desde un commit viejo y habría revertido 335 líneas de logs. (4) Corregido y mergeado a `agents/main` @ `27b8394`. (5) Consulté al Reviewer sobre una violación CSS de 3 capas que introduce el propio fix. (6) Logs + commit + push a agents.
 
 > Heartbeat #33: (1) **Documentador recuperado y productivo** — completó `task-d1308a9671e0` (2º vez consecutiva que responde). Documentó los 2 fixes de datos falsos en commit `e7672bc`. (2) **Audité sus 3 discrepancias contra el código real** — 1 era certa, 2 no. (3) **Corregí el CHANGELOG**: decía que el fix de fractals no estaba mergeado y **sí lo está** (`27b8394`). (4) **Bumpeé `meta.js` v3.4.0 → v3.4.1**: el fix de Ley Line nunca bumpeó la query string, así que no llegó al navegador por cache. (5) **Implementé el item #43 (Commerce Delivery)** — la fricción real que reportó el PO: «me muestra el ítem del TP como venta pasada sin decirme que no lo cobré». Endpoint **verificado en vivo** (401 con token falso ≠ 404 de inexistente). (6) **PO cerró la idea #40** por sí mismo: pets no tiene endpoint account-scoped. (7) Reviewer: **14º falla consecutiva**.
+
+---
+
+## Heartbeat #46 (05:40 UTC)
+
+### Tareas en curso
+
+| Agente | Estado | Detalle |
+|--------|--------|---------|
+| **default (Principal)** | OK Activo | Heartbeat #46. Rescate de la doc sin commitear (`61b7c69`) + **medición del Tramo C de la Idea 49**, que reencuadra el problema. |
+| **code-reviewer** | Sin consulta | El trabajo de este ciclo es **medición**, no código: no hay diff que revisar. No lo consulto para cumplir tramite. |
+| **documenter** | **Entregado, sin commitear** | Sus 4 archivos de documentación de la Idea 49 (Tramos 1 y A) estavam sin commitear desde el HB#45. Los commiteé yo (`61b7c69`) **después de auditarlos** contra los commits reales. |
+| **product-owner** | En vuelo | `task-b781ce950d38` (1800 s), 3 preguntas. La 1 es la que desbloquea el Tramo C. |
+| **architect** | - | Excluido por diseño. |
+
+### Las task_id del ciclo anterior ya no existen: no fue timeout, fue otra cosa
+
+`check_agent_task('task-100c75d090d5')` y `('task-dbb64f500af6')` devuelven **`404 Not Found`**, no `failed` ni `timeout`. El registro de la tarea **ya no está en el servidor**.
+
+Eso explica una parte de la racha de "14 timeouts del Reviewer" que arrastramos desde el HB#30: **varias de esas tareas no fallaron — se perdieron porque nadie las recogió.** El paso 1 del ciclo (`check_agent_task` primero) existe justamente para eso, y en los ciclos anteriores se estaba anotando `failed` sin haber comprobado nunca si el registro existía.
+
+**Regla que sale de acá: un 404 no es un timeout.** Significa que no hay nada que recoger, y la respuesta correcta es reenviar con id nuevo, no esperar más.
+
+### El Tramo C: la medición reencuadra el problema
+
+El Tramo C del PO consistía en comprimir `ach_acc` de ~79 B a ~6 B por id (13× menos). Antes de implementarlo medí **qué se guarda realmente** y **quién lo lee**.
+
+**Lo que se guarda, por campo** (200 ids reales, `lang=es`, API en vivo):
+
+| Campo | Peso | ¿Lo lee alguien? |
+|---|---|---|
+| `bits` | **20.1%** | ❌ **nadie** |
+| `requirement` | **8.3%** | ❌ **nadie** |
+| `tiers` | 5.5% | ✅ `achievements.js:187,207,218` |
+| `name` | 3.8% | ✅ |
+| `description` | 3.7% | ✅ `achievements.js:636` |
+| `flags` | 2.9% | ✅ `achievements.js:230` |
+| `rewards` | 2.6% | ✅ `achievements.js:308,534,642` |
+| `icon` | 2.1% | ✅ |
+| `type` | 1.2% | ✅ |
+| `locked_text` | 0.8% | ❌ **nadie** |
+| `id` | 0.5% | ✅ |
+| `prerequisites` | 0.1% | ❌ **nadie** |
+| `point_cap` | 0.0% | ❌ **nadie** |
+
+Verificado con grep sobre **todo** `js/`: `getAchievementsMeta` tiene **un solo call site** (`achievements.js:1067`), y ese call site no toca `bits`, `requirement`, `locked_text`, `point_cap` ni `prerequisites`. **Dropear esos 5 campos al cachear da −29% sin perder un dato que la app pueda leer.**
+
+**Pero el problema de verdad no es el tamaño del registro: es la duplicación.** La key es `ach_meta_v2:<lang>:<ids>` — **una key por id-set distinto**, y cada cuenta tiene un subconjunto distinto de logros. La metadata **no depende del token** (se cachea con `null`), o sea que 27 cuentas están guardando 27 veces la misma tabla, y solapada.
+
+Simulación con ids reales de la API (3459 ids barriados en 1..4000), 27 cuentas × 1500 logros, **519 B/registro medidos en vivo**:
+
+| Estrategia | Volumen | Claves |
+|---|---|---|
+| **Hoy** (key por id-set, chunks de 200) | **20.22 MB** | 216 |
+| **Sharding** (key por shard fijo `id//200`) | **1.71 MB** | 18 |
+| | **−91.5%** | |
+
+Contra una cuota de **4.98 MB**: hoy el catálogo de logros de 27 cuentas **no entra ni de cerca**. Con sharding entra holgado, y sumando el drop de los 5 campos muertos queda en **~1.2 MB**.
+
+**El sharding es la corrección estructural, y no requiere ningun dato nuevo:** el shard de un id es su posición global, independiente de qué cuenta lo pidió. Dos cuentas que comparten un id comparten el shard.
+
+**Lo que NO hago en este ciclo, y por qué:** no lo implemento todavía. La pregunta 1 al PO es exactamente sobre el objetivo del Tramo C, y sharding cambia el contrato de `getAchievementsMeta` (una key por shard en vez de por id-set) más la estrategia de red (un shard pide 200 ids aunque la cuenta tenga 3 de ese rango). Eso es un cambio de capa de datos, no un fix local. Va con diseño encima de la mesa, no a ciegas.
+
+**Sobre el número del log anterior:** el HB#45 decía 3.6 MB/cuenta; mi medición da **~3.24 MB para el catálogo completo** y **519 B/registro** (la cifra anterior, 536 B, era correcta; la diferencia es que medí con `ensure_ascii=False` y muestra dispersa, no `1..200`). El orden de magnitud se sostiene. La cifra que **no** era correcta era la de "27 cuentas = 96 MB": eso multiplicaba el catálogo completo por 27, cuando lo que se guarda son los **subconjuntos**. El número real de la simulación es **20.22 MB**.
+
+### El rescate `_wt_47` sigue sin mergearse, y el motivo se sostiene
+
+`06675b0` (rama `rescue-idea47-parallel-wip`, worktree `_wt_47`): 646 líneas sobre 7 archivos + 2 tests, base `1ef2e12` — **6 commits antes** de los `7ca8195`/`9860a2e` que ya están en `main`. Se solapa con código ya mergeado en líneas distintas.
+
+Lo audité: **su análisis es correcto y su decisión sigue siendo la correcta.** La Idea 47 ya se resolvió por el camino de `main` (`110b049`, 105/105 aserciones). Aplicar esto encima sería un merge conflictual sobre código que ya funciona, con 2 tests que nunca corrieron. Se queda en `legacy/`.
+
+### Pendientes
+
+- **Tramo C de la Idea 49 — con el diseño ya medido.** Sharding por `id//200` (−91.5%) + drop de los 5 campos que nadie lee (−29% sobre lo que queda). **Falta**: acuerdo del PO sobre el objetivo (pregunta 1) y decidir el coste de red (un shard pide 200 ids aunque la cuenta tenga 3 de ese rango).
+- **ALERT-41 sigue bloqueada** y necesita lo único que no puedo hacer yo: una llamada a `/v2/account/raids` con token real. Delegada al PO (pregunta 2).
+- **Bump de `index.html`** si el Tramo C entra: sin él, el fix existe en el repo y no en el navegador (modo de falla ya registrado dos veces, `meta.js` y `api-gw2.js` v2.20.0).
+- Siguiente item del backlog si el Tramo C se postpone: **Idea 44 (dungeons)**, patrón probado 3 veces en `activities.js`.
+
+### Alertas
+
+| # | Alerta | Severidad |
+|---|--------|-----------|
+| **ALERT-45** | 🔴 Alta | **Una `task_id` puede desaparecer del servidor sin dejar rastro: `check_agent_task` devuelve 404, no `failed`.** Las 2 tareas del HB#45 (`task-100c75d090d5`, `task-dbb64f500af6`) no existen. **Esto invalida parte del conteo histórico**: varias de las "14 fallas del Reviewer" y los "timeouts del PO" de ciclos anteriores fueron **tareas nunca recogidas**, no tareas que fallaron. **Regla: 404 ≠ timeout.** Ante 404 se reenvía con id nuevo; no se espera más ni se anota `failed` a ciegas. |
+| **ALERT-46** | 🟡 Media | **La cifra "27 cuentas × 3.6 MB = 96 MB" del HB#45 estaba mal calculada** (multiplicaba el catálogo completo por 27 en vez de los subconjuntos reales). El volumen real simulado es **20.22 MB**. El problema real sigue siendo grave —20 MB contra 4.98 MB de cuota— pero la cifra inflada hacía creer que hacía falta una compresión 13×, cuando lo que hace falta es **deduplicar**. |
 
 ---
 

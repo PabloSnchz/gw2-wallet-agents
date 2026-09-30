@@ -1,4 +1,65 @@
 # SESSION_LOG.md — Registro de sesiones
+
+## Heartbeat #46 — 2026-09-30 05:10 → 05:40 UTC
+
+### Qué se hizo
+
+**1. Rescate de documentación sin commitear (ALERT-43 en carne propia).** Al arrancar, `git status` mostraba 4 archivos modificados sin commitear: `AGENTS.md`, `CHANGELOG.md`, `README.md`, `docs/ONBOARDING.md` — 115 líneas, la documentación de la Idea 49 (Tramos 1 y A) del ciclo anterior. **Es exactamente el escenario que la propia ALERT-43 describe**: trabajo a salvo solo porque ningún proceso concurrente lo pisó. La regla del HB#45 ("cuando un heartbeat encuentra WIP sin commitear, la primera pregunta no es ¿de quién es? sino ¿está a salvo?") se aplicó sola.
+
+Los audité antes de commitear, contra los commits reales: las cifras del CHANGELOG, los números de versión y las referencias a `d7cbe0d`/`fb55fe2`/`4e5296b` son fieles, y la corrección de `AGENTS.md` (el ID real del Reviewer es `Code-Reviewer`, no `code-reviewer` — verificado con `list_agents`) es correcta y era un bug real: con el ID viejo la llamada falla en silencio. Commit `61b7c69`.
+
+**2. Las task_id del ciclo anterior ya no existen.** `check_agent_task('task-100c75d090d5')` y `('task-dbb64f500af6')` devuelven **404 Not Found**, no `failed` ni `timeout`. El registro ya no está en el servidor.
+
+Esto reescribe parte del conteo histórico. La racha de "14 fallas del Reviewer" y los repetidos "timeouts del PO" incluían **tareas que nunca se recogieron** — el paso 1 del ciclo (`check_agent_task` primero) existe para eso, y en ciclos anteriores se anotaba `failed` sin verificar nunca si el registro existía. Peor: `check_agent_task` devuelve 404 **también para tareas que completaron bien** (pasó con `task-838665263c09` en el HB#10, que documentaba correctamente y quedó anotada como perdida). **Regla nueva: un 404 no es un timeout; se reenvía con id nuevo.** Reenvié las 3 preguntas al PO como `task-b781ce950d38`.
+
+**3. Medí el Tramo C de la Idea 49 antes de implementarlo — y la medición reencuadró el problema.** Este es el trabajo de fondo del ciclo.
+
+El Tramo C del PO consistía en comprimir `ach_acc` de ~79 B a ~6 B por id (13× menos), apuntando a la clave de 0.17 MB/cuenta. Antes de tocar nada medí qué se guarda realmente y quién lo lee.
+
+*Por campo* (200 ids reales, `lang=es`, API en vivo): `bits` **20.1%**, `requirement` **8.3%**, `tiers` 5.5%, `name` 3.8%, `description` 3.7%, `flags` 2.9%, `rewards` 2.6%, `icon` 2.1%, `type` 1.2%, `locked_text` 0.8%, `id` 0.5%. **519 B/registro.**
+
+Y el hallazgo: **`bits`, `requirement`, `locked_text`, `prerequisites` y `point_cap` no los lee nadie.** `getAchievementsMeta` tiene **un solo call site** (`achievements.js:1067`) y no toca ninguno de los cinco — verificado con grep sobre todo `js/`. Dropearlos al cachear da **−29%** sin perder un dato que la app pueda leer. `tiers`, `flags`, `rewards`, `description`, `name`, `icon`, `type` e `id` sí se usan, y quedan intactos.
+
+*Pero el problema de verdad es otro.* La key es `ach_meta_v2:<lang>:<ids>`: **una key por id-set, con el id-set entero dentro del nombre**. Y la metadata **no depende del token** (se cachea con `null`). O sea que 27 cuentas guardan 27 veces la misma tabla, parcialmente solapada.
+
+Simulación con ids reales de la API (3459 ids barridos en 1..4000; `?ids=all` da 400 en achievements y `page` solo devuelve los 50 "explorer", así que hubo que barrer por franjas de 200), 27 cuentas × 1500 logros:
+
+| Estrategia | Volumen | Claves |
+|---|---|---|
+| Hoy (key por id-set) | **20.22 MB** | 216 |
+| Sharding (key por shard fijo `id//200`) | **1.71 MB** | 18 |
+| | **−91.5%** | |
+
+Contra una cuota de 4.98 MB. Sumando el drop de los 5 campos muertos, **~1.2 MB**.
+
+El sharding no necesita ningún dato nuevo: el shard de un id es su posición global, independiente de qué cuenta lo pidió. Dos cuentas que comparten un id comparten el shard — que es justamente lo que hoy no pasa.
+
+### Qué se rompió
+
+Nada en el código de producción: **este ciclo no modificó código de producción**, solo logs y la documentación que ya estaba sin commitear.
+
+### Qué se decidió
+
+- **El Tramo C NO se implementa en este ciclo.** Sharding cambia el contrato de `getAchievementsMeta` y la estrategia de red (un shard pide 200 ids aunque la cuenta tenga 3 en ese rango). Es un cambio de capa de datos, no un fix local, y la pregunta 1 al PO sobre el objetivo sigue abierta. Va con diseño encima de la mesa y tests propios.
+- **Se corrige una cifra que estaba driving el diseño.** Los "~96 MB" del HB#45 multiplicaban el catálogo completo (6991 logros) por 27 cuentas, cuando lo que se guarda son los subconjuntos. El volumen real es **20.22 MB**. El problema sigue siendo grave —20 MB contra 4.98 MB— pero la cifra inflada empujaba a comprimir 13× el formato cuando lo que hacía falta era deduplicar. **Una cifra inflada no exagera el riesgo: te hace elegir el arreglo equivocado.** (ALERT-46)
+- **El rescate `_wt_47` (`06675b0`) se queda sin mergear.** Auditado: su análisis es correcto y su decisión sigue siendo la correcta. La Idea 47 ya se resolvió por el camino de `main` (`110b049`, 105/105 aserciones); aplicar esto encima sería un merge conflictual sobre código que ya funciona, con 2 tests que nunca corrieron. Permanece en `legacy/`.
+
+### Qué quedó pendiente
+
+- **Tramo C de la Idea 49** — diseño medido y listo, esperando el acuerdo del PO sobre el objetivo (`task-b781ce950d38`). Orden: sharding (−91.5%) + drop de los 5 campos muertos (−29% sobre lo que queda). Bump de `index.html` en el mismo commit, o el fix existe en el repo y no en el navegador.
+- **ALERT-41** — sigue bloqueada, y necesita lo único que no puedo hacer yo: una llamada a `/v2/account/raids` con token real y el body crudo. Delegada al PO (pregunta 2). Sin eso, los 15 ids de strike no se pueden verificar y el Strike Tracker sigue sin poder marcar nada.
+- **Idea 44 (dungeons)** — el siguiente item de bajo riesgo si el Tramo C se postpone.
+
+### Alertas nuevas
+
+- **ALERT-45** (Alta) — una `task_id` puede desaparecer del servidor: 404 ≠ timeout.
+- **ALERT-46** (Media) — la cifra de 96 MB estaba mal calculada; el volumen real es 20.22 MB.
+- **ALERT-47** (Media) — `getAchievementsMeta` cachea por id-set, y el id-set va dentro de la key: 216 claves solapadas para 27 cuentas. Medido, sin arreglar.
+
+---
+
+---
+
 # SESSION_LOG.md
 
 ## 2026-09-30T03:30 UTC — Heartbeat #42

@@ -1,6 +1,6 @@
 # BACKLOG.md — Tareas técnicas pendientes
 > Prioridad: ordenadas de mayor a menor prioridad técnica.
-> Actualizado: 2026-09-30T04:30:00Z (Heartbeat #43 — ALERT-41: los 15 ids de strike no existen en `/v2/raids`; Idea 48 cerrada; Idea 49 del PO al backlog)
+> Actualizado: 2026-09-30T05:40:00Z (Heartbeat #46 — Tramo C de la Idea 49 medido y reencuadrado: el problema es duplicación, no tamaño; sharding −91.5%. ALERT-45: 404 de task_id ≠ timeout. ALERT-46: corregida la cifra de 96 MB → 20.22 MB reales.)
 > Mantenedor: Principal (default)
 
 ## 🚨 URGENTE (Sept 29 — CM content deadline) — ✅ COMPLETADO
@@ -56,7 +56,22 @@
   - ✅ **Tramo 1 (HB#44) — la causa real, y no era la cuota.** `activities.js:activate()` llamaba `cleanAchievementsCache()`, que borra toda clave `ach_`… justo la familia que `putCache()` escribe para logros. `router.js` la invoca en cada entrada a `#/activities`: **abrir el panel de Actividades invalidaba la cache de logros de todas las cuentas.** Un modulo no borra la cache de otro. `d7cbe0d` / merge `9e211b5`, `activities.js` v3.20.3. Runner 16/16.
   - ✅ **Tramo A (HB#45) — el fallo dejo de ser invisible.** `lsSet` devuelve booleano, cuenta los `QuotaExceededError` y avisa **una sola vez**; se expone `GW2Api.__cacheStats()`. **No relanza el error**: la copia en `__mem` ya sirvio para la sesion y lanzar ahi seria peor que el bug. `fb55fe2` + buster `4e5296b`, `api-gw2.js` v2.20.0. Runner `tests/idea49.quotavisible.test.js` **11/11**, y **4/11 (7 FAIL) contra el archivo sin modificar**; suite completa **170/0**.
     - **Por que A no era opcional:** el wipe del Tramo 1 era lo unico que mantenia la cuota a raya, **por accidente**. Sin el Tramo A, quitar el wipe no cambiaba «Logros tarda» por «todo reinicia en frio»: lo cambiaba por **«todo reinicia en frio, en mas sitios, y sin decir nada»** — la cuota es **compartida por todos los modulos**, no solo el de logros. Un fix que destapa un sintoma puede soltar otro peor detras; por eso van en el mismo ciclo.
-  - ⏳ **Tramo C (1-1.5 h, el que rinde) — CORREGIDO EL OBJETIVO.** Guardar como `"id:done"` (~6 B) en vez del objeto JSON (79 B) → 13x menos. **Pero apuntaba a la clave chica.** Con la medicion corregida: `ach_acc` son **0.17 MB/cuenta** (4.6 MB las 27) frente a **`ach_meta_v2` (metadata, TTL 12 h) con 3.6 MB/cuenta**, que chunkea de a 200 ids y escribe **una clave completa por id-set distinto** → ~96 MB no gestionados. **Comprimir `ach_acc` solo no alcanza por si solo: el Tramo C deberia ir sobre `ach_meta_v2`.** Pregunta 1 abierta al PO (COMM 027). Orden restante: **C → B** (LRU sobre `gw2_*`; hoy el unico cap del codigo es `items_cache_v1` a 500).
+  - ⏳ **Tramo C (1-1.5 h, el que rinde) — OBJETIVO MEDIDO Y CORREGIDO (HB#46).** El plan del PO (comprimir `ach_acc` de 79 B a ~6 B por id, 13× menos) apuntaba a la clave chica. **Medido contra la API en vivo, el problema real es la duplicación, no el tamaño del registro.**
+    - **Por campo** (200 ids reales, `lang=es`): `bits` 20.1%, `requirement` 8.3%, `tiers` 5.5%, `name` 3.8%, `description` 3.7%, `flags` 2.9%, `rewards` 2.6%, `icon` 2.1%, `type` 1.2%, `locked_text` 0.8%, `id` 0.5%. **519 B/registro.**
+    - **`bits`, `requirement`, `locked_text`, `prerequisites` y `point_cap` no los lee NADIE** (`getAchievementsMeta` tiene un solo call site, `achievements.js:1067`, y no los toca; verificado con grep sobre todo `js/`). Dropearlos al cachear: **−29%** sin perder un dato que la app pueda leer. `tiers`, `flags`, `rewards`, `description`, `name`, `icon`, `type`, `id` **sí** se usan.
+    - **La corrección estructural es sharding.** La key es `ach_meta_v2:<lang>:<ids>` — **una key por id-set, con el id-set entero dentro del nombre**. Con 27 cuentas: **216 claves** que se solapan, guardando la misma tabla muchas veces (la metadata no depende del token: se cachea con `null`).
+    - **Simulación con ids reales de la API** (3459 ids barridos en 1..4000), 27 cuentas × 1500 logros, cuota 4.98 MB:
+
+      | Estrategia | Volumen | Claves |
+      |---|---|---|
+      | Hoy (key por id-set, chunks de 200) | **20.22 MB** | 216 |
+      | Sharding (key por shard fijo `id//200`) | **1.71 MB** | 18 |
+      | | **−91.5%** | |
+
+      Sumando el drop de los 5 campos muertos, **~1.2 MB**. El sharding no requiere ningún dato nuevo: el shard de un id es su posición global, independiente de qué cuenta lo pidió.
+    - **Corrección de la cifra del HB#45:** los "~96 MB" multiplicaban el catálogo completo por 27. El volumen real del patrón es **20.22 MB** (ALERT-46). Sigue muy por encima de la cuota, pero la cifra inflada empujaba al arreglo equivocado.
+    - **NO implementado en el HB#46.** Sharding cambia el contrato de `getAchievementsMeta` y la estrategia de red (un shard pide 200 ids aunque la cuenta tenga 3 en ese rango). Es un cambio de capa de datos, no un fix local. Va con el acuerdo del PO sobre el objetivo (pregunta 1, `task-b781ce950d38`) y con tests propios.
+    - Orden restante después del C: **Tramo B** (LRU sobre `gw2_*`; hoy el único cap del código es `items_cache_v1` a 500).
   - **Sigue la cadena de la 48**: la 48 hizo la app mas rapida; la 49 explica por que una parte de esa velocidad no se conserva entre recargas.
 
 ## Pendientes (prioridad media)
