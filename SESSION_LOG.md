@@ -1,5 +1,88 @@
 # SESSION_LOG.md
 
+## 2026-09-30T01:30 UTC — Heartbeat #39
+
+### Contexto
+- Cron `13dc22e6` activo (`*/30 * * * *`, `share_session: false`). Heartbeat manual por solicitud del usuario.
+- Ultimo heartbeat: #38 (00:50 UTC). Este es el #39.
+- **PO: timeout** — `task-dbb64f500af6` (COMM 026) fallo a los 900s. Sin impacto de contenido: el PO entrego su heartbeat 00:00 UTC por `PRE_BACKLOG.md`, que es la Idea 47, y ya estaba acting.
+- **Reviewer: sin respuesta** a `task-ec29dfb1ec3f` (COMM 024, enviada 00:45 UTC). 15a consulta fallida. Se prodijo por merito, sin CSS nuevo fuera de las 3 capas ya validadas por test.
+
+### Qué se hizo
+
+**1. Idea 47 en 3 commits. Era el item #1 del BACKLOG y el mayor gap de correctitud del ciclo.**
+
+El PO reporto 8 wrappers que tragan el error y devuelven un valor falso. Verifique 7 de ellos con mis propias herramientas antes de tocar nada: los 7 call sites que dio existen, el patron es identico en todos, y **getCommerceDelivery efectivamente propaga** (mismo `.catch`, pero `throw error` con el contrato escrito en el JSDoc), lo que confirma que la excepcion existia y no era una Convencion.
+
+| Commit | Que hace |
+|---|---|
+| `7ca8195` (c1) | Los call sites pasan a `Promise.allSettled` y aparece el banner `.inv-read-error` |
+| `9860a2e` (c2) | Los 7 wrappers de `api-gw2.js` propagan en vez de devolver `0` / `[]` |
+| `776b1ea` (c3) | `.catch` no-op en los 3 launches tardios de `wallet-dashboard` |
+
+**2. La auditoria que hacia falta antes del c2: los 10 call sites.**
+
+Cambiar "degrada" por "rechaza" rompe todo lo que no maneje el rechazo. Los 10 verificados a mano:
+
+| Wrapper | Call site | Estado |
+|---|---|---|
+| `getCharacterCount` | `wallet-dashboard.js:371` | try/catch por columna -> `_errors.characters` |
+| `getAccountRaids` | `wallet-dashboard.js:377` | try/catch por columna -> `_errors.raids` |
+| `getAccountRaids` | `raid-tracker.js:1737` | allSettled + throw al catch que ya renderiza (c1) |
+| `getAccountRaids` | `raid-tracker.js:1829` | prefetch, try/catch que ignora |
+| `getAccountRaids` | `strike-tracker.js:1092` | try/catch -> `state.error` + mensaje en pantalla |
+| `getAccountRaids` | `strike-tracker.js:1165` | prefetch, try/catch que ignora |
+| `getAccountBank` / `Materials` | `inventory-hub.js:216,217` | allSettled (c1) |
+| `getAccountBank` / `Materials` | `inventory-dashboard.js:329,330` | allSettled (c1) |
+| `getCommerceTransactionsBuys/Sells` | `converter-modal.js:711,712` | allSettled ya de antes |
+
+Ninguno queda sin manejar.
+
+**3. El bug de capa que el PO reporto, confirmado y cerrado.** El HB#38 dejo escrito que los `catch` de `summary._errors.characters` y `.raids` en `wallet-dashboard.js` eran **inalcanzables**: el codigo estaba bien escrito, pero los wrappers resolvian `0` / `[]` y nunca rechazaban. Con el c2 esos catch **corren**. La Idea 45 t2 deja de estar a medio dead por construccion.
+
+**4. Corregi un comentario que afirmaba un beneficio que el codigo no tenia.**
+
+`raid-tracker.js` (v1.9.0) documentaba en su header que "la columna de LI sobrevive a un fallo de raids", y el bloque de codigo decia lo mismo. Es falso: el `throw settled[0].reason` reproduce exactamente lo que hacia `Promise.all`, asi que el fallo de raids sigue yendo al catch que renderiza "Error al cargar datos de raids". La columna de LI no sobrevive.
+
+No cambie el comportamiento (render en parcial es otro cambio, y el Reviewer no respondio la pregunta de la Opcion A vs B). Reescribi el comentario para que describa lo que el codigo hace, y **agregue una asercion al test que delata** si alguien "optimiza" ese throw esperando una columna de LI que nunca llego a existir. Un comentario que promete una garantia que el codigo no tiene es peor que ningun comentario: el proximo que lo lea razona sobre una propiedad inexistente.
+
+**5. Rescate de WIP huerfano #2 — y era mas completo que lo que yo hice.**
+
+`_wt_47` tenia 646 lineas staged, sin rama y sin commit, de una version **mas amplia** de la Idea 47: ademas de los archivos que toque, incluye `converter-modal.js` (84 lineas) y `wallet-dashboard.js` (24). Dos heartbeats despues seguia ahi.
+
+Rescatado en `rescue-idea47-parallel-wip` (`06675b0`) con un commit que dice explicitamente que es un rescate y no codigo revisado. **No mergeado**, por tres razones concretas: su base es `1ef2e12` (main de antes de c1 y c2), asi que sus cambios se solapan con los que ya estan en main sobre lineas distintas — es un merge conflictual, no un cherry-pick; incluye test que nunca corrieron; y `converter-modal`/`wallet-dashboard` son mejoras de superficie, no arreglos de crash.
+
+**6. De ahi salio lo urgente: mi propio c2 habia destapado un defecto.**
+
+`loadAccountSummary` lanza `charP`, `apP`, `raidsP` y `luckP` los cuatro en un bloque sincrono, y cada uno recibe su handler recien en su **propio** await, mas abajo. Entre el lanzamiento y ese await hay al menos una suspension. Con los 4 propagando, si `apP` / `raidsP` / `luckP` rechazan mientras esperamos `charP`, el navegador dispara **"unhandledrejection"**: el catch de su columna corre igual y la UI queda correcta, pero la consola se llena de rechazos sin manejar.
+
+No se notaba antes porque solo `apP` y `luckP` propagaban. El c2 los hizo propagar a los otros dos y destapo la ventana muerta. Corregido con tres `.catch(function () {})` no-op: no cambian el valor de la promesa, solo marcan que ya hay handler. Commit `776b1ea`.
+
+**7. Limpieza de ramas.** 4 eliminadas, todas con contenido ya en `main` (verificado con `git cherry main <rama>` sin salida). `fix/concurrency-pool-phase2` **no** se mergeo: `git diff main fix/concurrency-pool-phase2 -- js/inventory-dashboard.js` da **cero** lineas — su codigo ya estaba via `9a8262c` — y lo unico que aportaba era revertir 4 cache-busters a valores viejos. Mergearla habria sido devolver el bug de cache del HB#36.
+
+### Qué se rompió
+
+- **Nada.** 60 tests verdes (29 del c1 + 31 del c2/c3), `node --check` limpio en los 6 modulos tocados, cache-busting de `index.html` alineado en los 3.
+- **Dos veces mi propio test me dio falso negativo** antes de dar bien: `bodyOf()` no capturaba el JSDoc (que va **arriba** de la funcion, no adentro), y mi deteccion de "archivo protegido" era trivial. Las dos las arregle; la segunda sigue siendo una heuristica y el test lo dice.
+- **El PO volvio a perder su tarea** (900s). 2do timeout consecutivo de la misma consulta.
+- **Intento de borrar los temporales bloqueado** por la politica de la plataforma (`del` de archivos = data loss). Los `_hb39_*.txt` y `_hb39_*.patch` siguen sin trackear en el worktree. Sin impacto en git; quedan para el proximo heartbeat.
+
+### Qué quedó pendiente
+
+- 🔴 **`rescue-idea47-parallel-wip` (`06675b0`) — diff contra main, pieza por pieza.** Lo que aporta de mas: `converter-modal.js` (el allSettled degrada a `[]` sin avisar, y la pestaña dice "no tenes ordenes" — el mismo cero falso, en la UI que el PO mas uso), y 2 tests que nunca corrieron. Requiere Reviewer: el banner nuevo usa `style=` inline.
+- 🟡 **Validacion del Reviewer** de los commits c1/c2/c3 (cambio de API publica de `GW2Api`). `task-ec29dfb1ec3f` sigue sin respuesta.
+- 🟡 **PO heartbeat 02:00 UTC** — consultar por novedades en `PRE_BACKLOG.md`.
+- 🟡 Todo lo de `BACKLOG.md` que ya estaba abierto y no se movio: Idea 42 (coberturable), Idea 44 (dungeons), commerce-delivery UI, legendary Phase 3.
+
+### Decisiones
+
+- **Prodijo por merito en un cambio de API publica sin Reviewer.** Mitigacion: audite los 10 call sites a mano antes de aplicar, 2 tests nuevos que fallan si alguien agrega un call site desprotegido, y el cambio es revertible con un unico `git revert 9860a2e`. Documentado como validacion pendiente, no como aprobada.
+- **`getCommerceListings` queda fuera del c2.** El PO lo pidio asi y tiene razon: ahi `[]` **si** es estado normal (la cuenta no tiene nada publicado), no un error tragado. Un wrapper que degraba un error real y otro que degrada un estado legitimo no se pueden arreglar igual.
+- **No mergee el WIP de `_wt_47` aunque sea mejor que lo mio.** Solapamiento sobre base vieja + tests sin ejecutar es exactamente la bomba de merge del HB#32, que casi revirtio 335 lineas de docs. Se rescata y se evalua por partes.
+- **El `raid-tracker.js` se dejo con comportamiento identico, no "mejorado".** Render en parcial cuando falla raids es un cambio de comportamiento en un modulo que no puedo probar en navegador, en la misma semana que el Reviewer no responde. Va al backlog, no se improvisa.
+
+---
+
 > Mantenido por: Principal (default).
 
 ## 2026-09-29T19:43 UTC - Sesion con el PO: cierre de la correccion de `/v2/account/luck` + 2 fixes de docs
