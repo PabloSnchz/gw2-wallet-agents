@@ -1,7 +1,14 @@
-﻿/*!
+/*!
  * js/wizards-vault.js — Módulo Wizard's Vault (season, objetivos, cuenta, listados, shop)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.3.0 (2026-03-30) — Botón de recarga forzada de temporada
+ * Versión: 1.3.1 (2026-09-30) — Idea 50 P3: declara sus bases de cache
+ *
+ * Cambios v1.3.1:
+ *  - Expone `WizardsVault.__cacheBases`: las bases de cache que escribe este
+ *    modulo en localStorage. NO cambia el comportamiento; es la declaración que
+ *    le faltaba a `cacheClear()` para alcanzar esta cache, que hasta ahora era
+ *    inalcanzable porque este modulo tiene su propio `lsSet` y su propio `kLS`,
+ *    FUERA de la capa API. MEDIDO: 5 declaraciones (4 exactas + 1 prefijo).
  *
  * Cambios v1.3.0:
  *  - Agregado botón de recarga forzada de temporada (junto al tooltip de info)
@@ -588,6 +595,26 @@
   }
   // ----------------------------- Export base (compat 1.1.0) -----------------------------
   var WizardsVault = {
+    // Idea 50 P3: las bases de cache que escribe ESTE modulo en localStorage.
+    //
+    // Este modulo tiene su PROPIA `lsSet`/`lsGet`/`lsDel` (arriba, ~linea 38) y
+    // su propio `kLS`, o sea que su cache NO pasa por `putCache()` de la capa
+    // API. Antes de P3 eso tenia dos consecuencias, y las dos eran caras:
+    //   1. el boton de limpiar cache no las podia borrar, y
+    //   2. un grep sobre `putCache` no las veia, asi que el test de la 50F
+    //      daba verde con la cache del WV sin cubrir.
+    // Las declara el modulo que las escribe y no una lista central, asi que el
+    // inventario se mantiene solo y `api-gw2.js` no tiene que saber de WV.
+    //
+    // `exact` matchea la clave o la clave seguida de `:` (esta capa sufija con
+    // `:<fpToken>`, ver `kLS`). `prefix` matchea por inicio.
+    // MEDIDO: son 5 declaraciones, no 6 (4 exactas + 1 prefijo). El prefijo
+    // `wv_obj_` cubre `wv_obj_<kind>:<lang>`, `wv_obj_catalog:<lang>` y
+    // `wv_obj_meta:<lang>:<slices>`.
+    __cacheBases: {
+      exact:  ['wv_season', 'wv_account_v2', 'wv_listings_all', 'wv_acc_listings'],
+      prefix: ['wv_obj_']
+    },
     // Season / Objetivos / Cuenta
     getWVSeason: getWVSeason,
     getWVDaily: getWVDaily,

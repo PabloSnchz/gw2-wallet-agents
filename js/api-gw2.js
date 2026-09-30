@@ -1,7 +1,30 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.29.0 (2026-09-30) — Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
+ * Versión: 2.30.0 (2026-09-30) — Idea 50 P3: el registro de bases de los OTROS módulos
+ *   v2.30.0: **NO cambia lo que Pablo ve** (`cacheClear` sigue con 0 callers y el
+ *   botón sigue sin existir). Lo que cambia es que el borrado ya puede alcanzar
+ *   la cache del Wizard's Vault, que antes era inalcanzable.
+ *   `wizards-vault.js` tiene su PROPIA `lsSet`/`kLS`, o sea que su cache nunca
+ *   pasó por `putCache()`: el botón no la borraba y un grep sobre `putCache`
+ *   tampoco la veía, así que el test de la 50F daba verde sin cubrirla.
+ *   El registro se lee **AL PULSAR** (`collectCacheBases()`), no en la escritura
+ *   ni al cargar el módulo. Registrar en la escritura sería un hecho de SESIÓN
+ *   aplicado a un hecho de DISCO: en una sesión nueva sin haber abierto la
+ *   pestaña de WV, el `dryRun` del `confirm()` contaría 0 bytes y prometería una
+ *   liberación que no ocurre, que es el bug que la v2.29.0 vino a arreglar.
+ *   Leerlo al cargar ataría el borrado al orden de `index.html`.
+ *   Cada módulo declara lo suyo (`WizardsVault.__cacheBases`), así que el
+ *   inventario no es una lista que haya que mantener a mano.
+ *   `CACHE_PRESERVE` protege `wv:season:index` y `wv:season:current`, que son
+ *   la PERSISTENCIA oficial de temporada y no cache: un prefijo corto como `wv`
+ *   se las comería. Se evalúan ANTES que los prefijos, para que sean una red.
+ *   MEDIDO: 18 bases de esta capa + 5 del WV = 23 (no 22: el recuento del
+ *   Reviewer decía 6 declaraciones de WV donde hay 5). `GW2Api.__cacheBases()`
+ *   expone el registro en solo lectura, para que el alcance sea medible y no
+ *   estimado. Test: `tests/idea50f.cacheclear-real.test.js` +19 aserciones
+ *   (sección 7), con 12 FAIL contra el archivo sin el fix.
+ *   v2.29.0 (2026-09-30) — Idea 50 Tramo F: `cacheClear()` ahora borra de verdad
  *   v2.29.0: **NO cambia lo que Pablo ve** (la funcion tiene 0 callers: el boton
  *   sigue sin existir y es el Tramo siguiente). Lo que cambia es que la funcion
  *   deja de mentir: antes `cacheClear()` limpiaba `__mem` y `__inflight`, o sea
@@ -1684,21 +1707,86 @@
   var CACHE_KEYS_PREFIX = [
     'commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:'
   ];
+  // Idea 50 P3 (Code-Reviewer): lo que escriben los OTROS modulos.
+  //
+  // El registro es ESTATICO y se LEE AL PULSAR. Las otras dos formas fallan, y
+  // cada una por un motivo distinto:
+  //   - registrar en la ESCRITURA (`putCache`) es un hecho de SESION aplicado a
+  //     un hecho de DISCO. En una sesion nueva donde Pablo no abrio la pestana
+  //     de WV, el registro esta vacio: el boton no toca las claves `wv_*` que
+  //     hay en disco desde la semana pasada, y el `dryRun` del `confirm()`
+  //     cuenta 0 bytes y promete una liberacion que no ocurre. Eso es el bug
+  //     que la 50F Tramo vino a arreglar, reintroducido por la puerta de atras.
+  //   - leer el registro al CARGAR el modulo ata el borrado al orden de los
+  //     `<script>` de `index.html`.
+  // Leyendolo al pulsar, las dos cosas quedan bien sin depender de ninguna.
+  //
+  // Cada modulo declara sus bases junto a la cache que define y expone
+  // `__cacheBases`, asi que el inventario no es una lista que hay que mantener
+  // sincronizada a mano. `wizards-vault.js` es el primero: tiene su propio
+  // `lsSet` FUERA de esta capa, que era el punto ciego que el grep no veía.
+  //
+  // MEDIDO: 18 bases de esta capa (14 exactas + 4 prefijos) + 5 del WV
+  // (4 exactas + 1 prefijo) = 23. No son 22: el conteo del Revieweredia 6
+  // declaraciones de WV donde hay 5.
+  function collectCacheBases() {
+    var bases = { exact: CACHE_KEYS_EXACT.slice(), prefix: CACHE_KEYS_PREFIX.slice() };
+    var mods = [];
+    // Se leen en el momento de la llamada, no al cargar: asi el orden de
+    // `index.html` es irrelevante.
+    try { if (root.WizardsVault && root.WizardsVault.__cacheBases) mods.push(root.WizardsVault); } catch (_) {}
+    for (var i = 0; i < mods.length; i++) {
+      var d = mods[i].__cacheBases || {};
+      var ex = d.exact || [], pf = d.prefix || [];
+      for (var j = 0; j < ex.length; j++) if (bases.exact.indexOf(ex[j]) === -1) bases.exact.push(ex[j]);
+      for (var m = 0; m < pf.length; m++) if (bases.prefix.indexOf(pf[m]) === -1) bases.prefix.push(pf[m]);
+    }
+    return bases;
+  }
+  // Claves que NO son cache y que ningun prefijo puede comerse.
+  //
+  // `wv:season:index` y `wv:season:current` son la PERSISTENCIA oficial de
+  // temporada (`wv-season-storage.js`: season_info, pins, marks, prefs), no una
+  // cache: borrarlas es perder lo que el usuario marco a mano. Hoy ningun
+  // prefijo declarado las alcanza, asi que esta lista no cambia el resultado:
+  // es la RED. El borde peligroso esta a un centimetro, y es un prefijo corto:
+  // `wv` se las comeria a las dos. La asercion que lo ata vive en el test, y
+  // falla si alguien agrega un prefijo corto sin agregar la excepcion aqui.
+  var CACHE_PRESERVE = [
+    'wv:season:index',
+    'wv:season:current'
+  ];
+  function isPreserved(k) {
+    for (var i = 0; i < CACHE_PRESERVE.length; i++) {
+      if (k === CACHE_PRESERVE[i]) return true;
+    }
+    return false;
+  }
   // Las que tienen tokenfname la key con `:<fpToken>` (ver `kLS`), asi que la
   // forma real en localStorage es `wallet:abcd…wxyz`. Por eso el match de las
   // exactas tiene que tolerar el sufijo, pero NO cualquier cosa: tiene que
   // ser la key exacta sola, o la key exacta seguida de `:`.
   function isCacheKey(k) {
     if (typeof k !== 'string' || !k) return false;
-    for (var i = 0; i < CACHE_KEYS_PREFIX.length; i++) {
-      if (k.lastIndexOf(CACHE_KEYS_PREFIX[i], 0) === 0) return true;
+    // Lo preservado se descarta PRIMERO: si un prefijo lo alcanzara, la
+    // excepcion gana. Es el orden que hace que `CACHE_PRESERVE` sea una red y
+    // no una nota.
+    if (isPreserved(k)) return false;
+    var bases = collectCacheBases();
+    for (var i = 0; i < bases.prefix.length; i++) {
+      if (k.lastIndexOf(bases.prefix[i], 0) === 0) return true;
     }
-    for (var j = 0; j < CACHE_KEYS_EXACT.length; j++) {
-      var base = CACHE_KEYS_EXACT[j];
+    for (var j = 0; j < bases.exact.length; j++) {
+      var base = bases.exact[j];
       if (k === base || k.lastIndexOf(base + ':', 0) === 0) return true;
     }
     return false;
   }
+  // Solo lectura: el registro que `cacheClear` va a usar en el proximo clic.
+  // Existe para que el alcance sea MEDIBLE (el Reviewer: "cuanto de los
+  // 4.98 MB es de las 22 no lo se y no lo voy a inventar") y para que el test
+  // pueda assertar el registro sin reaching dentro del IIFE.
+  function cacheBases() { return collectCacheBases(); }
   // Idea 50 Tramo F: antes esto era `try { __mem.clear(); __inflight.clear(); }`,
   // o sea que limpiaba la cache de la SESION y no la de DISCO: la cuota de
   // localStorage (~4.98 MB medidos) seguia llena, y `cacheClear` tiene ademas
@@ -1820,6 +1908,7 @@
     },
     __cacheClear: cacheClear,
     __cacheStats: cacheStats,
+    __cacheBases: cacheBases,
     __indexArrayByKey: indexArrayByKey
   };
 

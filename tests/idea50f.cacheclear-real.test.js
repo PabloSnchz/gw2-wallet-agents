@@ -262,5 +262,124 @@ const resReal = f.sandbox.GW2Api.__cacheClear();
 eq(resReal.removed, antes - f.store.size, 'removed es la diferencia real de localStorage.length, no la cuenta de llamadas');
 eq(f.store.size, 1, 'solo sobrevive la clave que no es de esta capa');
 
+// ── 7. P3 del Reviewer: el REGISTRO ESTATICO de lo que escriben otros modulos
+//
+// Por que esta seccion existe y no es "una asercion mas": el Reviewer rechazo
+// la primera propuesta (registrar en `putCache`) por un motivo que esta seccion
+// mide. Registrar en la ESCRITURA es un hecho de SESION aplicado a un hecho de
+// DISCO: en una sesion nueva donde Pablo no abrio la pestana de WV, el registro
+// esta vacio, el boton no toca las `wv_*` que hay en disco desde la semana
+// pasada, y el `dryRun` del `confirm()` cuenta 0 bytes y promete una liberacion
+// que no ocurre. O sea: el bug que la 50F Tramo vino a arreglar, por la puerta
+// de atras. El `wv_obj_meta:es:...` de abajo es el caso caro: son MB.
+console.log('\n[7] P3: registro estatico de las bases de los otros modulos');
+
+// (a) SIN el modulo que declara sus bases, su cache NO se toca. Esta es la
+// version sin el fix: para el borrado, el WV no existe.
+const p1 = mount();
+const WV_KEYS = [
+  'wv_season', 'wv_account_v2:abcd.1234', 'wv_listings_all', 'wv_acc_listings:abcd.1234',
+  'wv_obj_daily:es', 'wv_obj_catalog:es', 'wv_obj_meta:es:0,500,1000'
+];
+WV_KEYS.forEach(k => p1.store.set(k, '{}'));
+const r1 = p1.sandbox.GW2Api.__cacheClear();
+eq(r1.removed, 0, 'sin el modulo que declara sus bases, la cache del WV NO se borra');
+eq(p1.store.size, WV_KEYS.length, 'las ' + WV_KEYS.length + ' claves del WV siguen ahi');
+
+// (b) DECLARADO DESPUES de cargar la capa, si se borra. Esta es la asercion
+// que hace que el registro se lea AL PULSAR y no al cargar: si se leyera al
+// cargar, `p2` se comportaria como `p1` y esto daria 0.
+const p2 = mount();
+p2.store.set('wv_season', '{}');
+p2.store.set('wv_account_v2:abcd.1234', '{}');
+p2.store.set('wv_obj_meta:es:0,500', '{}');
+p2.sandbox.WizardsVault = { __cacheBases: { exact: ['wv_season', 'wv_account_v2'], prefix: ['wv_obj_'] } };
+const r2b = p2.sandbox.GW2Api.__cacheClear();
+eq(r2b.removed, 3, 'declaradas DESPUES de cargar la capa, las 3 se borran: el registro se lee al pulsar');
+eq(p2.store.size, 0, 'no queda ninguna de las declaradas');
+
+// (c) El ARCHIVO REAL, no un doble. Se carga `wizards-vault.js` de verdad y se
+// usa el `__cacheBases` que el expone. Un doble probaria el mecanismo pero no
+// que el modulo declara lo que dice declarar.
+//
+// Se carga DESPUES de la capa a proposito, que es el orden que importa: es el
+// caso donde un registro leido al cargar el modulo fallaria, asi que si esto
+// pasa, el registro se lee al pulsar y el orden de `index.html` es irrelevante.
+function mountWV() {
+  const mm = mount();
+  // `wizards-vault.js` es un modulo de UI: al cargarse inyecta un boton y
+  // registra listeners. `readyState: 'loading'` lo deja en la rama que solo
+  // REGISTRA el listener, sin DOM ni timers: lo que se prueba aca es
+  // `__cacheBases`, y no interesa arrastrar el DOM del boton de recarga.
+  mm.sandbox.document = {
+    readyState: 'loading',
+    addEventListener: function () {},
+    removeEventListener: function () {},
+    getElementById: function () { return null; },
+    createElement: function () { return { style: {}, addEventListener: function () {} }; }
+  };
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', 'wizards-vault.js'), 'utf8'),
+    mm.sandbox, { filename: 'wizards-vault.js' });
+  return mm;
+}
+const p3 = mountWV();
+WV_KEYS.forEach(k => p3.store.set(k, '{}'));
+p3.store.set('gn:account:keys', 'KEEP');
+const r3 = p3.sandbox.GW2Api.__cacheClear();
+ok(!!p3.sandbox.WizardsVault && !!p3.sandbox.WizardsVault.__cacheBases,
+  'el wizards-vault.js REAL expone WizardsVault.__cacheBases');
+eq(r3.removed, WV_KEYS.length, 'el archivo real declara sus bases y el borrado las alcanza (' + WV_KEYS.length + ')');
+eq(p3.store.size, 1, 'solo sobrevive la lista de cuentas');
+ok(p3.store.has('gn:account:keys'), 'y la lista de cuentas sigue intacta');
+
+// (d) El registro NO puede envejecer: se recorre lo que el modulo REAL escribe
+// y cada clave tiene que estar cubierta por lo que declara. Mismo criterio que
+// la seccion 5, y por el mismo motivo: un inventario a mano se da cuenta de
+// nada cuando el codigo escribe una clave nueva.
+const srcWV = fs.readFileSync(path.join(ROOT, 'js', 'wizards-vault.js'), 'utf8');
+const wvLits = [];
+const reWV = /var (?:l?key) = '([^']+)/g;
+let mWV;
+while ((mWV = reWV.exec(srcWV)) !== null) wvLits.push(mWV[1]);
+const wvUniq = Array.from(new Set(wvLits));
+const wvBases = (p3.sandbox.WizardsVault && p3.sandbox.WizardsVault.__cacheBases) || { exact: [], prefix: [] };
+ok(wvUniq.length >= 5, 'el recorrido encontro las escrituras del WV (' + wvUniq.length + ')');
+const wvMissing = wvUniq.filter(l =>
+  wvBases.exact.indexOf(l) === -1 && !wvBases.prefix.some(p => l.lastIndexOf(p, 0) === 0)
+);
+eq(wvMissing.length, 0, 'toda clave que escribe el WV esta cubierta por su declaracion (faltan: ' + JSON.stringify(wvMissing) + ')');
+ok(wvBases.prefix.indexOf('wv_obj_') !== -1,
+  'el prefijo wv_obj_ esta declarado: cubre wv_obj_<kind>, wv_obj_catalog: y wv_obj_meta:<slices>');
+ok(wvBases.exact.indexOf('wv_account_v2') !== -1 && wvBases.exact.indexOf('wv_acc_listings') !== -1,
+  'las 2 con sufijo de token estan declaradas como exactas (kLS las sufija con :<fpToken>)');
+
+// (e) El conteo, DECLARADO. 18 de esta capa (14 exactas + 4 prefijos) + 5 del
+// WV (4 exactas + 1 prefijo) = 23. El Reviewer escribio "22" y "6
+// declaraciones": son 23 y 5. Un total sin alcance declarado no es un dato.
+// Sin `__cacheBases` la seccion se degrada en vez de abortar: si el archivo
+// vuelve a la version sin el fix, el reporte tiene que decir QUE falta y no
+// solo "se rompio" (mismo criterio que la seccion 4).
+const bases = (typeof p3.sandbox.GW2Api.__cacheBases === 'function')
+  ? p3.sandbox.GW2Api.__cacheBases()
+  : { exact: [], prefix: [] };
+eq(bases.exact.length, 18, 'el registro tiene 18 exactas (14 de la capa + 4 del WV)');
+eq(bases.prefix.length, 5, 'el registro tiene 5 prefijos (4 de la capa + 1 del WV)');
+eq(bases.exact.length + bases.prefix.length, 23, 'el alcance total son 23 bases, no 22');
+ok(bases.prefix.indexOf('items_cache_v1:') !== -1,
+  'items_cache_v1: sigue en el registro: getItemsMany escribe con lsSet directo y no pasa por putCache');
+
+// (f) LA RED: la persistencia de temporada no es cache. Hoy ningun prefijo la
+// alcanza, asi que esta seccion verifica el ORIGEN del peligro y no un
+// resultado: si alguien agrega el prefijo corto `wv`, `wv:season:index` y
+// `wv:season:current` se comen los pines y los marks del usuario. Por eso van
+// en `CACHE_PRESERVE` y por eso la excepcion se evalua ANTES que los prefijos.
+const wvPreserve = ['wv:season:index', 'wv:season:current'];
+const p4 = mount();
+wvPreserve.forEach(k => p4.store.set(k, '{"season_info":1,"keys":{}}'));
+p4.sandbox.WizardsVault = { __cacheBases: { exact: [], prefix: ['wv'] } };  // el prefijo peligroso
+const r4 = p4.sandbox.GW2Api.__cacheClear();
+eq(r4.removed, 0, 'con el prefijo corto `wv`, PRESERVE gana y la persistencia no se borra');
+wvPreserve.forEach(k => ok(p4.store.has(k), 'sigue presente pese al prefijo que la alcanzaba: ' + k));
+
 console.log('\n' + (fail === 0 ? 'TODO OK' : 'HAY FALLOS') + ' — ' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);
