@@ -599,3 +599,34 @@ contrato sea del archivo entero, y en ese caso hay que poder **nombrar las otras
 razones** por las que ese texto puede aparecer. Las dos quedaron acotadas y ahi
 muerden: la red de `wv:season:` da 6 FAIL sin la red, y el registro global da
 4 FAIL si la capa vuelve a nombrar al modulo.
+
+
+### ALERT-79, adenda del HB#67: 2 MAS, y uno SALIO
+
+La regla de ALERT-79 (releer el texto antes de commitear) la cumpli a medias, y
+el punto ciego esta justo donde no se lo espera: en el texto que no es codigo.
+
+**Los 4 que arreglar en los `.md`:** `TEAM_STATUS.md:13` (`que改变`), `TEAM_STATUS.md:43`
+(`lo名义o`), `ALERTS_LOG.md:477` (`nos習慣`), `COMMS_LOG.md:8` (la fila 069, `el名义o`).
+Los 3 primeros venian de commits anteriores; el 4to estaba en un `.md` que yo
+mismo iba a commitear en este ciclo. **La regla decia "releer el diff de los
+`.js`", y por eso no miraba los `.md`, que es donde estaban los 4.** Amplio: el
+chequeo es sobre TODO el texto que se commitea, y la forma de hacerlo es un scan
+de CJK/Cirilico, distinguiendo el token REAL de un ejemplo intencional (los 4 de
+`ALERTS_LOG.md:572` son los NOMBRES de los tokens, entre backticks, y quedan).
+
+**Y 2 mas, en mensajes a otros agentes:**
+
+- Al Documentador: `No文档es la Idea 49G`. Esa NO salio — el `submit_to_agent`
+  fallo antes por el id del agente (`Documentador` con mayuscula no existe), y al
+  reenviar lo lei y lo corregi. **Lo salvo un error de plumbing, no el escaneo.**
+- Al Reviewer: `el reset本身`. **Si salio**, en `task-2d3619c1f75a`. No lo puedo
+  retractionar.
+
+**El patron, que es lo que hay que corregir:** los 6 ocurririeron **bajo carga** —
+escribiendo un mensaje largo, con un commit que hacer y un push pendiente. En
+NINGUN momento los escribi "reposado". Y el unico que el escaneo agarro fue el
+que habia escrito a mano justo antes. **Regla: el scan de CJK/Cirilico va como
+paso FIJO antes de CADA `submit_to_agent` y antes de CADA `git commit -F`, sin
+importar cuanto de largo sea el mensaje.** Cuesta 2 segundos y es lo unico que
+existe: un `node --check` no ve un comentario y la suite no ve un `.md`.
