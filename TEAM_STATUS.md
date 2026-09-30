@@ -1025,3 +1025,61 @@ nombrar las otras razones por las que puede aparecer ese texto.
 - **La pregunta de T1-vs-T3 (Idea 63) sigue abierta y no es mia.** El Reviewer
   dio **timeout** a los 1800s. No lo doy por perdido — un timeout no es un "no" —
   pero la 63 quedo mergeada igual porque es estado local de UI, no capa de datos.
+
+## Heartbeat #70 (23:00 UTC) — el boton de cache MERGEADO, y los 2 bloqueantes ya estaban resueltos antes de que el Reviewer los pidiera
+
+### Lo que cambio de estado
+
+- **Idea 50 completa: MERGEADA** en `950ea64` (rama `feat-idea50-boton-cache`).
+  **Es el primer caller de `cacheClear`**: antes eran 0. Veredicto del Reviewer
+  (recibido en este ciclo, `task-f61e427b2efc`): **APROBADO CON CAMBIOS**.
+- **Los 2 hallazgos bloqueantes (H1 y H2) YA ESTABAN APLICADOS** en `46b2d7f`, un
+  commit anterior al veredicto. No hubo que tocar codigo para cerrar la fila. Lo
+  verifique leyendo los archivos, no el mensaje: `index.html:289-290` ya declara
+  "de la API y del WV" y `settings-manager.js:567` ya dice `kept` + `keptBytes`.
+- **H2 se resolvio con un enfoque SUPERIOR al pedido**, y esto si es una
+  discrepancia que dejo escrita: el Reviewer pedio que la enumeracion de `kept`
+  fuera exhaustiva ("agrega `ni la cache de otros modulos`"). Lo que se aplico
+  fue **borrar la enumeracion** y decir los **bytes que quedan**. La razon esta
+  en `settings-manager.js:558-566` y es correcta: una lista de categorias deja
+  de ser cierta en el mismo commit en que un modulo registra su clave, y los
+  bytes no. La asercion 4c-(b) del test detecta el problema por la **coma**, no
+  por la frase, asi que mañana "ajustes, cuentas y tema" tambien falla.
+
+### Verificacion
+
+- **Suite: 793 aserciones / 0 FAIL, 29 de 29 archivos, alcance completo.**
+  (La unidad la declara el propio runner: "29 de 29 archivos". Sin ese sufijo, un
+  total de suite es un conteo sin alcance — ALERT-78.)
+- `tools/idea50-censo-claves.mjs` con el **segundo criterio por FORMA**
+  (ALERT-86): las 3 familias de `homestead-tracker.js` se escriben como
+  `{ts, data}` y no matchean ningun patron de nombre, asi que caian en DATO y
+  quedaban protegidas por una frase que el boton no dice.
+- El filtro final es `startsWith('CACHE')`, no `=== 'CACHE'`: un filtro por clase
+  exacta hace desaparecer un numero del titulo sin que ningun assert lo note.
+
+### El numero del censo, y por que hay tres
+
+**La linea base NO era "5 modulos / 7 lineas"** (mensaje de `b43743b`), ni 8
+(PO), ni 11 (lo que decia el titulo antes de este commit). Son **11 FAMILIAS en
+4 modulos** — 12 call sites, porque `gw2_currencies_cache_v1` se escribe en 2
+sitios y es una clave. De esas 11, **3 son de modulos que `index.html` no
+carga**: cache de codigo muerto, que no ocupa disco hoy pero aparece sin avisar
+el dia que se carguen. **La cifra de escrituras de verdad es 8.**
+
+El PO sumo el marcador de frescura (`psna:lastUpdate`) como si fuera cache y
+conto los 2 call sites como 2 claves. Mismo universo, distinta unidad. **Por eso
+el titulo dice "familias" y no "claves" ni "lineas": un numero sin unidad es un
+numero que dos personas pueden leer como dos cosas distintas** (ALERT-84).
+
+### Lo que sigue abierto
+
+- **El hook `onClear`.** `cacheClear` vacia la `__mem` de UNA capa y
+  `wizards-vault.js:40-41` tiene la suya. Sin el, borrar el disco y seguir
+  sirviendo de memoria hace que los bytes liberados se vuelvan a consumir. **El
+  copy ya lo declara** ("lo que otros modulos ya tienen en memoria se conserva
+  hasta que recargues"), asi que no miente — pero el botonTodavia no aprovecha
+  lo que el usuario quiere cuando lo aprieta. Es el tramo siguiente.
+- **La 49G sigue RECHAZADA** (ALERT-73), sin mergeear.
+- **Idea 63 T1-vs-T3** sigue abierta y no es mia: es preferencia de uso, va a
+  Pablo.

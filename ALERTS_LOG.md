@@ -761,3 +761,42 @@ disco pineaba `no toca[^)]*`. Una regex mas floja que la frase exacta sigue sien
 firma si el otro writer puede cambiar el parentesis entero. **La version de esa regex
 que sobrevive es la que pregunta por el INVARIANTE QUE SIRVE** (el alcance esta
 declarado en el boton), no la que busca una forma de escribirlo.
+
+## ALERT-87 — un newline detectado en el sitio equivocado infla el diff a 500 lineas (HB#70)
+
+**Lo que paso.** Al actualizar `COMMS_LOG.md` con un script que detecta el
+newline del archivo que va a escribir, el diff salio de **4 lineas a 500**
+(252 inserciones, 248 borradas) sobre un archivo al que solo se le agregaban dos
+filas al final. El archivo no estaba corrupto: estaba **intacto**.
+
+**Causa raiz, y es la que hay que corregir.** El detector leia los BYTES DEL
+WORKING TREE. Este repo tiene **`core.autocrlf=true`**: el **repositorio guarda
+LF** y el working tree materializa **CRLF**. O sea, el working tree miente
+sobre el contenido que se va a commitear, y leerlo da la respuesta **invertida**.
+Un detector de newline que lee el disco en vez de leer **lo commiteado** no
+detecta el newline: detecta el del checkout.
+
+**Por que la regla anterior no la cubria.** La regla de AGENTS.md dice "leer el
+newline del archivo con el que vas a escribir". Es correcta, y durante anos fue
+suficiente **mientras el working tree coincidia con el repo**. Con `autocrlf`
+activo, "leer el archivo" y "leer lo que se commitea" son dos cosas distintas, y
+solo la segunda importa para el diff.
+
+**La regla que queda:** el newline se decide contra **`git show HEAD:<archivo>`**
+(o el byte que se va a stagear), nunca contra los bytes del working tree. En
+este repo el resultado es siempre **LF**, y la comprobacion de 1 linea
+(`git show HEAD:X | python -c "import sys;b=sys.stdin.buffer.read();print(b.count(b'\r\n'),b.count(b'\n'))"`)
+lo confirma antes de escribir 40 lineas de script.
+
+**Como se detecto, y por que importa el detalle.** No por el `git diff --stat`,
+que es el sintoma: un `assert` de newline **falla**, `io.open(...).read()` no
+falla, y `git diff --stat` se ve "grande". La cadena fue: el `assert` del
+working tree PASA (por eso la primera version del script corrio y escribio),
+el archivo quedo con CRLF donde el repo tiene LF, y el unico sintoma fue un
+diff inflado. **Un assert que pasa sobre la lectura equivocada es peor que sin
+assert**, porque da una garantia falsa.
+
+**Lo que NO es este ALERT.** No es el criterio de los `.md` "no son todos
+iguales" (que sigue en pie por archivo), ni un problema de codigo de producto:
+`PROMOTIONS.md` y `TEAM_STATUS.md` tenian CRLF en el working tree tambien, y el
+repo los tiene en LF, asi que los dos se corrigieron con el mismo fix.

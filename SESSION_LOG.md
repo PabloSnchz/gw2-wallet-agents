@@ -1871,3 +1871,57 @@ con `git diff --stat` + conteo de CRLF antes y despues, y lo restore con Python.
   recuento del veredicto estaba mal y lo medi contra el archivo.
 - Que la pregunta del copy del boton **si tiene respuesta** y laPuede cer:
   opcion 1, porque con este diseno la decision es reversible a bajo costo.
+
+## Heartbeat #70 (23:00 UTC) — el boton de cache mergeado, y un assert que pasaba sobre la lectura equivocada
+
+**Que se hizo.** Recogidos los 2 veredictos que estaban esperando (Reviewer
+`task-f61e427b2efc`, PO `task-1b6241ed5c58`). El Reviewer dio **APROBADO CON
+CAMBIOS** al boton, y **los 2 bloqueantes ya estaban aplicados** en `46b2d7f`,
+un commit anterior al veredicto: no toque codigo para cerrarlos. Mergeado en
+`950ea64`. Suite **793/0 en 29 de 29**.
+
+**Lo que no estaba_mergeado y si.** El censo `tools/idea50-censo-claves.mjs`
+(ALERT-86): las 3 familias de `homestead-tracker.js` se escriben como
+`{ts, data}` y no matchean ningun patron de **nombre**, asi que caian en DATO y
+quedaban protegidas por una frase que el boton no dice. Segundo criterio por
+**forma**, y el filtro final paso a `startsWith('CACHE')`: uno por clase exacta
+hace desaparecer un numero del titulo sin que ningun assert lo note.
+
+**El numero del censo, y por que hubo tres.** No era 5 modulos / 7 lineas (el
+mensaje de `b43743b`), ni 8 (PO), ni 11. Son **11 FAMILIAS en 4 modulos** (12
+call sites; `gw2_currencies_cache_v1` se escribe en 2 y es una clave). **De esas
+11, 3 son de modulos que `index.html` NO carga** — codigo muerto, que no ocupa
+disco hoy pero aparece sin avisar. **La cifra de escrituras de verdad es 8**: la
+del PO. Los tres numeros eran el mismo universo con tres unidades, y la que
+sobrevive es "familias", escrita en el titulo.
+
+**La discrepancia que queda escrita, no resuelta en silencio (H2).** El Reviewer
+pidio que la enumeracion de lo conservado fuera exhaustiva. Se aplico al reves:
+**borrarla** y decir los **bytes que quedan**. Una lista de categorias deja de
+ser cierta en el mismo commit en que un modulo registra su clave; los bytes no.
+La asercion 4c-(b) mira la **coma**, no la frase, asi que manana "ajustes,
+cuentas y tema" tambien falla.
+
+**ALERT-87, y es el hallazgo del ciclo.** Este repo tiene `core.autocrlf=true`:
+el repositorio guarda **LF** y el working tree materializa **CRLF**. Mi detector
+de newline leia los bytes del working tree, o sea la respuesta **invertida**, y
+`COMMS_LOG.md` salio con un diff de **500 lineas** (252/248) sobre un archivo al
+que solo se le anadian 2 filas. El `assert` de newline **paso**, porque
+verificaba la lectura equivocada: un assert que pasa sobre la lectura
+equivocada es peor que no tener assert, porque da una garantia falsa. **La regla
+que queda: el newline se decide contra `git show HEAD:<archivo>`, nunca contra
+el disco.** En este repo la respuesta es siempre LF.
+
+**Tooling del ciclo.** `git show HEAD:X > _tmp` y contar `
+` vs `
+` sobre
+`_tmp` es la comprobacion de 1 linea que evita escribir 40 de script. Y
+`python -c` con un `for` multilinea **no** funciona en cmd.exe (se paso a un
+`.py`), igual que ya se sabia para los `.md` con acentos en cp1252: hace falta
+`sys.stdout.reconfigure(encoding='utf-8', errors='replace')` ANTES de imprimir.
+
+**Estado al cierre.** `main` con la Idea 50 completa mergeada. La 49G sigue
+RECHAZADA (ALERT-73). Idea 63 T1-vs-T3 sigue abierta y no es del equipo: es
+preferencia de uso, va a Pablo. El **hook `onClear`** es el tramo que sigue: sin
+el, borrar el disco y seguir sirviendo de memoria hace que los bytes liberados se
+vuelvan a consumir, aunque el copy ya lo declara.
