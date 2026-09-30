@@ -1163,8 +1163,42 @@ archivo: **0 escapes nuevos** (ALERTS_LOG 17 = 17, TEAM_STATUS 5 = 5, DASHBOARD 
 | Botón de cache (Idea 50 A-F) | **MERGEADO** `950ea64`. Sin pendientes salvo el `onClear` |
 | ALERT-89 (`camp` + guarda inversa) | **MERGEADO** `1176be6` |
 | ALERT-84 T1 | **MERGEADO** `d64e688` (la fila decía "sin commitear": era falso) |
-| ALERT-84 T3+T4 | **ENVIADO AL REVIEWER** `task-509ffb6eb907`, una sola pregunta |
+| ALERT-84 T3+T4 | **VEREDICTO RECIBIDO: (a), reducido al minimo.** Sin implementar; le toca al proximo ciclo, en rama propia |
 | ALERT-84 T5 (build reproducible) | **ABIERTO**. Sin `_legendary_items_full.json` versionado no hay forma de regenerar el catálogo |
 | Hook `onClear` | **ABIERTO**, esperando veredicto del Reviewer |
 | 49G | **RECHAZADA** (ALERT-73). El fix va sobre `feat-idea49g-ach-acc-compacta` |
 | 63 T3 | **DESBLOQUEADA**, pero contraria al T1 → decisión de Pablo |
+
+
+### Addendum: el veredicto de T3+T4 llego antes de cerrar el ciclo
+
+`task-509ffb6eb907` volvio **`finished`**. **(a), reducido al minimo**, y la razon es
+estructural: es la **unica** de las dos que crea un **segundo punto de observabilidad** — "el
+catalogo esta cargado" se aserta hoy contra `root.LegendaryCatalog.items.length === 206` sin
+`activate()` ni router, y "el registro esta listo" contra el flag del tracker. **Dos asserts que
+pueden fallar de forma independiente**, que es literalmente el criterio que mande.
+
+**(b) se descarto por una razon que no es de implementacion: no hay evento al cual engancharse.**
+`gn:tokenchange` se **escucha**, no se despacha, y colgar el render de ahi lo ata a un cambio de
+cuenta y no a "el modulo esta listo": el primer arranque no registraria nada.
+
+**Lo unico bloqueante: hacer (a) sin fijar las 3 firmas** (`renderCatalogGrid(items, owned)`,
+`renderFilterBar(filters, catalog)`, `renderProgress(state, stats)`, que ademas lee `state.owned`).
+Guardar 4 funciones sin eso es un contrato que se rompe igual, mas tarde y mas dificil de ver.
+**Y NO implementar `getState()` entero.**
+
+> **Me corrigio una cifra que yo repeti sin medir.** Dije `getState` con "1 uso" porque lo pedi asi
+> en la pregunta, tomada del texto del PO. **Son 0 invocaciones**: esta en la cabecera
+> (`render-catologo.js:11`), dentro del bloque de comentario `Consume:`. `registerRender` son 5
+> menciones y **4 en codigo**, no "5 lugares mas". **REGLA: un conteo que viene de otro agente y
+> entra en mi pregunta como si lo hubiera medido es el mismo modo de falla que el `634` del
+> Reviewer (ALERT-78) y que el `count-suite-totals.py` fantasma (ALERT-90). Verificar el numero
+> ANTES de escribir la pregunta, no despues de recibir la respuesta.**
+
+Ademas: el `console.warn` de la rama `else` es **un** intento, **un** `setTimeout(..., 50)` **sin
+segundo reintento** — ese si es un bug real cuando el contrato falte. Y mi "mismo resultado visible
+(nada)" era inexacto: `legendary-data.js` **se autoexpone igual** (206 items en memoria sin que
+nadie los consuma). El resultado visible es nada; el costo no es cero.
+
+**El aserto no necesita arnés nuevo:** el §6 de `tests/alert84.leyenda-estado-honesto.test.js:223-226`
+ya arma el sandbox con `document` falso. Asertar el registro son **3 lineas mas** ahi.
