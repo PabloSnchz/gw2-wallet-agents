@@ -1,7 +1,22 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.23.1 (2026-09-30) — el 404 del reintento tiraba los ids válidos
+ * Versión: 2.24.0 (2026-09-30) — guard de FORMA en getAccountRaids
+ *   v2.24.0: `getAccountRaids` degradaba a `[]` ante una forma de respuesta
+ *   que no soportamos, y `[]` es indistinguible de "no completaste nada". En
+ *   el Strike Tracker eso es `state.completedStrikes = []` -> "0 de 15
+ *   completados", exactamente lo que se ve si la cuenta no hizo ninguno.
+ *   El JSDoc de la misma función ya decía "no degrada a []" y el código no
+ *   lo cumplía: el catch de red propagaba, el camino de FORMA no. Es el
+ *   sexto wrapper que degrada (el sexto de la Idea 47). NO arregla el módulo:
+ *   ALERT-41 sigue bloqueando, porque los 15 ids de strike no están en
+ *   /v2/raids. Lo que hace es convertir el bloqueo en diagnóstico: si la API
+ *   responde con la forma del wiki de 2019 (`progress:[{id,cm,li}]`), la
+ *   consola lo dice en vez de fingir "0 de 15". Un [] vacío sigue siendo una
+ *   respuesta válida y no entra por el guard: "no lo pude leer" y "no hay
+ *   nada" tienen que quedar como dos estados distintos.
+ *   Test: tests/idea56.forma-raids.test.js (20 aserciones; 12 FAIL contra el
+ *   archivo sin el fix).
  *   v2.23.1: CORRIGE una regresión que la v2.23.0 introdujo. El reintento de
  *   los ids faltantes no tenía handler de rechazo. Los ids que faltaron son,
  *   por definición, ids que la API NO tiene: al repreguntarlos sola la API
@@ -563,9 +578,27 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        var raids = Array.isArray(data) ? data : [];
-        putCache(key, raids, token, ttl);
-        return raids;
+        // Guard de FORMA (Idea 56). El guard de red ya estaba abajo y
+        // propagaba, pero una respuesta con una forma que no soportamos
+        // degradaba a [] en silencio. En el Strike Tracker eso es
+        // `state.completedStrikes = []` -> "0 de 15 completados", que es
+        // EXACTAMENTE lo que se veria si la cuenta no hizo ninguno. No se
+        // puede distinguir "no leí" de "no hay". Se propaga: los 5 call
+        // sites ya manejan rechazo (allSettled / try-catch que relanza /
+        // prefetch que lo ignora), verificado en el HB#54.
+        //
+        // OJO: un [] VACIO sigue siendo una respuesta valida y no entra por
+        // aca. "No completaste nada" y "no lo pude leer" tienen que quedar
+        // como dos estados distintos; este guard existe para eso.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/raids: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de ids de encuentro.'
+          );
+        }
+        putCache(key, data, token, ttl);
+        return data;
       }).catch(function (error) {
         // Se registra y se propaga. Ver la nota de contrato en el JSDoc:
         // degradar a [] acá sería indistinguible de "no completaste ningún encuentro".

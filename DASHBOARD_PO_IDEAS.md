@@ -2,6 +2,42 @@
 
 > Actualizado: 2026-09-30T08:15:00Z (Heartbeat PO — **ALERT-41 (Strike Tracker) pasa de BLOQUEADO a DECIDIBLE: 14 de 15 strikes tienen un logro de clear verificado en la API pública**; **IDEA 55: 9 sitios con el token se evaden de la capa `GW2Api` (sin caché, sin retry, sin pool)**; Idea 52 v1.10.1 mergeada)
 > Mantenedor: PO (product-owner)
+
+---
+
+## ACTUALIZACION 2026-09-30 10:00 UTC — IDEA 56: el fix 206 esta bien, pero mi hipotesis de alcance MURIO
+
+**Que se verifico del lado del Principal:** v2.23.0 esta en `agents/main` (commit `c4b226a`, merge `381fe9d`). El sharding de la 49 esta en v2.21.0 (`f98da49`).
+
+**Lo que Yo midi y CONTRADICE mi propio reporte anterior.** Fui a medir el alcance real de la perdida por 206 parcial y **no hay ninguna perdida hoy**:
+
+| Lista que la app pide por `fetch` crudo | ids | FALTAN |
+|---|---|---|
+| `assets/meta-drops.json` -> `highlightItemId` (`meta.js:682`) | 11 | **0** (HTTP 200) |
+| `ALL_DISPLAY_ITEMS[].itemId` (`activities-theme.js:814`) | 10 | **0** (HTTP 200) |
+| `activities.js` `_itemIds` (ecto) | 4 | **0** |
+| `activities.js:819` hardcodeado | 2 | **0** |
+
+Los ids que probed y "faltan" en un rango (`items` 1..1000 -> 54 ausentes, `achievements` 1..1000 -> 205 ausentes) **dán 404 probedos de a uno: no existen en la API.** No los perdía la app; nunca estuvieron.
+
+**Consecuencia honesta:** el fix v2.23.0 es *correcto y mas defensivo de lo necesario*, no urgente. Las 3 rutas crudas (`meta.js:305`, `activities-theme.js:506`, `activities.js:754`) **no tienen `fetchBatchWithRepair`**, pero hoy no pueden dispararlo porque sus listas estan limpias. Queda como deuda, no como bug.
+
+**Idea 56 (nueva, 🟢 1 linea, SIN token) — el guard de forma en `getAccountRaids`.** `api-gw2.js:537`:
+```js
+var raids = Array.isArray(data) ? data : [];
+```
+Si el body de `/v2/account/raids` fuera `progress:[{id,cm,li}]` (objeto, no array), **la capa devuelve `[]` sin warning**. Los 3 consumidores (`raid-tracker.js:1713/1805`, `strike-tracker.js:1092/1165`, `wallet-dashboard.js:448`) reciben `[]`. En el Strike Tracker eso es `state.completedStrikes = []` -> **0 de 15 marcados, indistinguible de "no complete ningun strike"**. Es el patron de la Idea 47 (degradar a `[]`) en el punto mas caro que queda. Con un `else { console.warn(LOGP, 'raids: forma no soportada', ...); throw }` el bloqueo por falta de token **se convierte en diagnostico**: la primera vez que Pablo abra el modulo, la app le dice que vio.
+
+**Idea 53 sube de prioridad (era mi propuesta de las 06:30, sigue viva).** Los 14/15 ids de logro con `requirement` de clear que medi en el HB#50 son **datos, no codigo**, y `/v2/account/achievements` **la app ya lo lee** (`achievements.js:1058`, `activities.js:902`). Marcar 14 de 15 strikes **hoy**, sin token y sin endpoint nuevo, es mas valor que 3 lineas de Convergencia.
+
+**Orden propuesto (reemplaza al "Convergencia primero, raids despues"):**
+1. 🟢 **Guard de forma** en `api-gw2.js:537` — 1 linea, sin token, elimina el modo de mentira.
+2. 🟢 **Strike Tracker por logros (14/15)** — Idea 53. Es lo que hace que el modulo funcione; hoy muestra 0.
+3. 🟢 **CM de Convergencia por logros** (3 lineas) — de acuerdo, despues del Reviewer.
+4. 🔴 **CM real de strikes** — bloqueado por el token, y con el guard (1) ya no es riesgoso esperar.
+
+---
+
 > Actualización: cada heartbeat PO (cada 2h)
 >
 > Este archivo es un espejo público filtrado del PRE_BACKLOG.md del PO (que vive en `C:\Users\psanc\.qwenpaw\workspaces\product-owner\PRE_BACKLOG.md`). Contiene solo las ideas que el PO decide mostrar en el dashboard.
