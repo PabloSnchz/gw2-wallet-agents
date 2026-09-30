@@ -22,7 +22,11 @@
     // Back-compat: se carga LS_FAVS pero ya no se usa para UI (sólo migración a pins)
     favs: new Set(),
 
-    view: 'cards'
+    view: 'cards',
+
+    // Idea 63 T1: guarda que el listener de gn:tokenchange ya se registro
+    // (wireEvents corre una vez, pero el flag lo hace explicito).
+    _wiredTokenListener: false
   };
 
   /* ==================== Constantes LS/API ==================== */
@@ -522,12 +526,55 @@
     });
   }
 
+  // Idea 63 T1: los filtros son de la cuenta que se estaba mirando. Al cambiar
+  // de cuenta describen a la anterior y, si dejan 0 filas, render() vacia los
+  // contenedores y vuelve sin decir una palabra. Esta funcion es el UNICO reset:
+  // la usan el boton de limpiar y el cambio de cuenta, para que no puedan divergir.
+  function resetFilters() {
+    state.filters = { q: '', cat: '', sort: 'order', onlyPos: false, onlyMain: false };
+    if (el.searchBox) el.searchBox.value = '';
+    if (el.category) el.category.value = '';
+    if (el.sort) el.sort.value = 'order';
+    if (el.onlyPos) el.onlyPos.checked = false;
+    if (el.onlyMain) el.onlyMain.checked = false;
+  }
+
   function render() {
     const rows = buildRows();
     if (!rows.length) {
       if (el.tableWrap) el.tableWrap.hidden = (state.view !== 'table');
       if (el.walletCards) el.walletCards.innerHTML = '';
       if (el.favCards) el.favCards.innerHTML = '';
+      // Idea 63 T2: antes de este return el panel quedaba VACIO y sin una
+      // palabra, indistinguible de "la cuenta no tiene wallet" o de "fallo la
+      // carga". Se dice cual de los dos es y, si es el filtro, se ofrece la
+      // salida con el mismo clearBtn que ya existe (app.js:1050).
+      const hayFiltro = !!(state.filters.q || state.filters.cat ||
+                           state.filters.onlyPos || state.filters.onlyMain);
+      if (el.walletCards) {
+        const msg = document.createElement('p');
+        msg.className = 'muted';
+        msg.style.textAlign = 'center';
+        msg.style.padding = '20px';
+        if (hayFiltro && state.wallet.length) {
+          msg.appendChild(document.createTextNode(
+            'Ningun tipo de moneda coincide con los filtros. Hay ' +
+            state.wallet.length + ' en esta cuenta.'));
+          const br = document.createElement('br');
+          msg.appendChild(br);
+          if (el.clearBtn) {
+            const b = document.createElement('button');
+            b.className = 'btn btn--xs';
+            b.style.marginTop = '10px';
+            b.textContent = 'Limpiar filtros';
+            b.addEventListener('click', () => { resetFilters(); render(); });
+            msg.appendChild(b);
+          }
+        } else {
+          msg.textContent = 'No hay monedas para mostrar en esta cuenta.';
+        }
+        el.walletCards.appendChild(msg);
+      }
       return;
     }
 
@@ -1049,14 +1096,20 @@
     el.onlyMain?.addEventListener('change', () => { state.filters.onlyMain = el.onlyMain.checked; render(); });
     el.clearBtn?.addEventListener('click', (e) => {
       e.preventDefault();
-      state.filters = { q: '', cat: '', sort: 'order', onlyPos: false, onlyMain: false };
-      if (el.searchBox) el.searchBox.value = '';
-      if (el.category) el.category.value = '';
-      if (el.sort) el.sort.value = 'order';
-      if (el.onlyPos) el.onlyPos.checked = false;
-      if (el.onlyMain) el.onlyMain.checked = false;
+      resetFilters();
       render();
     });
+
+    // Idea 63 T1: limpiar los filtros al cambiar de cuenta. Se registra UNA vez
+    // (wireEvents corre una sola vez desde boot) y antes de que llegue el primer
+    // gn:tokenchange, que app.js mismo emite en boot.
+    if (!state._wiredTokenListener) {
+      state._wiredTokenListener = true;
+      document.addEventListener('gn:tokenchange', () => {
+        resetFilters();
+        render();
+      });
+    }
 
     // Alternar vista (tarjetas/tabla)
     el.toggleViewBtn?.addEventListener('click', () => {

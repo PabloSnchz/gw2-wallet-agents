@@ -1100,6 +1100,14 @@
     });
 
     state.pagination.total = filtered.length;
+    // Idea 63 T1: el clamp es la garantia de fondo. El reset del handler de
+    // tokenchange evita el caso conocido, pero cualquier otro camino que
+    // achique la lista (una cache mas chica, un filtro nuevo) deja la pagina
+    // fuera de rango y slice() devuelve [] igual. Con el clamp, una pagina
+    // imposible se corrige sola en vez de borrar el panel.
+    var totalPages = Math.ceil(filtered.length / state.pagination.perPage);
+    if (totalPages > 0 && state.pagination.page > totalPages) state.pagination.page = totalPages;
+    if (state.pagination.page < 1) state.pagination.page = 1;
     var start = (state.pagination.page - 1) * state.pagination.perPage;
     var paginated = filtered.slice(start, start + state.pagination.perPage);
 
@@ -1117,6 +1125,46 @@
         }
       }, 'Cargando personajes... ' + state.loadingState.loaded + '/' + state.loadingState.total);
       container.appendChild(loadingEl);
+    }
+
+    // Idea 63 T2: el estado vacio es un estado de la pantalla, no la nada.
+    // Antes una lista de 0 items pintaba el panel VACIO y sin una palabra, que
+    // no se puede distinguir de "la cuenta no tiene personajes" ni de "fallo la
+    // carga". Se distingue cual de los dos es, y en el caso del filtro se
+    // ofrece la salida. Mismo criterio que achievements.js:674.
+    if (!paginated.length && !state.loadingState.inProgress) {
+      var hayFiltro = !!(state.filters.search || state.filters.map ||
+                         state.filters.profession || state.filters.poiCategory);
+      var hayPersonas = state.characters.length > 0;
+      var vacio = createEl('div', {
+        className: 'muted',
+        style: { padding: '20px', textAlign: 'center' }
+      });
+      if (hayFiltro && hayPersonas) {
+        vacio.appendChild(document.createTextNode(
+          'Ningun personaje coincide con los filtros. Hay ' + state.characters.length +
+          ' en esta cuenta.'));
+        vacio.appendChild(document.createElement('br'));
+        var btn = createEl('button', {
+          className: 'btn btn--xs',
+          style: { marginTop: '10px' }
+        }, 'Limpiar filtros');
+        btn.addEventListener('click', function() {
+          state.filters.search = '';
+          state.filters.map = '';
+          state.filters.profession = '';
+          state.filters.poiCategory = '';
+          state.pagination.page = 1;
+          render();
+        });
+        vacio.appendChild(btn);
+      } else {
+        vacio.appendChild(document.createTextNode(
+          'No hay personajes para mostrar en esta cuenta.'));
+      }
+      container.appendChild(vacio);
+      renderPagination();
+      return;
     }
 
     if (state.view === 'table') {
@@ -1470,6 +1518,17 @@
       var tok = ev && ev.detail ? ev.detail.token : null;
       state.token = tok;
       if (!state.active) return;
+      // Idea 63 T1: los filtros y la pagina son de la cuenta que se estaba
+      // mirando. Al cambiar de cuenta describen a la anterior: sin esto, un
+      // filtro que deja 0 filas pinta un panel VACIO y sin una palabra, y la
+      // pagina sobrevive a un total mas chico (slice(20,40) sobre 12 = []).
+      // Se resetean aqui y NO en loadCharacters, porque el que dispara el
+      // cambio de cuenta es este handler.
+      state.filters.search = '';
+      state.filters.map = '';
+      state.filters.profession = '';
+      state.filters.poiCategory = '';
+      state.pagination.page = 1;
       loadAssignments();
       loadLocationHistory();
       if (tok) {
