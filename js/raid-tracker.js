@@ -1799,13 +1799,28 @@
       }
     }
 
+  // T9 (HB#90). El mutex anterior era `if (_refreshInFlight) return
+  // _refreshInFlight;`, que NO postpone la carga nueva: la descarta antes de
+  // pedirla. Con `gn:tokenchange` -> refresh(true) sobre una carga en vuelo,
+  // la red no recibia NINGUNA peticion para la cuenta nueva, no habia reintento
+  // cuando la vieja terminaba, y no habia forma de recuperarse: el desplegable
+  // decia B y la pantalla mostraba A.
+  //
+  // Ahora el mutex ESPERA y despues carga, y `_refreshSeq` (que ya estaba
+  // declarado y se publicaba en el diagnostico, siempre en 0) decide si la
+  // carga que espero todavia es la ultima pedida. Mismo patron que
+  // `safeRefresh` de wv-purchase-detail.js, que ya lo tenia bien.
   async function refresh(forceNoCache) {
-    if (_refreshInFlight) return _refreshInFlight;
+    var mySeq = ++_refreshSeq;
+    if (_refreshInFlight) {
+      try { await _refreshInFlight; } catch (_) {}
+      if (mySeq !== _refreshSeq) return;   // otra carga la reemplazo: esta no va
+    }
     try {
       _refreshInFlight = loadRaidData(!!forceNoCache);
       await _refreshInFlight;
     } finally {
-      _refreshInFlight = null;
+      if (mySeq === _refreshSeq) _refreshInFlight = null;
     }
   }
 
