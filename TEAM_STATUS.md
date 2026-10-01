@@ -1,3 +1,117 @@
+# Heartbeat Principal #83 — 2026-10-01 UTC
+
+> Ciclo de **cierre**: dos ciclos mios quedaron con commits sin mergear y este
+> los merges, mide lo que esos midieron, y encuentra un defecto en el runner que
+> habia falseado el reporte de suite dos ciclos seguidos.
+
+## Lo que se entrego
+
+- **`2593306`** (cherry-pick de `b1fe9e7`, de HB#81) — el fix del z-index del
+  toaster. **Estaba verificado y con veredicto del Reviewer desde el ciclo
+  anterior, sin mergear.** Mergeado ahora. Remueve `z-index:60` de
+  `theme-polish.css` (capa 2) y lo sube a `10001` en `main.css` (capa 1).
+- **`386a022`** — fix del runner de suite. Es lo que se explica abajo.
+- Fila 087 cerrada (el veredicto del Reviewer sobre T6, **rechazaba el fix de
+  HB#80**), 089 y 090 nuevas.
+
+## El hallazgo del ciclo: los 6 que HB#81 dejo sin explicar eran un bug del runner
+
+HB#82 (2206217, ya en main) reportaba **1088 pass / 0 FAIL**. HB#81 reportaba
+**1094**. Seis de diferencia, y el propio HB#81 escribio que no las persiguia.
+
+**Los 6 son dos errores opuestos que se cancelan, y los dos son el mismo
+defecto:** el runner cuenta "linea que arranca con el veredicto de una
+asercion" con `/^(OK|PASS)\b/i`, y **una linea de resumen tambien arranca asi**.
+
+| archivo | runner | correcto | delta |
+|---|---|---|---|
+| `idea57t4-idioma-contrato.test.js` | **1** | **14** | **+13** |
+| 7 archivos mas (resumen `pass: N \| FAIL: 0`) | N+1 | N | **-1 c/u** |
+| **total** | **1088** | **1094** | **+6** |
+
+El caso de `idea57t4` es el grave: `"OK: 14 pass, 0 FAIL"` deja `p = 1`, el
+**fallback de resumen nunca se dispara**, y un archivo de 14 aserciones se
+reporta como 1. El otro extremo son 7 archivos donde la linea de resumen suma
+una asercion de mas.
+
+**+7 y -13 se cancelan y el total queda 6 por debajo.** Ese es el peor modo de
+fallo de una cifra: los dos errores son plausibles, el numero final tambien, y
+nada en el reporte lo delata.
+
+**Fix:** `esResumen()` antes de sumar, probando la linea contra los mismos
+regex que usa el fallback. Con una copia **sin flag `g`** (con `g`, `test()`
+alterna por `lastIndex` y el resumen contaria solo con numeros pares).
+
+**Verificacion:** 1094 por el runner **y** por un contador independiente con
+otra estrategia (escanea toda la salida, no las ultimas 6 lineas). **Dos
+metodos que no comparten codigo.** Mutacion: quitar el guard devuelve 1088 y el
+fallback a 2 archivos. **La mutacion muere.**
+
+**Consecuencia para los ciclos anteriores:** los "1094 / 40 de 40 / 0
+INDETERMINADOS" de HB#81 eran correctos **a mano**, y el runner no podia
+llegar. Y el "1088" de HB#82 era el numero del runner **con el bug**, no el
+real. Ver ALERT-113.
+
+## T7 (la prioridad 1 del PO): medida, y **NO aplicada**, y por que
+
+La ronda 26 del PO midi bien: `app.js:215` `Number(opts.ttl || 3500)` se come el
+`0`, y el censo de la clase es **1 caso real en 46 modulos** (`.legacy`,
+`app.js:221`, es el gemelo). **El diagnostico es correcto.**
+
+**No se aplico por una razon de proceso, no tecnica:** ya hay un veredicto del
+Reviewer **en vuelo** (fila 088, pregunta P1) sobre **exactamente** este
+contrato de `toast()`. Aplicar el fix de la misma linea antes de su veredicto es
+la clase de cambio que este equipo no hace.
+
+**El hallazgo del PO sobre el test es lo mas bueno de la ronda**, y es una
+tercera instancia del patron de ALERT-110: el assert 4 de
+`hb80-toast-permanencia.test.js` exige `opts.ttl || (\d+)` **como garantia de
+que el default siga siendo finito**. O sea: **el test defiende la expresion que
+es el defecto.** La forma que el bug necesita es la forma que la garantia
+necesita. ("un test que afirma una forma no puede guardar una propiedad de esa
+forma"). Medido: el assert existe y matchea hoy.
+
+## Verificaciones del ciclo
+
+- Suite: **1094 pass / 0 FAIL, 40 de 40, exit 0**, por dos metodos
+  independientes.
+- **Newlines por conteo de BYTES del BLOB** (`git show HEAD:<archivo>`), no del
+  disco: los 6 archivos quedan en **LF puro, 0 CRLF, 0 BOM**. El disco los ve
+  en CRLF por `core.autocrlf` y eso no dice nada (ALERT-114, caso 4).
+- **CJK: 0** en los 3 archivos de log, con `probe-cjk.js` y los rangos CJK
+  reales. Y el detector **atrapo 3 corrupciones mias** antes de que llegaran al
+  repo (ALERT-112 aplicado en el ciclo siguiente al que se escribio).
+- `reflog` del clon compartido: **sin cambios**, `11285a0`, sin escritura de la
+  segunda instancia en este ciclo. 2 untracked ajenos (`ORG_MAP.md.bak-...`,
+  `con`) siguen sin tocar.
+
+## En vuelo / pendiente
+
+- **`task-98befbf8c084`** (Reviewer, 3 preguntas: P1 el contrato de `toast()`,
+  P2 la capa 2 como duena de propiedades estructurales, P3 el `kind` que nadie
+  lee). **Enviado, sin recoger.** La P1 es la que desbloquea T7.
+- Worktrees con ramas sin mergear: `hb81-wt` (HB#81, ya mergeado por cherry-pick
+  — la rama se puede borrar), `_wt_hb82v` (HB#82, **ya en main** — la rama se
+  puede borrar). **No las borro yo**: `hb81-wt` tiene 3 archivos de log
+  modificados sin commitear que son los ALERT-108 a 112, y/octienen material
+  que el ciclo anterior escribio y no mergeo.
+- **P3 anotado por el PO, sin backlog:** `wv-purchase-detail.js` usa
+  `rowData.purchase_limit` a pelo en 5 sitios (`:1744/1781/1824/1883/2004`)
+  mientras 24 sitios del repo usan el patron guardado. **NO verificado que exista
+  un caso vivo** (0 de 958 items tienen `purchase_limit` en `/v2/items`; el campo
+  solo existe en `/v2/account/commerce/listings`, que requiere token de cuenta).
+  **Sin caso vivo verificado NO entra al backlog**, y el PO lo marco bien.
+
+## Decisiones que son de Pablo, no mias
+
+1. **Detener la instancia duplicada** (3er ciclo que se reporta).
+2. Borrar las 2 ramas remotas ya mergeadas sin borrar (`docs-idea50p3-hb67`,
+   `feat-idea56-forma-raids`).
+3. Que hacer con las 7 ramas sin mergear, 6 en CONFLICTO.
+4. Si `viewPref` se implementa (veredicto en fila 081): la 2 claves de pestana
+   **se descartan** por el conflicto con `gw2_conv_cache_v3` (TTL 30 min).
+
+# Heartbeat Principal #81 — 2026-10-01 UTC
 # Heartbeat Principal #80 — 2026-10-01 UTC
 
 > Ciclo corto y de una sola clase: el PO trajo 2 hallazgos y **la premisa del

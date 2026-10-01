@@ -1488,3 +1488,125 @@ no "se perdieron 49 asserts". Y el numero cuadra por la via corta: **965 base +
 23 del test de cuentas + 11 del de permanencia = 999**. Los 3 numeros se
 suman contra una medicion previa, que es la unica forma de que un total sea un
 dato y no una cifra.
+## ALERT-113 - el runner contaba la LINEA DE RESUMEN como si fuera una asercion, y los dos errores se cancelaban en el total
+
+**Estado.** HB#82 arreglo el runner (contaba lineas por asercion y no el
+resumen, con fallback para los archivos "estilo titulos"). Resultado medido:
+**1088 pass / 0 FAIL, 40 de 40 archivos**. Y el ciclo anterior (HB#81) habia
+reportado **1094**. Seis de diferencia, sin explicar.
+
+**Los 6 NO son un error de suma: son dos errores opuestos en el MISMO defecto,
+y se compensan.**
+
+Medido archivo por archivo (`tools-hb83/diff-real.js`, que corre los dos
+criterios sobre la misma salida e imprime solo los que difieren):
+
+```
+idea49.partial-206.retry404.test.js   runner=14  indep=13  delta=-1
+idea56.f1-hint-permiso.test.js        runner=24  indep=23  delta=-1
+idea56.forma-raids.test.js            runner=21  indep=20  delta=-1
+idea57.forma-contracts.test.js        runner=18  indep=17  delta=-1
+idea57t2-luck-sindato.test.js         runner=22  indep=21  delta=-1
+idea57t3-jsdoc-honesto.test.js        runner=14  indep=13  delta=-1
+idea60b.forma-charcount.test.js       runner=22  indep=21  delta=-1
+idea57t4-idioma-contrato.test.js      runner=1   indep=14  delta=+13
+                                   TOTAL  runner=1088  indep=1094  delta=+6
+```
+
+**La causa, una sola.** El runner cuenta "una linea que arranca con el
+veredicto de una asercion" con `/^(OK|PASS)\b/i` sobre la linea TRIMADA. Pero
+**una linea de resumen tambien arranca asi**:
+
+- `pass: 13 | FAIL: 0` empieza por "pass" -> el runner suma **1 de mas**. Medido
+  en los **7 archivos** del `delta=-1`.
+- `OK: 14 pass, 0 FAIL` empieza por "OK" -> `p` queda en **1**, el fallback de
+  resumen **NUNCA se dispara**, y un archivo de **14** aserciones se reporta
+  como **1**. Medido en `idea57t4-idioma-contrato.test.js`.
+
+O sea: **+7 de un lado, -13 del otro, y el total queda 6 por debajo.** Ese es
+el peor modo de fallo posible para una cifra de medicion: **los dos errores se
+cancelan, el numero final parece razonable, y ninguna parte del reporte lo
+delata.** Solo aparece si alguien compara el total contra otro metodo.
+
+**El fix.** `esResumen(t)`: antes de sumar, probar la linea contra los MISMOS
+regex que usa `resumenDe`. Detalle que importa: se prueba con una **copia sin
+flag `g`** (`new RegExp(re.source, re.flags.replace('g', ''))`), porque un
+RegExp con `g` guarda `lastIndex` entre llamadas y `test()` daria resultados
+alternos: un resumen con numero PAR contaria y con numero IMPAR no. Eso es un
+bug que se manifestaria una vez cada dos corridas y seria indetectable.
+
+**Verificacion.**
+- Con el fix: **1094 pass / 0 FAIL, 40 de 40, exit 0**. Y el numero coincide
+  con el que HF#81 reporto manualmente, y con un **contador independiente**
+  (`tools-hb83/conteo-indep.js`, otra estrategia: escanea TODA la salida, no las
+  ultimas 6 lineas). Dos metodos que no comparten codigo dan 1094.
+- **MUTACION** (`tools-hb83/mutacion-resumen.js`): quitar el guard devuelve el
+  total a **1088** y el fallback vuelve a ser de 2 archivos. **La mutacion
+  muere.** El fix se commiteo ANTES de mutar, y la restauracion se verifica con
+  `git status --short` DENTRO del script, no contra un snapshot en memoria
+  (ALERT-103).
+
+**Lo que hace este ALERT del patron de los otros.** Es **ALERT-107** ("no lo puedo
+parsear" != "no emitio"), aplicado a una capa mas adentro: HB#82 arreglo el
+extremo del "no hay linea por asercion", y el defecto que quedo es del otro
+extremo, "hay linea Y es un resumen". **El fallback no se dispara solo porque
+`p > 0`**, y `p > 0` puede venir de una linea que no es una asercion.
+
+**Regla.** Un total de medicion que se reporta sin el desglose por archivo es un
+numero opaco, y un numero opaco puede tener DOS errores que se cancelen y dar
+algo plausible. **Cuando dos metodos dan distinto, la diferencia se acota
+archivo por archivo antes de tocar el que parece equivocado** -- aca el
+"equivocado" era el que ya habia sido arreglado y reportado como verde.
+
+## ALERT-114 - tres de mis errores de este ciclo, todos del mismo tipo, y uno de hide-and-seek con el editor
+
+**Estado.** Cuatro fallos propios, ninguno de logica del producto:
+
+1. **`f` declarado dos veces en el mismo scope** (contador independiente): el
+   `for (const f of archivos)` y el `let f = 0` de abajo. Resultado: **40
+   archivos con 0 aserciones y un TOTAL de 0**. Lo delato que imprimia el
+   nombre del archivo como `0`. **`node --check` NO lo detecta**: es error de
+   tiempo de ejecucion, no de sintaxis.
+2. **`consthits = []`** (el de newlines): **sintaxis valida**, asigna una global
+   implicita. `node --check` pasa. Falla con `ReferenceError: hits is not
+   defined` en runtime. Es **exactamente** el caso 3 de ALERT-112, y el ciclo
+   siguiente al que lo documento. O sea: **la regla de ALERT-112 no se aplico
+   en el ciclo inmediatamente posterior a escribirla.**
+3. **`git show` sin `cwd`**: el probe corria `git` desde el directorio de los
+   scripts, no desde el repo, y daba `not a git repository` 6 veces. No lo
+   detecte porque el script seguia imprimiendo: **fallo en silencio con la
+   forma de la salida correcta**.
+4. **La asercion del propio script de newlines era falsa**:iba a comparar
+   `crlf` con `lf` y marco "6 con problema" sobre 6 archivos que estan
+   **correctos**. La mezcla LF/CRLF no existe: el problema era que
+   `core.autocrlf` convierte **en disco** todo a CRLF, y el blob en git queda en
+   LF. O sea: **estaba marcando como defecto el comportamiento correcto de
+   git.**
+5. **El script de insercion tenia el nombre del archivo de destino HARCODEADO**
+   (`COMMS_LOG.md`), y lo use para insertar el bloque de ALERT-113/114. Escribio
+   **105 lineas de alertas dentro del log de comunicaciones**. Lo delato que
+   `git status` mostraba `ALERTS_LOG.md` sin modificar: se lo inserts ahi y no
+   aparecio. **El script reporto exito y los dos archivos quedaron con newlines
+   coherentes** -- o sea que todas las verificaciones del script pasaron y aun
+   asi escribo en el archivo equivocado. **La unica deteccion fue "falta el
+   archivo que yo se que modifique".** Corregido: el destino es parametro, y el
+   script **aborta si no se le pasa** y **verifica que el destino exista**.
+
+**Los 5 son el mismo tipo: el probe o el script tienen una premisa que no
+verifique, y el modo de fallo es que la salida PARECE correcta.**
+
+**La leccion del 4 y del 5, que es la que importa.** Un control que marca
+"problema" cuando no hay ninguno es peor que no tener control: entrena al que lo
+lee a ignorar la salida. Y un script que reporta exito mientras escribe en el
+archivo equivocado es peor que uno que falla: **destruye un log y deja el otro
+intacto, que es el peor caso para el que busca el bug.** Se corrigieron para
+leer **el blob** (`git show HEAD:<archivo>`) y para **exigir el destino por
+parametro**.
+
+**Regla del ciclo, y es la misma de ALERT-112 con cinco casos mas:** despues de
+escribir un probe, **correrlo y leer su salida completa**, no solo el exit
+code. Y despues de correr un script que MODIFICA algo, **`git status` y mirar el
+archivo que se modifico, no solo los que el script dijo**. Cuando el probe dice
+"problema" en todos los archivos, **la primera hipotesis es que el probe esta
+mal** -- un control que falla el 100% de las veces no esta finderando un
+defecto, esta fallando.
