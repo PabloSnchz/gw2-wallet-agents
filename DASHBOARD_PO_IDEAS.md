@@ -1,9 +1,85 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T04:00:00Z (Heartbeat PO ronda 22 — 🔴 la puerta de permisos de la ronda 21 YA ESTÁ MERGEADA (`ea10e9b`, T1+T3) y es correcta: verificada contra un censo cerrado de 15 endpoints con scope. Pero es **una cerradura en UNA de TRES puertas**: `importApiKeys` (restore de archivo y **Gist**) y el import del Excel escriben `ACCOUNT_KEYS` sin mirar un solo permiso, y `validateImportData` solo chequea versión y nombre de app. Para las 27 cuentas de Pablo la puerta que importa es la que no tiene candado. Prioridad #1: **T2-mini** (contador "N con permisos incompletos", 🟢 20 min) → **T2** (chips por fila, 🟡 ~1 h) → **T4** (el import dice qué trajo). Entra también el **copy de `app.js:683`, que nombra "glifos" y ese módulo es código muerto** — 🟢 1 línea, error mío del copy de ayer)
+> Actualizado: 2026-10-01T05:00:00Z (Heartbeat PO ronda 23 — **sin novedades**: no hay idea, tramo ni prioridad nueva desde la ronda 22, y la ronda 23 no abre ninguno. **Web research: 21 de 21 rondas sin feature nueva** (Reddit 403, gw2treasures `/feeds` 404), así que el producto de la ronda fue **auditar mi propia propuesta de la ronda 20** en vez de forzar una idea. Dos resultados: **(1) respuesta a la pregunta del Principal sobre las 2 claves de pestana: (c) cierre asimétrico** — `gn:raids:strike:view` **no es huórfana** (tiene escritor en `raid-tracker.js:1012/1016` y se implementa sola al arreglar el raw, sin helper), y `gn:converter:state` sí lo es pero **no se implementa nunca** (el Reviewer tiene razón: `gw2_conv_cache_v3` tiene TTL de 30 min; y de todos modos la pestaña del conversor no se la pide a nadie). **(2) Corrección: en la ronda 20 cité `MIRROR_MAP` y era `FALLBACK_MAP`** — `MIRROR_MAP` tiene 4 entradas y ninguna es de pestanas, y esa diferencia **no es cosmética**: solo `MIRROR_MAP` arregla el congelamiento. El código lo dice en `storage.js:416`. Además el conteo "2 superficies" era **3**: `wv-shop-ui.js:222/228` tiene el mismo patron y no estaba en ninguna lista. Prioridad #1 sigue siendo **T2-mini**)
 > Mantenedor: PO (product-owner)
 
 
+
+---
+
+## ACTUALIZACION 2026-10-01 05:00 UTC — Heartbeat PO ronda 23 — sin idea nueva, y una premisa mía de la ronda 20 era FALSA
+
+> **Espejo de la ronda 23 del PO.** Detalle largo en `PRE_BACKLOG.md` (privado). Esta ronda **no abre ninguna idea ni tramo nuevo**: su producto es una **decisión de cierre con el motivo escrito**, más **una autocorrección que cambia un dato que el dashboard ya afirmaba**.
+
+### 1) NOVEDADES: **sin novedades.** Nada nuevo en `PRE_BACKLOG.md` desde la ronda 22.
+
+La ronda 22 (04:00 UTC) es la última entrada. La 23 no agrega idea, ni tramo, ni prioridad. **Web research: 21 de 21 rondas sin feature nueva** (Reddit 403, gw2treasures `/feeds` 404). Con 0 aporte externo y una decisión de cierre que escribir, la ronda correcta era **no forzar una idea** — el producto útil salió de **auditar mi propia propuesta de la ronda 20**, que es de donde viene todo lo de abajo.
+
+### 2) Respuesta a la pregunta del Principal sobre las 2 claves de pestaña: **(c) CIERRE — asimétrico**
+
+El Reviewer declaró `viewPref()` opcional y el Principal lo descartó. **Coincido, no lo implemento y no lo vuelvo a proponer.** Pero el descarte del helper **no habilita (c) por sí solo**, porque al medir las 2 claves una por una **no son el mismo caso**:
+
+| Clave | Realidad medida en `origin/main` | Destino |
+|---|---|---|
+| `gn:raids:strike:view` | **NO es huérfana.** Tiene escritor: `raid-tracker.js:1012/1016` escribe `raid_strike_view` a pelo, que es **el `FALLBACK_MAP` de la `gn:`** (`storage.js:180`). La preferencia **funciona**. | **No es un ítem del backlog:** al arreglar el raw con `Storage`, la `gn:` gana escritor **como efecto secundario, sin helper y sin una línea nueva**. El fix que la fila 079 ya autoriza lo resuelve solo. |
+| `gn:converter:state` | **Sí es huérfana, y por las dos puntas:** está en `STATIC_KEYS` (`:51`), `STORAGE_KEYS` (`:90`) y `FALLBACK_MAP` (`:165`), pero su legacy `gn_converter_state` **no la escribe ningún módulo** y `state.activeTab` (`converter-modal.js:46/1336`) es **solo memoria**. | **Se cierra, no se implementa.** El Reviewer tiene razón en el riesgo: `gw2_conv_cache_v3` tiene `CONV_TTL` de **30 min** (`:39/140`), así que la pestaña se perdería sola. **Son 2 claves separadas o nada** — y "nada" es lo correcto, por producto: el conversor es un modal de una sola tarea, persistir la pestaña no le ahorra un click a Pablo. |
+
+**El cierre asimétrico, en una línea:** *una de las dos claves se implementa sola con un fix ya autorizado; la otra no se implementa nunca; y ninguna de las dos requería el helper que se descartó.*
+
+### 3) 🔴 Corrección: en la ronda 20 cité `MIRROR_MAP` y era `FALLBACK_MAP` — y el nombre cambia la conclusión
+
+Cita mía de la ronda 20 (`PRE_BACKLOG.md`, ~5040): *"`gn:raids:strike:view` y `gn:converter:state` … en **`MIRROR_MAP` en las dos direcciones** (`:122/165/180` y `:146`)"*.
+
+**Medido hoy: `MIRROR_MAP` (`storage.js:209-214`) tiene 4 entradas y ninguna es de pestañas:**
+
+```js
+const MIRROR_MAP = {
+  'gn:account:keys':          'gw2_keys',
+  'gn:account:selected':      'gw2_selected_key_v1',
+  'gn:activities:home:nodes': 'gn_home_nodes_marked',
+  'gn:activities:toggles':    'gn_activities_toggles',
+};
+```
+
+`raid_strike_view` **no es espejo de nadie.** Las líneas que cité (`:122/146` = `MIGRATION_PREFIXES`, `:165/180` = `FALLBACK_MAP`) son los otros dos mapas, declarados a ~30 y ~60 líneas de distancia. Y la diferencia no es cosmética — **los tres mapas garantizan cosas distintas**:
+
+| mapa | qué garantiza | efecto en el congelamiento |
+|---|---|---|
+| `FALLBACK_MAP` | si la `gn:` no existe, leer la legacy | **no arregla nada** si la `gn:` ya existe |
+| `MIGRATION_PREFIXES` | copiar legacy→`gn:` **una vez** (`_migrateOne` arranca con `if (Storage.hasRaw(newKey)) return`) | **congela** la `gn:` en la foto del primer arranque |
+| `MIRROR_MAP` | escribir **las dos** + `_resyncMirrors()` refresca la `gn:` en cada arranque | **el único que arregla el congelamiento** |
+
+Y el propio código lo dice textualmente en `storage.js:416`: *"para las claves de `MIRROR_MAP` eso es exactamente la condición de congelación"*. **La condición estaba escrita en el archivo y yo la cité con el nombre del mapa equivocado.**
+
+**Regla que sale:** *cuando citás una garantía, citás el nombre del mapa que la implementa; "está en el mapa" sin decir cuál es una categoría, no una cita.*
+
+### 4) 🟡 El conteo "2 superficies rotas" era **3** — y la tercera no estaba en ninguna lista
+
+| Superficie | ¿Persiste? | Dónde | ¿En las listas de la ronda 20? |
+|---|---|---|---|
+| **WV — 4 pestañas** | ✅ Sí, y **bien** (`Storage.set/get`) | `gn:wv:last_tab`, `router.js:259/260` | ✅ marcada correctamente |
+| **WV — vista cards/table de la tienda** | ⚠️ **Sí, por la puerta de atrás** | **`wv-shop-ui.js:222`** escribe `gw2_wv_view_v1` a pelo | ❌ **no estaba** |
+| **Raid/Strike toggle** | ⚠️ Sí, por la puerta de atrás | `raid-tracker.js:1012/1016` | ✅ (la cubre el fix de raws) |
+| **Converter — 4 pestañas** | ❌ No, y no puede persistir donde está | memoria; el caché es TTL 30 min | ✅ (la detectó el Reviewer) |
+
+**La fila nueva: `wv-shop-ui.js:222` y `:228`.** El botón "Vista: Tarjetas/Tabla" escribe `gw2_wv_view_v1` crudo, que es **el `FALLBACK_MAP` de `gn:wv:shop:view`** (`storage.js:160`) — y `router.js:257/258` tiene los mismos dos valores leyendo/escribiendo **la `gn:`** por `Storage`. **La misma preferencia, 2 escritores, 2 claves.** Funciona, pero *el último en escribir gana, y no siempre escriben el mismo lugar.*
+
+**No pido ampliar el fix de raws ya autorizado** (fila 079 dice 3 raws de `raid-tracker.js`): es scope en un fix que el Principal ya tiene, y él decide. Lo que pido es que **queden escritos**, porque si no el próximo que mida "raws de localStorage" va a contar 3, va a encontrar 2, y va a reportar el mismo hallazgo con otro número.
+
+### 5) Lo que NO voy a proponer, y por qué (para que no vuelva a salir)
+
+- **No propongo `viewPref()` ni ningún helper.** 6 call-sites ya usan `Storage.get/set`; un helper para 2 superficies es API nueva. **La lección es la inversa a la que hice en la ronda 20:** el hallazgo **no requería un helper** — requería arreglar **1 escritor crudo**, y la `gn:` se implementaba sola. *Un helper propuesto para resolver N superficies es la señal de que el problema real es M escritores crudos.*
+- **No propongo persistir la pestaña del conversor.** Única de las 3 donde la respuesta es "no hacer nada", y por producto. Si el conversor algún día es superficie de trabajo (el historial de `:1159` hoy es placeholder), la pregunta se vuelve respondable sola y la `gn:` ya declarada la tiene preparada.
+- **No amplío el alcance del fix de raws.** Ver §4.
+
+### 6) Estado yMethod
+
+- **`agents/main` @ `5291138`** (`git fetch` primero). Rondas 22/21 siguen mergeadas en `ea10e9b`.
+- **Concurrencia:** el clon compartido está en `fix-hb77-puerta-llega`, rama de la **segunda instancia del heartbeat**, con 2 untracked. **No la toqué** (ALERT-43/59). Este trabajo salió de mi worktree limpio `wt-r22` (rama `po/hb77-dashboard`), **solo `.md`, y no mergeo** (el PO no mergea). **Mi rama no choca con la otra**: toco `PRE_BACKLOG.md` (mi workspace, fuera del repo) y `DASHBOARD_PO_IDEAS.md`; la otra está commiteando código de app.
+- **Secuencia: sin cambios.** La ronda 23 no agrega ni mueve nada: **T2-mini** (🟢 20 min) → **copy `glifos`** (🟢 1 línea) → **T2** (🟡 ~1 h) → **T4** (🟢 15 min) → **49G** (🟡, la que cierra la cuota) → **47/57** (el fondo del problema) → 49D → 49F/49E → 42 → 45 → 41. **Idea 44 fuera de la tabla** (decimoquinto heartbeat en 0%).
+- **Autocorrecciones:** la cita de `MIRROR_MAP` (§3) y el conteo 2→3 (§4). **9ª de método en 72 h, ninguna de la web.** Y un glitch de generación mío (3ª vez, CJK + fullwidth en la prosa) que detecté con un scan `ord(c) > 0x2500` **antes** de ensamblar el `PRE_BACKLOG.md`, y corregí — el guard `tools/scan-cjk.py` del repo no cubre fullwidth ni corre sobre mi workspace.
+
+---
 
 ---
 
@@ -673,7 +749,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO audito los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
