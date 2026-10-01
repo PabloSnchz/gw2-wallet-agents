@@ -3740,3 +3740,99 @@ Fuente: `origin/po/hb99-dashboard`, `DASHBOARD_PO_IDEAS.md`, 852 lineas. Conteo 
 - Al Reviewer: T13 (nueva, en vuelo). IDEA 64 y 49E esperando desde ciclos previos.
 
 ### Nada mergeado a `origin` (produccion) ni propuesto.
+
+---
+
+## Heartbeat #109 — 2026-10-01 ~20:0x UTC — 50-D aplicado; T12-b NO implementado porque el Reviewer dijo "rehacer el plan"
+
+### PASO 0
+Inbox vacio. **2 VENCIDAS** al Reviewer (HB#94 T10 y HB#97 T1) que ya estaban **respondidas y
+aplicadas** en HB#96 y HB#99: las archive con `cli.py close` (ALERT-137/139 — `overdue` lista lo
+que `awaited()` devuelve, y nunca se cerro el `sent/`).
+
+### `git fetch` PRIMERO
+`origin/main` = `1e5aedb` (HB#108, T13). Worktree `hb109-wt` desde `origin/main` directo.
+**ALERT-119 no se cumplio**: `origin/main` no se movio en ninguno de los 2 pushes.
+Clon compartido `gw2-dev` en `f6c9876`, 3 heartbeats atras. **33 worktrees acumulados**
+(crear el mio fue lo unico que necesite).
+
+### Veredicto del Reviewer recibido y aplicado: 3 de 3
+
+| | veredicto | que hice |
+|---|---|---|
+| **T13** | CIERRA (y corrigio un numero mio: el archivo pesa 11233 B en main, no 9933) | nada que aplicar: ya en `1e5aedb` |
+| **T12-b** | **REHACER el plan, no implementarlo.** "Reasignar los ids" no puede funcionar: `index.html:426` (raids) va antes que `:442` (strikes), `getElementById` devuelve el PRIMERO, y el strip de Strikes quedaria con **2 botones muertos sin un error en consola** | **NO implementado.** Confirmado el dueño que pidio: `raid-tracker.js` (medido abajo) |
+| **50-D** | **(a'')** barrido en el BORRADO, no en el arranque. Sin contador, sin prefijo nuevo | **APLICADO** |
+| **50-E** | CERRADA — no-op con resultado neto cero, medido con 3 escenarios | no se reabre |
+
+### 50-D implementado: `GW2Api.__cacheDropToken(value)`
+
+`KeyManager.remove(value)` saca la Key de la lista y **no tocaba la cache**: las claves de esa
+cuenta quedaban huerfanas para siempre (nunca se leen, nunca se borran). Con 27 cuentas y
+~4.98 MB medidos, la cuota se llenaba de cuentas ya eliminadas.
+
+- `api-gw2.js`: `cacheDropToken()` — recorre UNA vez, reusa `collectCacheBases()` + `isCacheKey()`
+  (mismo criterio y misma excepcion `CACHE_PRESERVE_PREFIX` que `cacheClear`), y borra solo las
+  claves cuyo **sufijo** sea `:` + `fpToken(value)`. Sin parsear el token.
+- `app.js`: called site en `remove()`, **despues** de `save()`, con `try/catch` (es mejora de cuota,
+  no operacion de la que dependa el estado).
+- El riesgo de `fpToken` (2 tokens con los mismos 4+4 chars comparten clave) queda **escrito en el
+  commit**: se refleta, no se corrompe. NO se rediseña `fpToken` — cambiarlo invalidaria TODAS las
+  claves de cache de todos los usuarios.
+- El boton de `cacheClear` queda como RED.
+
+**Test: 33 pass / 0 FAIL.** Control negativo **medido**: con el fix revertido **28 FAIL**, sin el
+fix 0. La prediccion falsable del Reviewer verificada: el `dryRun` cuenta **13 claves menos** y
+`kept` es **IGUAL** (8 vs 8) — o sea el barrido no toco la lista de cuentas.
+
+**Bug propio que el test atajo**: mi primera version borraba **en vivo** dentro del `for` y por eso
+borro **7 de 13**. Lo correcto (y lo que `cacheClear` hace 30 lineas mas arriba, con un comentario
+que lo dice) es recoger en `doomed` y borrar despues. Es ALERT-140.
+
+### T12-b: por que NO lo implemente
+
+El Reviewer pidio **una confirmacion antes de escribir una linea**, y la condicion es de diseno.
+Medido por mi, contra `origin/main`:
+- **0** referencias a `account/strikes` en `index.html`: la rama del router (`router.js:1600`) es
+  una segunda puerta que en la UI no tiene puerta. Confirma su P2 de T13.
+- `.Route` / `Route.mount` / `Route.unmount`: **0 matches en todo `js/`** (1 en un test).
+  `strike-tracker.js:1256` declara `unmount: deactivate` y **nadie lo lee**: tercera declaracion
+  de ciclo de vida, y contradice a las otras dos. Hallazgo transversal #10, **fuera de alcance**.
+- El plan del Reviewer es *un escritor, dos parejas de botones, ids intactos, guard POR PAREJA*.
+  Es correcto y es lo que hay que hacer — pero el "huerfano por click" (1e) tiene que ir en un
+  **segundo commit**, y eso lo hace un cambio de ~130 lineas con 3 tests a reescribir. No es de
+  este ciclo: el ciclo lo gasto en 50-D, que era el unico veredicto con prediccion falsable.
+
+### T12 (ronda 33) y las otras 3 CUENTA del PO: YA APLICADAS
+
+PASO 3 con el criterio del PO y control negativo (`hb103-cuento-propuestas.mjs`, un criterio
+imposible da 0): **4 CUENTA / 0 CERRADAS** (rondas 34, 33, 19, 16). Las 4 contra `origin/main`:
+
+| ronda | propuesta | estado en main |
+|---|---|---|
+| 34 | T13 latch | aplicada en `1e5aedb` |
+| 33 | T12 toggle duplicado | aplicada en `9c93300`; **T12-b queda abierta** con el veredicto de arriba |
+| 19 | IDEA 64 dos pestanas | aplicada: `_watchOtherTabs()` + `save(fresh)` |
+| 16 | IDEA 63 filtros | aplicada en `3026365` |
+
+**0 propuestas nuevas que mandar.** Van 31 rondas; el desbloqueo del HB#103 (fuente + criterio)
+sigue funcionando: la rama del PO es ahora `po/hb104-dashboard`.
+
+### Suite
+**1315 aserciones / 0 FAIL en 52 de 52** (venia de 1282/51). Con `tools/run-suite.js`, que es el
+unico que corre: `tools/hb105-suite.mjs` **no arranca** (`require` en `.mjs`), esta vez Medido.
+
+### Estado al cierre
+Reviewer **respondido y todo su veredicto aplicado o con motivo**. PO sin tarea. Documentador sin
+tarea (no-fallback). **Nadie en quien esperar.**
+
+### Decisiones que son de Pablo, no mias
+(a) **T12-b**: el plan del Reviewer es correcto pero son ~130 lineas y 3 tests; y el "huerfano por
+click" va aparte. Que lo haga yo en un ciclo propio o que lo mande al PO como tramo.
+(b) la **tercera declaracion de ciclo de vida** (`strike-tracker.js:1256`, `Route` que nadie lee).
+(c) los **33 worktrees** y las ramas remotas ya mergeadas — **`feat-idea49g-ach-acc-compacta`
+(620 lineas) sigue esperando veredicto desde el HB#102**.
+(d) **detener UNA de las dos instancias** (ALERT-119 se cumplio 3 veces en 3 ciclos).
+(e) `agentlink.py`: `close()` no voltea `sent/`, y por eso las VENCIDAS reaparecen cada ciclo.
+(f) **normalizar los 52 tests a un formato de veredicto** y dejar `run-suite.js` como comando unico
+— con 5 formatos vivos, cada heartbeat que escribe su propio runner vuelve a tener ALERT-138.

@@ -3532,3 +3532,76 @@ esta mirando. Pregunta de contrato enviada al Reviewer (archivos `b0121c` + `tas
 
 **El 1 FAIL de la suite es INTENCIONAL y es el tripwire.** Es la primera vez que la suite queda en
 rojo, y queda en rojo porque el defecto existe.
+
+---
+
+# ALERT-140 — un comentario que explica un comportamiento lo HACE inevitable, y el 3er FAIL de un test mio era una premisa mia, no un defecto
+
+**Detectado en HB#109, ciclo de aplicacion del veredicto de IDEA 50-D.** No es una falla de
+codigo: es una sobre mi propio metodo de escribir, y por eso se anota antes de que se vaya.
+
+## 1. Escribi la justificacion del bug, y el bug aparecio
+
+El fix de 50-D es un recorrido que borra claves de `localStorage`. Lo escribi **borrando en vivo**,
+dentro del `for`, con este comentario:
+
+> "se recorren y se BORRAN en vivo, y eso es seguro por una razon que no es obvia: `removeItem`
+> durante el recorrido muta `localStorage.length` y `key(i)`, asi que la clave siguiente se corre a
+> la posicion que ya se leyo. El indice `i` NO se decrementa y por eso la clave corrida se vuelve
+> a visitar en la vuelta siguiente"
+
+Medido: **borro 7 de 13.** Mi razonamiento era un argumento construido para que la conclusion
+fuera la que yo queria, y el numero de CLAVES CORREDAS depende de la posicion de la clave, no de
+que se la vuelva a visitar. El comentario no describia el comportamiento: lo **fijaba**. Y lo
+peor: `cacheClear`, la funcion hermana, lleva un comentario que dice exactamente lo contrario
+("se recopila primero y se borra despues... borrando en vivo se saltean claves") — o sea que la
+prueba estaba **en el archivo, a 30 lineas de distancia**, y no la use.
+
+Corregido: `doomed` primero, borrado despues. 13 de 13.
+
+**REGLA: un comentario que explica por que una cosa es segura es un compromiso.** Si al escribirlo
+sentis que estas justificando en vez de describiendo, el codigo va a hacer lo que dice el
+comentario, porque lo escribiste despues de decidir que era cierto. La unica forma de que un
+comentario no mienta es que la medicion lo haya escrito primero. **Y el costo de este error es
+invisible por construccion**: `lsDel` se traga la excepcion, `removed` cuenta lo que borro, asi
+que el codigo devuelve un numero VERDADERO de un conjunto incompleto. No hay forma de que nadie
+——ni un test, ni Pablo, ni yo— sepa que sobran 6 sin medir la cuenta.
+
+## 2. El numero de FAIL esperado lo anote ANTES, y tambien lo anote mal
+
+ALERT-121 dice: "un mutador se verifica con su numero de FAIL esperado, y ese numero se anota
+ANTES de mutar". Lo hice asi: anote **27**, mute, y dio **28**. Corregido con el numero medido
+(ALERT-105 ya habiamedido y corregido en el ciclo anterior pasado: "el numero de FAIL esperado se anota DESPUES de medir la primera
+vez"). Esta vez la regla estaba escrita y la seguí a medias: segui el **ritmo** (anotar antes) y
+no el **contenido** (medir el numero). Anotar un numero que no conoces sigue siendo inventarlo.
+
+**REGLA: la regla de ALERT-121 es "medir y comparar", no "anotar y comparar".** El orden importa
+para que un control que no funciona se note; el numero, para que el control signifique algo.
+
+## 3. Dos FAIL mas que eran premisas MIAS del test, no defectos del codigo
+
+Los 3 FAIL restantes de la primera corrida eran **mios**, y de la clase que este equipo ya conoce
+(ALERT-133: "consultar la copia y no el original"):
+
+| FAIL | Mi premisa | Realidad medida |
+|---|---|---|
+| "riesgo de `fpToken` solapado" | escribi `...SECRET-A` y `...SECRET-B` y supuse que colisionan | dan `ET-A` vs `ET-B`: **`fpToken` distinto**. El test pasaba a probarlo por un motivo equivocado, y la asercion real (que la clave se borre) no se estaba midiendo |
+| "remove() llama a `__cacheDropToken`" | lei una ventana de **900 caracteres** desde `remove(value)` | la llamada cae **23 lineas** mas alla. El arnes afirmaba sobre una region que no contenia lo que media |
+
+La primera es la mas grave de las dos, y es una clase que ya produjo 4 hallazgos (HB#91 simbolo,
+HB#93 orden lexicografico, HB#93 llamadas en paralelo, HB#103 `main` vs rama): **escribir el valor
+que hace que la prueba pase, sin derivarlo del sujeto**. Un token inventado que "parece" colisionar
+produce un test verde sobre un riesgo que no existe, y uno que no colisiona produce un test rojo
+sobre un riesgo que si existe. En los dos casos el numero es inventado.
+
+**REGLA: un valor de prueba se DERIVA del sujeto o se verifica antes de usarse.** Si un literal
+encarna una propiedad ("este token comparte los 4+4"), esa propiedad se asienta como
+precondicional ANTES de la asercion que depende de ella. Anadio: `fp(TOKEN_A) === fp(TOKEN_A2)` y
+`fp(TOKEN_A) !== fp(TOKEN_B)`. Un FAIL cuyo sujeto es un literal inventado se corrige en el
+literal, y el motivo se escribe — porque en 3 meses el FAIL va a volver y el que lo lea no va a
+saber si el codigo rompio o el test miento.
+
+**Nota de honestidad del ciclo:** los 6 FAIL iniciales NO eran 6 problemas del codigo. Uno si
+(`removeItem` en vivo), dos eran premisas del arnes, y tres de ellos los produje yo al contar
+aserciones a mano. **3 de 6 FAIL eran errores mios, y el que mas tiempo costo fue el que mas
+confianza me daba** (el comentario, que estaba en mi propio archivo y en la funcion hermana).

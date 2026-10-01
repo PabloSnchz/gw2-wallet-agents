@@ -932,6 +932,24 @@
       this.save(fresh => fresh.filter(k => k.value !== value));
       this.refreshSelects();
 
+      // IDEA 50-D (a''): la cache de la cuenta que se borra se va CON ella.
+      // Antes se quedaba para siempre: el token ya no esta en ninguna parte, asi
+      // que sus claves nunca se leian y nunca se borraban — con 27 cuentas y
+      // ~4.98 MB medidos, la cuota se llenaba de cuentas que Pablo ya elimino y
+      // a partir de ahi cada escritura fallaba por cuota.
+      //
+      // Va DESPUES de `save()`, no antes, por una razon que es de orden y no de
+      // estilo: `save()` es el unico que puede no-op (la cuenta ya no estaba) y
+      // en ese caso el token tampoco es de una cuenta que quede viva, asi que
+      // borrar su cache es lo mismo. Lo que NO se puede es borrar la cache de
+      // una cuenta que sobrevive, y por eso se pasa `value` —el token exacto que
+      // se acaba de quitar de la lista— y no "la cuenta seleccionada".
+      //
+      // `try/catch` porque es una mejora de cuota, no una operacion de la que
+      // dependa el estado de la app: si localStorage no esta (modo privado), la
+      // cuenta se borro igual.
+      try { window.GW2Api?.__cacheDropToken?.(value); } catch (_) {}
+
       if (this.selected === value) {
         const next = this.list[0]?.value || null;
         this.setSelected(next);

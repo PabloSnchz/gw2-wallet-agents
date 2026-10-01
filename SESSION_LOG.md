@@ -2947,3 +2947,46 @@ Gist ya correcto al lado, o sea con el patron de la casa como respuesta.
 - **Suite 1280 pass / 1 FAIL en 51/51.** El FAIL es el tripwire de T13, intencional.
 - **ALERT-132 por 3a vez:** 3 de las 5 propuestas del PO ya estan aplicadas (T12, IDEA 63, IDEA 50b), verificado con `merge-base --is-ancestor`.
 - Sin push a produccion. Sin merge a `gw2-prod`.
+
+## HB#109 — ~20:0x UTC — 50-D (el barrido en el borrado de cuenta) aplicado; T12-b quedó con plan rehecho
+
+**Qué se hizo.** Veredicto del Code-Reviewer de 3 items recibido y aplicado: 50-D implementado
+como variante (a''), 50-E cerrada, T13 ya estaba. `GW2Api.__cacheDropToken(value)` borra las claves
+de cache de la cuenta que Pablo borra, reusando el registro y el filtro de `cacheClear`, sin
+contador y sin prefijo nuevo. Suite 1315 aserciones / 0 FAIL en 52 de 52, con control negativo
+medido (28 FAIL con el fix revertido).
+
+**Qué se rompió (mío, y está anotado como ALERT-140).** La primera versión borraba en vivo dentro
+del `for` y por eso borraba 7 de 13 claves: mi comentario explicaba por qué eso era seguro, y al
+escribir la explicación la dejé como comportamiento. De los 6 FAIL iniciales, 3 eran premisas mías
+del test (dos tokens que supuse que compartían `fpToken` y no lo hacen; una ventana de 900
+caracteres que no llegaba a la línea del call site) y 1 era el número de FAIL esperado, anotado
+antes de mutar como manda ALERT-121 y anotado mal.
+
+**Qué quedó pendiente.** T12-b: el Reviewer pidió confirmar el dueño antes de escribir una línea.
+Confirmado con medición (`raid-tracker.js`; 0 referencias a `account/strikes` en `index.html`;
+`.Route` sin readers en `js/`), pero la implementación son ~130 líneas y 3 tests a reescribir, más
+un segundo commit para el huérfano por click. No es de este ciclo.
+Pendientes de ciclos anteriores que siguen abiertos: la puerta de permisos (commit 2 de 2),
+`feat-idea49g-ach-acc-compacta` esperando veredicto desde el HB#102, la tercera declaración de
+ciclo de vida muerta en `strike-tracker.js:1256`, y `agentlink.py` (`close()` no voltea `sent/`).
+
+**Qué se decidió entre nosotros.** Nada de fondo: el Reviewer: sus decisiones fueron 50-D como
+(a''), 50-E cerrada, y "T12-b no como la propusiste". Todo lo demás sigue siendo de Pablo.
+
+### Fe de erratas — HB#109 (2 caracteres corruptos en la entrada de arriba)
+
+En la entrada anterior de HB#109, la frase "el Reviewertomas fueron" lleva 2 caracteres CJK de mas
+(2 caracteres CJK de mas, que ya no estan aqui), y ya estan escritos en `SESSION_LOG.md`. No se corrige en el sitio porque el archivo
+es append-only y reescribirlo truncaria el historial (la regla de HB#105: un archivo que los ciclos
+anteriores crecen es un archivo al que se AGREGA).
+
+**El texto correcto es:** "el Reviewertomas fueron fueron 50-D como (a''), 50-E cerrada, y 'T12-b no
+como la propusiste'". O sea: **las decisiones del Reviewer fueron 50-D como (a''), 50-E cerrada, y
+'T12-b no como la propusiste'.**
+
+**REGLA, y es la segunda vez en el ciclo (ALERT-140 §3):** los caracteres CJK se cuelan al escribir
+en UTF-8 con una herramienta que no los muestra. La deteccion es un script que cuenta bytes en
+`0x2E80..0xFFFD` sobre el archivo — y hay que correrlo **ANTES** del append, porque despues el
+caracter ya esta en el log y "arreglarlo" significa growing el archivo otra vez. `tools/probe-cjk.mjs`
+ya existe para esto; hoy lo hice con un one-liner y con el otro me acordaba al ver la salida.

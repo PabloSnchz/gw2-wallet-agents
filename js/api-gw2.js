@@ -1909,6 +1909,79 @@
              memCleared: memCleared, dryRun: dryRun };
   }
 
+  // IDEA 50-D (a''): el BARRIDO EN EL BORRADO, no en el arranque.
+  //
+  // EL DEFECTO que cierra: `KeyManager.remove(value)` saca la Key de la lista
+  // y no toca la cache. Las claves de esa cuenta quedan huerfanas PARA SIEMPRE:
+  // nunca se leen (el token ya no esta en ninguna parte) y nunca se borran. Con
+  // 27 cuentas y ~4.98 MB medidos, la cuota se llena con datos de cuentas que
+  // Pablo ya elimino, y a partir de ahi cada `setItem` falla por cuota.
+  //
+  // POR QUE ESTA ACA Y NO EN UN ARRANQUE: la variante (b) —barrer al arrancar
+  // todas las claves cuyo token no este en la lista de cuentas— tiene un modo
+  // de fallo que esta no tiene: si la lectura de la lista falla, o corre antes
+  // de la migracion `gn:`/legacy, el conjunto de tokens validos sale VACIO y el
+  // barrido se come TODA la cache. Aqui no hay ninguna lectura que pueda fallar:
+  // el token que se esta borrando esta en la mano, en el call site.
+  //
+  // POR QUE NO HAY UN CONTADOR DE CUENTAS: un numero guardado mete un prefijo
+  // `gn:` nuevo y una desync posible —si alguien edita localStorage a mano, "el
+  // numero cambio" dispara un barrido que no corresponde—. El hecho del que se
+  // dispone es el TOKEN, y no necesita persistir para ser correcto.
+  //
+  // COMO SE RECONOCE LA CLAVE DE ESA CUENTA, sin parsear el token:
+  //   `fpToken` = `t.slice(0,4) + '…' + t.slice(-4)`  (:535)  ->  9 caracteres
+  //   `kLS`     = `base + ':' + fpToken(token)`      (:538)
+  // O sea que el sufijo basta, y las claves SIN token (`currencies_all`,
+  // `ach_meta_v3:*`, `items_cache_v1`, `commerce_prices`, `commerce_listings`)
+  // no tienen esa forma: no se tocan. El filtro `isCacheKey` es el MISMO que usa
+  // `cacheClear`, asi que el alcance se respeta: lo que no es cache no se come,
+  // ni la lista de cuentas, ni `CACHE_PRESERVE_PREFIX` (`wv:season:*`), ni el
+  // tema.
+  //
+  // RIESGO REAL, ESCRITO A PROPOSITO: dos tokens que coincidan en los primeros
+  // 4 y los ultimos 4 caracteres COMPARTEN clave de cache, porque `fpToken` no
+  // mira nada mas. Con tokens de ArenaNet (GUID aleatorios) es despreciable; si
+  // pasara, borrar una cuenta borra la cache de la otra: se refleta, no se
+  // corrompe. NO se rediseña `fpToken` en este tramo — cambiarlo es invalidar
+  // TODAS las claves de cache de todos los usuarios.
+  //
+  // El boton de `cacheClear` (settings-manager.js v1.0.3) queda como RED: si
+  // este barrido no corrio (una cuenta borrada antes de esta version), el boton
+  // sigue liberando.
+  function cacheDropToken(token) {
+    var removed = 0, kept = 0;
+    if (!token) return { removed: 0, kept: 0 };
+    var sufijo = ':' + fpToken(token);
+    try {
+      // Las bases se colectan UNA vez (mismo criterio y misma excepcion de
+      // preservado que `cacheClear`).
+      //
+      // Se RECOGE primero y se BORRA despues, y no es una copia inutil de
+      // `cacheClear`: es su misma trampa. `removeItem` durante el recorrido muta
+      // `localStorage.length` y `key(i)`, de modo que la clave siguiente se
+      // corre a la posicion que ya se leyo y `i++` la SALTA. Con las 13 bases
+      // de una cuenta eso son 7 borradas de 13, en silencio y sin error: el
+      // numero que devuelve el codigo es el numero que borro, asi que el fallo
+      // no se ve ni en la pantalla ni en la consola. (Medido: asi daba 7.)
+      var bases = collectCacheBases();
+      var doomed = [];
+      var before = localStorage.length;
+      for (var i = 0; i < before; i++) {
+        var k = localStorage.key(i);
+        if (!isCacheKey(k, bases)) { kept++; continue; }
+        // El sufijo se compara por COLA, no con `indexOf`: la clave de una
+        // cuenta es `<base>:<fpToken>`, y lo que define la pertenencia es que
+        // termine ASI. Un `indexOf` en cualquier parte aceptaria una clave que
+        // lo tuviera en el medio, que no es la forma que escribe `kLS`.
+        if (String(k).slice(-sufijo.length) !== sufijo) { kept++; continue; }
+        doomed.push(k);
+      }
+      for (var d = 0; d < doomed.length; d++) { lsDel(doomed[d]); removed++; }
+    } catch (_) { /* localStorage puede no existir (modo privado): no es un error */ }
+    return { removed: removed, kept: kept };
+  }
+
   // ========================================================================
   // API pública
   // ========================================================================
@@ -1981,6 +2054,7 @@
       setPoolMax: function (n) { var x = +n; if (isFinite(x) && x >= 1 && x <= 20) { CFG.POOL_MAX = x|0; poolPump(); } }
     },
     __cacheClear: cacheClear,
+    __cacheDropToken: cacheDropToken,
     __cacheStats: cacheStats,
     __cacheBases: cacheBases,
     __indexArrayByKey: indexArrayByKey
