@@ -1794,3 +1794,64 @@ ya arma el sandbox con `document` falso. Asertar el registro son **3 lineas mas*
 - `inbox` vacio, sin preguntas esperando a `default`, sin respuestas nuevas.
 - `overdue` reporta 1 vencida (fila 060, boton de cache) y es **FALSA por
   estructura**: esta resuelta y mergeada en `950ea64`.
+
+
+## Heartbeat #78 (04:30 UTC) — la gn: de la pestana Raids/Strikes ya tiene escritor, y la premisa de la fila 079 era FALSA
+
+### Lo que se hizo
+- **Fix + test en la rama `hb78-raid-raws` (commit `f9239d7`), sobre un worktree
+  propio.** No se toco el clon compartido, que tiene una segunda instancia
+  escribiendo encima (ver ALERTS).
+- `js/raid-tracker.js`: la preferencia de la pestana se lee y se escribe por
+  `STORAGE_KEYS.RAIDS_STRIKE_VIEW` (`gn:raids:strike:view`), no por la legacy a
+  pelo. Antes la gn: la escribia solo la migracion del arranque y quedaba
+  CONGELADA con la foto de la primera sesion: es un dual-write sin espejo, la
+  clase que la Idea 61 seccion 6 prohibe.
+- **Guard de valores validos en la lectura.** No es cosmetico: `setActiveView`
+  abre Strikes en su rama `else`, asi que cualquier valor persistido que no fuera
+  exactamente `'raids'` abria Strikes solo. 9 casos medidos.
+- La legacy queda como lo que ya era: el `FALLBACK_MAP` de la gn:. Una
+  instalacion vieja no pierde la pestana (verificado).
+
+### La premisa que resulto FALSA (fila 079)
+`raid-tracker.js:891` lee `gw2_selected_key_v1` a pelo y la fila lo marcaba
+como "rompe en escenario Gist-nuevo". **Medido falso:** esa clave SI esta en
+`MIRROR_MAP` (`storage.js:211`) y `Storage.getRaw` lee el espejo PRIMERO por
+diseno, asi que el acceso a pelo y `Storage` devuelven lo mismo.
+`app.js:32-37` lo deja escrito. Arreglarlo habria sido tocar 4 lineas de
+4 modulos para no cambiar nada. **La asercion que lo deja escrito esta en el
+test, seccion 4** — si alguien cambia los mapas, el test se pone rojo.
+
+### Estado de propuestas
+- **Reviewer, fila 081 (`viewPref()`): APROBADO CON CAMBIOS** — el helper es
+  OPCIONAL y no se implementa. Descartado, con la consecuencia anotada: la tab
+  del conversor no puede vivir en `gw2_conv_cache_v3` porque ese cache expira a
+  los 30 min (CONV_TTL).
+- **PO, ronda 23: SIN NOVEDADES**, y no la forzaron. Cierre asimetrico de las 2
+  claves: `gn:raids:strike:view` **no era huerfana** (este fix la rescata como
+  efecto secundario, sin helper y sin una linea nueva) y `gn:converter:state`
+  **no se implementa nunca**.
+- **PO: un hallazgo mas.** `wv-shop-ui.js:222/228` escribe 2 preferencias a
+  pelo (`gw2_wv_view_v1`, `gw2_wv_legacy_filter_v1`) mientras `router.js:257/258`
+  usa `Storage` sobre las mismas. Misma preferencia, 2 escritores, tampoco en
+  `MIRROR_MAP`. **Es scope en un fix ya autorizado: queda anotado, no tocado.**
+- **Reviewer, auditoria del commit `9fa3986` (fila 082): APROBADO CON CAMBIOS.**
+  No es de este ciclo, pero es el trabajo de la otra instancia y quedo en sus
+  manos: sacar `app.js:1067` (codigo muerto medido, 0 de 9 casos difieren y solo
+  puede degradar la clasificacion).
+
+### Verificacion del ciclo
+- Suite completa: **1029 aserciones / 0 FAIL, 36 de 36 archivos.**
+- Test nuevo: 25/0. **Mutaciones: 4 de 4 mueren** (M1 lectura a la legacy, M2 sin
+  guard, M3 escritura a la legacy, M4 guard laxo). El archivo quedo identico al
+  commit al terminar.
+- Newlines: `js/raid-tracker.js` ya era LF en git antes del cambio (CRLF=0 en
+  `HEAD~1`), asi que el fix no metio LF donde habia CRLF. Medido, no supuesto.
+- Worktree: `C:\Mis Archivos\GW2 online\gw2-dev-hb78`.
+
+### Pendiente
+- `9fa3986` (rama `fix-hb77-puerta-llega`) **sigue sin mergear** y es trabajo de
+  la otra instancia. No se mergea desde aca: mergear una rama en vuelo es la
+  lesson de `f739e21`.
+- Las 2 ramas remotas mergeadas sin borrar (`ALERT-99`) siguen sin borrar: es
+  destructivo y una es del PO, que puede tener su propio clon.

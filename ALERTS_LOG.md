@@ -1298,3 +1298,47 @@ open(p,'rb').read() == subprocess.run(['git','show','HEAD:'+p],capture_output=Tr
 con `autocrlf` es consistente con un archivo reescrito entero. Y un `assert` que
 falla porque el needle no matchea es una senal de que el archivo cambio de forma,
 no solo de contenido: leer ahi antes de suspectar del needle.
+
+
+### ALERT-101 - la gn: de una preferencia se escribia una vez y se congelaba: no habia lector, y por eso no se veia
+
+**MEDIDO (`tools/hb78-censo-claves.js`; ojo: `tools/` esta en `.gitignore`, asi
+que el script es local y no se puede correr desde el repo — hay que rehacerlo):**
+`raid_strike_view` aparece en 2
+lineas de `raid-tracker.js` y en 2 de `storage.js`
+(`MIGRATION_PREFIXES:122`, `FALLBACK_MAP:180`). **No esta en `MIRROR_MAP`**
+(`:209-214`, 4 entradas, ninguna de raids). O sea: la migracion la escribia UNA
+vez, en el arranque, y el modulo seguia escribiendo la legacy a pelo. La gn: queda
+congelada con la foto de la primera sesion para siempre.
+
+**Por que no se nota:** porque no hay NINGUN lector fuera de `storage.js`
+(contado en el test, seccion 5). Un dual-write sin espejo se comporta bien y por
+eso nadie lo reporto. Lo dangerouso es hacia adelante: el primer lector que se
+agregue recibe un valor viejo, y no hay forma de saber por que.
+
+**Corregido** en `f9239d7`. Lo que se aprende: "esta en `MIGRATION_PREFIXES` y
+en `FALLBACK_MAP`" **no** es lo mismo que "esta en `MIRROR_MAP`". Los tres mapas
+garantizan cosas distintas, y solo `MIRROR_MAP` escribe las dos. El propio codigo
+lo dice en `storage.js:416`: *"para las claves de `MIRROR_MAP` eso es exactamente
+la condicion de congelacion"*. La condicion estaba escrita y se citaba con el
+nombre del mapa equivocado. **Citar un mapa sin decir cual es una categoria, no
+una cita.**
+
+### ALERT-102 - una premisa heredada del PO traveled 3 documentos antes de que alguien la midiera
+
+La ronda 20 afirmo que `gn:raids:strike:view` y `gn:converter:state` estaban "en
+`MIRROR_MAP` en las dos direcciones". **Falso**, y el PO lo corrigio el mismo en
+que se lo pregunte. El error viajo de `PRE_BACKLOG` a `DASHBOARD_PO_IDEAS` a la
+fila 081 de `COMMS_LOG`, donde el Reviewer lo trato como-premise a corregir, y a
+la fila 079, donde became la justificacion de un "fix de 3 lineas" que incluia
+arreglar `raid-tracker.js:891`.
+
+**Lo que salio de medirla (y era al reves):** la clave que NO esta en
+`MIRROR_MAP` (`raid_strike_view`) es la que TIENE el bug real. La que SI esta
+(`gw2_selected_key_v1`) no lo tiene: alli el acceso a pelo y `Storage` devuelven
+lo mismo porque el espejo se lee primero. O sea que el fix "de 3 lineas" iba a
+cambiar 2 lineas a Useful y 1 a la nada.
+
+**REGLA:** una premisa que se cita por nombre de clave y por numero de mapa es
+una cita, y se mide antes de actuar. Un nombre de clave sin mapa no dice nada, y
+un numero de mapa sin midirlo puede ser de otro mapa.
