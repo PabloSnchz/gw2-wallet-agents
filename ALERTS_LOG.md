@@ -1,3 +1,57 @@
+## ALERT-91 - Un assert que AFIRMA un defecto es una foto, no una red (HB#72)
+
+**El assert mas peligroso que escribi, y no por lo que afirmaba sino por lo que
+hacia.** En `tests/idea64-dos-pestanas.test.js` §6, el ultimo assert decia:
+
+    ok(/localStorage\.getItem\(...'gw2_keys'/.test(ap),
+       'accounts-panel.js LEE la legacy a pelo (no por Storage): es el LECTOR CRUDO',
+       'ya lee por Storage: el alcance de esta idea cambio');
+
+Dos fallos, independientes, y el segundo es el que lo hacia verde:
+
+**(1) AFIRMABA EL BUG EN VEZ DE FORBIDIRLO.** La condicion es "existe el lector
+crudo", y el mensaje lo nombra. Solo puede pasar mientras el bug exista. El dia
+que se arregla, la red se apaga — que es exactamente lo que paso: el fix del
+mismo heartbeat lo dejo pasando. Un assert que describe un defecto es una FOTO
+del defecto, y una foto no avisa cuando el defecto se va.
+
+**(2) NO ESTABA ACOTADO, Y MATCHEABA LA PROSA.** El unico match del regex en
+todo `accounts-panel.js` es la **linea 170: el comentario que describe el
+fix**. Medido antes de concluirlo (probe sobre el archivo real, no sobre el
+diff): el assert dio **PASS con el fix PUESTO**. La red que debia cazar el bug
+era la unica cosa que hacia que pasara.
+
+Es el mismo modo de falla que el propio test ya habia corregido para `save()` —
+su cabecera dice textualmente *"los asserts estan acotados al CUERPO del metodo,
+no al archivo: el bloque de comentario de T1 menciona literalmente `save()` y
+`this.list`, asi que un regex sin acotar matchearia la prosa y pasaria por
+construccion"* — y que **no aplico 20 lineas mas abajo**, en el mismo archivo.
+
+**Y ACOTAR AL CUERPO NO ALCANZA**, que es lo que se midio en la segunda vuelta:
+el comentario del fix vive DENTRO de la funcion, tres lineas despues del `try {`.
+Con el fix puesto, el assert acotado al cuerpo seguia dando **1 FAIL**. Los
+asserts de la seccion 6 corren ahora sobre `cuerpoSinComentarios()`, un
+stripper de comentarios. El limitacion es DECLARADA y medida: no es un parser
+de JS; en `accounts-panel.js` hay 71 lineas con `//`, 10 backticks y **0
+backticks pegadas a `//`**.
+
+**REGLA (mas general que este caso): un regex que nombra un patron de codigo
+matchea tambien la FRASE que nombra ese patron.** Hay tres consecuencias, y las
+tres aplican a cualquier assert de este repo:
+
+1. Un assert de CODIGO tiene que ser ciego a la PROSA (strip, o acotar a donde
+   el codigo vive Y quitar comentarios).
+2. Un assert tiene que afirmar el **INVARIANTE**, no el defecto. La pregunta que
+   decide el signo es "que quiero que siga siendo cierto manana", no "que quiero
+   ver hoy".
+3. Cuando arreglas el bug que el assert nominaba, **el assert hay que cambiarlo en
+   el mismo commit**. Si no, el fix se desactiva la red que lo justificaba.
+
+**Corolario sobre el fixture:** el literal `localStorage.getItem('gw2_keys')`
+queda **a proposito** en el comentario del fix, justamente para que el helper siga
+siendo lo que sostiene el assert. Borrarlo dejaria el test verde y el helper sin
+probar. Es el opposite de "limpiar el comentario": aqui la prosa es el test.
+
 ## ALERT-82 — un titulo es un ALCANCE, y medir sin leer el texto produce una alarma de magnitud equivocada
 
 **Fecha:** 2026-09-30 (HB#68)

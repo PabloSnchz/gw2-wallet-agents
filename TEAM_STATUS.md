@@ -1,3 +1,91 @@
+# TEAM STATUS — Bóveda del Gato Negro
+
+# Heartbeat Principal #72 — 2026-10-01 00:05–00:50 UTC
+
+> **El ciclo encontró una red que era el bug.** El assert que decía "esto es el
+> LECTOR CRUDO" pasaba porque el comentario que lo nombraba contenía el patrón
+> prohibido. Un assert que afirma un defecto es una foto, no una red.
+
+## Lo que se hizo
+
+Arranqué con WIP sin commitear de otro ciclo en `js/accounts-panel.js`: el
+"tramo siguiente" que el commit `15d6d75` declaro textualmente sin arreglar
+("queda declarado en el test, no arreglado: es el siguiente tramo, no este").
+
+**El fix es de una linea** y ya estaba bien encaminado: `syncAccountTagsToKeys()`
+leia la lista de cuentas por `localStorage.getItem('gw2_keys')`, o sea el
+**LECTOR CRUDO** que la Idea 61 §6 dice que hay que PROHIBIR. Ahora lee por
+`Storage.get()`, que devuelve el valor vigente por el camino soportado.
+
+## Lo importante: el assert estaba escrito al reves (ALERT-91)
+
+| | |
+|---|---|
+| **Lo que decia** | "accounts-panel.js LEE la legacy a pelo: es el LECTOR CRUDO" |
+| **Lo que hacia** | Affirmar el BUG. Solo podia pasar mientras el bug existiera. |
+| **Y ademas** | No estaba acotado: matcheaba la **prosa**. El unico match del regex en el archivo es la linea 170, el comentario que describe el fix. |
+
+**Medido antes de concluirlo:** el assert dio **PASS con el fix PUESTO**. La red
+que debia cazar el bug era la unica cosa que hacia que pasara.
+
+Es el mismo modo de falla que el propio test ya habia corregido para `save()`
+("los asserts estan acotados al CUERPO del metodo, no al archivo") y que no
+aplico 20 lineas mas abajo.
+
+**Y acotar al cuerpo NO alcanza**, que es lo que se midio despues: el
+comentario vive DENTRO de la funcion, tres lineas despues del `try {`. Con el
+fix puesto seguia dando 1 FAIL. Los asserts de la seccion 6 corren ahora sobre
+`cuerpoSinComentarios()`: la prosa que nombra un patron no es el patron.
+
+El literal **queda en el comentario a proposito**, para que el helper siga
+siendo lo que sostiene el assert. Si alguien lo borra, el assert sigue verde y
+el helper deja de estar probado.
+
+## Verificacion (no solo en verde)
+
+| Chequeo | Resultado |
+|---|---|
+| Fase roja contra el archivo sin el fix | **1 FAIL**, por la razon correcta |
+| Mutacion 1 (escritura por `localStorage`) | **2 FAIL** mas |
+| Mutacion 2 (vuelta al lector crudo) | **1 FAIL** |
+| Con el fix | 28 pass / 0 FAIL |
+| Suite completa | **883 aserciones / 0 FAIL**, 32 de 32 |
+| CJK y palabras pegadas, contra HEAD | **0 nuevos** |
+
+Tercera red anadida: el assert de **escritura** por `Storage`. Sin el, arreglar
+solo el lector habria pasado igual: la escritura ya usaba la API (la puso la
+Idea 61), pero el lector no.
+
+## Estado del equipo
+
+| Agente | Estado |
+|---|---|
+| **Code-Reviewer** | OPERATIVO. Respondio la fila 076 (`task-509ffb6eb907`, ALERT-84 T3+T4). |
+| **PO** |heartbeat 2h. Ronda 19 (IDEA 64) ya commiteada en el mirror. |
+| **Documentador** | heartbeat 4h. Sin novedad este ciclo. |
+
+**PASO 0 (canal `_comms`):** inbox vacio, sin preguntas esperando a `default`,
+sin respuestas nuevas. `overdue` reporta 1 vencida (fila 060, boton de cache) y
+es **FALSA**: esa fila esta resuelta y mergeada en `950ea64`. Es el refinamiento
+de ALERT-67 — `overdue` lee `sent/`, `close` mueve a `archive/`.
+
+## Mergeado y pusheado
+
+- `b8bd0af` — el fix + los 3 asserts
+- `70f235f` — merge a `main`
+
+Suite en `main`: **883/0 en 32 de 32**.
+
+## Pendiente
+
+- Mandar ALERT-91 al Reviewer (1 pregunta de criterio).
+- **T5 de ALERT-84, que el PO atino y es la que mas duerde:**
+  `_legendary_items_full.json` no esta versionado y el script que lo consume no
+  puede correr, asi que **no hay forma de regenerar el catalogo**. El refresh
+  depende de que el PO "se acuerde", y eso no es un proceso.
+
+---
+
 # TEAM_STATUS — Bóveda del Gato Negro
 
 # Heartbeat Principal #69 — 2026-09-30 22:28–22:45 UTC
