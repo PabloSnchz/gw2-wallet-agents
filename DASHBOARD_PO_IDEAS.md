@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T06:00:00Z (Heartbeat PO ronda 24 — 🔴 T6: el mensaje de la puerta de permisos ya no es incorrecto, ahora es largo de mas y uno de sus 3 destinos es un toast de 2500 ms; 🟡 el nombre de la cuenta en accounts-panel.js cambia la vista en vez de expandir)
+> Actualizado: 2026-10-01T07:00:00Z (Heartbeat PO ronda 25 — 🔴 **T7: `{ttl: 0}` es inalcanzable** (`app.js:215` `Number(opts.ttl || 3500)`): los 2 toasts que piden permanencia viven 3500 ms, y el fix del HB80 `585367d` no logró lo que su propio test afirma · 🟢 los toasts que nacen dentro de un `.modal` son **5, no 3** — el fix de z-index `b1fe9e7` los cierra juntos y **no está mergeado**)
 > Mantenedor: PO (product-owner)
 
 
@@ -554,6 +554,7 @@ Si el body de `/v2/account/raids` fuera `progress:[{id,cm,li}]` (objeto, no arra
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
 | 🔴 **0** | **IDEA 65 (ronda 22): 3 escritores de la lista de cuentas, 1 con candado.** La puerta de permisos (`ea10e9b`) solo protege `addOrUpdate`. `settings-manager.js:252 importApiKeys()` escribe `ACCOUNT_KEYS` a disco sin mirar un permiso, y es lo que usan **el restore de archivo y el Gist**; `accounts-panel.js:197` es el tercer escritor. `validateImportData` chequea versión y `app`, no keys. Con una key de 2 permisos restaurada, **los 14 módulos quedan vacíos sin un solo mensaje** y Suerte muestra `0%` | 🟡 ~1 h (T2) | **Abierta — T2 va al Reviewer** | Inmediato |
+| 🔴 **0.1** | **T7 (ronda 25): `{ttl: 0}` es inalcanzable.** `app.js:215` resuelve `Number(opts.ttl || 3500)`, y `0` es falsy: los **2** call sites que piden permanencia (`app.js:634` "Cargando wallet" y `app.js:1180` el mensaje de la puerta) **viven 3500 ms**. El fix del HB80 (`585367d`) movió la política de 2500 → 3500. Los 11 asserts de `tests/hb80-toast-permanencia.test.js` **pasan igual**: el assert 2 evalúa el literal del call site y el assert 4 **exige** que exista el `\|\|` que rompe el cero — ninguno compone las dos líneas | 🟢 **1 línea + 1 assert** | **Abierta — es la premisa del HB80** | Inmediato |
 | 🔴 **0.2** | **T2-mini: el contador del modal** ("27 cuentas · 3 con permisos incompletos") | 🟢 ~20 min | **Abierta** | Con T2 |
 | 🔴 **0.3** | **Copy `app.js:683`: `unlocks` nombra "glifos" y ese módulo es CÓDIGO MUERTO** (`homestead-tracker.js`, Idea 44, decimoquinto heartbeat en 0%). Error propio, introducido en el copy de la ronda 21 | 🟢 **1 línea** | **Abierta** | Inmediato |
 | 🟢 **0.5** | **T4: el import dice cuántas de las N llegaron sin los 7** | 🟢 ~15 min | **Abierta — toca el import ⇒ Reviewer** | Con T2 |
@@ -986,6 +987,85 @@ instancia: **no lo toco** (ALERT-43/59). Todo medido con `git show origin/main:`
    356 chars sobre un mensaje que **nunca llegaba** — el numero era correcto y la superficie, inventada. Al
    arreglar el arriving, la lectura paso a ser el bug, y nadie lo habia medido porque la medicion era valida solo
    para el codigo viejo.
+
+---
+
+## ACTUALIZACION 2026-10-01 07:00 UTC — Heartbeat PO ronda 25 — 🔴 T7: `{ttl: 0}` no existe, y el fix del HB80 no hizo lo que su test dice
+
+> **Espejo de la ronda 25 del PO.** Detalle largo en `PRE_BACKLOG.md` (privado). Esta ronda
+> **no abre idea ni tramo de feature** (23 de 23 rondas de research sin novedad): su producto es
+> **la lista de casos de una clase de defecto que pidió el Principal**, con número por caso.
+
+### (a) PRE_BACKLOG: **sin novedades.** La última escritura era la ronda 24.
+
+### (b) La clase "el mensaje se arma bien y no se ve / se va antes de tiempo": **hay más casos, y el peor es que el fix del HB80 no logra lo que afirma**
+
+#### 🔴 T7 — `{ttl: 0}` es inalcanzable (`app.js:215`)
+
+```js
+app.js:215   const ttl = Number(opts.ttl || 3500);
+app.js:216   const timer = ttl>0 ? setTimeout(close, ttl) : null;
+```
+
+**Componiendo las dos líneas con node** (no leyéndolas): `{ttl: 0}` → **ttl 3500, timer armado**.
+
+| call site | pide | vive | nota |
+|---|---|---|---|
+| `app.js:634` | `{ttl: 0}` | **3500 ms** | el comentario en `:633` dice *"Propuesta 9: toast persistente (ttl:0)"* |
+| `app.js:1180` | `{ttl: 0}` | **3500 ms** | el mensaje de la puerta de permisos (364 chars) |
+
+**El fix del HB80 (`585367d`) cambió la política de 2500 ms a 3500 ms.** No sacó el mensaje del reloj: lo corrió más lento. Y **los 11 asserts de `tests/hb80-toast-permanencia.test.js` pasan igual**, porque:
+
+- el **assert 2** evalúa la expresión de `ttl` **del call site** (`{ttl: 0}` → `0`) y asegura `ttl === 0` — no mira qué pasa adentro de `toast()`;
+- el **assert 4** exige que exista `/opts\.ttl\s*\|\|\s*(\d+)/`, con el comentario *"el ttl por defecto sigue siendo un número finito: el 0 no debe colarse"*. **El `||` que rompe el cero es parte del contrato que el test defiende.**
+
+Ningún test de la suite puede encontrarlo: la verdad está **entre** las dos líneas, y cada assert mira una de las dos.
+
+**🟢 Tramo T7 (1 línea):** `opts.ttl === undefined ? 3500 : Number(opts.ttl)`. Habilita los 2 sites y no cambia los **65** call sites que pasan `ttl:` numérico. **El assert 4 hay que cambiarlo**, porque hoy exige la forma que causa el bug.
+
+**Latente, mismo defecto:** `toast.legacy` (`app.js:221`, `ms||2500`), 4 callers en `meta.js`, ninguno pasa 0 hoy → no es un caso, es la misma bomba para el día que alguien quiera un toast persistente de Meta.
+
+#### 🟢 Los toasts que nacen dentro de un `.modal` son **5, no 3**
+
+Hay **4 superficies `.modal`**, todas en `z-index:10000` (`main.css:483`): `#keysModal` (`index.html:822`), `#gistSyncModal` (`:863`), `#guideModal` (`:1393`) y **`#themeModal`, que se crea por JS** (`theme-selector.js:88`, abierto en `:200`).
+
+| # | call site | mensaje | ttl | |
+|---|---|---|---|---|
+| 1 | `app.js:854` | Key guardada | 1400 | ya visto |
+| 2 | `app.js:1038` | API Key copiada | 1500 | ya visto |
+| 3 | `app.js:1180` | mensaje de la puerta | 0→3500 | ya visto |
+| 4 | **`app.js:1119`** | **"Formato de API key inválido"** | **2500** | **faltaba** |
+| 5 | **`gist-sync.js:454`** | **"Configuración sincronizada correctamente"** | **2000** | **faltaba** |
+
+`#guideModal` y `#themeModal` no disparan toasts. Los 6 de `settings-manager.js` no son caso: viven en el panel de Ajustes, que no es `.modal`, y varios pasan antes por un `confirm()` nativo.
+
+**El fix de z-index cierra la familia entera, no caso por caso:** `hb81-wt` @ `b1fe9e7` (rama `hb81-ciclo`) sube `.toasts` a `10001` en las dos declaraciones de `main.css` (`:457` y `:668`) y **saca** el `z-index:60` de `theme-polish.css:133`, que ganaba por orden de carga. Medí los 22 `z-index` del repo: **10000 es el máximo aparte del propio host**, así que no queda superficie que lo tape.
+
+⚠️ **`b1fe9e7` NO está en `origin/main`** (que está en `d970995`). Mientras no mergee, los 5 toasts están invisibles. No propongo promover a `origin`.
+
+#### Superficies de estado que se limpien solas: **1 caso, y ningún timer largo**
+
+Censo de `setTimeout` con delay **≥ 1000 ms** en `js/`: **1** (`wv-purchase-detail.js:2201`, un poller). **Ninguna superficie de estado se limpia sola con reloj largo.** Las que sí: `app.js:180` y `converter-modal.js:120` (micro-anim `markUpdated`, 220 ms, intencionales) y **`activities.js:713`, que saca el `.btn--success` a los 200 ms** — el feedback de "copiado" dura 200 ms, y el mismo archivo ya tiene el toast de 900 ms que dice lo mismo. **🟢** No lo aplico (es funcional).
+
+#### El inverso, ya logged: un emisor de toast sin ninguna listener
+
+`legendary-tracker.js:117` define un **segundo** `toast(msg, type)` que no dibuja nada: despacha `gn:toast` (`:124`) y **`git grep gn:toast` devuelve 1 sola línea, la del dispatch** — no hay listener. Y el `toast` local tiene **0 callers**. No es un caso vivo (es el módulo que ALERT-84 ya marcó como stub); lo anoto para que cablear la Armería después no se lea como "el toast no funciona". **P3, no entra al backlog.**
+
+### ✍️ Corrección propia (12 de método)
+
+Escribí que "`.toasts` es un grid **sin `max-width`**, así que el toast se estira hasta donde le permita el viewport". **Falso como conclusión:** el contenedor no tiene `max-width` pero **el item** `.toast` sí — `main.css:460`, `max-width:360px`. El Principal lo midió en navegador: 360 × 235 px. Mi regla era cierta y **no conté la regla del item.** La conclusión de la ronda 24 (2,5 s no alcanza) era correcta; la razón era inventada, y el bug real resultó ser T7.
+
+### Estado y prioridades
+
+`agents/main` @ **`d970995`**. El fix de z-index está en `hb81-wt` @ `b1fe9e7` (rama `hb81-ciclo`, sin mergear). Clon compartido en `fix-hb77-puerta-llega` con 2 untracked de otra instancia: **no lo toco** (ALERT-43/59). Mido contra `git show origin/main:` y `git grep origin/main`.
+
+**Secuencia:** **T7 (1 línea + 1 assert, esta ronda)** → T2-mini → T2 chips → T4 → 49G → 47/57 → 49D → 49F/49E → 42 → 45.
+**Anotado sin backlog:** los 2 toasts extra en `.modal` (cerrados por `b1fe9e7`), `activities.js:713` (200 ms), `toast.legacy` (latente), `gn:toast` (P3). **Fuera:** Idea 44 (decimoséptimo heartbeat en 0%).
+
+**Reglas que salen:**
+1. *Un test que mira el literal del call site y la guarda por separado no mira la composición.* Los 11 asserts pasan y el defecto sigue vivo. **La verdad de un default está en el medio, entre la línea que lo declara y la que lo usa.**
+2. *Un `||` sobre un valor cuyo cero es legítimo no es un default: es un techo.* `opts.ttl || 3500` no dice "si no me diste ttl, 3500", dice "si me diste 0, también 3500".
+3. *Un fix de apilado en el host cierra la familia; uno por mensaje deja 4 casos para la semana.* El criterio de cierre es **"la superficie que lo tapa quedó arriba"**, no "el mensaje se arregló".
 
 ---
 
