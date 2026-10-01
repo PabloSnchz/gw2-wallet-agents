@@ -2539,3 +2539,125 @@ reportado un cuarto "ya esta / no existe" (tras las rondas 19 y 27 del PO y la p
 que lo implemento, no en el arbol actual.** Y su gemela en comms: *un `inbox` que
 devuelve 0 no prueba que no te leyeron; prueba que tu lector y tu entrega usaban
 nombres distintos.*
+
+---
+
+# ALERT-124 — HB#94: un arnés que no discrimina puede "dar verde" el bug que vino a encontrar
+
+**Medido:** `tools/hb94-wv-store.mjs` en su primera version daba
+`el caso real respeta la eleccion del usuario : SI` para `gn:wv:shop:view`, que
+es justamente el bug que el PO reporto como T10-bis. O sea: mi arnés de 4 lineas
+**aprobo el defecto**. El control tambien pasaba, y el veredicto final decia
+`el arnes discrimina: NO (no sirve)`. Si no hubiera impreso ese veredicto, yo
+tenia en la mano un "OK" verde sobre un bug real.
+
+**Causa raiz (mi secuencia, no el codigo):** en el `arranque 1` no habia ninguna
+legacy escrita, asi que `_migrateOne` no tenia de donde copiar y la `gn:` **no
+nacia**. En el `arranque 2` entonces si migraba, de la legacy correcta. Para
+reproducir la congelacion hace falta que la `gn:` **ya exista**, o sea que el
+arranque 1 tenga una PRIMERA eleccion (`cards`) que la migracion photographie.
+Falta ese paso y el escenario degenera en el caso que si funciona.
+
+**La regla, y es la 2a vez que la aprendo en la misma forma (ALERT-121 fue el
+mismo modo, al reves):** un arnés se valida con su **control negativo**. Si el
+caso que tiene que FALLAR pasa, el defecto no esta en el codigo: esta en el arnes,
+y la primera respuesta no es tocar el codigo. Imprime siempre el veredicto de
+"discrimina SI/NO" como asercion propia, al final, y no solo los casos.
+Con el paso agregado: caso real = CONGELADA en `cards` con `legacy = table` en
+localStorage, control `gn:account:selected` = OK. Discrimina SI.
+
+**Corolario para los arneses que ya estan en el repo:** cualquier arnen que solo
+afirme "X esta bien" y no tenga un caso que tiene que estar MAL, no prueba nada
+todavia. Vale la pena revisarlos cuando toque.
+
+---
+
+# ALERT-125 — HB#94: mi barrido de alcance dio 2 de 3, y el que perdi es el mas expuesto
+
+**Medido:** `tools/hb94-alcance.mjs` recorre las 3 capas buscando
+`opacity:0 | visibility:hidden | translateY( | scale(` junto a `animation:` en la
+MISMA regla. Salio:
+  [css   ] css/theme-polish.css:825  .raid-wing-card
+  [inline] js/raid-tracker.js:1437   (con `animation:` en el style)
+  total = 2
+El PO reporto **3** y Third era `js/strike-tracker.js:699`, que usa
+`.raid-wing-card` **sin animacion inline**. Verificado: el style de :699 tiene
+`background`, `border`, `border-radius`, `overflow`, `margin-bottom` y nada mas.
+No hay `animation:` inline, asi que mi regex no lo podia ver.
+
+**Por que el que perdi es el PEOR y no el menos importante:** la tarjeta del
+Strike Tracker es **100% dependiente de la capa 2**. Su `opacity:0` NO esta en
+el template, esta en `theme-polish.css:826`. Si alguien "arregla" solo los dos
+sitios donde el estado inicial esta escrito en el HTML, el Strike Tracker sigue
+en blanco y el test pasa. Ese es el fallo de alcance que un barrido escrito con
+una sola forma valida produce.
+
+**La regla (2a manifestacion del mismo eje, y al reves de la del HB#92):** un
+detector que reconoce una sola forma produce **falsos negativos**, y un falso
+negativo en un barrido de alcance es mas peligroso que un falso positivo, porque
+el numero chico se lee como "es un punto" y se termina creyendo que el alcance
+esta medido. Cuando el hallazgo de otro agente y el mio difieren en un conteo, la
+diferencia es el dato: hay que **explicar la diferencia mirando el caso que mi
+instrumento no puede ver**, no descartar el numero mayor. Arreglado: el barrido
+ahora reporta tambien las clases que usan el estado inicial de la CAPA, y da 3.
+
+---
+
+# ALERT-124 — HB#94: un arnés que no discrimina puede "dar verde" el bug que vino a encontrar
+
+**Medido:** `tools/hb94-wv-store.mjs` en su primera version daba
+`el caso real respeta la eleccion del usuario : SI` para `gn:wv:shop:view`, que
+es justamente el bug que el PO reporto como T10-bis. O sea: mi arnés de 4 lineas
+**aprobo el defecto**. El control tambien pasaba, y el veredicto final decia
+`el arnes discrimina: NO (no sirve)`. Si no hubiera impreso ese veredicto, yo
+tenia en la mano un "OK" verde sobre un bug real.
+
+**Causa raiz (mi secuencia, no el codigo):** en el `arranque 1` no habia ninguna
+legacy escrita, asi que `_migrateOne` no tenia de donde copiar y la `gn:` **no
+nacia**. En el `arranque 2` entonces si migraba, de la legacy correcta. Para
+reproducir la congelacion hace falta que la `gn:` **ya exista**, o sea que el
+arranque 1 tenga una PRIMERA eleccion (`cards`) que la migracion photographie.
+Falta ese paso y el escenario degenera en el caso que si funciona.
+
+**La regla, y es la 2a vez que la aprendo en la misma forma (ALERT-121 fue el
+mismo modo, al reves):** un arnés se valida con su **control negativo**. Si el
+caso que tiene que FALLAR pasa, el defecto no esta en el codigo: esta en el arnes,
+y la primera respuesta no es tocar el codigo. Imprime siempre el veredicto de
+"discrimina SI/NO" como asercion propia, al final, y no solo los casos.
+Con el paso agregado: caso real = CONGELADA en `cards` con `legacy = table` en
+localStorage, control `gn:account:selected` = OK. Discrimina SI.
+
+**Corolario para los arneses que ya estan en el repo:** cualquier arnen que solo
+afirme "X esta bien" y no tenga un caso que tiene que estar MAL, no prueba nada
+todavia. Vale la pena revisarlos cuando toque.
+
+---
+
+# ALERT-125 — HB#94: mi barrido de alcance dio 2 de 3, y el que perdi es el mas expuesto
+
+**Medido:** `tools/hb94-alcance.mjs` recorre las 3 capas buscando
+`opacity:0 | visibility:hidden | translateY( | scale(` junto a `animation:` en la
+MISMA regla. Salio:
+  [css   ] css/theme-polish.css:825  .raid-wing-card
+  [inline] js/raid-tracker.js:1437   (con `animation:` en el style)
+  total = 2
+El PO reporto **3** y Third era `js/strike-tracker.js:699`, que usa
+`.raid-wing-card` **sin animacion inline**. Verificado: el style de :699 tiene
+`background`, `border`, `border-radius`, `overflow`, `margin-bottom` y nada mas.
+No hay `animation:` inline, asi que mi regex no lo podia ver.
+
+**Por que el que perdi es el PEOR y no el menos importante:** la tarjeta del
+Strike Tracker es **100% dependiente de la capa 2**. Su `opacity:0` NO esta en
+el template, esta en `theme-polish.css:826`. Si alguien "arregla" solo los dos
+sitios donde el estado inicial esta escrito en el HTML, el Strike Tracker sigue
+en blanco y el test pasa. Ese es el fallo de alcance que un barrido escrito con
+una sola forma valida produce.
+
+**La regla (2a manifestacion del mismo eje, y al reves de la del HB#92):** un
+detector que reconoce una sola forma produce **falsos negativos**, y un falso
+negativo en un barrido de alcance es mas peligroso que un falso positivo, porque
+el numero chico se lee como "es un punto" y se termina creyendo que el alcance
+esta medido. Cuando el hallazgo de otro agente y el mio difieren en un conteo, la
+diferencia es el dato: hay que **explicar la diferencia mirando el caso que mi
+instrumento no puede ver**, no descartar el numero mayor. Arreglado: el barrido
+ahora reporta tambien las clases que usan el estado inicial de la CAPA, y da 3.

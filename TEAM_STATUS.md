@@ -2965,3 +2965,92 @@ opuestas, y la segunda produce diagnosticos falsos sobre otro agente.**
   reenviar un mensaje viejo contamina al que lo recibe.
 - Los 3 logs anexados con `tools/append-alert.mjs`, que **se niega a escribir** si el
   archivo queda con EOL mixto: `ALERTS_LOG` 2480 -> 2541 CRLF, `COMMS_LOG` 368 -> 370.
+
+---
+
+# Heartbeat #94 — 2026-10-01 ~12:0x–12:4x UTC
+
+**Ciclo de una sola cosa: T10 del PO, verificado por ejecucion, y NO aplicado por
+regla.** No se toco codigo de producto.
+
+## Estado del equipo
+
+| Agente | Estado | En vuelo | Notas |
+|--------|--------|----------|-------|
+| **Code-Reviewer** | OPERATIVO | **1 pregunta (HB#94 T10), verificada legible** | 2 visibles para el. La pregunta 099 (permisos) sigue sin respuesta. Entregada y verificada con el LECTOR del receptor: 1 -> 2. |
+| **Product-Owner** | OPERATIVO | 0 | Ronda 30 completa y entregada. Las 4 respuestas suyas cerradas este ciclo. Confirma que su falla anterior era de ENTREGA (TTL 1800 s), no de trabajo. |
+| **Documentador** | sin tarea | 0 | No-fallback vigente. |
+
+## Tareas en curso
+
+- **T10-mitad A (CSS, `.raid-wing-card` invisible):** EN ESPERA DE VEREDICTO. Es CSS
+  y la validacion del Reviewer antes de aplicar es obligatoria. Preguntada como
+  DisENO con 3 vias y 1 riesgo que no medi. Test en rojo: `tools/hb94-wv-view.test.js`
+  (9/10; el unico FAIL es el de comportamiento, que es el que tiene que fallar).
+- **T10-mitad B (vista del WV no persiste):** CONFIRMADA por ejecucion, sin fix
+  todavia. Depende de la misma pregunta de diseno (si se tocan las claves del WV,
+  la decision de capa es la misma).
+- **Propuesta ronda 12 del PO (confirm con BYTES RESTANTES):** sigue abierta, sin
+  merge. Es producto y espera el tramo tecnico.
+
+## Completado este ciclo
+
+- 4 respuestas del PO leidas, procesadas y cerradas (`9c1e44`, `a1ae0d`, `b72da0`, `2a471b`).
+- Fila 098 de COMMS_LOG cerrada: estaba "Enviada" con la respuesta ya existente
+  desde las 09:0x. Volvio a ser la clase "el otro contesto y yo no lo lei".
+- T10 verificado en `origin/main @ 03ca201`, las 2 mitades, por ejecucion.
+- Suite completa: **1175 aserciones / 0 FAIL, 44 de 44 archivos**. Sin codigo de
+  producto tocado.
+
+## Pendiente (ordenado)
+
+1. **Veredicto del Reviewer sobre T10-mitad A** (esta en vuelo, legible).
+2. Cuando llegue: aplicar el CSS en rama propia, correr el test hasta verde,
+   suite completa, push. Si el Reviewer elige la via (i), el test pasa sin tocar
+   las 3 reglas de `.raid-wing-card`.
+3. Preguntar a Pablo si tiene la preferencia de movimiento reducido activa. El PO
+   no lo midi y yo tampoco: no sale de un grep. Si no la tiene, T10-mitad A es un
+   defecto real con bajo impacto, y eso cambia la prioridad de la B.
+4. T10-mitad B: el tramo tecnico (los writers crudos vs `MIRROR_MAP`) es el mismo
+   item que el que ya se reporto. La decision de por donde va la correccion la
+   tiene el Reviewer.
+5. Revisar los arneses existentes con el criterio de ALERT-124 (un arnes sin
+   control negativo no prueba nada).
+
+## Alertas de este ciclo
+
+- **ALERT-124 (nueva):** un arnés SIN control negativoaprobo el bug que vino a
+  encontrar. `hb94-wv-store.mjs` en su 1a version decia que el caso real
+  respetaba la eleccion del usuario. Causa: mi ciclo no creaba la `gn:` en el
+  arranque 1, asi que el caso degeneraba en el que si funciona. Con el paso
+  agregado: caso real CONGELADA, control OK, discrimina. Regla: si el caso que
+  tiene que fallar pasa, el defecto esta en el arnes, y la primera respuesta no
+  es tocar el codigo. Imprimir el "discrimina SI/NO" como asercion propia.
+- **ALERT-125 (nueva):** mi barrido de alcance dio 2 de 3 y el que perdi es el MAS
+  expuesto (`strike-tracker.js:699`, sin animacion inline, 100% dependiente de la
+  capa 2). Un detector con una sola forma valida produce falsos negativos, y en un
+  barrido de alcance eso se lee como "es un punto" y se deja de medir. Cuando el
+  conteo mio y el de otro difieren, la diferencia es el dato.
+- **ALERT-122 (recurrencia):** la 098 estuvo 2 h+ en "Enviada" con respuesta ya
+  entregada. El paso 3 del ciclo tiene que leer antes de declarar vencido.
+- **ALERT-120 (abierta):** 2 archivos basura de 0 bytes siguen sin poder borrarse
+  (el driver denego el comando). Sin resolver.
+- **Nota de shell:** `printf`-style (`%d`/`%s`) a traves de cmd.exe se rompe
+  (imprime `NaN`). Los scripts de este repo usan concatenacion con `+`.
+
+## Estado de propuestas al Reviewer
+
+| # | Asunto | Estado |
+|---|--------|--------|
+| 099 | Puertas: que tiene que distinguir la UI entre "sin escopos" e "insuficientes" | En vuelo, legible. Sin respuesta. |
+| **HB#94** | **T10 `.raid-wing-card`: 3 vias + riesgo de colateral** | **En vuelo, legible (2 visibles para el).** |
+
+## Notas de metodo (este ciclo)
+
+- El arnés del WV tiene que **crear** la `gn:` en el arranque 1 para reproducir la
+  congelacion. Sin ese primer estado, migracion y congelacion son indistinguibles.
+- Un detector se valida con su control negativo; un conteo se valida contra el
+  caso que el instrumento no puede ver.
+- No se aplico CSS sin veredicto, aunque el bug sea de una linea y este sea el
+  hallazgo mas grave en 30 rondas del PO. Esa es exactamente la clase de cambio
+  que la validacion del Reviewer existe para frenar.
