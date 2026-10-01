@@ -1172,7 +1172,12 @@
         if (_fieldMsg) _fieldMsg.textContent = msg;
 
         setStatus(msg, 'error');
-        window.toast?.('error', msg, { ttl: 2500 });
+        // El mensaje de la puerta mide 411 chars y ocupa 10 lineas en el
+        // toast (360px de max-width, main.css:461). 2,5 s no alcanza ni a
+        // leerlo. `ttl: 0` = no se borra solo: el toast trae boton de cerrar
+        // (makeToastEl) y `toast()` solo arma el timer si ttl>0. Es el mismo
+        // contrato que usa el aviso de carga de wallet, unas lineas arriba.
+        window.toast?.('error', msg, { ttl: 0 });
       } finally {
         // Propuesta 6: limpiar timeout (siempre, incluso en caso de error)
         clearTimeout(timeoutId);
