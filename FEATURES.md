@@ -76,3 +76,55 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
   la app no la toca: es una ruta aislada.
 - **Nota:** el detalle al clickear una card **no funciona todavía** —
   `render-catologo.js` no tiene listener. Es ALERT-30, sigue abierto.
+
+## Al borrar una cuenta, su caché se va con ella
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** `—` (no se ve; el síntoma era que la app dejara de guardar cosas sin avisar)
+- **Ruta:** `—` (no tiene pantalla propia)
+- **Descripción:** al borrar una cuenta sus datos en caché quedaban guardados
+  para siempre. Con el token ya borrado, nadie los leía ni los borraba nunca,
+  y el navegador se llenaba. Medido: 27 cuentas y 4,98 MB de datos de cuentas
+  que ya no existían, después de lo cual la app dejaba de guardar.
+- **Commits:** `6c3f8e5`
+- **Rama:** `—`
+- **Si no entra:** las cuentas que borres siguen dejando basura en el
+  navegador. Con muchas cuentas la cuota se llena y la app deja de guardar
+  en silencio, sin error visible.
+- **Si sale mal:** **se refleta, no se corrompe.** Peor caso medido: dos
+  tokens que coincidan en los primeros y últimos 4 caracteres comparten la
+  misma clave de caché, así que al borrar una cuenta se borra la caché de la
+  otra — se regenera sola al volver a usarla.
+- **Riesgo deliberado:** el botón de liberar caché de Settings queda como red
+  para las cuentas borradas antes de esta versión.
+- **Tests:** 33 pass / 0 FAIL (con el fix revertido, 28 FAIL). Suite completa
+  1315 aserciones / 0 FAIL.
+
+## Al cambiar de sección, los módulos sueltos se apagan
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** `—` (no hay pantalla; el síntoma era que al navegar quedaran módulos trabajando en segundo plano)
+- **Ruta:** `—`
+- **Descripción:** al cambiar de sección, el sistema apagaba los módulos
+  usando un dato guardado que no siempre coincidía con lo que estabas
+  mirando. Como hay dos controles que pueden dejar ese dato desfasado, un
+  módulo podía quedar "colgado" con su temporizador vivo.
+- **Commits:** `1e5aedb`
+- **Rama:** `—`
+- **Si no entra:** al navegar entre secciones quedan temporizadores vivos y
+  módulos haciendo consultas en segundo plano.
+- **Si sale mal:** el criterio del arreglo es literalmente "el panel que
+  quedó visible", o sea lo que estás mirando. Medido: no ocurre. La
+  comprobación que lo avisa sigue en verde y **falla sola si alguien mete un
+  módulo nuevo sin registrar** — un aviso que se puede apagar sin dejar
+  rastro no serviría de nada.
+- **Tests:** suite completa 1282 pass / 0 FAIL (venía de 1280 / 1 FAIL).
+
+---
+
+*Las tres fichas de arriba fueron escritas por el Arquitecto. La primera, a
+partir de la review de Pablo. Las otras dos son un retroactive: los merges
+pasaron antes de que existiera la regla, y el Principal no las escribió.
+Faltan por confirmar en dev las dos últimas.*

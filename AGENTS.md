@@ -635,10 +635,56 @@ Si Pablo te pide algo del dashboard, derivá al Arquitecto.
 1. El agente que trabajó en la rama avisa al Principal.
 2. El Principal hace el merge a agents/main EN EL MISMO CICLO.
 3. El Principal pushea a agents/main.
-4. El Principal BORRA la rama (local + remoto).
-5. Si hay conflicto por heartbeat paralelo: esperar 1 min, reintentar. NO dejar sin mergear.
+4. El Principal escribe la ficha en `FEATURES.md` (ver "Regla de la ficha" más abajo).
+5. El Principal BORRA la rama (local + remoto).
+6. Si hay conflicto por heartbeat paralelo: esperar 1 min, reintentar. NO dejar sin mergear.
 
 **Regla de oro:** NINGUNA rama termina sin mergear a main + sin borrar. Si una rama queda abierta >24h sin mergear, el Principal alerta.
+
+**El merge NO está terminado sin la ficha.** Es el paso 4 del checklist, no un extra.
+
+---
+
+## 📦 Regla de la ficha — escribí la ficha al mergear
+
+**Cada cosa que se mergea a `agents/main` lleva su ficha en `FEATURES.md`. Sin excepción.**
+
+**Por qué:** Pablo no lee commits. Lee `FEATURES.md`. La ficha es lo único que le dice qué se construyó y dónde lo ve. Sin ficha, tu trabajo existe y él no se entera. Ya pasó: hay 3 feats mergeadas y 1 sola ficha.
+
+**Cuándo:** en el MISMO ciclo del merge. El merge no está terminado hasta que la ficha está escrita. "Después" no existe.
+
+**Quién:** el Principal. **El PO no escribe fichas** — propone ideas en `PRE_BACKLOG.md`, pero no vio el código y no puede saber "dónde la veo".
+
+### Checklist del merge
+
+La ficha es el **paso 4** del checklist de merge de arriba. No hay una segunda
+lista de pasos: si el merge no terminó, la ficha tampoco.
+
+### Los campos
+
+| Campo | Qué va |
+|---|---|
+| **Tipo** | `nueva` \| `mejora visible` \| `mejora oculta` |
+| **Estado** | `listo` \| `probado ok` \| `probado no va` \| `autorizado` \| `rechazado` \| `revertido` |
+| **Dónde la veo** | El punto EXACTO en la pantalla. Si no se ve, `—`. |
+| **Ruta** | Solo si hay pantalla |
+| **Descripción** | Una línea, en español, sin jerga |
+| **Commits** | Los shas |
+| **Rama** | El nombre de la rama |
+| **Si no entra** | Qué pasa si esto no llega a producción |
+| **Si sale mal** | Qué se rompe si esto sale mal |
+
+### ⚠️ REGLA DURA: si no lo sabés, escribí `—`
+
+No lo inventes. **Un campo inventado es peor que uno vacío.** El dashboard muestra `—` cuando no sabe, y muestra tu dato falso como verdad si lo inventaste. Eso no lo arregla nadie.
+
+Especialmente en **mejora oculta**: ahí el riesgo es invisible, así que `Si sale mal` y `Si no entra` son obligatorios. Si no podés decir qué se rompe, todavía no entendiste el cambio.
+
+### Sobre marcar `autorizado`
+
+**No marques `autorizado` si no lo probaste.** Ese estado afirma que está en producción *y que funciona*.
+
+Existe un estado aparte para lo que ya está vivo pero nadie verificó: **`EN PRODUCCIÓN, SIN VERIFICAR`**. Que se vea no es lo mismo que haga lo que dice hacer. Si lo desplegaste sin probarlo, ese es el estado honesto.
 
 ---
 
