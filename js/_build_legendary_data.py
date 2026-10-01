@@ -2,7 +2,12 @@
 """
 _build_legendary_data.py — Build legendary-data.js from _legendary_items_full.json
 Phase 2A (catalog base) + Phase 2B (TP prices, optional via --with-prices).
-One-time export script. Output is a versioned static data file.
+Transforma `_legendary_items_full.json` en `legendary-data.js`.
+
+NO es un script "one-time": corre tantas veces como haga falta. La cadena
+completa es `_fetch_legendary_items.py` -> este script. El input lo produce el
+primero y NO se versiona, asi que sin el no hay build; antes de esta cadena el
+artefacto era reproducible pero el proceso no.
 """
 import json
 import os
@@ -156,11 +161,15 @@ def build_js(items, with_prices):
     lines.append(f" * Version: 1.0.0 ({phase_label})")
     lines.append(f" * Generado: {now}")
     lines.append(f" *")
-    lines.append(f" * Catalogo estatico de {total} legendarias (exportacion one-time desde")
-    lines.append(f" * /v2/legendaryarmory + /v2/items). Consumido por legendary-tracker.js.")
+    lines.append(f" * Catalogo estatico de {total} legendarias. Generado por la cadena:")
+    lines.append(f" *   _fetch_legendary_items.py  (baja el snapshot crudo, Phase 0)")
+    lines.append(f" *   _fetch_thematic_prices.py  (baja precios TP, Phase 2B, opcional)")
+    lines.append(f" *   _build_legendary_data.py   (este script, Phase 2A) -> este archivo.")
+    lines.append(f" * Consumido por legendary-tracker.js.")
     lines.append(f" *")
-    lines.append(f" * NO modificar manualmente. Para actualizaciones, usar _build_legendary_data.py.")
-    lines.append(f" * Pablo mantiene este archivo manualmente. El PO detecta novedades en Heartbeat.")
+    lines.append(f" * NO modificar manualmente. Para regenerar, correr los scripts de arriba")
+    lines.append(f" * en orden (ver _fetch_legendary_items.py). El snapshot crudo NO se versiona")
+    lines.append(f" * a proposito: se regenera desde la API.")
     lines.append(f" *")
     type_str = ", ".join(f"{t}={c}" for t, c in sorted(type_counts.items()))
     lines.append(f" * Tipos: {type_str}")
@@ -191,8 +200,17 @@ def build_js(items, with_prices):
 
 def main():
     with_prices = "--with-prices" in sys.argv
+    # --out: escribir a otro archivo. Lo necesita `tests/idea84-leyenda-pipeline.test.js`
+    # para regenerar el catalogo SIN pisar el artefacto versionado, que es la unica
+    # forma de comparar el regenerador contra su propia salida correcta.
+    out_path = OUTPUT_FILE
+    if "--out" in sys.argv:
+        out_path = sys.argv[sys.argv.index("--out") + 1]
+    input_path = INPUT_FILE
+    if "--input" in sys.argv:
+        input_path = sys.argv[sys.argv.index("--input") + 1]
 
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+    with open(input_path, "r", encoding="utf-8") as f:
         items_raw = json.load(f)
 
     # Load TP prices cache if available (Phase 2B)
@@ -215,7 +233,7 @@ def main():
 
     js_content = build_js(items, with_prices)
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(js_content)
 
     phase_label = "Phase 2A + Phase 2B" if with_prices else "Phase 2A"
@@ -224,7 +242,7 @@ def main():
         t = i["type"]
         type_counts[t] = type_counts.get(t, 0) + 1
 
-    print(f"\u2705 Phase complete: {OUTPUT_FILE}")
+    print(f"\u2705 Phase complete: {out_path}")
     print(f"   Items: {len(items)}")
     print(f"   Phase: {phase_label}")
     print(f"   Types: {dict(type_counts)}")
