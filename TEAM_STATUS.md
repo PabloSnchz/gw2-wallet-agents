@@ -4189,22 +4189,6 @@ del PO.
 - **ALERT-153** - el paso 3 del `HEARTBEAT.md` apunta a una rama del PO que envejece sola.
   Ver arriba.
 - **ALERT-154** - un control negativo no distingue "no hay" de "el filtro no matchea".
-- **ALERT-155 (HB#114)** - **el criterio de conteo del paso 3 esta INVERTIDO**: excluye la
-  ronda 35 (T14/T15, **vivas**) porque su encabezado narrativo menciona que T13 "ya esta
-  APLICADA", y cuenta las rondas 16/19/33/34, **todas ya aplicadas**. Leida la rama
-  correcta, el paso 3 no tiene materia prima. **Corrige la ultima linea de ALERT-153**, que
-  decia que el criterio "funciona": el control negativo funciona, el criterio no, y un
-  control negativo no puede verlo porque esta fallando **hacia el otro lado** (es
-  demasiado ancho, no demasiado angosto). Detalle en `ALERTS_LOG.md` + ALERT-155.
-
-## HB#114: lo que se corrigio y donde
-
-| Que | Donde | Por que |
-|---|---|---|
-| El paso 3 **no existia en el repo** | `HEARTBEAT.md` del repo, nuevo | El HB#102 lo corrigio **solo en el workspace**, que no es un repo git. El arreglo nunca se pusheo |
-| Rama del PO pineada a `po/hb99` | idem, ahora se descubre con `for-each-ref --sort=-committerdate` | El PO crea una rama por ronda; un nombre fijo envejece en 2-3 rondas **sin avisar** |
-| Criterio de conteo por item | idem | El filtro por prosa excluye lo vivo (ALERT-155) |
-| Detectores | `tools/hb114-cuento.mjs`, `hb114-cuento-v2.mjs`, `hb114-tramos.mjs`, `hb114-verifica.mjs` | Reproducibles, con controles. **El v2 tambien esta mal** y se commitea asi: es ALERT-145, un arnes que no mide lo que dice medir |
 
 ## Lo que decide Pablo (no lo hago yo)
 
@@ -4218,10 +4202,75 @@ del PO.
 
 1. `git fetch` PRIMERO + `git worktree list` + `git ls-remote --heads` antes de concluir
    que algo esta abierto.
-2. Leer la rama del PO con el paso 3 **ya corregido** (descubre la rama por
-   `for-each-ref --sort=-committerdate`). **Ojo:** el paso 3 hoy excluye la ronda 35 por
-   prosa (ALERT-155), asi que el numero que tire hay que contrastarlo **item por item**
-   contra `origin/main` antes de concluding que hay 3+ propuestas. En la rama viva a las
-   22:0xZ el conteo da 0 propuestas nuevas, y eso es lo correcto.
+2. Leer la rama del PO **descubriendola**: `git ls-remote --heads origin "refs/heads/po/*"`,
+   quedarse con la de commit mas reciente. No la del paso 3.
 3. `node tools/hb105-suite.cjs` y leerse el numero entero: **1347/0 en 53 archivos**.
 4. Recoger 62 T1 (`23824f`) y 49E (`14245a`) por el canal de archivos.
+
+
+## HB#114 (2026-10-01 22:2x UTC) — la ronda 36 del PO era T17/T18, y el sintoma de T17 es FALSO
+
+**PAZO 0 bien.** Inbox vacio, `replies` sin respuestas nuevas. `git fetch` PRIMERO:
+`origin/main` en `067754f`; el clon compartido atrasado; worktree `wt-hb114` desde
+`origin/main` directo (**42 worktrees acumulados**). Suite completa **1341 pass / 0 FAIL
+en 53 archivos** — identica a HB#111, leida entera.
+
+**Las 2 VENCIDAS (IDEA 62 T1) NO estaban aplicadas, y eso es un hallazgo, no una rutina.**
+`api-gw2.js:398` `BANK` y `:411` `ACH_ACC` siguen en `2 * 60 * 1000`. Peor: **hay un test
+que AFIRMA el valor viejo** (`tests/idea49.activities-cache-wipe.test.js:89`,
+`ok(/ACH_ACC:\s+2 \* 60 \* 1000/...)`). O sea que la 62 T1 no es "subir dos numeros": es
+subir dos numeros **y cambiar un aserto que hoy falla si el TTL no es 2 min**. En HB#113 las
+2 VENCIDAS si estaban aplicadas; este ciclo no. **Un detector de vencidas que dice
+"estaban aplicadas" y otro que dice "no estaban" no es un detector: es una costumbre.**
+
+### Lo medido, con el CUERPO VERBATIM (tools/hb114-t17-t18.mjs, 19 pass / 0 FAIL)
+
+Extraje `wireViewToggle` y `wireStrikeViewToggle` **por llaves del archivo** (3.852 y
+1.001 chars), no reescritos a mano, contra un DOM que cuenta listeners.
+
+- **T17 CONFIRMADO por ausencia**: `setActiveView` (`raid-tracker.js:1064-1089`) no contiene
+  `location` ni `hash`. El toggle escribe la pref, cambia la pantalla, y **no toca la URL**.
+- **T18 CONFIRMADO**: pref=strikes + URL=#/account/raids, los 3 caminos dan **raids /
+  strikes / raids**. Mecanismo por lectura: `route()` llama `showPanel()` **antes** de
+  `activate()` (`router.js:1586`), y `wireViewToggle` tiene 2 salidas — `pintarSolo()`
+  (`:1108`) no toca paneles, `setActiveView()` si.
+- **T16 CONFIRMADO**: los 4 botones nacen con `btn--accent`/`btn--ghost` hardcodeado y
+  contradictorio; 0 de los 4 en `index.html`.
+
+### ALERT-155: el sintoma de T17 que el PO atribuyo es FALSO (y T17 sigue siendo real)
+
+El PO escribio que *"la URL que copia abre Raids aunque la haya copiado estando en
+Strikes"*. **Medido: la URL pegada en pestana nueva ABRE la vista que la pref dice**
+(`=> strikes` con pref=strikes). El sintoma existe, pero en el caso que el PO no considero
+(la misma pestana ya cableada = caso 3 de T18), no en "mandarle a un amigo".
+
+**No descarto T17: reencuadro el sintoma.** El bug es real por otra razon, medida por
+absence. Un sintoma equivocado hace descartar un bug real, y ese es el riesgo.
+
+### ALERT-156: la "opcion B" que el PO llevaba a Pablo EMPEORA T17
+
+El PO ofrecio a Pablo: *"o hay un boton 'Strikes', o la ruta se borra y la pref manda sola"*.
+Medido, la ruta `#/account/strikes` es **la unica que hoy OBEDECE a la URL**:
+`route()` llama `StrikeTracker.activate()` (`:1604`), y `wireViewToggle` vive en
+`RaidTracker.activate()`/`ensurePanelContent()` (`:1886`, `:1272`), asi que **no corre
+nunca** en esa ruta. Resultado: `ruta strikes con pref=raids => strikes`, 0 listeners.
+O sea **borrar la ruta deja a la pref como unica verdad, y la pref es la que T17 dice que no
+llega a la URL.** La pregunta para Pablo no es "boton o borrar": es **"que truth manda"**.
+
+### ALERT-157: el arnes que se delata a si mismo
+
+`ReferenceError: wireViewToggle is not defined` en T18: contexto `vm` nuevo sin inyectar el
+verbatim. **No lo delato el fallo — lo delato que las 3 secciones de T18 ya habian dado "ok"**
+antes. Si T18 hubiera reutilizado el contexto de T17: 19 pass / 0 FAIL con la mitad de los
+caminos sin ejecutar nada. Regla: un camino que comparte verbatim **debe** tener inyeccion
+propia. Y la forma general: **un arnes que ejecuta el codigo real no puede tener los fallos
+de uno reescrito a mano** — los 4 fallos de este ciclo fueron del PO, en arnes reescritos.
+
+**Censado de CJK: los 31 de ALERTS_LOG y los 5 de TEAM_STATUS son PREEXISTENTES**, medido
+contra `origin/main` **extrayendo a archivo** (por pipe `git show` se pierde el encoding y
+daba 0 — me pasó). Los mios: 0 (los 2 queintroduje, "2", los caze y corregi antes de
+commitear, y el replace dejo "los dosorden de orden de", corregido tambien).
+
+**Estado al cierre:** PO sin tarea. Reviewer sin tarea. Documentador sin tarea. **Nadie en
+quien esperar.** La decision de producto (que truth manda) la lleva Pablo, y ya tiene el
+dato que la reencuadra.

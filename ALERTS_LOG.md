@@ -4000,3 +4000,134 @@ mide lo que dice medir.**
 
 La rama, y el hecho de que `main` no sirva como fuente para un agente que pushea sin
 mergear. Las dos mitades de ese error (rama fija y `main`) se sostienen.
+
+# ALERT-156: el sintoma de un bug puede ser FALSO y el bug seguir siendo real
+
+> El PO (ronda 36, T17) escribio, textual: *"Lo que paga Pablo: la URL que copia para
+> compartir, guardar en favorito o mandarle a un amigo abre Raids aunque la haya copiado
+> estando en Strikes."*
+>
+> **Medido y es FALSO.** Con el CUERPO VERBATIM de `wireViewToggle`
+> (`tests/hb114-t17-t18.mjs`, extraccion por llaves, 3.852 chars, no reescrito) contra un
+> DOM que cuenta listeners:
+
+```
+URL #/account/raids pegada en pestana nueva, pref=strikes => strikes
+URL #/account/raids pegada en pestana nueva, pref=raids  => raids
+misma pestana YA cableada, showPanel de nuevo              => raids
+```
+
+**O sea: la URL copiada ABRE la vista que la pref dice.** El sintoma que el PO le atribuye
+a T17 es el del mecanismo INVERTIDO, y existe -- pero en el caso que el PO no considero
+(la misma pestana ya cableada), que es el caso 3 de T18, no el caso de "mandarle a un
+amigo". Un amigo con la misma instalacion abre Strikes.
+
+**Y T17 sigue siendo un bug real**, por otra razon, medida por absence: `setActiveView`
+(`raid-tracker.js:1064-1089`) no contiene `location` ni `hash`, asi que el toggle **nunca**
+escribe la URL.
+
+## Por que esto importa mas que el numero
+
+**Un sintoma falso hace descartar un bug real.** Si el proximo que lee "la URL compartida
+abre Raids" lo reproduce en su sesion, no lo ve, y dice "T17 no se reproduce". El bug no
+se reproduce porque **el sintoma nunca existio en ese camino** -- no porque el bug sea falso.
+
+El hallazgo NO fue "el PO se equivoco". Fue que **el PO midi T18 bien y determino T17 por
+lectura**, y los dos hallazgos se contaminaron.
+
+## La regla
+
+**Antes de escribir el sintoma, ejecutarlo.** El sintoma es la parte que se cita; el bug es la
+parte que se arregla, y un sintoma equivocado hace que el bug se descarte.
+
+Corolario: cuando dos hallazgos vienen del mismo ciclo, **verificar que el sintoma de uno no
+es el sintoma del otro con el mecanismo cambiado**. Aqui T17 y T18 describen fallos
+OPUESTOS: T17 = "el estado no llega a la URL", T18 = "la URL no llega a la pantalla".
+
+**Lo que NO hice:** no tocar T17. El bug es real, el sintoma no, y un sintoma falso no
+invalida el hallazgo: lo reencuadra. T17 sigue yendo al Reviewer, con el sintoma corregido.
+
+# ALERT-157: una ruta que nadie puede alcanzar desde la UI puede ser la que CORRECTAMENTE obedece a la URL
+
+> El PO (T17-b) escribio que `#/account/strikes` es una decision de producto para Pablo:
+> *"O hay un boton 'Strikes' en el menu, o la ruta se borra y la pref manda sola."*
+>
+> La segunda opcion tiene un coste que el PO no midio, y sale del mismo mecanismo de T18
+> pero del lado que nadie miraba.
+
+Medido con el mismo arnes:
+
+```
+ruta #/account/strikes con pref=raids  => strikes   (la pref NO se aplica)
+listeners en el boton de raid         => 0          (wireViewToggle NO se ejecuta)
+```
+
+**Por que:** `route()` llama `StrikeTracker.activate()` en la ruta de strikes
+(`router.js:1604-1605`), y `wireViewToggle` vive dentro de `RaidTracker.activate()` /
+`ensurePanelContent()` (`raid-tracker.js:1886` y `:1272`). En la ruta de strikes,
+`wireViewToggle` **no corre nunca**. La unica verdad que esa ruta obedece es la URL.
+
+O sea: **hoy `#/account/strikes` es la unica forma de que la URL gane.** Es la ruta que
+funciona. Borrarla deja a la pref como unica verdad, y la pref es justamente la que T17
+dice que no llega a la URL -- o sea, **borrar la ruta empeora T17 en vez de resolverlo.**
+
+## La regla
+
+**"Esa ruta no la alcanza nadie" no es lo mismo que "esa ruta no sirve".** Una ruta sin
+boton puede ser la unica que obedece a la URL, y borrarla por "sobra" cambia el
+comportamiento de la que si se usa. Antes de proponer borrar una ruta: **medir que
+comportamiento tiene ella unica**, porque es el que se pierde.
+
+Consecuencia para la decision de Pablo: la pregunta no es "boton o borrar", es
+**"que truth manda"**. Con T17 sin arreglar, la respuesta obvia (borrar) es la que peor
+funciona. Esto es la version con dato de la pregunta que el PO ya llevaba a Pablo.
+
+# ALERT-158: el arnes que se delata a si mismo es el que mas informo, y el que mas costo
+
+> Es el tercero en 2 ciclos de la misma clase (ALERT-148: una rama de degradacion probada
+> solo por el camino principal; ALERT-150: un FAIL que era el arnes; ALERT-154: un control
+> negativo que no distingue "no hay" de "el filtro no matchea").
+
+En este ciclo: `wireViewToggle()` en el camino de T18 lanzo
+`ReferenceError: wireViewToggle is not defined`. La causa: T17 y T18 usan el MISMO verbatim,
+pero T18 creaba un contexto `vm` NUEVO por camino y no le inyectaba el codigo.
+
+**No lo delato el fallo: lo delato el HECHO de que las 3 secciones de T18 ya habian dado
+"ok" antes.** Si T18 hubiera reutilizado el contexto de T17, el arnes habria dado 19 pass
+y **0 FAIL con la mitad de los caminos sin ejecutar nada**. El ReferenceError fue la
+unica senal de que faltaba la inyeccion, y llego como excepcion en vez de como diseno.
+
+## La regla
+
+**Un camino que comparte verbatim con otro DEBE tener su propia inyeccion explicita, aunque
+los dos runs funcionen.** El fallo es ruidoso; el silencio compartido no.
+
+Y la forma general: **un arnes que ejecuta el codigo real puede fallar de formas que un
+arnes que reescribe el codigo no puede tener.** Por eso extraigo por llaves y no copio: los
+4 fallos de este ciclo fueron en arnes reescritos a mano por el PO, y ninguno en uno que
+corre el verbatim. Ese es el argumento a favor de la extraccion, no la elegancia.
+
+# ALERT-159: la numeracion de alertas la fija la CONcurrencia, y hay que medirla DESPUES del rebase
+
+> Renumeré mis 3 alertas (155/156/157) contra un `MAX` medido al inicio del ciclo (154),
+> y al hacer `git push` el rebase me mostró que **la sesion paralela ya habia escrito
+> ALERT-155** sobre otro tema. Dos alertas distintas con el mismo numero.
+
+**Es la 2a vez en 3 ciclos** (la 1a, ALERT-151: `Sort-Object -Descending` dio 99 como
+maximo cuando era 121). Ya lo escribi una vez y lo repito: **el numero se mide contra el
+archivo.**
+
+Lo que cambia hoy es *cuando*: la 1a vez el error fue medir mal; esta vez medi bien, en el
+instante correcto, y **el numero se gasto entre la medicion y el commit**. Medir al
+arranque del ciclo no alcanza: el ARCHIVO que manda es el de `origin/main` DESPUES del
+rebase, no el que estaba al empezar.
+
+## La regla
+
+**En un repo donde dos sesiones commitean en paralelo, el `MAX` de una alerta se mide
+contra `origin/main` en el momento del push, no al inicio del ciclo.** Y si el push rebota
+por non-fast-forward, ese rebase es tambien un evento de numeracion: hay que volver a
+medir antes de continuar.
+
+Corolario: **un rebase con conflicto en `ALERTS_LOG.md` no es un conflicto de texto, es un
+conflicto de NUMEROS.** Resolverlo quedandose con un lado descarta el otro agente entero.
