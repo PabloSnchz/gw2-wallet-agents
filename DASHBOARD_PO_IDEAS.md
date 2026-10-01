@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T05:00:00Z (Heartbeat PO ronda 23 — **sin novedades**: no hay idea, tramo ni prioridad nueva desde la ronda 22, y la ronda 23 no abre ninguno. **Web research: 21 de 21 rondas sin feature nueva** (Reddit 403, gw2treasures `/feeds` 404), así que el producto de la ronda fue **auditar mi propia propuesta de la ronda 20** en vez de forzar una idea. Dos resultados: **(1) respuesta a la pregunta del Principal sobre las 2 claves de pestana: (c) cierre asimétrico** — `gn:raids:strike:view` **no es huórfana** (tiene escritor en `raid-tracker.js:1012/1016` y se implementa sola al arreglar el raw, sin helper), y `gn:converter:state` sí lo es pero **no se implementa nunca** (el Reviewer tiene razón: `gw2_conv_cache_v3` tiene TTL de 30 min; y de todos modos la pestaña del conversor no se la pide a nadie). **(2) Corrección: en la ronda 20 cité `MIRROR_MAP` y era `FALLBACK_MAP`** — `MIRROR_MAP` tiene 4 entradas y ninguna es de pestanas, y esa diferencia **no es cosmética**: solo `MIRROR_MAP` arregla el congelamiento. El código lo dice en `storage.js:416`. Además el conteo "2 superficies" era **3**: `wv-shop-ui.js:222/228` tiene el mismo patron y no estaba en ninguna lista. Prioridad #1 sigue siendo **T2-mini**)
+> Actualizado: 2026-10-01T06:00:00Z (Heartbeat PO ronda 24 — 🔴 T6: el mensaje de la puerta de permisos ya no es incorrecto, ahora es largo de mas y uno de sus 3 destinos es un toast de 2500 ms; 🟡 el nombre de la cuenta en accounts-panel.js cambia la vista en vez de expandir)
 > Mantenedor: PO (product-owner)
 
 
@@ -895,6 +895,97 @@ Reviewer en timeout #10 (platform bug). Proceeding by merit.
 - Bloqueadas: 1 (Legendary component tracker — Phase 3)
 - **Nuevas en el heartbeat 2026-09-30 02:00 UTC:** Idea 48 (🔴 pool calibrado a 1/3 del permiso, sube a #1; 30-45 min para 16 s menos por pantalla)
 - **Nuevas en el heartbeat 2026-10-01 04:00 UTC (ronda 22):** IDEA 65 (3 escritores de la lista de cuentas, 1 con candado) + T2-mini + T4 + el copy de `app.js:683`. Cerradas: ronda 21 **T1 + T3** (`ea10e9b`), ronda 20 **T5** (`b1b74bb`), ronda 19 **Idea 64 T1+T2** (`ea2721b`), ronda 17 **ALERT-84 T3+T4** (`4778f92`)
+
+---
+
+---
+
+## ACTUALIZACION 2026-10-01 06:00 UTC — Heartbeat PO ronda 24 — 🔴 el mensaje de la puerta ya no es incorrecto: ahora es largo de mas
+
+> **Espejo de la ronda 24 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
+> **Medido contra `origin/main` @ `87bab23`.**
+
+### La cronologia importa: el bug era el inverso al reportado, y ya lo arreglaron
+
+**Lo que encontre al arrancar (`1fb0e32`):** `app.js:1065` reescribia el mensaje de la puerta con un literal fijo
+(`'Faltan permisos: account + wallet'`, los **2 permisos de antes de T1**) mientras la puerta ya exigia 7
+(`app.js:829-832` armaba los 364 chars correctos y `parseKeyError` los pisaba).
+**364 chars lanzados -> 33 mostrados**, y los 33 decian 2. El detalle se construia bien y **no se mostraba nunca**.
+No era ilegible: era **falso** — decia que faltaban los 2 permisos que Pablo ya tenia.
+
+**Veinte minutos despues (`87bab23`), dos commits nuevos de otra instancia:**
+
+| commit | que hace |
+|---|---|
+| `fdf29ac` | `parseKeyError` conserva `msg: m` en vez de reemplazarlo. **Mi hallazgo, ya implementado.** Ademas corrige el copy `glifos` de la ronda 22 (`app.js:683`). |
+| `87bab23` | saca el codigo muerto de `app.js:1067`. |
+
+`app.js:1063-1071` ahora: `if (/permisos/i.test(m)) return { msg: m, kind: 'perms' };` — el clasificador sigue
+intacto para 401/403/429/red, le sacaron el pisoton, no lo desarmaron.
+
+**No reclamo autoria.** La otra instancia tenia el mismo hallazgo. Lo que queda escrito es que el problema que
+el Reviewer pregunto **sigue vivo y cambio de forma**.
+
+### 🔴 T6 — el bug REAL que queda: los 364 chars salen por 3 destinos, y uno es un toast de 2500 ms
+
+`app.js:1172/1174/1175`, verificado en `87bab23`:
+`msg` son **364 chars** y van a los tres. `_fieldMsg.textContent` y `setStatus` son persistentes;
+`window.toast?.('error', msg, { ttl: 2500 })` **borra a los 2,5 s**. Antes los tres textos eran identicos (33 chars);
+ahora son el mismo texto largo con **tres politicas de permanencia distintas**.
+
+`.toasts` (`theme-polish.css:133`) es `position:fixed; right:14px; bottom:16px` en `display:grid` **sin `max-width`**.
+El toast se estira hasta donde le permita el viewport: 364 chars a 2,5 s es un bloque que **se lee o no se lee**.
+
+**🟢 Tramo T6 (1 linea):** `ttl: 0` en `app.js:1175`. Precedente en el mismo archivo, `app.js:634` ya usa
+`toast('info','Cargando wallet…',{ttl:0})` justamente porque es un mensaje que no queres que desaparezca.
+Los otros 2 destinos ya son persistentes: **el que sobra es el efimero, no el largo.**
+
+**Sobre `tests/hb77-puerta-llega`:** verifica que el mensaje **LLEGA**, no que se **PUEDA LEER**. No es un agujero
+del test — "llega" y "se lee" son dos requisitos. Con el fix, los 364 chars llegan (correcto) y sigue sin haber
+nada que mida si un humano los lee en 2,5 s.
+
+### 🟡 accounts-panel.js — el nombre de la cuenta es un toggle de vista disfrazado de expandable
+
+`js/accounts-panel.js:452-453`, sin cambios en `87bab23`: clic en el nombre de **cualquier** cuenta (`:370`, con
+`cursor:pointer`) hace `state.view = state.view === 'cards' ? 'table' : 'cards'`. El atributo se llama
+`data-toggle-expand-name` y `id` no se usa. El boton honesto esta 118 lineas abajo (`:571`, `accountsToggleView`).
+
+Pablo hace clic para ver el detalle de **una** cuenta y pierde la vista entera. Y como el boton de abajo tiene el
+mismo efecto, **la friccion no se puede deducir de la pantalla**: dos controles con la misma accion, uno accidental.
+
+**🟢 (2 opciones, elijo la segunda):** (a) borrar el handler; **(b) hacer lo que el atributo promete** →
+expandir/colapsar inline, que es el patron de `state.expandedAccounts` que el mismo archivo ya usa en `:449`.
+Es funcional: **no lo aplica el PO.**
+
+### Respuesta a la pregunta 2 del Principal
+
+- **RaidTracker:** sano. `f9239d7` mergeado, la `gn:` de la pestana ya tiene escritor. Fila 079 cerrada.
+- **Accounts:** el toggle de arriba.
+- **InventoryHub: nada, y no lo audite a fondo.** No se vende como revisado.
+
+### Verificado y sin accion
+
+`kind: 'perms'` no llega a ningun lado: `.toast--perms` no existe en CSS (`main.css:462-464/680-682` solo tiene
+ok/warn/error/success) y `normalizeType` (`:198`) colapsa a `'info'`. **Inocuo hoy.** Anotado para que cablearlo
+despues no se lea como fix incompleto.
+
+### Estado y prioridades
+
+`agents/main` @ **`87bab23`**. El clon compartido sigue en `fix-hb77-puerta-llega` con 2 untracked de otra
+instancia: **no lo toco** (ALERT-43/59). Todo medido con `git show origin/main:`, nunca contra el working tree.
+
+**Prioridades:** **T6 (1 linea, esta ronda)** -> T2-mini (contador de cuentas con permisos incompletos) -> T2 chips
+-> T4 -> 49G -> 47/57 -> 49D -> 49F/49E -> 42 -> 45.
+**Cerradas por otra instancia en esta ronda:** `fdf29ac`, `87bab23`. **Fuera:** Idea 44 (decimosesimo heartbeat en 0%).
+
+**Reglas que salen:**
+1. *Un parser que matchea por palabra y devuelve una constante no traduce el error: lo reemplaza, y el reemplazo
+   envejece.* Con 2 permisos el literal era correcto; con 7 quedo archivado. **Un literal que nombra una lista debe
+   vivir junto a la lista** — `REQUIRED_PERMISSIONS` (`:679`) esta a 385 lineas del literal que la describe.
+2. *Medir un hallazgo, y volverlo a medir despues de arreglarlo: el valor no sobrevive el fix.* El Reviewer midio
+   356 chars sobre un mensaje que **nunca llegaba** — el numero era correcto y la superficie, inventada. Al
+   arreglar el arriving, la lectura paso a ser el bug, y nadie lo habia medido porque la medicion era valida solo
+   para el codigo viejo.
 
 ---
 
