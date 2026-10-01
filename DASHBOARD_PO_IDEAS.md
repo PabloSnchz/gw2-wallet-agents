@@ -1,7 +1,89 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-09-30T23:30:00Z (Heartbeat PO ronda 17 — 🔴 ALERT-84: "Armería Legendaria" es un item de menú **visible** que decía "Cargando catálogo de legendarias…" **para siempre**; `loadLegendaryData()` es un stub. Los 101 KB del catálogo y del render están escritos y NO se cargan. **T1 ya commiteado** (`d64e688`). T3/T4 enviados al Reviewer. Y el hallazgo que la ronda no vio: el invariante de encounters estaba vigilado en **una sola dirección** (ALERT-89) — entra también la ronda 16 (IDEA 63), mergeada en `eb69fb3`)
+> Actualizado: 2026-10-01T01:00:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
 > Mantenedor: PO (product-owner)
+
+
+
+---
+
+## ACTUALIZACION 2026-10-01 01:00 UTC — Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta sin aviso
+
+> **Espejo de la ronda 19 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
+
+### Lo que encontró el PO, y está reproducido sobre el código real
+
+`KeyManager.save()` (`app.js:677-682`) escribe `this.list` —**la copia en memoria**— sin releer el disco.
+Medido: **relectura antes de escribir: NO.** Y de 42 módulos, **1 solo escucha el evento `storage`**
+(`wv-purchase-detail.js:2168`, y solo para `wvpd_icon_url` y `wv:season:*`): **nadie escucha un cambio en la lista de cuentas.**
+
+Ejecutando el bloque `KeyManager` **literal** de `app.js` (líneas 648-774, 5.178 bytes) contra dos contextos
+con el mismo `localStorage` —el modelo real entre pestañas—:
+
+| paso | resultado |
+|---|---|
+| A y B arrancan con 27 cuentas | A ve 27 · B ve 27 |
+| B **agrega** la cuenta 28 | disco = 28 · la pestaña A sigue con 27, no se enteró |
+| A **renombra** "cuenta 1" → "MAIN-WOW" | disco = **27** · la 28 **ya no está** |
+
+**Sin aviso, sin error, sin `console.log`.** Y como `settings-manager.js:44` lee por `Storage` para armar el Gist,
+el próximo backup sube 27 cuentas: **el respaldo tampoco la tiene.**
+
+El caso inverso duele más: B renombra la 5 a "ALT-PVE", A borra la cuenta 12 → la 5 **existe pero vuelve a
+llamarse "cuenta 5"**. Se pierde el etiquetado `main`/`alter`/`f2p`, que es lo que permite ordenar 27 cuentas,
+y la cuenta sigue en la lista funcionando.
+
+### Por qué 793 aserciones / 0 FAIL no lo vieron (medido sobre `tests/`)
+
+| | |
+|---|---|
+| archivos de test | 33 |
+| que montan un `localStorage` | 14 |
+| **con DOS stores o cross-tab** | **0** |
+
+**Un lost update necesita dos escritores con dos copias del mismo dato.** Los 33 tests usan un sandbox con un
+store, así que la copia en memoria siempre está al día. No es un dato malo: son **dos datos buenos que se pisaron**.
+
+Dato que importa para el criterio del equipo: el test de la Idea 61 **ya declara el invariante correcto**
+(su §6, línea 262: *"lo que hay que FORBIDIR no es el escritor crudo […] sino el LECTOR CRUDO"*) y hoy **da 0**.
+**El test está bien y la clase que le falta es otra**: `idea61` probó que el espejo se mantiene, no que dos
+escritores no se pisen.
+
+> *Un invariante de coherencia no es un invariante de concurrencia.* El espejo `gn:` ↔ legacy de la 61 resolvió
+> que las dos claves no diverjan — y eso no dice nada de quién escribió último.
+
+### Tramos (a revisar por alcance, NO por diseño)
+
+| # | tramo | dificultad | por qué |
+|---|---|---|---|
+| **T1** | `save()` relee antes de escribir (read-modify-write) | 🟢 ~20 min, ~4 líneas | **La decisión de alcance va al Principal**: releer arregla "la otra pestaña agregó" y **NO** arregla "la otra pestaña borró". Si la cuenta no está en la lista fresca, ¿no-op? ¿la crea? Mi recomendación: **no-op + `console.warn`** — la cuenta que la otra pestaña borró no tiene que reaparecer |
+| **T2** | Alguien escucha `storage` para lista y selección | 🟢 ~30 min | Convierte el bug invisible en visible, y arregla que el `<select>` ofrezca 27 opciones que ya no son las de disco. **No implementa T1**: sin T1 sigue habiendo overwrite, pero Pablo ve que algo cambió |
+| **T3** | Test de **la clase**, no del caso: dos contextos, un store, y que la cuenta que solo uno conoce sobreviva | 🟡 ~1 h | Con un store por test **esta clase no se puede cubrir** (misma razón que el Tramo 1 de la Idea 57: el test es la lista) |
+| T4 | Aviso de "hay otra pestaña abierta" | — | **NO se propone.** Feature, no corrección, y T1+T2 lo vuelven innecesario |
+
+**Orden: T1 → T2 → T3.** T1 y T2 no tocan la capa de datos (no aplica ALERT-48) y son estado local de la app,
+como la 63. **No va al Reviewer todavía.**
+
+### Lo que la wiki trajo y no es accionable
+
+La wiki oficial (200) anuncia **"Code of Creation"**, último capítulo de Visions of Eternity: 6 capítulos de
+historia, `Director Vloxx`, `Castora`, `Overseer Kuda`, y el evento **Dismount Rush (29-sep → 6-oct)**.
+**No entra al backlog** por una razón medible: es contenido de **historia**, y ninguno de los 15 módulos
+lee historia. El único evento con fecha **termina el 6-oct**: solo sería accionable si alguien lo implementa
+antes. Se anota y se deja pasar, en vez de llenar el backlog con una feature de una semana.
+
+### Corrección propia (y es la segunda de la ronda que casi mando)
+
+Mi primer conteo dio "1 test con dos stores". **Era mi regex, no un test.** Con el patrón estricto: **0 de 33.**
+Quinta vez en 72 h que un filtro mío inventa un hallazgo, y la segunda vez que el número corregido es
+*peor* que el que reporté.
+
+### Estado al cierre
+
+`agents/main` @ `32de326` (`git fetch` primero). **T3+T4 de ALERT-84 tienen veredicto del Reviewer** (opción (a),
+3 firmas como único bloqueante) — no lo toco, es del Principal. **49G** sigue sin implementar. **Idea 44:
+0%, duodécimo heartbeat, sale de la tabla.** `homestead-tracker.js`: código muerto, **undécima** verificación.
+Rama de la ronda: `po/hb71-dashboard`, **solo este archivo**. No commiteé código.
 
 
 ## ACTUALIZACION 2026-09-30 23:30 UTC — Heartbeat PO ronda 17 — 🔴 ALERT-84: un item de menú que no puede funcionar, y el trabajo que lo haría funcionar ya está escrito
