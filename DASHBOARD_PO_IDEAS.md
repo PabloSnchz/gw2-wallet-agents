@@ -1,7 +1,118 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T01:00:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
+> Actualizado: 2026-10-01T10:00:00Z (Heartbeat PO ronda 28 — 🔴 T9: el mutex de recarga CANCELA la carga nueva en lugar de posponerla; 2 modulos declararon el contador de generacion y nunca lo incrementaron. Ejercitado con arnes: la red nunca pide la cuenta B. Sigue el espejo de la ronda 19), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
 > Mantenedor: PO (product-owner)
+
+
+---
+
+## ACTUALIZACION 2026-10-01 10:00 UTC — Heartbeat PO ronda 28 — 🔴 T9: el mutex de recarga no postpone la carga nueva: la CANCELA. Y hay 2 módulos que declararon el contador y nunca lo incrementaron
+
+> **Espejo de la ronda 28 del PO.** Rama `po/hb87-dashboard`, **solo este archivo**. No commiteé código.
+
+### La pregunta de la ronda no fue "¿qué feature falta?"
+
+La ronda 27 encontró que dos cargas concurrentes hacemos que **gane la vieja** (`app.js`), y se arregló con
+un contador de generación (`47e4819`). La pregunta de esta ronda fue la que ese commit no hacía:
+**"¿ese fix cubrió el síntoma o la clase?"**
+
+Vigésimasexta ronda de web research, **vigésimasexta sin feature nueva** (Reddit 403, `gw2treasures/feeds` 404).
+Cero aporte externo, y está bien: la pregunta es de concurrencia, no de mercado.
+
+### 🔴 T9 — el hallazgo
+
+**No cubre la clase. La cubre al revés.** El fix de `app.js` agrega la guarda correcta *al revés del
+mutex*: los otros 8 módulos que recargan por cambio de cuenta tienen el mutex **sin** la guarda, y el
+mutex **no postpone la carga nueva: la descarta antes de pedirla.**
+
+El patrón (`git grep -nE "if \(_\w*InFlight\) return _\w*InFlight"` sobre `js/`) está en **8 sitios**:
+
+| módulo | función | ¿lee token? | ¿revalida tras el await? | guardia de generación |
+|---|---|---|---|---|
+| `raid-tracker.js:1803` | `refresh` | no (delega) | **NO** | **FANTASÍA: `_refreshSeq` declarado `:872`, nunca `++`** |
+| `strike-tracker.js:1132` | `refresh` | no (delega) | **NO** | **FANTASÍA: `_refreshSeq` declarado `:396`, nunca `++`** |
+| `homestead-tracker.js:424` | `refresh` | no | NO | ninguna |
+| `wallet-dashboard.js:1168` | `refreshData` | no | NO | ninguna |
+| `inventory-dashboard.js:1245` | `refreshData` | no | NO | ninguna |
+| `wv-shop-ui.js:708` | `refreshShopData` | sí | NO | ninguna |
+| `router.js:975` | `refreshShopData` | sí | sí | sí |
+| `inventory-hub.js:1429` | `refresh` | no | sí | sí |
+
+**Los dos "FANTASÍA" son el dato más barato de la ronda:** el contador que arregla la carrera **está
+escrito, con nombre, en el lugar exacto, y nunca se incrementa.** Se lee y se publica en el diagnóstico
+(`raid-tracker.js:1927`, `seq: _refreshSeq`) —o sea: **la app afirma medir la generación de la carga y
+mide siempre 0.**
+
+### Ejecutado, no inferido. Y con control que discrimina.
+
+Función `refresh` + `loadStrikeData` **verbatim** de `strike-tracker.js` (`:1064`, `:1113`, `:1130`),
+con la red inyectada y **el orden de resolución controlado por el test**:
+
+| caso | qué pasó | veredicto |
+|---|---|---|
+| **1 — CONTROL**: A termina antes del cambio | pantalla = `["strike_2"]` (de B) | correcto |
+| **2 — REAL**: Pablo cambia con A todavía en vuelo | **la carga de B NO SE PIDIÓ A LA RED** | pantalla = `["strike_1"]`, desplegable = `KEY-B` |
+| **3 — CONTROL DEL ARNÉS**: mismo caso sin el mutex | A escribe al final | demuestra que el defecto es el mutex, no el `await` |
+
+**El caso 3 es el que convierte esto en hallazgo y no en lectura:** el `await` solo produce "gana la vieja"
+— que es exactamente lo que arregló `47e4819`. Lo que produce el mutex es peor: **`state.shop` nunca se
+vuelve a pedir.** El select dice B y la pantalla muestra A, y no hay forma de recuperarlo: no hay reintento
+cuando la carga vieja termina.
+
+### El disparador es exactamente el que usa Pablo con 27 cuentas
+
+- `raid-tracker.js:1867` y `strike-tracker.js:1179`: `gn:tokenchange` → `refresh(true)`
+- `router.js:1811/1817`: al cambiar de cuenta, `refresh(true)`
+- `activate()` llama `refresh(false)` **sin `await`** (`:1149`) → la carga de la cuenta vieja queda en vuelo
+
+**La ventana son los primeros ~2 min tras el F5** (mediana de latencia 902 ms, ronda 02:00; `TTL.WALLET = 2 min`
+en `api-gw2.js:409`) — o sea, es cuando Pablo abre la Bóveda y empieza a pasar de cuenta en cuenta.
+
+### 🟢 Tramo 1 — 4 líneas por módulo, sin cambiar firmas
+
+```js
+let _refreshSeq = 0;                       // YA ESTÁ DECLARADO en los 2 módulos
+async function refresh(forceNoCache) {
+  const mine = ++_refreshSeq;
+  if (_refreshInFlight) return _refreshInFlight;
+  try {
+    _refreshInFlight = loadStrikeData(!!forceNoCache, mine);
+    await _refreshInFlight;
+  } finally { if (mine === _refreshSeq) _refreshInFlight = null; }
+}
+```
+
+y en el loader, antes de escribir: `if (mine !== _refreshSeq) return;`
+
+**Empieza por `strike-tracker.js` y `raid-tracker.js`:** son los 2 con el contador ya declarado (el
+escritor es otro, o sea que el diseño ya se decidió) **y los 2 con dos disparadores** de `refresh(true)`.
+
+**🟢 Tramo 2 — 1 línea, y es independiente:** los 4 módulos sin secuencia
+(`wallet-dashboard`, `inventory-dashboard`, `homestead-tracker`, `wv-shop-ui`) al menos **deben reintentar**
+cuando el `finally` corre con una solicitud pendiente. Sin eso, la carga nueva no se pierde por datos
+viejos: se pierde porque nunca se pidió.
+
+### Por qué los tests no lo ven (medido)
+
+`tests/hb87-carga-gana.test.js` es el test del fix de la ronda 27: 216 líneas, extrae `loadAllForToken`
+de `app.js` y monta la carrera. **Es el test correcto del defecto que arregló.** No cubre los 8 módulos
+con mutex porque **el defecto anterior y este son distintos**: uno es "la vieja gana al final", este es
+"la nueva nunca se pide". El test que falta tiene que afirmar **que la red recibió una petición para B**,
+no qué valor quedó en pantalla.
+
+### Prioridades tras esta ronda
+
+1. **T9 Tramo 1** 🟢 (raid + strike) — 2 contadores ya declarados, esperando un `++`
+2. **T9 Tramo 2** 🟢 — reintento en los 4 módulos sin secuencia
+3. **T2-mini** 🟢 (contador de cuentas con permisos incompletos) → **T2** 🟡 → **T4** 🟢
+4. 49G → 47/57 → 49D → 49F/49E → 42 → 45
+
+**Fuera:** Idea 44 (`homestead-tracker.js` es código muerto — **decimoctavo** heartbeat en 0%).
+
+**La regla que sale:** *un contador declarado y nunca incrementado es peor que un contador ausente.*
+El ausente te dice que no hay defensa. El declarado te dice que **hay una defensa, y que alguien la
+desconectó** — y como se publica en el diagnóstico, la app miente sobre su propia concurrencia.
+
 
 
 
@@ -605,7 +716,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El POáó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
