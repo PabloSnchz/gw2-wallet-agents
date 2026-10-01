@@ -124,7 +124,38 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 
 ---
 
-*Las tres fichas de arriba fueron escritas por el Arquitecto. La primera, a
-partir de la review de Pablo. Las otras dos son un retroactive: los merges
-pasaron antes de que existiera la regla, y el Principal no las escribió.
-Faltan por confirmar en dev las dos últimas.*
+## Importar un backup avisa si a una key le faltan permisos
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Panel de Cuentas → importar backup. Solo aparece si hay
+  algo que avisar; si todas las keys están completas, el import sigue
+  haciendo lo mismo que antes.
+- **Ruta:** `#/account`
+- **Descripción:** al importar un backup se guardaban las cuentas sin
+  revisar que la clave de API tenga todos los permisos. Una clave con 5
+  permisos de menos se guardaba sin error y sin mensaje, y el problema
+  aparecía después, en otra parte, sin explicación.
+- **Commits:** `570336b`, `5a6c8c3`
+- **Rama:** `—`
+- **Si no entra:** volvés a poder importar un backup con claves incompletas
+  sin enterarte, y esas claves fallan después en pantalla por razones que no
+  vas a poder conectar con el import.
+- **Si sale mal:** **nunca se pierden cuentas.** Una clave sin el dato de
+  permisos se trata como *desconocida*, no como mala: se importa igual y te
+  avisa. Preferimos una advertencia de más a decirte que tus cuentas
+  desaparecieron. Tampoco se corta el import por una sola clave: se importa
+  todo y se informa cuál quedó incompleta.
+- **Ojo — comportamiento que NO cambia:** importar un backup **reemplaza**
+  la lista de cuentas, como siempre. Las cuentas que no estén en el backup
+  no sobreviven al import. Eso no es de este cambio, pero conviene saberlo
+  antes de importar.
+- **Tests:** 26 pass / 0 FAIL. Control negativo real: contra `main` sin el
+  fix da 14 FAIL. Suite completa 1341 pass / 0 FAIL.
+
+---
+
+*Las cuatro fichas de arriba fueron escritas por el Arquitecto. La primera, a
+partir de la review de Pablo. Las otras tres son retroactivas: los merges
+pasaron antes de que existiera la regla de la ficha, y el Principal no las
+escribió. Las tres últimas están pendientes de prueba en dev.*
