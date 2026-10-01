@@ -249,3 +249,27 @@ tiene timeout (bug de plataforma), el Principal los mantiene.
     - [ ] **Idea 50: el hook `onClear`** (sigue abierto desde el HB#70, sin veredicto). Sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes que el boton dice liberar se vuelvan a consumir. `cacheClear` solo limpia la `__mem` de UNA capa y `wizards-vault.js:40-41` tiene la suya.
     - [ ] **ALERT-84 T3+T4 (ronda 17 del PO)**: implementar `loadLegendaryData()` de verdad, y el contrato `registerRender`/`getState`. **VEREDICTO DEL REVIEWER (`task-509ffb6eb907`): (a), reducido a su minimo.** Implementar `registerRender(fn)` + un booleano observable de registro + **las 3 firmas** (`renderCatalogGrid(items, owned)`, `renderFilterBar(filters, catalog)`, `renderProgress(state, stats)`, que ademas lee `state.owned`). **NO implementar `getState()` entero: tiene 0 invocaciones, no 1** (esta en un bloque de comentario, `render-catologo.js:11`). **LO UNICO BLOQUEANTE: hacer (a) sin fijar las firmas.** Se descarto (b) porque `gn:tokenchange` se escucha y no se despacha, asi que colgar el render de ahi lo ata a un cambio de cuenta y no a "el modulo esta listo". El assert sale en el sandbox que ya existe (`alert84...test.js:223-226`), 3 lineas mas. **Orden: tracker -> render-catologo** es el que rompe al invertirse; `legendary-data.js` puede ir en cualquier posicion. **Sin implementar: es el item mas grande que queda y merece su propia rama y su propio ciclo.**
     - [ ] **Idea 63 T3** (persistir filtros por cuenta): **DESBLOQUEADA** -- T1+T2 ya mergeadas en `eb69fb3`. **Pero es CONTRARIA al T1**, asi que si entra hay que sacar el reset o pasarlo a "resetear solo cuando el filtro no existia para esa cuenta". No es del equipo: es preferencia de uso, va a Pablo.
+## Estado de ramas al cierre del Heartbeat #75 (2026-10-01)
+
+Medido con `git worktree list` + `git branch --contains`, no de memoria.
+
+- **`main` = `f7a7f41`** (push verificado, 10 ramas remotas, ninguna con prefijo de
+  remoto). Suite **964/0 en 34 de 34**.
+- ⚠️ **`fix-idea50b-hook-cache-mem` (`0c12adc`) SIGUE SIN MERGEAR.** No es un
+  olvido de este ciclo: venia abierta. Toca `api-gw2.js`, `settings-manager.js`,
+  `wizards-vault.js` y trae **su propio test de 271 lineas**
+  (`tests/idea50b-hook-cache-mem.test.js`). **NO la mergee a ciegas en un ciclo de
+  heartbeat:** es codigo de datos y por ALERT-48 va con veredicto del Reviewer.
+  Es el item "Hook `onClear`" de EN CURSO, y su asercion 4b deberia marcarlo sola
+  cuando entre.
+- ⚠️ **Hay un worktree ajeno con trabajo sin commitear:**
+  `C:\Mis Archivos\GW2 online\hb75-wt` tiene `M index.html`, `M js/app.js` y
+  `?? tests/hb75-permisos.test.js`. **No lo toque** (no se de que ciclo es ni si es
+  mio). Se anota para que Pablo o el ciclo que lo creo lo cierren.
+- `feat-idea49g-ach-acc-compacta` esta en remoto pero **NO se mergea**: el Reviewer
+  la RECHAZO con 2 bloqueantes (el compacto no es round-trip, `api-gw2.js:1400`).
+
+**REGLA del ciclo:** cuando `git checkout main` falla con *"already used by
+worktree"*, no pelees con git ni asumas que estas en el estado que creias. El
+worktree ajeno es informacion: puede tener trabajo sin commitear, y ese trabajo es
+de otro ciclo. Se documenta y se sigue en el worktree propio.
