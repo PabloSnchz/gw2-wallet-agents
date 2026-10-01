@@ -1855,3 +1855,98 @@ test, seccion 4** — si alguien cambia los mapas, el test se pone rojo.
   lesson de `f739e21`.
 - Las 2 ramas remotas mergeadas sin borrar (`ALERT-99`) siguen sin borrar: es
   destructivo y una es del PO, que puede tener su propio clon.
+
+## Heartbeat #79 (05:00 UTC) - el codigo muerto que el Reviewerpidio sacar, SACADO, y dos formas de mentir con un numero
+
+> Ciclo corto y de cierre: noavage una feature. Recogi el veredicto que estaba
+> en vuelo, aplique el unico cambio que bloqueaba el merge, y arregle dos probes
+> mios que estaban dando numeros que parecian autoritativos.
+
+### Tareas en curso
+
+- **PO** (`task-45bedd0f7904`, enviada 05:0xZ): ronda 24 de PRE_BACKLOG. Se le
+  pidio explicitamente que si no hay nada lo diga, sin forzar idea. **Al cierre
+  del ciclo seguia `running`; no se espera en foreground.** La recoge el proximo
+  heartbeat. Fila 085 de `COMMS_LOG.md`.
+- **Reviewer**: sin nada en vuelo. Las 2 consultas abiertas del ciclo anterior
+  (081 `viewPref`, 083 auditoria de `9fa3986`) estan **Resueltas**.
+- **Documentador**: sin tarea abierta. La regla de no-fallback sigue vigente:
+  si falla, se reporta a Pablo y no documento yo.
+
+### Completadas
+
+- **`87bab23` - `app.js:1067` (el `if (err?.kind)`) FUERA.** El Reviewer dio
+  APROBADO CON CAMBIOS y ***ero la condicion era una sola linea***. Verifique su
+  premisa por separado antes de aplicar: `git grep -nE "\.kind\s*=" -- "*.js"`
+  da **0 en produccion** (9 matches: 4 de hb77, 4 de idea50 sobre toasts, y la
+  linea misma). Nadie le pone `kind` a un `Error` en ningun modulo, asi que no
+  hay productor posible.
+- **`fdf29ac` - cherry-pick de `9fa3986`** (el fix de la puerta de permisos), que
+  estaba sin pushear en la rama de la otra instancia. Con esto el fix llega a
+  `agents/main` **sin la linea muerta**.
+- Merge fast-forward a `main` y push. `origin/main` = **`87bab23`**. Verificado
+  post-push con `git ls-remote --heads origin`: 11 ramas, **ninguna con prefijo
+  de remoto**.
+
+### Verificacion
+
+- `node --check js/app.js`: OK.
+- Suite completa: **1048 pass / 0 FAIL en 37 de 37 archivos**.
+- **Mutaciones 4 de 4 MUERTEN:** volver el pisoton -> 6 FAIL; perder el 403 ->
+  2; perder el 429 -> 1; perder la red -> 1. Ese era el punto de quitar la linea:
+  comprobar que la red de tests NO se debilitaba. No se debilito.
+- Newlines: el worktree tiene CRLF por `core.autocrlf` y el blob en git tiene
+  LF. El parche removio 3 lineas (LF 1355 -> 1352) sin convertir el archivo. En
+  `COMMS_LOG.md` mis 2 filas iniciales dejaron 1 LF pelado en un archivo CRLF; lo
+  detecte midiendo (LF 349 / CRLF 348), lo normalize, y volvi a medir (349/349).
+
+### Pendientes / alertas
+
+- **ALERT-103 (nueva).** Un harness de mutacion que se auto-verifica borro el
+  trabajo: el fix estaba SIN commitear y el `finally` hacia `git checkout --`,
+  que para git no "restaura" sino que **descarta**. Reaplique y recien ahi
+  commitee. **REGLA: commitear antes de mutar el arbol, y verificar el restore
+  con `git status --short` adentro del mismo script.** El falso "restore OK"
+  venia de que comparaba contra el original leido al arrancar, o sea contra
+  una variable mia, no contra git.
+- **ALERT-104 (nueva).** El repo tiene **4 formatos de resumen de suite**. Mi
+  primer contador dio 728 y el segundo 1048; el correcto es 1048 (que reconcilia
+  exacto con los 1029 del Reviewer: 1029+19 y 36+1). Un total de suite mas chico
+  que el de otro investigador no es "menos tests", es "no los leí".
+- **La instancia duplicada SIGUE VIVA.** `git reflog` en el clon compartido
+  mostraba `HEAD@{0}` = `11285a0`, un commit que **yo no hice**. Hace 39 min
+  no escribia nada, asi que este ciclo lo hice **100% en el worktree `hb79-wt`**,
+  sin tocar el clon compartido: ni checkout, ni commit, ni push desde ahi.
+  Sigue siendo la unica accion que resuelve la concurrencia, y es de Pablo.
+- **2 ramas remotas ya mergeadas y sin borrar** (`docs-idea50p3-hb67`,
+  `feat-idea56-forma-raids`): contra la regla de AGENTS.md. **No las borro**
+  (destructivo, y una es del PO, que puede tener su propio clon).
+- Fila 079: el fix de 3 lineas de los raws de `raid-tracker.js` sigue
+  **autorizado por el Reviewer** pero esperando el veredicto de `viewPref()`,
+  que toca los mismos call-sites. Ese veredicto ya llego (081, APROBADO CON
+  CAMBIOS) y **descarta** la implementacion de las claves de pestana: 2 claves
+  separadas o nada, porque `converter-modal.js:38` comparte `gw2_conv_cache_v3`
+  con un cache de TTL 30 min.
+
+### Estado de propuestas
+
+- **Reviewer: 1/1 aplicado.** El unico cambio bloqueante (sacar `app.js:1067`)
+  esta mergeado y verificado con dientes de prueba.
+- **PO: ronda 24 en vuelo** (`task-45bedd0f7904`), sin recoger al cierre.
+- **Sin propuestas pendientes de envio al Reviewer.**
+
+### Lo que NO se hizo, y por que
+
+- **No se borro la fila 083 ni se reescribio el veredicto del Reviewer.** Solo se
+  corrigio su ultima frase, que decia "no se toca desde aca" y quedo FALSA al
+  aplicar el cambio en este ciclo. Un log que reescribe veredictos es peor que
+  uno que los deja; lo que se corrige es la **afirmacion de estado**, no el
+  juicio del Reviewer.
+- **No se toco `kind` sin consumidor** (`app.js:1168` lo destructura y lo
+  descarta, asi que la mitad de las aserciones de hb77 verifican un campo
+  muerto). Es el siguiente de la lista del Reviewer, pero es otro PR.
+- **No se toco `hb75`**, que tiene el mismo punto ciego que tenia `hb77`: verifica
+  la CONSTRUCCION del mensaje, no el mensaje. Mutacion medida: la puerta puede
+  tirar `"Permisos Insuficientes"` y `hb75` da 46/0. El Reviewer lo dejo
+  explicitamente fuera de este PR.
+

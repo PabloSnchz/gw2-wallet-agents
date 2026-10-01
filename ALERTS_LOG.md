@@ -1342,3 +1342,57 @@ cambiar 2 lineas a Useful y 1 a la nada.
 **REGLA:** una premisa que se cita por nombre de clave y por numero de mapa es
 una cita, y se mide antes de actuar. Un nombre de clave sin mapa no dice nada, y
 un numero de mapa sin midirlo puede ser de otro mapa.
+
+## ALERT-103 - un harness de mutacion que se auto-verifica tambien puede BORRAR el trabajo, y el falso "restore OK" lo tapo
+
+Ciclo #79. Escribi un probe de mutacion para comprobar que quitar `app.js:1067`
+no debilitaba la red de tests. La version 1 copiaba `js/` y `tests/` a un temp y
+corria la suite ahi: la base salio en **ROJO (6 FAIL)** porque los tests leen
+archivos de la RAIZ del repo (`index.html`, css). Copiar parcialmente rompe el
+contexto del test. La version 2 muta **en el worktree real** y restaura con
+`git checkout -- js/app.js`.
+
+Las 4 mutaciones murieron (6 / 2 / 1 / 1 FAIL), que era el objetivo. Y en el
+`finally` el script imprimio `RESTORE FALLIDO: 61913 != 61686`.
+
+**Lo que paso:** el fix de `app.js:1067` estaba en el worktree SIN commitear.
+`git checkout --` no lo "--restaura": lo **descarta**, porque para git lo
+commiteado es la verdad. El probe borro 3 lineas de trabajo real. Y lo peor es
+el modo de fallo: los bytes que compare son los del **original leido al
+arrancar el script**, o sea que el chequeo era correcto y aun asi el trabajo
+estaba perdido, porque el "original" no estaba en ningun lado salvo en mi
+variable. Reaplique el parche y recien ahi commitee.
+
+**REGLA: antes de mutar el arbol, el cambio tiene que estar COMMITTEADO, y el
+restore se verifica con `git status --short` en el mismo script.** Un harness
+que se auto-verifica no es una garantia: se auto-verifico *y* perdio el trabajo,
+porque verifico que el archivo volviera a lo que el script creia, no a lo que
+git creia.
+
+Corolario del mismo probe: un harness cuya BASE esta en rojo no prueba nada,
+por bueno que sea el resto. Por eso el script aborta si `base !== 0` antes de
+mutar, en vez de reportar el numero de la primera mutacion.
+
+## ALERT-104 - el repo tiene 4 formatos de resumen de suite, y el que parsea 1 da un numero con 300 de diferencia
+
+El Reviewer reporto la suite en **1029 aserciones / 36 archivos**. Mi primer
+contador dio **728**, y mi segundo dio **1048**. Ninguno de los dos era el
+numero real de entrada, y el 728 semia "el suite esta bien" cuando en realidad
+estaba ignorando 14 archivos de 37.
+
+Causa: los test files no comparten un formato de resumen. Hay cuatro:
+`"N pass, M fail"`, `"N pass / M FAIL"`, `"N aserciones, M FAIL"` y
+`"pass: N | FAIL: M"`, mas dos variantes con `OK` en vez de `pass`
+(`"--- N OK / 0 FAIL ---"`, `"TODO OK: N OK / 0 FAIL"`).
+
+El numero correcto, medido: **1048 pass / 0 FAIL en 37 de 37**. Reconcilia
+exactamente con el del Reviewer: `1029 + 19` (el test hb77 que elReviewer no
+tenia, porque audito antes de que yo lo mergeara) y `36 + 1` archivos. Esa
+cuadra es la prueba de que el numero no es inventado: dos mediciones
+independientes que sourceden de contextos distintos.
+
+**REGLA: un contador de suite que no recognize TODOS los formatos devuelve un
+numero que parece autoritativo y no lo es.** Antes de reportar un total,
+imprimir cuantos archivos quedaron SIN parsear; si es > 0, el total es una
+cota inferior, no un total. Un numero de suite mas chico que el de otro
+investigador no es "menos tests": es "no los leí".
