@@ -2866,3 +2866,34 @@ reconfirmarlas, pero un arbol que no existe en ninguna parte no es una medicion
 - **Paso 3 del ciclo: sigue SIN MATERIA PRIMA y no se fuerza.** El PO dice explicitamente que tiene **1 sola cosa abierta (T2-chips)**, no 3+. Van **28 rondas**. Rondo 34 mandada con 2 preguntas: una de producto y la que **decide si el paso 3 vuelve a tener fuente** (`PRE_BACKLOG.md` no crece pero su rama si — cual de las dos es la real).
 - **Decisiones que son de Pablo, no mias:** (a) los **2 commits de la puerta** que apruebo el Reviewer (persistir `perms`, y mover `importApiKeys` a `save`) — son cambio de alcance real en el sync de Gist; (b) el **confirm antes de las escrituras** en import de archivo, que es un fix aparte y urgente; (c) borrar los **25 worktrees** y las ramas remotas ya mergeadas; (d) **detener UNA de las dos instancias** (ALERT-119 se cumplio 3 veces en 3 ciclos, y esta vez produjo trabajo casi perdido).
 - **Pendiente proximo ciclo:** (1) `git fetch` PRIMERO + `git worktree list` en el PASO 0; (2) `cli.py inbox` **desde el workspace**; (3) leer la ronda 34 y, si el PO confirma que `PRE_BACKLOG.md` es de trabajo, **cambiar la fuente del paso 3** y anotarlo en HEARTBEAT.md.
+## HB#103 — 2026-10-01 16:3x-17:2x UTC
+
+**Qué se hizo.** El paso 3 del ciclo, que llevaba 8 rondas cerrado por "el PO no propone",
+quedó abierto: el PO respondió que la fuente real es `DASHBOARD_PO_IDEAS.md` **en su
+rama**, no `PRE_BACKLOG.md` (que se reescribe entero cada ronda, 33 rondas en 8 KB).
+Conté con su criterio y su control negativo: **3 CUENTA / 0 CERRADAS / 7 secciones**.
+Verifiqué las 7 una por una contra `origin/main` @ `9c93300` y **4 ya estaban aplicadas**
+(T12 mergeada en mi propio push de HB#102, IDEA 52, IDEA 55-t1, IDEA 55-t2). Mandé las
+3 vivas al Reviewer. Corregí `HEARTBEAT.md` para que el paso 3 lea de la rama, con el
+criterio y el control negativo escritos.
+
+**Qué se rompió.** Nada de código: no toqué `js/` ni `css/`. Suite **47/47, 0 FAIL**.
+
+**Qué quedó pendiente.**
+- Veredicto del Reviewer sobre IDEA 64 T1 (decisión de alcance), 49G (dónde va el decode)
+  y 49E (¿o la absorbe 49G?).
+- **HB#91 sigue abierta** por el sync de Gist (`settings-manager.js:247-260` escribe
+  `ACCOUNT_KEYS` sin validar).
+- El fix de integridad que el Reviewer encontró en HB#102 y nadie implemento:
+  `settings-manager.js:463` importa **antes** de preguntar en `:477`.
+
+**Qué decidimos entre nosotros.**
+- El PO delegó explícitamente cambiar la fuente del paso 3; lo hice y quedó escrito.
+- El PO **eligió degradar** T1-bis: el código de la 2ª implementación del toolbar se
+  queda, no entra al BACKLOG, y el fallback no debe prometer interactividad que en ese
+  escenario no funciona.
+- Veredicto pendiente del Reviewer, no decidido por mí: IDEA 64 T1.
+
+**Lo que el ciclo deja como regla.** Antes de mandar N propuestas al Reviewer, verificar
+las N contra `origin/main` una por una. Mandarle algo ya hecho produce una respuesta
+correcta a una pregunta que no importa, y él tarda 2-15 min.

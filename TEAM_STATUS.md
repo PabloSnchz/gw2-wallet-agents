@@ -3543,3 +3543,89 @@ replies`.
 - **Paso 3 del ciclo SIN MATERIA PRIMA: van 28 rondas.** El PO tiene 1 sola cosa abierta (T2-chips), no 3+. Rondo 34 mandada para decidir si `PRE_BACKLOG.md` es fuente real o si el paso 3 debe cambiar de fuente.
 - **ALERT-131 (nueva):** un ciclo que muere entre "escribi el fix" y "commitea" deja trabajo invisible desde `origin/main`. Regla: `git worktree list` en el PASO 0.
 - **Decisiones de Pablo pendientes:** los 2 commits de la puerta; el confirm del import; borrar **25 worktrees** y las ramas remotas ya mergeadas; **detener UNA de las dos instancias** (ALERT-119 se cumplio 3 veces en 3 ciclos).
+---
+
+## [2026-10-01 16:3x-17:2x UTC] Heartbeat #103 — el paso 3 estaba contando en el archivo equivocado, y por fin hubo materia prima
+
+### Tareas en curso
+
+- **Reviewer — 1 en vuelo (legible, verificado con su lector).** Lote del paso 3:
+  **IDEA 64 T1** (decisión de alcance), **IDEA 49G** (`ach_acc` compacto, 2 lectores de
+  objeto), **IDEA 49E** (`getCache` no borra la vencida). Preguntas de **DISEÑO**, no
+  "arregla la línea". `addc8b`, 6083 chars, `kind='question'`, sin CJK.
+  **Las 2 VENCIDAS se archivaron**: HB#94 T10 (respondida y aplicada en HB#96) y
+  HB#97 T1 (respondida y aplicada en HB#99).
+- **PO — ronda 34 respondida** (`task-12b1c613470a`). Dio la fuente real del paso 3 y
+  delegó el cambio. **1 sola cosa abierta de su lado** (T2-chips).
+- **Documentador** — sin tarea (regla de no-fallback vigente).
+
+### Completado en este ciclo
+
+- **ALERT-132 escrita** en `ALERTS_LOG.md` (append, 3082 -> 3145 CRLF).
+- **`HEARTBEAT.md` corregido**: la sección del paso 3 ahora declara la fuente
+  (`git show origin/po/hb99-dashboard:DASHBOARD_PO_IDEAS.md`, **en la rama**), el
+  criterio de conteo del PO, y la obligación del control negativo. 227 -> 265 líneas,
+  0 caracteres corruptos.
+- **Contejo medido**: 3 CUENTA / 0 CERRADAS / 7 secciones con "ronda N", con control
+  negativo en 0.
+- **Las 4 propuestas ya aplicadas se descartaron antes de mandar**: T12 (mergeada en
+  `9c93300`), IDEA 52, IDEA 55-t1, IDEA 55-t2. Verificadas una por una contra
+  `origin/main`.
+
+### Pendiente
+
+- **HB#91 sigue ABIERTA** por el sync de Gist: `settings-manager.js:247-260` escribe
+  `ACCOUNT_KEYS` sin validación, y la puerta de permisos vive solo en `save`. El
+  Reviewer aprobó (d) = persistir `perms` + mover `importApiKeys` a `save`, **en 2
+  commits**, con la regla de compatibilidad `perms` ausente = desconocido, no malo.
+- **IDEA 64 T1** espera veredicto; la decisión de alcance (no-op vs recrear la cuenta
+  que la otra pestaña borró) es del Reviewer.
+- **HB#99 matiz de Pablo**: borrar la 2ª implementación del toolbar (~130 líneas) o
+  conservar el fallback de fallo de carga. El PO **eligió degradar** (el código se
+  queda, T1-bis no entra al backlog).
+- **Hallazgo de integridad del Reviewer (HB#102)**, sin fix: `settings-manager.js:463`
+  llama `importFromFile()` —que ya escribió las 7 claves en `:393-399`— y **la
+  confirmación al usuario está en `:477`**. Si cancela, los datos ya están escritos.
+  El camino del Gist lo tiene bien (`:451` pregunta, `:452` importa).
+
+### Alertas nuevas
+
+- **ALERT-132** (este ciclo): el paso 3 contaba en `PRE_BACKLOG.md`, que se reescribe
+  entero cada ronda. **8 rondas perdidas** por eso. Corolaria: de las 7 propuestas
+  ofrecidas, **4 ya estaban aplicadas** — y ya había pasado en HB#93 (BACKLOG/`onClear`)
+  y HB#102 (T1-bis). **Antes de mandar N propuestas al Reviewer, verificar las N contra
+  `origin/main` una por una.**
+
+### Estado de las propuestas del PO (el número que estaba mal)
+
+| | lo que el PO ofrecía | real en `origin/main` |
+|---|---|---|
+| T12 | 1 tramo | **MERGEADA** en `9c93300` |
+| IDEA 52 (`vloxx`) | tramo | aplicada, con test propio |
+| IDEA 55-t1 | tramo | aplicada (`characters.js:435`) |
+| IDEA 55-t2 | tramo | aplicada (`wv-purchase-detail.js:1014`) |
+| **IDEA 64 T1/T2/T3** | tramo | **ABIERTA** -> Reviewer |
+| **IDEA 49G** | tramo | **ABIERTA** -> Reviewer (`api-gw2.js:1408-1428` sigue con el payload crudo) |
+| **IDEA 49E** | tramo | **ABIERTA** -> Reviewer (`getCache:673-685` hace `return null` sin borrar) |
+| "T11" / "T9" | 2 tramos | **0 matches** en el archivo; no existen |
+
+### Estado técnico
+
+- **Suite: 47/47 archivos, 0 FAIL.**
+- **`origin/main` = `9c93300` al inicio del ciclo** = mi push de HB#102. Sin divergencia:
+  **ALERT-119 no se cumplió** (comparé antes de escribir).
+- **25 worktrees acumulados**; crear el propio fue lo único que necesité.
+- **WIP ajeno revisado** (ALERT-128): `hb101-wt` (T12) y `hb98-wt` (T1) ya fueron
+  recuperados en HB#102 y HB#99 respectivamente. Ninguno nuevo.
+- **Nada mergeado a `origin` (producción) ni propuesto.**
+
+### Decisiones que son de Pablo, no mías
+
+- (a) **Detener UNA de las dos instancias** — ALERT-119 se cumplió 3 veces en 3 ciclos.
+- (b) Borrar los **25 worktrees** y las ramas remotas ya mergeadas.
+- (c) Autorizar el borrado de los **2 archivos basura** (ALERT-120).
+- (d) Los **2 commits de la puerta de permisos** (persistir `perms`, mover
+  `importApiKeys` a `save`) — cambio de alcance real en el sync de Gist.
+- (e) **La pregunta al usuario antes de las escrituras** en import de archivo: hoy, si
+  Pablo cancela, los datos ya están escritos.
+- (f) Resolver la colisión de writers de los docs con el Documentador.

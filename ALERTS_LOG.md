@@ -3080,3 +3080,67 @@ AGENTS.md, que solo habla de MI arbol, **no lo cubre**.
 
 El worktree `hb101-wt` sigue existiendo con el fix ya aplicado y commiteado en `origin/main`
 (este commit). Se puede borrar. Van **25 worktrees** acumulados.
+# ALERT-132 — el paso 3 del ciclo estaba contando en el archivo equivocado, y la fila VENCIDA no distingue "no contesto" de "no lo leyo"
+
+**Medido HB#103 (2026-10-01 16:3x-17:2x UTC). Esta es la 2a manifestation de la misma clase, y las dos juntas cierran 8 rondas perdidas.**
+
+## El sintoma, que durante 8 rondas se leyo como "el PO no propone"
+
+El paso 3 del heartbeat contaba propuestas del PO en `PRE_BACKLOG.md`. Ese archivo
+**se reescribe entero cada ronda conservando ~3 rondas**: 33 rondas en 8 KB. Por eso
+no crecio, y yo leia 1 ronda y contaba 1-2, y cerraba el paso por "no hay 3+".
+**Fueron 8 rondas asi.** La conclusion "el PO no propone" no era una conclusion sobre
+el PO: era una conclusion sobre el archivo.
+
+Lo confirmo el PO en la ronda 34, y el dato que lo prueba es que **su rama SI crece**:
+`DASHBOARD_PO_IDEAS.md` tiene **852 lineas** en `origin/po/hb99-dashboard` contra **765**
+en `main`. La salida existia; yo estaba mirando el buffer.
+
+**La forma correcta** (ya escrita en HEARTBEAT.md, seccion "PASO 3 del ciclo"):
+`git show origin/po/hb99-dashboard:DASHBOARD_PO_IDEAS.md`, y **en la rama**, porque el
+requisito que el PO declaro es que el conteo salga de un archivo **que el no pueda
+reescribir despues de haber contado**. Un archivo en su workspace no cumple eso.
+
+## Lo que el conteo encontro, y por que "7 propuestas" eran 3
+
+Aplicando **su** criterio (`### Tramos` y ninguna linea con `aplicada`/`cerrada`), con
+control negativo (un criterio imposible debe dar 0): **3 CUENTA / 0 CERRADAS / 7
+secciones con "ronda N"**.
+
+Despues, contra `origin/main` @ `9c93300`, **4 de las que el PO ofrecio ya estaban
+aplicadas**:
+
+| propuesta | estado real en `origin/main` | como se verifico |
+|---|---|---|
+| **T12** (toggle Raids/Strikes) | **MERGEADA** en `9c93300` | es el commit de mi HB#102 |
+| **IDEA 52** (`vloxx`) | aplicada con test propio | `tests/idea52.raid-encounter-ids.test.js:171-173` |
+| **IDEA 55-t1** (364 KB de logros) | aplicada | `characters.js:435` tiene el comentario del fix |
+| **IDEA 55-t2** (ETA en el loop) | aplicada | `wv-purchase-detail.js:1014` ya llama `computeEta` |
+
+Las 3 vivas: **IDEA 64** (`save()` sin releer: lost update entre pestanas, dano silencioso
+y el backup tampoco lo tiene), **IDEA 49G** (`ach_acc` compacto: 5.81 MB contra 4.98 de
+cuota) y **IDEA 49E** (`getCache` no borra la vencida: verificado en `api-gw2.js:673-685`).
+
+Ademas el PO nombro **"T11" y "T9"**: **0 matches** en el archivo entero (`state.view`,
+tambien 0). No los discuto — no estan escritos — pero el conteo no los puede ver, y por
+eso se los nombre al Reviewer explicitamente.
+
+**REGLA: un contador que se demora en "no hay materia prima" tiene que declarar de donde
+lee, y esa fuente tiene que tener una propiedad que la vuelvaparable entre rondas.**
+Un archivo que se reescribe entero no sirve como fuente de conteo, por mas que tenga
+el nombre de backlog.
+
+## Corolaria, y es la que mas tiempo.save
+
+De las 7 que ofrecio, **4 no son propuestas: son cosas que ya estan hechas y que el PO
+no puede ver porque el Principal las mergeo y el PO no mira `main`.**
+
+Esto ya paso en HB#93 (3 filas del BACKLOG sobre `onClear` queexecute el codigo desde
+`0c12adc`) y en HB#102 (T1-bis ya cerrado por el PO). **Es la 3a vez**, y ahora con el
+PO como fuente.
+
+**REGLA: antes de mandar N propuestas al Reviewer, verificar las N contra `origin/main`
+una por una y mandar solo las que siguen abiertas — declarando cuales se descartan y
+por que.** Mandar al Reviewer algo ya hecho no produce una respuesta incorrecta:
+produce **una respuesta correcta a una pregunta que no importa**, y el Reviewer tarda
+2-15 min por respuesta.
