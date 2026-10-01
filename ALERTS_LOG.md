@@ -3144,3 +3144,61 @@ una por una y mandar solo las que siguen abiertas — declarando cuales se desca
 por que.** Mandar al Reviewer algo ya hecho no produce una respuesta incorrecta:
 produce **una respuesta correcta a una pregunta que no importa**, y el Reviewer tarda
 2-15 min por respuesta.
+# ALERT-133 — `git grep` sobre `main` no distingue "no existe" de "existe y no esta mergeada", y las dos dan veredictos opuestos
+
+**Me equivoque yo, en el mismo ciclo en que escribi la regla que lo evita.** Es la segunda vez en 4 ciclos (la primera, ALERT-119 en HB#99), y esta la mande al Reviewer antes de notarla: le pregunte por diseño una propuesta **que ya estaba implementada**.
+
+## Que paso
+
+Verifique IDEA 49G con `git grep` sobre `api-gw2.js:1408-1428` de `origin/main`, vi que seguia haciendo `putCache(key, data, ...)` con el payload crudo, y lo declare **ABIERTA**. Es cierto **en `main`**. Lo que no hice fue `git ls-remote --heads` antes de concluir.
+
+Hay una rama remota **`feat-idea49g-ach-acc-compacta`** con el commit `1a47d5c`:
+
+- `git merge-base --is-ancestor origin/feat-idea49g-ach-acc-compacta origin/main` -> **NO mergeada**.
+- Diff contra `main`: **`api-gw2.js` +124, `tests/idea49g.ach-acc-compacta.test.js` 392 lineas, `tools/idea49g-medir-honesto.mjs` 106, `index.html` +1** (buster `v2.28.0` -> `v2.29.0`).
+- El commit declara **suite 25/0 con fase roja verificada** (3 FAIL contra el archivo sin el fix) y **588/0 en 25 archivos**.
+
+O sea: **implementada, medida, con test y sin mergear.** No era "propuesta abierta": era una rama esperando veredicto — la situacion de ALERT-48.
+
+## Por que el `git grep` no lo podia ver
+
+Porque **`main` no la tiene.** El unico instrumento que use fue "el codigo en `main` tiene la forma vieja". Un `git grep` sobre `main` responde a "**¿que hay en main?**", y la pregunta era "**¿esta implementado?**". Son preguntas distintas con veredictos opuestos:
+
+| realidad | `git grep` sobre `main` | `ls-remote` + `merge-base` |
+|---|---|---|
+| no existe en ningun lado | no esta | no esta |
+| **existe en una rama sin mergear** | **no esta (FALSO)** | **si esta** |
+| existe y esta mergeada | si esta | si esta |
+
+**Las dos primeras filas son indistinguibles con el primer instrumento, y solo una de ellas es "no existe".**
+
+## Lo que reinforce en el mismo ciclo
+
+Es la **4a manifestacion** de "afirmar un negativo con un solo instrumento", y cada una con un instrumento distinto:
+
+| ciclo | instrumento | lo que no distingui |
+|---|---|---|
+| HB#91/93 | `git grep` por un simbolo | "no existe" de "existe con otro nombre" (`onClear` vs `__cacheClearMem`) |
+| HB#93 | `Select-String` + orden lexicografico | "falta ALERT-118" de "118 no es el maximo" |
+| HB#93 | dos llamadas en paralelo | "0 invisibles" de "no se leyo la salida correcta" |
+| **HB#103** | **`git grep` sobre `main`** | **"no esta" de "esta en una rama"** |
+
+**REGLA: antes de concluir "esto no existe / esto esta abierto", `git ls-remote --heads` + `git merge-base --is-ancestor`.** Un `git grep` dice que hay en **el arbol en el que estas mirando**, y en este repo el arbol por defecto (`main`) tiene 3 heartbeats de retraso y 10 ramas remotas que no estan mergeadas.
+
+**Corolaria, y es la que mas cuesta:** el caso de ALERT-119 (dos sesiones) y este son el mismo error con distinto disfraz. En ambos, **el instrumento consulto la copia y no el original**: ALERT-119, el clon compartido en vez de `origin/main`; aqui, `main` en vez de "donde esta el trabajo".
+
+## Dano concreto que produjo
+
+Un Reviewer recibio una pregunta de diseño sobre codigo hecho. **No es neutro**: produce **una respuesta correcta a una pregunta que no importa**, y el Reviewer tarda 2-15 min. Y el riesgo real: si yo no lo hubiera notado revisando `ls-remote` por el push, **su respuesta habria legitado una propuesta que no existe**, y ese veredicto habria ido al log como si fuera informacion.
+
+La correccion se le mando por el canal de archivos, verificada releyendola con el LECTOR de mi lado (`cli.py replies` muestra el cuerpo integro), y se retiro (B) de forma explicita: **"Retiro la pregunta. Las 2 que siguen en pie son (A) IDEA 64 y (C) 49E."**
+
+## Lo que la correccion me devolvio (y era mejor que mi pregunta)
+
+El mensaje de `1a47d5c` **responde** la pregunta que yo le hacia, con el porque:
+
+> "**Cambiar el formato de la CACHE es barato si el del WRAPPER no cambia: se compacta al escribir y se expande al leer**, asi que los tres modulos siguen recibiendo el mismo array de objetos y no se toco ninguno. La otra opcion habria sido editar 3 modulos enteros por un ahorro de disco que se consigue sin eso."
+
+Y **corrige la medicion que yo le transcribi**: no son 4.10 MB contra 4.98 de cuota, son **3.24 MB**, porque el `bits` que la cifra anterior contaba (0.52 MB solo) **no lo lee nadie** — `grep` sobre todo `js/` da cero apariciones fuera de un comentario. **El problema era MENOR de lo que el PO anuncia y el arreglo MAYOR de lo que yo creia** (0.53 MB contra 3.24).
+
+Osea: **la pregunta estaba mal y la respuesta ya existia escrita en el commit que yo no habia mirado.** Ese es el costo de no mirar la rama antes de preguntar.
