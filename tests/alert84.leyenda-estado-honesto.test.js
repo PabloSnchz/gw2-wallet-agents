@@ -11,7 +11,9 @@
  *     index.html:761  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
  *     router.js:125   ruta registrada;  :1562  la resuelve
  *     index.html:539  el <section id="legendaryArmoryPanel"> existe
- *     index.html:999  <script legendary-tracker.js> se carga
+ *     index.html:1004  <script legendary-tracker.js> se carga
+ *     index.html:1005  <script legendary-data.js> se carga    (T3, 2026-09-30)
+ *     index.html:1006  <script render-catologo.js> se carga  (T3, 2026-09-30)
  *     legendary-tracker.js  loadLegendaryData() es un STUB: resuelve []
  *     legendary-tracker.js  renderCatalogSkeleton() escribe "Cargando ..." y
  *                           NADA lo reemplaza
@@ -216,14 +218,19 @@ console.log('\n--- 6. El modulo sigue funcionando como modulo (carga real en vm)
     'expone root.LegendaryTracker al terminar el IIFE');
   if (root.LegendaryTracker) {
     const api = root.LegendaryTracker;
-    // La API publica REAL. `render-catologo.js` pide `registerRender` y
-    // `getState` (5 y 1 usos respectivamente) y aca hay 0: por eso cargar los
-    // dos <script> sin T4 no hace NADA. Se aserta aca para que el proximo que
-    // quiera cablearlo sepa que el contrato sigue sin existir.
-    ok(typeof api.registerRender !== 'function',
-      'registerRender NO existe todavia: T4, y por eso los 2 <script> sueltos no alcanzan');
+    // La API publica REAL. Este archivo CONGELO el estado previo a T4, asi que
+    // sus 3 asserts de "todavia no" se INVIERTEN el 2026-09-30 (T3+T4
+    // mergeadas). El que aserta que el registro OCURRIO y que el render lo USA
+    // no es este — es `alert84.t3t4-registro.test.js`, que mira el efecto y no
+    // la forma. Este solo congela la frontera: la puerta existe, y `getState`
+    // entero NO (a proposito: render-catologo.js tiene 0 invocaciones, la unica
+    // mencion esta en la cabecera dentro del bloque `Consume:`).
+    ok(typeof api.registerRender === 'function',
+      'registerRender existe (T4, 2026-09-30): la puerta que render-catologo.js pide');
+    ok(typeof api.getRenderState === 'function',
+      'getRenderState() existe: el punto de observabilidad del REGISTRO');
     ok(typeof api.getState !== 'function',
-      'getState NO existe todavia: T4 (render-catologo.js lo pide 1 vez)');
+      'getState ENTERO sigue sin existir, y es deliberado: nadie lo llama');
     for (const m of ['initOnce', 'activate', 'deactivate', 'refresh', 'prefetch']) {
       ok(typeof api[m] === 'function', 'la API publica expone ' + m + '()');
     }
@@ -233,16 +240,17 @@ console.log('\n--- 6. El modulo sigue funcionando como modulo (carga real en vm)
 }
 
 // ===========================================================================
-// Y el dato que hace que T3 NO sea "agregar los dos <script>", que es lo que
-// el PO se savings de investigar. Esta asercion falla si alguien los carga sin
-// T4, que es el error OBVIO y el que produce el mismo sintoma visible (nada)
-// mas 2 warnings.
+// Este bloque congelaba "los 2 scripts NO se cargan". Con T3+T4 mergeadas se
+// INVIERTE: ahora SI se cargan, y el error OBVIO pasa a ser el contrario —
+// dejarlos sin cargar, que reproduce el mismo sintoma visible (nada) y por el
+// mismo motivo: el contrato no llega aPainter. Que el orden de los 3 sea el que
+// ROMPE al invertirse lo aserta `alert84.t3t4-registro.test.js` §6.
 // ===========================================================================
-console.log('\n--- 7. Los 2 scripts huérfanos SIGUEN sin cargar (y por que) ---');
-ok(!/legendary-data\.js/.test(srcIX),
-  'legendary-data.js (85 KB, 206 legendarias) NO se carga: sin T4 no haria nada');
-ok(!/render-catologo\.js/.test(srcIX),
-  'render-catologo.js (17 KB, grid+filtros) NO se carga: sin T4 no haria nada');
+console.log('\n--- 7. Los 2 scripts YA se cargan (T3, 2026-09-30) ---');
+ok(/legendary-data\.js/.test(srcIX),
+  'legendary-data.js (85 KB, 206 legendarias) se carga: sin el, el catalogo no existe en la pagina');
+ok(/render-catologo\.js/.test(srcIX),
+  'render-catologo.js (17 KB, grid+filtros) se carga: sin el, no hay quien pinte');
 ok(/root\.LegendaryCatalog/.test(read('js', 'legendary-data.js')),
   'legendary-data.js se autoexpone como root.LegendaryCatalog (ya existe, no cableado)');
 

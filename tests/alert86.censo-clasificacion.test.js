@@ -73,7 +73,7 @@ const t84 = fs.readFileSync(path.join(ROOT, 'tests/alert84.leyenda-estado-honest
 const lt = fs.readFileSync(path.join(ROOT, 'js/legendary-tracker.js'), 'utf8');
 ok(!/index\.html:750|index\.html:528|index\.html:988/.test(t84),
   'el test ya no cita las lineas de main@d328969');
-ok(/index\.html:761/.test(t84) && /index\.html:539/.test(t84) && /index\.html:999/.test(t84),
+ok(/index\.html:761/.test(t84) && /index\.html:539/.test(t84) && /index\.html:1004/.test(t84),
   'cita las de ESTE arbol');
 ok(/main@d328969/.test(t84) && /main@d328969/.test(lt),
   'y las dos citas dicen que arbol son: una cita sin unidad es una cita sin unidad');
@@ -82,7 +82,9 @@ ok(/main@d328969/.test(t84) && /main@d328969/.test(lt),
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').split('\n');
 ok((html[760] || '').includes('navLegendaryArmory'), 'index.html:761 es el item de menu');
 ok((html[538] || '').includes('legendaryArmoryPanel'), 'index.html:539 es el panel');
-ok((html[998] || '').includes('legendary-tracker.js'), 'index.html:999 es el <script>');
+ok((html[1003] || '').includes('legendary-tracker.js'), 'index.html:1004 es el <script> del tracker (era 999: la T3 inserto 5 lineas de comentario antes)');
+ok((html[1004] || '').includes('legendary-data.js'), 'index.html:1005 es legendary-data.js (T3)');
+ok((html[1005] || '').includes('render-catologo.js'), 'index.html:1006 es render-catologo.js (T3)');
 ok((fs.readFileSync(path.join(ROOT, 'js/router.js'), 'utf8').split('\n')[124] || '').includes('legendary-armory'),
   'router.js:125 sigue siendo la ruta (esta NO se movio: el off-by-11 es solo del HTML)');
 
