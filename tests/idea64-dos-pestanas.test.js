@@ -146,15 +146,83 @@ function cuerpoDeMetodo(bloque, ini) {
  * assert al cuerpo de la funcion - que es lo que arregla el caso de `save()`
  * - no alcanza: con el fix puesto, el assert seguia dando FAIL.
  *
- * Por que no es un parser: no hace falta. Es un stripper, y su unica
- * Limitacion (cadenas multilinea con `//` adentro) esta medida y declarada en
- * la seccion 6. Un parser de verdad seria mas correcto y mas caro, y el
- * analisis de que el archivo no tiene ese caso es de una linea.
+ * Por que no es un parser: no hace falta. Es un stripper, y su limitacion
+ * esta MEDIDA y ASERTADA en la seccion 6, no declarada al pie. Un parser de
+ * verdad seria mas correcto y mas caro, y el analisis de que la region
+ * vigilada no tiene el caso es de dos asserts.
+ *
+ * ── La limitacion REAL, corregida el 2026-10-01 (ALERT-91) ─────────────────
+ * Lo declarado antes decia "cadenas multilinea con `//` adentro". Eso era
+ * FALSO, y el caso denegado esta PRESENTE HOY en el archivo vigilado.
+ * No son multilinea: es `//` DENTRO DE UN LITERAL DE UNA LINEA con codigo real
+ * despues. `accounts-panel.js:832`:
+ *   fetch('https://api.guildwars2.com/v2/account/home/nodes?access_token=' + x
+ * El stripper corta en `//` y se lleva `://api.guildwars2.com/... + x)).json();`.
+ * MEDIDO con tools/hb73-probe.js: 20 de los 42 archivos de `js/` tienen al
+ * menos una linea asi (legendary-data.js 206, raid-tracker.js 64,
+ * strike-tracker.js 34, characters.js 24).
+ *
+ * Y la direccion del fallo es la peor posible: BORRAR solo puede hacer que un
+ * assert NEGATIVO pase, nunca que falle. Un bug puesto sobre una linea con URL
+ * daria PASS. Por eso la limitacion se cuenta en tiempo de ejecucion
+ * (`lineasConSlashesEnLiteral`) y no se nota al pie: es luz roja, no prosa.
  */
 function cuerpoSinComentarios(codigo) {
   return codigo
     .replace(/\/\*[\s\S]*?\*\//g, ' ')   // bloque
     .replace(/\/\/[^\n]*/g, ' ');        // linea
+}
+
+/**
+ * El punto ciego del stripper, CONTADO: cuantas lineas tienen `//` dentro de un
+ * literal de una linea con codigo real despues.
+ *
+ * Por que se cuenta y no se declara: una limitacion escrita al pie es un
+ * comentario que nadie lee; la misma limitacion contada es un assert que se
+ * pone rojo el dia que aparece. Y el modo de falla es DIRECCIONAL: si este
+ * numero sube, los asserts NEGATIVOS de la seccion 6 empiezan a pasar con el
+ * bug puesto. O sea que un numero mayor no es "mas ruido": es menos red.
+ */
+function lineasConSlashesEnLiteral(codigo) {
+  let n = 0;
+  for (const linea of codigo.split('\n')) {
+    const i = linea.indexOf('//');
+    if (i < 0) continue;
+    const antes = linea.slice(0, i);
+    // Un numero IMPAR de comillas significa que la ultima comilla vista ABRIO
+    // un literal y el `//` cae adentro de el. Uno PAR significa que estamos
+    // fuera de todo literal y el `//` es un comentario de verdad.
+    const comillas = (antes.match(/'/g) || []).length +
+                     (antes.match(/"/g) || []).length +
+                     (antes.match(/`/g) || []).length;
+    if (comillas % 2 === 1 && linea.slice(i).trim().length > 0) n++;
+  }
+  return n;
+}
+
+/**
+ * La segunda fragilidad, y esta se mide comparando dos conteos en vez de
+ * uno solo.
+ *
+ * `cuerpoDeMetodo` cuenta llaves sobre TEXTO CRUDO, comentarios incluidos: una
+ * llave desbalanceada dentro de un comentario puede hacer que el extractor se
+ * coma la funcion siguiente, y con un assert POSITIVO eso hace matchear codigo
+ * de otra funcion — el assert pasa sin que la vigilada escriba por Storage.
+ *
+ * Ojo con la guarda que NO sirve, porque es la tautologia obvia: pedir que las
+ * llaves del texto crudo balanceen. `cuerpoDeMetodo` retorna SOLO cuando el
+ * depth llega a 0, asi que eso es 0 POR CONSTRUCCION y no puede fallar nunca
+ * (medido: 0 con el fix puesto y 0 con el bug). Seria un `ok(true, ...)`
+ * disfrazado, la misma enfermedad que ALERT-92 registra en idea61:193 y :235.
+ *
+ * La forma que SI puede fallar es comparar el conteo crudo contra el conteo
+ * sin comentarios: si difieren, hay una llave dentro de la prosa y el extractor
+ * esta contando llaves a traves de comentarios.
+ */
+function llavesCrudasIgualesAStrippeadas(crudo, strippeado) {
+  const cuenta = (s, ch) => s.split(ch).length - 1;
+  return cuenta(crudo, '{') === cuenta(strippeado, '{') &&
+         cuenta(crudo, '}') === cuenta(strippeado, '}');
 }
 
 /**
@@ -444,7 +512,8 @@ section('6. cuantos escritores tiene la clave de la lista de cuentas');
    *     match de `/localStorage.getItem\(\s*'gw2_keys'/` en el archivo es la
    *     linea 170, que es el COMENTARIO que describe el fix
    *     (`esto leia la LEGACY a pelo (localStorage.getItem('gw2_keys'))`).
-   *     Medido con tools/hb72-probe.js. O sea que el assert paso con el fix
+   *     Medido con tools/hb73-probe.js (que sustituye al hb72, no versionado). O
+   *     sea que el assert paso con el fix
    *     PUESTO, por el texto que anuncia el fix: la forma exacta del fallo que
    *     el propio test ya corrigio en app.js ("los asserts estan acotados al
    *     CUERPO del metodo, no al archivo") y que no aplico 20 lineas mas abajo.
@@ -462,21 +531,35 @@ section('6. cuantos escritores tiene la clave de la lista de cuentas');
    * patron, y un assert de CODIGO tiene que ser ciego a ella.
    *
    * Nota sobre el helper: es un stripper de comentarios de linea y de bloque,
-   * NO un parser de JavaScript. No contempla cadenas multilinea con `//`
-   * adentro. MEDIDO en `accounts-panel.js` antes de escribirlo: 71 lineas con
-   * `//`, 10 backticks, y **0 backticks pegadas a `//`** (las 10 estan en
-   * comentarios o en plantillas `innerHTML` que no contienen `//`). O sea que
-   * hoy el caso limite no se da, y es unaLimitacion DECLARADA, no una
-   * garantia: si el archivo crece hasta ese caso, este helper es lo primero
-   * que hay que revisar.
+   * NO un parser de JavaScript, y su punto ciego esta ASERTADO mas abajo
+   * en vez de declarado aca. La medicion que lo declaraba limpio ("0
+   * backticks pegadas a `//`") era cierta y NO media lo que importa: la causa
+   * es un `//` de una SOLA linea, con comillas simples, y hay 20 de los 42
+   * archivos de `js/` con ese caso. Ver el docblock de `cuerpoSinComentarios`
+   * y la ALERT-91.
    */
   const ap = fs.readFileSync(path.join(ROOT, 'js/accounts-panel.js'), 'utf8');
   const iSync = ap.indexOf('function syncAccountTagsToKeys');
-  const cuerpoSync = iSync >= 0 ? cuerpoSinComentarios(cuerpoDeMetodo(ap, iSync)) : '';
+  const cuerpoRAW = iSync >= 0 ? cuerpoDeMetodo(ap, iSync) : '';
+  const cuerpoSync = cuerpoSinComentarios(cuerpoRAW);
+
+  // Las DOS guardas del helper, y van PRIMERO y sobre el texto CRUDO, porque
+  // lo que vigilan es al assert de abajo: sin ellas un punto ciego del stripper
+  // no pone rojo nada, solo hace que el assert de abajo deje de servir. Y el
+  // orden importa: ceguera primero, porque un signo correcto sobre un texto
+  // que matchea su propia documentacion sigue mintiendo.
+  const peligroso = lineasConSlashesEnLiteral(cuerpoRAW);
+  ok(peligroso === 0,
+     'la region vigilada no tiene `//` dentro de un literal de una linea con codigo despues: aca el stripper es exacto',
+     peligroso + ' linea(s) donde el stripper borraria CODIGO REAL: el assert negativo de abajo pasaria con el bug puesto');
+  ok(llavesCrudasIgualesAStrippeadas(cuerpoRAW, cuerpoSync),
+     'cuerpoDeMetodo no esta contando llaves a traves de la prosa: los conteos crudo y strippeado coinciden',
+     'hay una llave dentro de un comentario: el extractor puede comerse la funcion siguiente y el assert de abajo miraria otra funcion');
+
   ok(cuerpoSync.length > 0,
      'se encontro el cuerpo de syncAccountTagsToKeys() para poder acotar el assert',
      'el helper no devolvio nada: el assert de abajo no estaria probando nada');
-  ok(!/localStorage\.getItem\(\s*CONFIG\.STORAGE_KEYS_KEYS|localStorage\.getItem\(\s*'gw2_keys'/.test(cuerpoSync),
+  ok(!/localStorage\.getItem\(\s*'gw2_keys'/.test(cuerpoSync),
      'syncAccountTagsToKeys() NO lee la legacy a pelo: el LECTOR CRUDO esta prohibido (Idea 61 §6)',
      'vuelve a leer la legacy por localStorage: es el LECTOR CRUDO, el unico que se saltaria el espejo');
 

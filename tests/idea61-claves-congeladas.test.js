@@ -54,6 +54,18 @@ function ok(cond, msg, why) {
 }
 function section(t) { console.log('\n[' + t + ']'); }
 
+/**
+ * Una NOTA imprime y NO cuenta. No es una asercion.
+ *
+ * Por que existe (ALERT-91): este archivo usaba `ok(true, '...')` para dejar
+ * escrito un razonamiento. Eso suma al total de la suite sin verificar nada,
+ * y el total es justamente el numero que se mira para saber si la red crecio o
+ * se achico. Un `ok(true, ...)` es un comentario vestido de asercion, que es
+ * el modo de falla que registra la ALERT-92. Si algo se tiene que verificar, es un
+ * `ok(...)` de verdad; si solo se quiere dejar escrito, es una `nota(...)`.
+ */
+function nota(msg) { console.log('  NOTA  ' + msg); }
+
 /* ── localStorage de mentira, con las DOS claves ─────────────────────────── */
 function nuevoLS() {
   return {
@@ -190,7 +202,7 @@ section('4. la clase — el recuento, hecho sobre los pares de storage.js');
 
   // Hoy son 4, no 1. La que reporto el PO es una de las cuatro; las otras tres
   // suben al Gist por el mismo camino y ningun test las mira.
-  ok(true, 'DUAL-WRITE: ' + ((salida.match(/DUAL-WRITE:\s*(\d+)/) || [])[1] || '?'));
+  nota('DUAL-WRITE: ' + ((salida.match(/DUAL-WRITE:\s*(\d+)/) || [])[1] || '?'));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -226,14 +238,37 @@ section('5. 49D — el barrido de huerfanas no puede borrar gw2_keys');
      /MIRROR_MAP[\s\S]{0,200}gw2_keys/.test(storageSrc),
      'la legacy sigue declarada: no es una huerfana, es la fuente de verdad');
 
+  // El censo cuenta POR CODIGO, no por texto (ALERT-91, corregir 2026-10-01).
+  // Contaba por texto y daba 5; el quinto era `accounts-panel.js`, cuyo unico
+  // match era el COMENTARIO que documenta el fix de la Idea 64 y contiene
+  // literalmente el patron. O sea que el censo estaba contando su propia
+  // documentacion, que es el mismo comment-injection que apagaba el assert de
+  // idea64. Por codigo son 4, y 4 es el numero cierto: "5 modulos la LEEN a
+  // pelo" ya no era verdad desde el fix de la 64, pero el `>= 5` seguia verde.
+  //
+  // QUE ESTE ASSERT AFIRME UN DEFECTO ESTA BIEN, Y ES DELIBERADO: el defecto
+  // esta declarado, tiene dueno (bloquea la 49D) y su significado es "mientras
+  // sean >= 4, no se borra". Un `ok(bugExiste)` que se pone rojo el dia que
+  // arreglas el bug no es ambiguo si el mensaje dice que lo retira; es una
+  // puerta, no una fotografia.
+  const sinComentarios = c => c.replace(/\/\*[\s\S]*?\*\//g, ' ')
+                                 .replace(/\/\/[^\n]*/g, ' ');
   const lectores = ['app.js', 'accounts-panel.js', 'inventory-dashboard.js',
                     'wv-objectives-dashboard.js', 'wv-purchase-detail.js',
                     'wv-shop-ui.js'];
-  const leen = lectores.filter(f =>
-    /getItem\(\s*(LS_KEYS|'gw2_keys')/.test(fs.readFileSync(path.join(JS, f), 'utf8')));
-  ok(leen.length >= 5, 'al menos 5 modulos la LEEN a pelo: ' + leen.join(', '));
-  ok(true, '=> borrarla no es "limpiar una huerfana": es borrar la lista. ' +
-           'La 49D queda BLOQUEADA, y la razon es esta, no una regla de estilo.');
+  const RE_LECTOR = /getItem\(\s*(LS_KEYS|'gw2_keys')/;
+  const porCodigo = lectores.filter(f =>
+    RE_LECTOR.test(sinComentarios(fs.readFileSync(path.join(JS, f), 'utf8'))));
+  const porTexto = lectores.filter(f =>
+    RE_LECTOR.test(fs.readFileSync(path.join(JS, f), 'utf8')));
+  ok(porCodigo.length >= 4,
+     'al menos 4 modulos la LEEN a pelo (por codigo): ' + porCodigo.join(', '),
+     'quedan ' + porCodigo.length + ': ' + porCodigo.join(', ') +
+     ' — si esto baja de 4, la 49D tiene que reevaluarse antes de borrar nada');
+  nota('por texto daba ' + porTexto.length + ' (' + porTexto.join(', ') +
+       '); la diferencia es prosa que nombra el patron, no codigo que lo tiene');
+  nota('=> borrarla no es "limpiar una huerfana": es borrar la lista. ' +
+       'La 49D queda BLOQUEADA, y la razon es esta, no una regla de estilo.');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

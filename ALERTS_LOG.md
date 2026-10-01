@@ -1,3 +1,91 @@
+## ALERT-92 - la limitacion DECLARADA era FALSA, y una guarda que no puede fallar no es una guarda (HB#73)
+
+**Fecha:** 2026-10-01 (HB#73)
+**Estado:** cerrada en el mismo ciclo (rama `hb73-alert91-limitacion-real`)
+**Origen:** veredicto del Code-Reviewer sobre ALERT-91 (P1, P2, P4) y 3 preguntas de criterio
+
+### (1) La limitacion del stripper era un hecho FALSO, con el caso denegado presente hoy
+
+ALERT-91 declaraba: "no es un parser de JS; no contempla cadenas multilinea con
+`//` adentro... 0 backticks pegadas a `//`". Era cierto y no media lo que importa.
+
+La causa real NO es una cadena multilinea: es `//` DENTRO DE UN LITERAL DE UNA
+LINEA con codigo real despues. `accounts-panel.js:832`:
+
+    fetch('https://api.guildwars2.com/v2/account/home/nodes?access_token=' + x)
+
+El stripper corta en `//` y se lleva `://api.guildwars2.com/... + x)).json();`.
+Medido con `tools/hb73-probe.js`: **20 de los 42 archivos de `js/`** tienen al
+menos una linea asi (legendary-data.js 206, raid-tracker.js 64,
+strike-tracker.js 34, characters.js 24). No era "este archivo esta limpio": era
+"esta funcion esta limpia por suerte".
+
+**Y la direccion del fallo es la peor posible: BORRAR solo puede hacer que un
+assert NEGATIVO pase, nunca que falle.** Demostrado, no supuesto
+(`tools/hb73-mutate.js`, M1): con el LECTOR CRUDO de la Idea 64 puesto en una
+linea con URL, el assert negativo de la seccion 6 **da PASS** y solo la guarda
+nueva lo delata. Es el modo de falla de ALERT-91 un nivel mas abajo: la red que
+caza el bug queda apagada por el helper que la sostiene.
+
+**REGLA: una limitacion declarada al pie es un comentario que nadie lee; la misma
+limitacion CONTADA es luz roja.** Si un helper sostiene un assert, su punto ciego
+tiene que ser un assert, medido sobre el texto CRUDO.
+
+### (2) La guarda que NO se puso, porque no puede fallar
+
+El Reviewer propuso como segunda guarda "las llaves del texto crudo balancean".
+Medido: eso es **0 POR CONSTRUCCION**. `cuerpoDeMetodo` retorna solo cuando el
+depth llega a 0, asi que su resultado siempre balancea. No puede fallar nunca:
+es un `ok(true, ...)` disfrazado, la misma enfermedad que este ciclo le saca a
+idea61:193 y :235.
+
+**REGLA: antes de agregar una guarda, MEDIR si puede fallar.** Una guarda que no
+puede fallar no es una guarda: es prosa con parentesis.
+
+La que si puede fallar compara dos conteos: llaves CRUDAS == llaves SIN
+comentarios. Si difieren, hay una llave en la prosa y el extractor esta contando
+llaves a traves de comentarios.
+
+Y el caso es serio (`tools/hb73-probe3.js`): **una sola llave desbalanceada
+dentro de un comentario hace que el extractor devuelva 709 lineas en vez de 34**,
+es decir, se come el resto del archivo. Con un assert POSITIVO eso hace matchear
+codigo de otra funcion: el assert pasa sin que la vigilada escriba por Storage.
+Signo opuesto, misma enfermedad.
+
+### (3) El censo de idea61 contaba su propia documentacion
+
+`idea61:234` contaba por TEXTO y daba 5. El quinto era `accounts-panel.js`, cuyo
+unico match era el comentario que documenta el fix de la Idea 64. El mismo
+comment-injection que apagaba el assert de idea64 estaba **inflando el censo de
+idea61 en el mismo heartbeat**. Por codigo son **4**, y el `>= 5` seguia verde:
+"5 modulos la LEEN a pelo" ya no era verdad desde el fix de la 64.
+
+**REGLA: un censo de TEXTO es un censo de PROSA.** Si el patron que se cuenta
+puede aparecer en un comentario que lo describe, el censo se infla solo.
+
+### (4) La regla de ALERT-91, reacondicionada
+
+ALERT-91 prohibia "afirmar un defecto". Eso prohibia un assert SANO que el repo ya
+tiene: idea61:234 afirma el defecto a proposito, porque el defecto esta
+declarado, tiene dueno (bloquea la 49D) y su significado es "mientras sean >= 4,
+no se borra". La pregunta que decide el signo no es el signo del defecto: es si
+el defecto tiene **fix en camino** (=> afirmar el invariante) o es **deuda
+aceptada con dueno** (=> afirmar el defecto es correcto). Y el ORDEN importa: la
+ceguera a la prosa es ANTERIOR al signo, porque un signo correcto sobre un
+objetivo que matchea su propia documentacion sigue mintiendo.
+
+Regla vigente, en orden:
+
+1. **Ciego a la prosa**, primero: un regex que nombra un patron matchea la FRASE
+   que lo nombra.
+2. **El signo**: fix en camino => invariante; deuda aceptada con dueno => el
+   defecto se puede afirmar.
+3. **Un assert tiene que poder fallar.** `ok(true, ...)` no es una asercion:
+   ahora es `nota(...)`, que imprime y NO cuenta (idea61:193 y :235). El total
+   era 883 con 2 que no podian fallar y es 883 con 2 que si: mismo numero, red
+   distinta.
+4. **Cambiar el assert en el MISMO commit** que arregla el defecto que nombra.
+
 ## ALERT-91 - Un assert que AFIRMA un defecto es una foto, no una red (HB#72)
 
 **El assert mas peligroso que escribi, y no por lo que afirmaba sino por lo que
