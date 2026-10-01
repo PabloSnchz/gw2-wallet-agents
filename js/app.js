@@ -635,10 +635,35 @@
   }
 
   /* ======================= Data flow ======================== */
+  // Secuencia de carga (HB#87). `loadAllForToken` escribe `state.accountName`,
+  // `state.wallet` y el `ownerLabel` SIN guarda, y sus 6 call-sites pueden
+  // dispararse dos veces seguidas: el desplegable global (`app.js:1260`) no
+  // tiene debounce ni abort, asi que dos cambios rapidos = dos cargas
+  // concurrentes. Gana la que TERMINA ULTIMA, no la que se pidio ultima.
+  //
+  // Y no es solo un dato viejo: en el handler del desplegable, `setSelected`
+  // corre ANTES del `await` (`:1263`), o sea que el desplegable ya dice B
+  // cuando la carga arranca. Si la carga vieja de A responde despues, el
+  // desplegable dice B y el nombre, el wallet y el `ownerLabel` son de A.
+  // Sin error, sin aviso, y el unico dato que Pablo tendria que contrastar
+  // para sospechar es el desplegable.
+  //
+  // La guarda no cancela la request (se gasta el ancho de banda) e impide
+  // que se MUESTRE. El abort real ya tiene patron en el repo (`router.js:1466`,
+  // `_actAbort.abort()`); `loadAllForToken` es la que quedo afuera, y cambiarlo
+  // seria una refactorizacion de los 6 call-sites, no un fix.
+  let loadSeq = 0;
   async function loadAllForToken(token) {
+    const mine = ++loadSeq;
     setStatus('Cargando datos…');
-    // Propuesta 9: toast persistente (ttl:0) con feedback de carga
-    const loadToast = window.toast?.('info', 'Cargando wallet…', { ttl: 0 });
+    // Propuesta 9: toast persistente (ttl:0) con feedback de carga. El texto
+    // nombra la cuenta: con 2 cargas concurrentes hay 2 toasts y, si los dos
+    // dicen lo mismo, Pablo no puede saber cual es de cual. El label sale de
+    // KeyManager (que ya sabe la cuenta que se esta pidiendo); si no esta, el
+    // texto degrada al original en vez de mentir con un nombre vacio.
+    const _label = KeyManager.list.find(k => k.value === token)?.label;
+    const loadToast = window.toast?.('info',
+      _label ? `Cargando wallet de ${_label}…` : 'Cargando wallet…', { ttl: 0 });
     // El toast es persistente, asi que cerrarlo es RESPONSABILIDAD de esta
     // funcion. El close estaba solo en el camino feliz: API.wallet no tiene
     // .catch, un fallo de red saltaba esa linea y el toast quedaba pegado. Con
@@ -648,6 +673,10 @@
     try {
       await ensureCurrencies();
       const [acct, w] = await Promise.all([API.account(token).catch(() => null), API.wallet(token)]);
+      // La carga perdedora NO escribe. Va DENTRO del try para que el `finally`
+      // de arriba siga cerrando su toast: si la guarda se tragara el close, el
+      // fix de HB#85 quedaria deshecho por este.
+      if (mine !== loadSeq) return;
       state.accountName = acct?.name || '—'; state.wallet = w || [];
       el.ownerLabel && (el.ownerLabel.textContent = state.accountName);
 
