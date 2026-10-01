@@ -1,6 +1,6 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T01:00:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
+> Actualizado: 2026-10-01T07:30:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
 > Mantenedor: PO (product-owner)
 
 
@@ -605,7 +605,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El POauditoó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
@@ -762,3 +762,128 @@ El PO actualiza este archivo en cada heartbeat (cada 2h):
 3. Agregar ideas nuevas si surgen.
 4. Marcar como pospuestas las que salen del foco.
 5. Commit + push a agents.
+
+---
+
+---
+
+## ACTUALIZACION 2026-10-01 07:30 UTC - Heartbeat PO ronda 32 - T1-bis: el boton esta duplicado, y el que escribe bien es el que esta muerto
+
+> **Espejo de la ronda 32 del PO.** No se editan filas existentes.
+
+### T1-bis confirmado en los 3 puntos de delegacion, y el alcance medido es MAYOR al propuesto
+
+Los 3 puntos que pidio el Principal delegan de verdad (medido sobre `origin/main` @ `c1b0693`):
+
+| punto | delegation | estado |
+|---|---|---|
+| `router.js:775-776` | `if (window.WVShopUI) { WVShopUI.render(); return; }` | **delega y corta** |
+| `router.js:1013-1015` | `if (window.WVShopUI) { ensureShopToolbar(); render(); }` | **delega** |
+| `router.js:1176-1178` | `if (window.WVShopUI) { ensureShopToolbar(); return refresh(false)... }` | **delega** |
+
+Y `wv-shop-ui.js` esta cargado **siempre**: `index.html:1009` lo declara con `defer`, antes que
+`router.js` (`index.html:1020`). Los dos son `defer`, o sea el orden de ejecucion es el del HTML.
+**La rama `else` es inalcanzable.** El fallback de `router.js:780-...` es codigo muerto,
+confirmado: su unico camino vivo es el `if`.
+
+### LO QUE NO ESTABA EN LA PROPUESTA: el boton esta escrito DOS VECES, y las dos copias se contradicen
+
+Medido con `git grep` sobre `origin/main`:
+
+- **Copia A (viva):** `wv-shop-ui.js:192` pinta el boton, `:220-224` lo cablea, `:222`
+  escribe **`localStorage.setItem('gw2_wv_view_v1', ...)` A PELO**. Rótulo: `'Vista: Tarjetas'`.
+- **Copia B (muerta):** `router.js:498` pinta el boton, `:523` lo cablea, `:523` llama
+  **`saveView(...)` -> `Storage.set(LS_WV_SHOP_VIEW, v)`**. Rótulo: `'Vista: Tarjetas'`.
+
+**Los dos rotulos son identicos y los dos autores son distintos.** El que sobrevive escribe a pelo;
+el que esta muerto escribe por `Storage`. `saveView` tiene **1 solo caller** (`:523`), y `:523` esta
+dentro del bloque que `:775` ya corto. Medido: `saveView` es alcanzable **0 veces**.
+
+Consecuencia para T1: **el fix (i) "declarar la clave en `MIRROR_MAP`" repara el symptoms pero deja
+vivo el escritor crudo, y el fix (ii) "pasar el escritor por `Storage` repara los dos. La pregunta
+(i) vs (ii) que esta en el Reviewer tiene una respuesta mas simple que las dos: hay un tercer camino.**
+
+**T1-bis = 1 decision, no 2:** borrar la copia muerta (`router.js:486-525`, `:257-262`, `:773-...` hasta
+el `return`) deja **una sola** escritura, y esa una es la que hay que arreglar. Arreglar las dos y
+despues borrar tambien funciona, pero paga un fix en codigo que no corre.
+
+### La premisa del arnes del Principal era mas grande que el bug, y por eso T1 se achica
+
+El arnes dio "CONGELADA - FALLA" con `legacy=table`, `gn:=cards`. Correcto como arnes.
+Lo que el arnes **no** puede ver: el estado NO esta congelado **dentro de la sesion**.
+`wv-shop-ui.js:66-68` -> `root.WV.__getShopState()` devuelve **el mismo objeto** que
+`state.shop` del router (`router.js:990-995` escribe en el). O sea el click muta el estado
+compartido y el render siguiente lo ve. **La preferencia se pierde al recargar (F5), y solo al
+recargar** - en `router.js:995` y `:1173`, `state.shop.view = loadView()` relee la `gn:`.
+
+**Traducido a producto: lo que Pablo pierde es "la vista que elegi, al abrir la app manana".
+No es "la vista que elegi, mientras la app esta abierta".** Es un bug real y molesto, y es de
+una magnitud distinta a la que propone el titular "queda congelada".
+
+### T11 (nuevo, propuesta mia, NO se implementa): los DOS botones "Vista" significan cosas distintas
+
+No es un problema de si el boton persiste. Es que hay **dos controles con la misma forma visual
+(`.btn.btn--ghost`), el mismo prefijo de texto ("Vista") y semanticas OPUESTAS**:
+
+| | boton | rotulo cuando estas en cards | persiste al F5 |
+|---|---|---|---|
+| Tienda WV | `wvShopToggleView` | `Vista: Tarjetas` = **el estado actual** | si (por la legacy) |
+| Panel Cuentas | `accountsToggleView` | `Vista tabla` = **la accion** | **no: no persiste nada** |
+
+Medido en `accounts-panel.js`: `state.view` (`:110`) no tiene **ningun** `Storage.set` ni
+`setItem` en todo el archivo. Clic en `:573` -> `state.view` -> `renderList()`. **Se pierde en cada
+cambio de modulo**, no solo al F5: es un estado de render, no una preferencia.
+
+Un usuario que aprendio "Vista X = la vista a la que voy" en Cuentas, lee "Vista: Tarjetas" en la
+Tienda y **no entiende si eso es donde esta o a donde va**. Para los 27 perfiles de Pablo, que es
+donde mas se usa el panel de cuentas, el de la Tienda es el unico que ademas sobrevive al F5.
+
+**T11 no es copy, es consistencia.** Y no se arregla tocando dos strings: el boton tiene que
+**nombrar la accion** en los dos, y decidir en cual de los dos la preferencia es real.
+
+### T2: SI, pero no entra con T1
+
+**SI sigue en pie** - pero la formulacion cambio. T2 era "el copy promete una persistencia que se
+pierde". Medido: **el copy no promete nada**, dice el estado. El problema real es que el estado
+que dice **es el equivocado** (esta congelado al valor de la `gn:`, que es lo que el bug T1 rompe).
+O sea **T2 y T1 son el mismo bug visto desde dos angulos**, y T1 lo arregla. **T2 sin T1 es
+cambiar el texto de un boton que miente.**
+
+Y entra **aparte** por la razon opuesta: si T2 fuera "copy honesto" seria una linea, pero el
+problema que sobrevive a T1 es el de la **semantica opuesta entre los dos botones**, que es T11 y
+no depende de que la `gn:` se actualice.
+
+**Mi posicion de PO: T1 primero (esta con el Reviewer), T2 se cae como tarea independiente porque
+T1 la resuelve, y T11 entra como la propuesta de copy real.**
+
+### Orden de la ronda, con T10 fuera
+
+| # | item | por que en este lugar |
+|---|---|---|
+| 1 | **T8** - carrera de `loadAllForToken` | el unico con datos de OTRA cuenta a la vista. 4 lineas |
+| 2 | **T1 + T1-bis** | con el Reviewer; T1-bis es 1 decision y la mas simple de las 3 |
+| 3 | **T11** (nuevo) | consistente con T1: es el mismo boton, otro lado |
+| 4 | T2-mini | contador de cuentas con permisos incompletos (20 min) |
+| 5 | T2 chips | 7 chips por fila; usa `tokenHasWVPermissions` (0 callers) |
+| 6 | T4 | el import dice cuantas llegaron sin los 7 |
+| 7 | 49G | la unica que cierra la cuota de storage |
+| 8 | 47/57 | la causa del fondo: la capa degrada a `[]` |
+| 9 | 49D | barrido de huerfanas |
+| 10 | 49F/49E | `cacheClear` que borre de verdad |
+| 11 | 42 | 12 endpoints de cuenta |
+| 12 | 45 | fundida con T2 |
+
+**Fuera:** Idea 44 - **decimoctavo** heartbeat en 0%.
+**Cerrada esta ronda:** **T10** (`f487573`, en `origin/main`, verificado con `merge-base --is-ancestor`).
+
+### Reglas que salen
+
+1. **Un fix en un codigo muerto se paga dos veces.** `router.js:523` escribe por `Storage` y esta
+   inalcanzable; `wv-shop-ui.js:222` escribe a pelo y esta vivo. Arreglar los dos y borrar despues
+   es correcto y caro. **Borrar primero deja una escritura, y una escritura se arregla una vez.**
+2. **"Congelado" y "se pierde al recargar" son bugs distintos con el mismo sintoma**, y el arnes
+   solo mide el primero. El dato que los separa es si el **estado en memoria** se actualiza: si se
+   actualiza, hay un solo punto de lectura (el arranque) y el fix es de ahi, no del click.
+3. **Un control que nombra el estado y otro que nombra la accion no son el mismo control.**
+   Medir "este boton persiste" sin medir "este otro tambien" produce un fix local que crea la
+   inconsistencia.
