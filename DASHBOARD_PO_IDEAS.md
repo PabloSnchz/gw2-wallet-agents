@@ -1,9 +1,103 @@
-> Actualizado: 2026-10-01T11:00:00Z (Heartbeat PO ronda 33 — 🔴 T12: el toggle Raids/Strikes está DUPLICADO con 4 ids distintos, y en el camino Strikes→Raids el botón que Pablo tiene delante queda SIN LISTENER. Es la continuación de T11 (ronda 32). Las rondas 20-32 están en PRE_BACKLOG del PO)
+> Actualizado: 2026-10-01T18:00:00Z (Heartbeat PO ronda 34 — 🔴 T13: `state.active` es un latch que nadie apaga. 5 modulos lo tienen en `activate()` y **3 refrescan solos por cada cambio de cuenta, en un panel oculto**. El router solo llama `deactivate()` en WV y Activities; ninguno de los 2 es de esta lista. Ademas 6 timers de 1s tickando quedan corriendo para siempre en paneles ocultos. Medido con arnes verbatim y CONTROL: nunca-abierto = 0 refreshes, visitado-una-vez = `refresh(true)`. Las rondas 20-33 estan en PRE_BACKLOG del PO)
 > Mantenedor: PO (product-owner)
 
 ---
 
-## ACTUALIZACION 2026-10-01 11:00 UTC — Heartbeat PO ronda 33 — 🔴 T12: el toggle Raids/Strikes está duplicado, y la mitad del tiempo es un botón MUERTO
+## ACTUALIZACION 2026-10-01 18:00 UTC — Heartbeat PO ronda 34 — 🔴 T13: el latch que nadie apaga
+
+> **Espejo de la ronda 34 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
+
+### El hallazgo, en una linea
+
+Cinco modulos tienen `if (state.active) return;` en `activate()`. **Los cinco exportan
+`deactivate()`. El router llama `deactivate()` en exactamente dos: `WV` y `Activities`
+(`router.js:1491`, `router.js:1495`). Ninguno de los dos es de esta lista.**
+
+O sea: `state.active` se prende la primera vez que Pablo abre el modulo y **no baja
+hasta el F5**.
+
+### Medido, no supuesto
+
+```
+modulos con `if (state.active) return;` en activate(): 5
+  raid-tracker        refrescaAlCambiarCuenta=true   setInterval1s=3
+  strike-tracker      refrescaAlCambiarCuenta=true   setInterval1s=3
+  legendary-tracker   refrescaAlCambiarCuenta=true   setInterval1s=0  (stub: 0 red)
+  inventory-hub       refrescaAlCambiarCuenta=false
+  homestead-tracker   (codigo muerto, Idea 44 — fuera de la tabla)
+
+a los que el router llama deactivate(): WV, Activities
+```
+
+**Arnes con CONTROL** (cuerpo del listener extraido *verbatim* de `origin/main` y
+evaluado con deps inyectadas):
+
+| | resultado |
+|---|---|
+| CONTROL — nunca se abrio Raids | `{"calls":[]}` |
+| CASO REAL — visito Raids 1 vez, luego se fue | `{"calls":["refresh(true)"]}` |
+| **discrimina** | **SI** |
+
+El primer intento del arnes **NO discriminaba** (mi extractor de llaves fallaba y los
+dos casos daban `{error}`). Se corrigio antes de reportar, no despues.
+
+### Lo que paga Pablo
+
+1. **3 requests de red por cada cambio de cuenta**, en paneles que no esta mirando
+   (`gn:tokenchange`, `app.js:836` y `:1396`). Con `POOL_MAX=3` (Idea 48) esas requests
+   **ocupan el pool** que el panel visible necesita.
+2. **6 timers de 1s** (`setInterval(…, 1000)` x 3 en cada tracker) escribiendo
+   `textContent` dentro de un panel con `hidden`, indefinidamente. `stopTimers()` los
+   limpia los 3, pero **solo corre desde `deactivate()`**.
+
+### El detalle que lo hace una finding y no una observacion
+
+Los 5 modulos exportan `Route: { path, mount, unmount }` — el contrato de ciclo de vida
+completo, con `unmount` incluido. Y **`git grep "\.Route\b" js/` da 0 resultados**: el
+router nunca lo consulta, monta a mano en un `if/else if` de 20 ramas
+(`router.js:1490-1822`). **La respuesta a "como se apaga un modulo" esta escrita en el
+repo, en 5 lugares, y nadie la conecta.**
+
+Las guardas de `gn:tokenchange` estan bien escritas **para un mundo donde existe un
+`unmount`**. Ese mundo no existe.
+
+### Tramos
+
+| tramo | dificultad | que arregla |
+|---|---|---|
+| **T13-b** | 🟢 20 min | `stopTimers()` al principio de `activate()`, antes del `return` del guard. El menor cambio con el mayor radio: mata los 6 timers sin tocar el router. `startTimers()` YA es idempotente (limpia los 3 antes de crear, `raid-tracker.js:1193-1195`) |
+| **T13-a** | 🟢 30 min | El router desactiva los 5 con latch, con el patron de las 2 lineas que ya existen (`:1491`/`:1495`). Cierra el refresh fantasma. **No arregla los timers** — son 2 problemas con 2 parades |
+| **T13-d** | 🟢 20 min | Test que falle si un modulo tiene el guard y no esta en la lista de los que el router desactiva. Es lo que evita el caso 6 |
+| T13-c | 🟡 | Conectar `Route.mount/unmount` y borrar el `if/else` de 20 ramas. **Anotado, NO pedido**: refactor de arquitectura |
+
+**T13-a y T13-b al Reviewer**: tocan router + ciclo de vida de modulos.
+
+### Dos numeros mios que estaban mal, y por que
+
+Esta es la parte de metodo de la ronda y va primero porque es la que casi convierte el
+finding en ruido:
+
+1. **"el router solo desactiva a Activities".** FALSO: desactiva a **WV y Activities**.
+   Mi regex era `/(?:\.|WV\.)(\w+)\.deactivate\(\)/` — exige un `.` o un `WV.` **antes**
+   del nombre, y en `WV.deactivate();` el nombre esta al principio de la sentencia.
+   *Un cuantificador mal puesto no devuelve "no hay": devuelve "no hay aqui".*
+2. **"0 setInterval en raid-tracker".** FALSO: son **3**. Mi bloque por regex
+   `/function startTimers[\s\S]{0,900}?setInterval/g` se cortaba antes, y `reduce`
+   sobre un array vacio devuelve **0 sin error**.
+
+Los dos son la misma clase: **un regex que no matchea produce un cero, y un cero no se
+distingue de una medicion.** Es la regla de la ronda 12 que volvi a violar. Los dos los
+agarre por contrastar contra el `git grep` que ya habia corrido en el mismo heartbeat.
+
+### Web
+
+**34 de 34 rondas sin aporte.** Reddit 403, `gw2treasures.com/feeds` 404. No reintento
+ninguna: con 0 aporte externo, forzar una idea seria inventarla. T13 no viene de la web y
+no necesita venir — sale de la pregunta que T12 dejaba abierta.
+
+---
+
+## ACTUALIZACION 2026-10-01 18:00 UTC — Heartbeat PO ronda 33 — 🔴 T12: el toggle Raids/Strikes está duplicado, y la mitad del tiempo es un botón MUERTO
 
 > **Espejo de la ronda 33 del PO.** Medido sobre `origin/main` @ `844d33c`.
 
@@ -692,7 +786,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO audito los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
