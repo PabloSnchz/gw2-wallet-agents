@@ -1,3 +1,109 @@
+
+# TEAM_STATUS — Heartbeat #88 (2026-10-01 08:31-09:0x UTC)
+
+**Corto:** el canario CJK del HB#86 dio "limpio" sobre un archivo que estaba
+corrupto. Tres instrumentos despues, la clase resulta no detectable por
+metodo lexico barato. **12 defectos corregidos** (11 los vio un script, 1
+solo la lectura), **ALERT-117 escrita**, y **ningun instrumento mergeado**.
+
+## Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **PO** | Ronda 28 (`task-dafa909f1450`, 3 preguntas) | ❌ **FALLIDA — `Task timed out after 1800s`**. No hay respuesta que recoger. Ver abajo. |
+| **Reviewer** | 2 veredictos (ALERT-84 ronda 17, e Idea 50 boton cache) | ✅ Sin nada en vuelo. Sus 2 veredictos ya estan aplicados. |
+| **Documentador** | — | Sin tarea (regla de no-fallback vigente). |
+
+## La falla del PO, y por que NO la reintento todavia
+
+`task-dafa909f1450` devolvio **"Task failed. Error: Task timed out after 1800s"**.
+Las 3 preguntas que llevaba (PRE_BACKLOG, la TERCERA de la clase "se arma bien
+y no se ve", y cual de los 2 raws nota Pablo primero) **no tienen respuesta**.
+
+No la reenvio en este ciclo, por una razon concreta: **el paso 3 del ciclo
+("si el PO trae 3+ propuestas, van al Reviewer") quedo sin aplicar porque no
+hubo propuestas, y la causa de que no haya propuestas es justamente que la tarea
+murio.** Reenviar y esperar 30 min es correcto, pero el ciclo ya tiene
+trabajo entregado y madejo. Queda como primer item del HB#89.
+
+Nota de instrumentacion: `check_agent_task` devuelve `running` mientras la
+tarea esta viva y un error **definitivo** cuando expiro. `running` y `failed`
+no son el mismo estado y no deben anotarse igual en `COMMS_LOG.md`.
+
+## Hallazgo del ciclo: ALERT-117
+
+El HB#86 corrio `probe-cjk.mjs` antes de anexar la ALERT-116 y dio limpio. El
+archivo commiteado en `e1262b0` tiene, **en la prosa viva de esa ALERT**:
+
+    ALERTS_LOG.md:1892  "...y **no locorrí** porque la ALERT-115 yaNnarraba el..."
+
+El canario respondio correctamente a lo que pregunta ("no hay CJK"). Lo que se
+leyo del otro lado fue "esta limpio". Es **el mismo verbo** que la ALERT-116
+acusaba en `audit-alert-refs.mjs`: un instrumento acotado autorizando una
+conclusion que no le corresponde.
+
+**Tres instrumentos, tres fallas distintas:**
+
+| Instrumento | Pregunta | Medido |
+|---|---|---|
+| `probe-cjk.mjs` | ideogramas? | **0**. No ve la clase. |
+| `probe-glue.mjs` | minuscula pegada a mayuscula? | **131** falsos/realos: ~120 falsos. Y **no ve `locorrí`** (ambos lados minusculas). |
+| `probe-fusion.mjs` | token con palabra funcional pegada? | **~5000 falsos**. Inutilizable: en espanol las palabras funcionales son prefijos de palabras comunes por construccion (`de`+`fecto`, `lo`+`gro`). |
+
+El tercero resuelve el asunto **por la via negativa**: la clase "un espacio
+desaparece entre dos palabras" **no es detectable por instrumento lexico
+barato en espanol**. No es que falte afinar el regex.
+
+**Defecto que NINGUNO de los tres vio:** `pedidosentedaron` (`ALERTS_LOG.md:831`,
+`quedaron` con `qu` sustituido por `en`). No es un espacio comido, es una
+**sustitucion**. Salio leyendo. Por eso el criterio de cierre del ciclo es
+"lei la prosa", no "el script dio 0".
+
+## Los 12 defectos corregidos
+
+Todos verificados leyendo la frase en contexto. Diff = 12 lineas, 12 archivos
+de prosa, EOL CRLF preservado en los 4.
+
+    ALERTS_LOG.md  407  sonSEO fillers      -> son SEO fillers
+    ALERTS_LOG.md  524  ElReviewer          -> El Reviewer
+    ALERTS_LOG.md  831  pedidosentedaron    -> pedidos quedaron      <- solo lectura
+    ALERTS_LOG.md  838  loLEA, dosinstantias-> lo LEA, dos instancias
+    ALERTS_LOG.md 1389  elReviewer          -> el Reviewer
+    ALERTS_LOG.md 1892  no locorrí, yaNnarraba -> no lo corrí, ya narraba
+    SESSION_LOG.md 605  seResolvedieron     -> se resolvieron
+    SESSION_LOG.md 1484 tieneREWARDS_DATA   -> tiene REWARDS_DATA
+    TEAM_STATUS.md 1024 ElEnumerar          -> El Enumerar
+    TEAM_STATUS.md 1170 elWV                -> el WV
+    TEAM_STATUS.md 2064 botonTodavia        -> boton todavia
+    TEAM_STATUS.md 2229 malDiseñada         -> mal Diseñada
+
+**Uno NO se corrigio, a proposito:** `SESSION_LOG.md:2008` dice `y laPuede cer:`.
+El pegado es obvio pero el texto correcto hay que **inventarlo**, y una
+reparacion adivinada en un registro de decisiones es peor que un defecto
+visible. Queda visible.
+
+## Instrumentos: 3 scripts NO mergeados
+
+`probe-glue.mjs` y `probe-fusion.mjs` **no entran al repo**. No porque fallen,
+sino porque lo que hacen es **producir un numero que invita a citarse**, y sus
+numeros son 131 y ~5000 para 12 defectos reales. En `tools/` serian una
+trampa con nombre de aide: el proximo que los corra reporta "131
+corrupciones" o abandona el archivo entero. Quedan en el worktree, fuera del
+arbol, como registro del intento.
+
+## Lo que sigue
+
+1. **HB#89, primer item:** reenviar al PO la ronda 28. El paso 3 del ciclo
+   (3+ propuestas al Reviewer) quedo sin aplicar por esta falla, no por
+   olvido.
+2. Anotar `task-dafa909f1450` como `Fallido` en `COMMS_LOG.md` con el motivo
+   exacto (`Task timed out after 1800s`), no como "timeout" generico.
+3. Decisiones que son de Pablo, sin cambio: (a) la perdida del registro de
+   `ALERT-20` y `ALERT-86` se acepta o se rescata; (b) **detener UNA de las dos
+   instancias** — el clon compartido otra vez detras de `origin/main`
+   (HB#87 escribio ahi, yo escribo en `hb88-wt`); (c) borrar los **13
+   worktrees** vivos y las ramas remotas ya mergeadas.
+
 # Heartbeat Principal #87 — 2026-10-01 08:0x–09:0x UTC
 
 > Ciclo de **auditoria de un hallazgo ya cerrado**. La ALERT-115 (HB#86) cerro
@@ -1021,7 +1127,7 @@ escritor y recupera el alcance. No se borro ni una palabra suya.
 | Fuente | Dice | Aplicado |
 |---|---|---|
 | **Reviewer** H2 | La enumeracion de `kept` es FALSA → hacerla exhaustiva | **No**, y esta medido por que |
-| **PO** | ElEnumerar categorias no sobrevive → decir **bytes** | **Si** |
+| **PO** | El Enumerar categorias no sobrevive → decir **bytes** | **Si** |
 
 No hay desacuerdo real: el Reviewer diagnostico bien el bug (la frase era falsa) y
 propuso un remedio que el PO demostro que se rompe solo. Los bytes que quedan
@@ -1167,7 +1273,7 @@ proyecto no es mia ni del Reviewer: es **del PO**.
 1. `check_agent_task('task-f61e427b2efc')` (Reviewer) y `('task-1b6241ed5c58')` (PO).
 2. Con el veredicto: **mergear el boton** o **sacarle el titulo**. La rama tiene 2 commits y la suite esta en 739/0.
 3. Si el tercer cubo entra, es un Tramo aparte: `cacheClear` pasa a devolver tres cubos y `kept` con motivo.
-4. El hook `onClear` es lo que hace que el boton sirva de algo completo. Sin el, elWV reescribe en memoria lo que se acaba de borrar.
+4. El hook `onClear` es lo que hace que el boton sirva de algo completo. Sin el, el WV reescribe en memoria lo que se acaba de borrar.
 
 ---
 
@@ -2061,7 +2167,7 @@ numero que dos personas pueden leer como dos cosas distintas** (ALERT-84).
   `wizards-vault.js:40-41` tiene la suya. Sin el, borrar el disco y seguir
   sirviendo de memoria hace que los bytes liberados se vuelvan a consumir. **El
   copy ya lo declara** ("lo que otros modulos ya tienen en memoria se conserva
-  hasta que recargues"), asi que no miente — pero el botonTodavia no aprovecha
+  hasta que recargues"), asi que no miente — pero el boton todavia no aprovecha
   lo que el usuario quiere cuando lo aprieta. Es el tramo siguiente.
 - **La 49G sigue RECHAZADA** (ALERT-73), sin mergeear.
 - **Idea 63 T1-vs-T3** sigue abierta y no es mia: es preferencia de uso, va a
@@ -2226,7 +2332,7 @@ ya arma el sandbox con `document` falso. Asertar el registro son **3 lineas mas*
 - `idea50b` commiteada (`0c12adc`), sin test propio todavia.
 
 ### Alertas
-- **ALERTA NUEVA - una mutacion malDiseñada se lee como un fallo del test.**
+- **ALERTA NUEVA - una mutacion mal Diseñada se lee como un fallo del test.**
   Puse el bug en la linea de la URL (L832), que esta en OTRA funcion, y el assert
   esta acotado al cuerpo de `syncAccountTagsToKeys`. D dio **0 FAIL** y parecia
   que la guarda no mordia. No era eso: mi mutacion estaba fuera del alcance del

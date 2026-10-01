@@ -404,7 +404,7 @@ antes de los 20 minutos: el Reviewer tarda 2–15 min en una revisión real.
 | **ALERT-19** | Media | Repo | **`ALERTS_LOG.md` no esta en el workspace del Principal.** El Principal lo edita en el repo, mientras el resto de sus logs vive en `workspaces\default`: dos fuentes de verdad para el mismo dato. | Pendiente decision | No bloquea. Unificar en el heartbeat que toque cada log. |
 | **ALERT-51** | 🟠 Media-alta | Data | **`js/raid-tracker.js`: 5 de los 30 encuentros tienen un `id` que no existe en `/v2/raids`**, asi que `completedSet.has(enc.id)` (`:1438`) falla para siempre: la tarjeta **nunca se marca**, el ala queda trabada en N-1/N y **no hay error ni warning**. 4 renombres: `siege_the_stronghold`->`escort`, `desmina`->`soulless_horror`, `dhuum`->`voice_in_the_void`, `gates_of_ahdashim`->`gate`. Emparejados **por ala**, no por nombre (los nombres no se parecen). Ademas `ura_guardian` no era el id de ningun encounter (el de Ura es `ura`): las recompensas de Ura y su ficha nunca se mostraban. Y `the_threshold` eran 19 lineas muertas. | ✅ **RESUELTA (HB#49)** | Merge `ab39823`, `raid-tracker.js` v1.10.0. Test nuevo `tests/idea52.raid-encounter-ids.test.js` (27 aserciones) con el catalogo real embebido en `tests/fixtures/`. **Verificado fallando contra el archivo sin modificar: 20 pass / 7 FAIL; despues 27 / 0.** Suite completa 258 aserciones, 0 FAIL. Sin CSS, sin logica, sin localStorage (el estado siempre viene de la API), total de encounters sin cambio. **REGLA: un tracker no se valida probando que marca, sino probando que lo que NO marca es porque la API no lo tiene.** Origen: idea del PO, verificada de forma independiente antes de tocar codigo; el hallazgo se reprodujo exacto. |
 | **ALERT-52** | 🟡 Media | Platform | **Los ids de encuentro NO son resolubles uno a uno contra `/v2/raids`.** `GET /v2/raids?ids=gorseval` -> **404 `all ids provided are invalid`**. Solo existen dentro de `?ids=all`, y la forma real es **`raid.wings[].events[]`**, NO `raid.events[]` (la extraccion ingenua devuelve los 6 ids de raiz y hace creer que hay 6 encuentros en el juego). | 🆕 Detectado (HB#49) | **ABIERTA — trampa para la Idea 53** (Strike Tracker re-apuntado a logros). Quien la implemente resolviendo un id contra `/v2/raids?ids=<id>` se come un 404, igual que se lo comio el primer probe. **REGLA: el catalogo de la API se extrae de la respuesta completa, y "no existe" se demuestra con el snapshot, no con una consulta suelta.** El PO llego a la conclusion correcta por otra via; el detalle de la resolucion individual no lo tenia. |
-| **ALERT-53** | 🟢 Baja | Data | **Huecos de datos menores en el mismo modulo y la misma capa** que ALERT-51, medidos y **no tocados** para no ampliar el diff: `statues_of_grenth` es `type: "jefe"` pero no tiene drops en `REWARDS_DATA`; `bandit_trio` y `river_of_souls` estan como `type: "evento"` cuando la API los reporta `Boss` (cosmético: icono y color). Y 5 eventos reales no cableados (`camp`, `escort`, `gate`, `soulless_horror`, `voice_in_the_void`), que agregarlos sube el KPI de 30 a 35. | ⏳ **ABIERTA, no bloqueante** | Los 2 primeros sonSEO fillers: rellenarlos seria **inventar drops**, asi que no se hizo. Agregar los 5 no cableados **cambia el grid y el denominador del KPI que Pablo ve**: es decision de producto, no del equipo. Anotado en `TEAM_STATUS.md` bajo "Pendiente que requiere a Pablo". |
+| **ALERT-53** | 🟢 Baja | Data | **Huecos de datos menores en el mismo modulo y la misma capa** que ALERT-51, medidos y **no tocados** para no ampliar el diff: `statues_of_grenth` es `type: "jefe"` pero no tiene drops en `REWARDS_DATA`; `bandit_trio` y `river_of_souls` estan como `type: "evento"` cuando la API los reporta `Boss` (cosmético: icono y color). Y 5 eventos reales no cableados (`camp`, `escort`, `gate`, `soulless_horror`, `voice_in_the_void`), que agregarlos sube el KPI de 30 a 35. | ⏳ **ABIERTA, no bloqueante** | Los 2 primeros son SEO fillers: rellenarlos seria **inventar drops**, asi que no se hizo. Agregar los 5 no cableados **cambia el grid y el denominador del KPI que Pablo ve**: es decision de producto, no del equipo. Anotado en `TEAM_STATUS.md` bajo "Pendiente que requiere a Pablo". |
 
 ## Alertas resueltas (histórico)
 
@@ -521,7 +521,7 @@ un `.md`, y ambos agentes lo detectaron y lo resolve sin drama.
 antes de cada commit, y revisar el stat del commit ajeno si aparece en la propia rama.
 **No se decide reorganizar el worktree en caliente** (mover el PO a su propio worktree) porque romper el
 PO en mitad de su heartbeat es peor que el riesgo que mitiga.
-| **ALERT-49** | 🔴 Alta | Codigo / Cache | **El sharding de `ach_meta` (Tramo C) se mergeo SIN validacion del Reviewer, y tenia 2 defectos reales. ElReviewer los encontro despues (`task-329b54da90ef`, veredicto APROBAR CON CAMBIOS) y los 2 se reprodujeron contra el archivo sin modificar: **2 FAIL**. **BUG 1 (media-alta):** dos cargas concurrentes del mismo shard en frio construyen cada una su `bag = {}` local y entran al mismo `inflightOnce` (misma `ikey`), asi que solo el primer llamador muta su bag. El segundo resuelve contra `{}` y **recibe `[]`**. En la app eso es peor que un error: `achievements.js:1069` arma `metaById` con ese array, asi que la cuenta renderiza logros **sin nombre, sin icono y sin tiers**, y `earnedAP` (`:218`) da **0 AP en silencio**. Es alcanzable: `gn:tokenchange` (`:1096`) y `hashchange` (`:1106`) disparan `loadAll()` sin secuencia que serialice el `getAchievementsMeta` de la carga anterior. **BUG 2 (media-baja):** `getCache` devuelve `null` con `nocache` (`:325`) -> `bag = {}` -> `putCache` graba solo los ids pedidos, **encogiendo un shard del que dependen otras cuentas** y generando churn de cuota, justo lo que el commit vino a reducir. Es alcanzable por el boton de refresh (`achievements.js:829`) y por `gn:tokenchange`. **Ademas:** el fix de concurrencia se commiteo SIN tocar el buster de `index.html` ni el header de version, o sea **el fix existia en el repo y no en la app** (el navegador cacheado corria la v2.21.0, que es la que tiene los 2 bugs). | **RESUELTA (HB#48)** | Fix mergeado en `f09eb7c`: la resolucion final **relee cada shard del cache** en vez de usar el objeto local, y el bag **se lee y se mergea siempre**, tambien con `nocache` (un shard depende del id, no de quien lo pide). Ademas se poda al guardar los 5 campos que la API manda y NADIE lee (`bits`, `requirement`, `locked_text`, `prerequisites`, `point_cap`): medido contra la API en vivo, la metadata baja de **1.75 MB a 0.81 MB** (35% -> 16% de la cuota). `api-gw2.js` v2.22.0 con buster, suite **231 aserciones 0 FAIL**. **Verificacion del test, no supuesta:** `git show f98da49:js/api-gw2.js` + `node tests/idea49.shard-concurrency.test.js` = **12 pass / 2 FAIL**; con el fix = **14 pass / 0 FAIL**. **REGLA 1: un merge es merge, no validacion. Sin veredicto del Reviewer, un cambio de capa de datos se considera PROVISIONAL, y el `task_id` se sigue hasta el final.** **REGLA 2 (nueva, la mas economica de todas): el fix y su buster van en el MISMO commit.** Es la version de codigo de ALERT-24 y evita la clase de bug donde se arregla el repo y la app sigue rota sin que nadie lo note. |
+| **ALERT-49** | 🔴 Alta | Codigo / Cache | **El sharding de `ach_meta` (Tramo C) se mergeo SIN validacion del Reviewer, y tenia 2 defectos reales. El Reviewer los encontro despues (`task-329b54da90ef`, veredicto APROBAR CON CAMBIOS) y los 2 se reprodujeron contra el archivo sin modificar: **2 FAIL**. **BUG 1 (media-alta):** dos cargas concurrentes del mismo shard en frio construyen cada una su `bag = {}` local y entran al mismo `inflightOnce` (misma `ikey`), asi que solo el primer llamador muta su bag. El segundo resuelve contra `{}` y **recibe `[]`**. En la app eso es peor que un error: `achievements.js:1069` arma `metaById` con ese array, asi que la cuenta renderiza logros **sin nombre, sin icono y sin tiers**, y `earnedAP` (`:218`) da **0 AP en silencio**. Es alcanzable: `gn:tokenchange` (`:1096`) y `hashchange` (`:1106`) disparan `loadAll()` sin secuencia que serialice el `getAchievementsMeta` de la carga anterior. **BUG 2 (media-baja):** `getCache` devuelve `null` con `nocache` (`:325`) -> `bag = {}` -> `putCache` graba solo los ids pedidos, **encogiendo un shard del que dependen otras cuentas** y generando churn de cuota, justo lo que el commit vino a reducir. Es alcanzable por el boton de refresh (`achievements.js:829`) y por `gn:tokenchange`. **Ademas:** el fix de concurrencia se commiteo SIN tocar el buster de `index.html` ni el header de version, o sea **el fix existia en el repo y no en la app** (el navegador cacheado corria la v2.21.0, que es la que tiene los 2 bugs). | **RESUELTA (HB#48)** | Fix mergeado en `f09eb7c`: la resolucion final **relee cada shard del cache** en vez de usar el objeto local, y el bag **se lee y se mergea siempre**, tambien con `nocache` (un shard depende del id, no de quien lo pide). Ademas se poda al guardar los 5 campos que la API manda y NADIE lee (`bits`, `requirement`, `locked_text`, `prerequisites`, `point_cap`): medido contra la API en vivo, la metadata baja de **1.75 MB a 0.81 MB** (35% -> 16% de la cuota). `api-gw2.js` v2.22.0 con buster, suite **231 aserciones 0 FAIL**. **Verificacion del test, no supuesta:** `git show f98da49:js/api-gw2.js` + `node tests/idea49.shard-concurrency.test.js` = **12 pass / 2 FAIL**; con el fix = **14 pass / 0 FAIL**. **REGLA 1: un merge es merge, no validacion. Sin veredicto del Reviewer, un cambio de capa de datos se considera PROVISIONAL, y el `task_id` se sigue hasta el final.** **REGLA 2 (nueva, la mas economica de todas): el fix y su buster van en el MISMO commit.** Es la version de codigo de ALERT-24 y evita la clase de bug donde se arregla el repo y la app sigue rota sin que nadie lo note. |
 | **ALERT-50** | 🟡 Media | Repo / Proceso | **Un commit de un agente cayo dentro de la rama de otro, en un worktree compartido, y nadie lo noto.** En el HB#48, el commit del PO (`0b9721d`, el dashboard de las 08:00) quedo dentro de `fix/idea49c-shard-races` porque el Principal cambio de rama mientras el PO trabajaba en el mismo clon. Benigno en este caso: era un `.md`, y el contenido era correcto. | **RESUELTA en el acto (HB#48)** | Los dos lo detectaron y lo resolvieron sin drama, que es exactamente por que funciona el canal de archivos. **REGLA: antes de commitear en un clon compartido, `git status -sb` y `git branch --show-current` en la MISMA llamada.** Si la rama no es la que uno cree, el commit va a la rama equivocada y el `git log` de la otra la muestra como si nunca hubiera existido. Corolario barato: `git log --oneline -1` inmediatamente despues de commitear, y verificar que el hash aparece en la rama esperada. Es la generalizacion de ALERT-43: alli el trabajo sin commitear casi se pierde; aqui el commit se guardo en el lugar equivocado. El riesgo real no es este caso, es el proximo en que el commit cruzado sea de codigo. |
 | **ALERT-55** | **Alta** | Repo / Proceso | **6 ramas sin mergear en `origin`, y al menos 3 contienen trabajo real que NO esta en `main`.** `git ls-remote --heads` las muestra todas; ninguna es ancestro de `main`. El detalle importa mas que el numero, porque **3 de las 6 estan enteramente absorbidas** y **3 tienen contenido perdido**. **ABSORBIDAS (el trabajo ya esta en main, las ramas solo están atrasadas):** `fix/theme-borderleft-shorthand` (`git cherry` da `-`: el patch ya esta) y `feat/commerce-delivery-ui` (su fix de CSS igual, y el banner de la v1.1.1 esta en `converter-modal.js:14` de main). **CON TRABAJO PERDIDO, verificado archivo por archivo contra `main`:** **(1) `feature/homestead-tracker` + `fix/homestead-glyph-data`** (la segunda contiene a la primera): `getHomesteadDecorationDetails`, `getAccountHomesteadDecorations` y `getHomesteadGlyphs` **no existen en `js/api-gw2.js` de main**; la ruta `#/account/homestead` **no esta en `js/router.js`**; `index.html` **no carga `homestead-tracker.js`**. La normalizacion de glyphs (`normalizeGlyphs`) tampoco esta en `js/homestead-tracker.js` de main. Son ~160 lineas de `api-gw2.js` y el fix de schema que el PO ya dio por bueno (COMM 010/012). **(2) `feature/legendary-component-tracker`:** `js/detail-modal.js` y `js/legendary-tracker-theme.js` **NO EXISTEN EN MAIN** (fichero completo, no un diff), e `index.html` de main solo carga `legendary-tracker.js?v=1.0.0`, sin el detail modal ni el theme de la capa 3. Son las Fases 2B y 3 del tracker. **(3) `docs-estructura-20260930`:** `ORG_MAP.md` tiene 103 lineas de diferencia contra main (una rama nace de un commit viejo, asi que el diff grande no es trabajo perdido: esto hay que leerlo, no contarlo). | **ABIERTA (HB#50)** | **Ninguna rama se borra ni se mergea en este ciclo**, y la razon es el orden de las operaciones, no la duda: las ramas que tienen trabajo perdido estan **110 a 201 commits atras** de `main`, y `api-gw2.js` cambio **481 lineas** desde su base. Un merge a ciegas de `homestead-tracker` revierte el sharding de la Idea 49 y arrastra elarranque del modulo. **El rescate correcto es por `cherry-pick` sobre una rama nueva desde `main`, no `merge`**, y uno por uno: (a) `homestead` (API + router + index + fix de glyphs, 2 commits), (b) `legendary` Phase 2B/3 (2 archivos que no existen), (c) `ORG_MAP` (revisar a mano, el diff es ruido de base). **Las 2 ramas absorbidas se pueden borrar YA, con seguridad verificada.** **REGLA que sale de aca:** `git cherry main <rama>` decide si un commit esta en main **por contenido**, no por hash; un `git diff main <rama>` grande NO prueba trabajo perdido, porque la rama nace vieja. Es el ALERT-47 con una segunda vuelta. |
 | **ALERT-54** | Media | Producto / Datos | **`vloxx` infla el KPI de Legendaria Imbuida: el 100% de LI es inalcanzable por diseno.** `vloxx` es el ala del CM de Sept 29 (Nexus of Eternity). `/v2/raids` **no lo expone** (medido contra la API en vivo, no supuesto), asi que esa tarjeta nunca se va a poder marcar. Pero el calculo de `liTotal` (`raid-tracker.js`) cuenta los encounters con `li === 1`, y `vloxx` lo tiene: el denominador suma un encuentro que la API jamas va a reportar. Es exactamente la clase de defecto que vino a matar la Idea 52 ("el modulo promete algo que no puede cumplir"), y quedo vivo dentro del propio fix que la ataco. No se toca en esta iteracion: decidir el ala 9 es producto (borrar el ala, o esperar a que GW2 la publique), no un fix de dato. | **ABIERTA (HB#50)** | Anotada, sin cambio de codigo. Cuando Pablo decida el ala 9 se cierra sola: si `vloxx` se borra, `liTotal` baja y el 100% vuelve a ser alcanzable. Si se conserva, hay que sacar `li: 1` del encuentro o excluir los fantasmas del calculo de LI. **Medicion que la sostiene:** el propio test de la Idea 52 ya valida que `vloxx` no esta en el catalogo (`tests/idea52.raid-encounter-ids.test.js`, seccion 3) y lo declara `FANTASMA_CONOCIDO` con la explicacion. Lo que faltaba era que el KPI de LI lo sintiera. |
@@ -828,14 +828,14 @@ Y `qwenpaw cron list` tiene **2 crons**: el Heartbeat Principal y la sonda del
 Arquitecto (pausada). **Ningun cron toca al Reviewer.** Es decir: al Reviewer no
 lo despierta ni su heartbeat (desactivado por diseno) ni ningun cron. **Nada.**
 
-Por eso los 3 pedidosentedaron completos a su bandeja y nadie los abrio. El
+Por eso los 3 pedidos quedaron completos a su bandeja y nadie los abrio. El
 canal de archivos es durable — sobrevive reinicios y no vence, por eso es la via
 primaria — y esa misma propiedad es la que lo hace **inerte**: un mensaje puede
 estar en la bandeja del otro, con su `to` correcto y su cuerpo entero, durante
 tiempo indeterminado.
 
 > **El canal de archivos garantiza que el mensaje LLEGA. No garantiza que alguien
-> loLEA.** Son dosinstantias distintas, y confundirlas produce el modo de falla
+> lo LEA.** Son dos instancias distintas, y confundirlas produce el modo de falla
 > mas caro que tenemos: **parece perdido cuando en realidad nadie lo fue a
 > buscar.** Un `state=asked` con horas de antiguedad no es "el Reviewer esta
 > pensando", es "nadie lo despertar".
@@ -1386,7 +1386,7 @@ Causa: los test files no comparten un formato de resumen. Hay cuatro:
 (`"--- N OK / 0 FAIL ---"`, `"TODO OK: N OK / 0 FAIL"`).
 
 El numero correcto, medido: **1048 pass / 0 FAIL en 37 de 37**. Reconcilia
-exactamente con el del Reviewer: `1029 + 19` (el test hb77 que elReviewer no
+exactamente con el del Reviewer: `1029 + 19` (el test hb77 que el Reviewer no
 tenia, porque audito antes de que yo lo mergeara) y `36 + 1` archivos. Esa
 cuadra es la prueba de que el numero no es inventado: dos mediciones
 independientes que sourceden de contextos distintos.
@@ -1889,7 +1889,7 @@ script contesta 1.
 La generalizacion es la de siempre (**ALERT-61**, **ALERT-104**, y el primer
 borrador de la 115 que reporto **343** huerfanas): *un numero recien escrito no
 se reporta hasta que un metodo que no comparte codigo con el da lo mismo.* Ahi el
-segundo metodo existio y **no locorrí** porque la ALERT-115 yaNnarraba el
+segundo metodo existio y **no lo corrí** porque la ALERT-115 ya narraba el
 resultado como cerrado. **Un hallazgo sin contraste no se escribe aunque el
 instrumento que lo produce tenga control.**
 
@@ -1900,3 +1900,99 @@ tiene lo que un commit de otra rama si tiene, el script no tiene forma de saber
 que le falta algo. Un control del mismo genero que el del `>= 100` seria
 **comparar el conjunto de definidos contra `git log --all -S`**, y reportar como
 separado lo que "esta en otra rama" de lo que "no esta en ninguna".
+
+## ALERT-117 - el canario CJK dio "limpio" sobre un archivo que estaba corrupto, y ningun detector que escribi despues sirve
+
+**Severidad:** Media (documental, no rompe codigo) · **Estado:** ✅ RESUELTA en HB#88
+**Origen:** ALERT-112 (la clase CJK) y ALERT-116 (el instrumento con el verbo
+equivocado). Esta es la tercera de la misma familia, y es la que cierra el
+asunto: **la instrumentacion de esta clase no existe, y el intento de
+construirla es lo que produce el hallazgo.**
+
+### El hecho
+
+El HB#86 escribio la ALERT-116 y, segun su propio registro, corrio
+`probe-cjk.mjs` **antes de anexarla** para confirmar que no se le colaban
+ideogramas. Dio limpio. El archivo commiteado en `e1262b0`, en la prosa viva
+de esa misma ALERT-116, tiene:
+
+    ALERTS_LOG.md:1892  "...y **no locorrí** porque la ALERT-115 yaNnarraba el..."
+
+`no locorrí` donde va `no lo corrí`. `yaNnarraba` donde va `ya narraba`. Dos
+espacios perdidos y una letra duplicada, **en la frase que sostiene la regla
+del ciclo**. No hay ningun ideograma. El canario estaba bien construido, se
+corrio, y su respuesta fue correcta sobre lo que el pregunta: **"no hay CJK"**.
+Lo que se leyo del otro lado fue "esta limpio".
+
+### Tres intentos de detector, tres formas de fallar
+
+| # | Instrumento | Que pregunta | Resultado medido |
+|---|---|---|---|
+| 1 | `probe-cjk.mjs` | hay ideogramas? | **0**. No ve esta clase. |
+| 2 | `probe-glue.mjs` | minuscula pegada a mayuscula? | **131** en 5 `.md`. ~11 reales, ~120 falsos (CamelCase deliberado de identificadores citados en prosa sin backticks). Ademas **no ve `locorrí`**: los dos lados son minusculas, asi que no hay cambio de caja. |
+| 3 | `probe-fusion.mjs` | el token contiene una palabra funcional pegada? | **~5000 falsos.** Inutilizable: en espanol las palabras funcionales **son prefijos de palabras comunes por construccion** (`de`+`fecto`, `con`+`flicto`, `a`+`rchivo`, `lo`+`gro`). No hay lista de palabras funcionales que no reviente el corpus. |
+
+El intento 3 es el que decide el asunto, y lo decide por la via negativa: la
+clase **"un espacio desaparece entre dos palabras" no es detectable por
+instrumento lexico barato en espanol**. No es que falte afinar el regex; es que
+la senal no esta en los caracteres.
+
+Y el intento 2 tiene el defecto opuesto y peor: 8% de precision. Un detector
+que grita con 120 falsos por 11 reales es un detector que nadie corre, que es
+la forma que tomo el silencio.
+
+### Lo que se corrigio, y por que lo enumero uno por uno
+
+**12 defectos**, todos verificados **leyendo la frase en contexto**, no por el
+numero del detector. `probe-glue.mjs` encontro 11; el **`pedidosentedaron`**
+(linea 831, `quedaron` con `qu` sustituido por `en`) **no lo encontro ninguno de
+los tres**, porque no es un espacio comido: es una sustitucion. Un defecto que
+el instrumento no ve sigue siendo un defecto, y por eso el criterio de
+aceptacion no puede ser "el detector dice 0".
+
+    ALERTS_LOG.md  407  sonSEO fillers   -> son SEO fillers
+    ALERTS_LOG.md  524  ElReviewer       -> El Reviewer
+    ALERTS_LOG.md  831  pedidosentedaron -> pedidos quedaron      (lo vio leer, no el script)
+    ALERTS_LOG.md  838  loLEA / dosinstantias -> lo LEA / dos instancias
+    ALERTS_LOG.md 1389  elReviewer       -> el Reviewer
+    ALERTS_LOG.md 1892  no locorrí / yaNnarraba -> no lo corrí / ya narraba
+    SESSION_LOG.md 605  seResolvedieron  -> se resolvieron
+    SESSION_LOG.md 1484 tieneREWARDS_DATA-> tiene REWARDS_DATA
+    TEAM_STATUS.md 1024 ElEnumerar       -> El Enumerar
+    TEAM_STATUS.md 1170 elWV             -> el WV
+    TEAM_STATUS.md 2064 botonTodavia     -> boton todavia
+    TEAM_STATUS.md 2229 malDiseñada      -> mal Diseñada
+
+**Uno NO se corrigio a proposito.** `SESSION_LOG.md:2008` dice
+`y laPuede cer:`. El pegado es obvio, pero **el texto correcto hay que
+inventarlo** ("se puede cerrar" es la lectura natural, no la unica), y una
+reparacion adivinada dentro de un registro de decisiones es peor que un defecto
+visible: el defecto se lee y se corrige, la adivinacion se cita como si fuera
+un hecho. Queda visible a proposito.
+
+### Los instrumentos NO se mergearon
+
+`probe-glue.mjs` y `probe-fusion.mjs` **no entran al repo**. No porque fallen
+sino porque lo que hacen es producir un numero que invita a citarse, y sus
+numeros son 131/~5000 con 12 defectos reales. Un instrumento asi en `tools/` es
+una trampa con nombre de aide: el proximo que lo corra va a reportar "131
+corrupciones" o va a ignorar el archivo entero.
+
+Se conservan los dos archivos en el worktree, fuera del arbol, como registro de
+que se intento.
+
+### Reglas que salen
+
+1. **Un instrumento que cubre UNA clase no autoriza la frase "esta limpio".
+   Autoriza "no hay clase X".** El HB#86 escribio la regla del contraste de
+   instrumentos y en el mismo commit se apoyo en un instrumento sin contraste.
+   Las dos cosas pueden ser verdad y aun asi el resultado es falso.
+2. **Para esta clase, el detector es leer la frase.** No hay atajo, y
+  attemptar el atajo cuesta mas que el defecto: 3 instrumentos, ~5100 falsos
+   reportados, 12 defectos reales.
+3. **Un defecto que el instrumento no ve no deja de ser defecto.** El criterio
+   de cierre es "lei la prosa", no "el script dio 0". `pedidosentedaron` es la
+   prueba de que un cierre por numero deja huecos sin avisar.
+4. **Un defecto que exige adivinar el texto correcto no se repara solo.** Se
+   deja visible. Esto es lo inverso de la regla 3 y no la contradice: primero
+   se cierra lo que se sabe, despues lo que se supone.

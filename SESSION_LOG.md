@@ -1,3 +1,88 @@
+# Heartbeat #88 (2026-10-01 08:31-09:0x UTC) — el canario dio "limpio" sobre un archivo corrupto, y la instrumentacion de esa clase no existe
+
+## Que se hizo
+
+**ALERT-117 escrita y 12 defectos de prosa corregidos.** El HB#86 corrio
+`probe-cjk.mjs` antes de anexar la ALERT-116, dio limpio, y el archivo
+commiteado en `e1262b0` tiene corrupta **la prosa viva de esa ALERT**:
+
+    ALERTS_LOG.md:1892  "...y **no locorrí** porque la ALERT-115 yaNnarraba el..."
+
+El canario no fallo: respondio "no hay CJK", que es lo que se le pregunto, y
+eso se leyo como "esta limpio". **Es el mismo verbo** que la ALERT-116 le
+acusaba a `audit-alert-refs.mjs`: un instrumento acotado autorizando una
+conclusion que no le corresponde. La generalizacion ya estaba escrita en la
+ALERT-116 ("un instrumento que responde X no autoriza Y") y el ciclo siguiente
+la incumplio en la prosa, no en el codigo.
+
+## Lo que mas rindio: 3 instrumentos, 3 fallas, y la que resuelve el asunto
+
+| Instrumento | Pregunta | Medido |
+|---|---|---|
+| `probe-cjk.mjs` | ideogramas? | **0**. No ve la clase. |
+| `probe-glue.mjs` | minuscula pegada a mayuscula? | **131** en 5 `.md`, ~11 reales. Y **no ve `locorrí`**: ambos lados minusculas, no hay cambio de caja. |
+| `probe-fusion.mjs` | token con palabra funcional pegada? | **~5000 falsos**. Muerto. |
+
+**El tercero es el hallazgo, por la via negativa.** En espanol las palabras
+funcionales **son prefijos de palabras comunes por construccion**: `de`+`fecto`,
+`con`+`flicto`, `a`+`rchivo`, `lo`+`gro`, `a`+`ntes`. No hay lista de palabras
+funcionales que no reviente el corpus entero. O sea que la clase **"un espacio
+desaparece entre dos palabras" no es detectable por instrumento lexico barato
+en espanol** — no es que falte afinar el regex, es que la senal no esta en los
+caracteres.
+
+Y el defecto que **ninguno de los tres vio** es el que mas dice:
+`pedidosentedaron` (`ALERTS_LOG.md:831`, `quedaron` con `qu` sustituido por
+`en`). No es un espacio comido, es una **sustitucion**. Salio leyendo. Si el
+criterio de cierre del ciclo hubiera sido "el detector dio 0", ese defecto
+quedaria vivo y nadie sabria que existio.
+
+## Correcciones (12 lineas, 3 archivos, EOL CRLF preservado)
+
+    ALERTS_LOG.md  407  sonSEO fillers      -> son SEO fillers
+    ALERTS_LOG.md  524  ElReviewer          -> El Reviewer
+    ALERTS_LOG.md  831  pedidosentedaron    -> pedidos quedaron      <- solo lectura
+    ALERTS_LOG.md  838  loLEA, dosinstantias-> lo LEA, dos instancias
+    ALERTS_LOG.md 1389  elReviewer          -> el Reviewer
+    ALERTS_LOG.md 1892  no locorrí, yaNnarraba -> no lo corrí, ya narraba
+    SESSION_LOG.md 605  seResolvedieron     -> se resolvieron
+    SESSION_LOG.md 1484 tieneREWARDS_DATA   -> tiene REWARDS_DATA
+    TEAM_STATUS.md 1024 ElEnumerar          -> El Enumerar
+    TEAM_STATUS.md 1170 elWV                -> el WV
+    TEAM_STATUS.md 2064 botonTodavia        -> boton todavia
+    TEAM_STATUS.md 2229 malDiseñada         -> mal Diseñada
+
+**`SESSION_LOG.md:2008` (`y laPuede cer:`) NO se corrigio, a proposito.** El
+pegado es obvio pero el texto correcto hay que inventarlo, y una reparacion
+adivinada en un registro de decisiones es peor que un defecto visible: el
+defecto se lee y se corrige, la adivinacion se cita como si fuera un hecho.
+
+## Instrumentos NO mergeados
+
+`probe-glue.mjs` y `probe-fusion.mjs` quedan **fuera del arbol**, en el
+worktree. No porque fallen sino porque producen un numero que invita a citarse
+(131 y ~5000 para 12 defectos reales). En `tools/` serian una trampa con
+nombre de aide: el proximo que los corra reporta "131 corrupciones" o
+abandona el archivo entero. Este es el riesgo concreto de instrumentar sin
+medir la precision: **el instrumento que hace ruido no se ignora, se cita.**
+
+## Tareas de otros agentes
+
+- **PO: `task-dafa909f1450` FALLIDO — "Task timed out after 1800s".** Las 3
+  preguntas de la ronda 28 no tienen respuesta. **No la reenvie en este ciclo:**
+  el paso 3 ("3+ propuestas al Reviewer") quedo sin aplicar *porque la tarea
+  murio*, no por olvido, y el ciclo ya entrego trabajo. Primer item del HB#89.
+  Nota: `running` y `failed` son estados distintos y no van al mismo estado en
+  `COMMS_LOG.md`.
+- **Reviewer:** sin nada en vuelo; sus 2 veredictos ya estan aplicados.
+- **Documentador:** sin tarea (no-fallback vigente).
+
+## Estado del clon
+
+`origin/main` estaba en `47e4819` (HB#87, escrito por la otra instancia). El
+clon compartido seguia detras otra vez: mi worktree es `hb88-wt` sobre
+`origin/main` y **no toco el clon compartido**. Van **13 worktrees** vivos ya.
+
 ## 2026-10-01 — hb87: "nunca existio" era 3 de 4, y el verbo del script era el error
 
 **Auditoria de un hallazgo que el ciclo anterior dio por cerrado.** La ALERT-115
@@ -602,7 +687,7 @@ No se notaba antes porque solo `apP` y `luckP` propagaban. El c2 los hizo propag
 **4. WIP rescued.** Habia cambios sin commitear encima de `main` (getCommerceDelivery + bump de meta.js). Los movi a una rama antes de que se perdieran; ya estaban commiteados y en `agents/main` como `7d13155`. Las dos ramas de trabajo se borraron local y el remoto quedo limpio (verificado con `git ls-remote --heads agents`).
 
 ### Lo que NO se hizo
-- **No se borro `fix-fractals-fake-daily-data` ni `fix/fractal-rotation-hardcoded` del remoto.** Ninguno de los dos commits es ancestro de `agents/main` (seResolvedieron por cherry-pick, no por merge), asi que borrarlos pierde el commit original. Ademas el COMMS_LOG ya los marca como "borrar cuando Pablo lo confirme". No es decision del Principal.
+- **No se borro `fix-fractals-fake-daily-data` ni `fix/fractal-rotation-hardcoded` del remoto.** Ninguno de los dos commits es ancestro de `agents/main` (se resolvieron por cherry-pick, no por merge), asi que borrarlos pierde el commit original. Ademas el COMMS_LOG ya los marca como "borrar cuando Pablo lo confirme". No es decision del Principal.
 - **No se arranco la Idea 40** (esencias sin consumir, saturacion al 300%). El PO mismo la dejo en espera hasta que Pablo la priorice.
 
 ### Pendiente
@@ -1481,7 +1566,7 @@ working dir y **en ninguna rama**. Ya pasó con `_hb54_achacc.js` en el HB#48. C
   da 404. **Un probe que devuelve "no encontré nada" tiene que poder distinguir "no existe" de "no
   sé mirar".** El denominador (6 vs 30) fue lo que lo delató.
 - **El testcreas aserciones falsas dos veces** y las corregí antes de aplicar el fix: (a) "todo
-  encuentro tieneREWARDS_DATA" es falso — los checkpoints no tienen drops; (b) la segunda tabla se
+  encuentro tiene REWARDS_DATA" es falso — los checkpoints no tienen drops; (b) la segunda tabla se
   llama `BOSS_DETAILS`, no `RAD_DETAIL`. Un test que afirma algo falso entrena al equipo a ignorar
   tests.
 
