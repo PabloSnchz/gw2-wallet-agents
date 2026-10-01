@@ -3202,3 +3202,90 @@ El mensaje de `1a47d5c` **responde** la pregunta que yo le hacia, con el porque:
 Y **corrige la medicion que yo le transcribi**: no son 4.10 MB contra 4.98 de cuota, son **3.24 MB**, porque el `bits` que la cifra anterior contaba (0.52 MB solo) **no lo lee nadie** — `grep` sobre todo `js/` da cero apariciones fuera de un comentario. **El problema era MENOR de lo que el PO anuncia y el arreglo MAYOR de lo que yo creia** (0.53 MB contra 3.24).
 
 Osea: **la pregunta estaba mal y la respuesta ya existia escrita en el commit que yo no habia mirado.** Ese es el costo de no mirar la rama antes de preguntar.
+## ALERT-134 — el `confirm` del restore de archivo estaba DESPUES de las 7 escrituras: cancelar NO cancelaba nada
+
+**Clase:** integridad de datos. **Severidad:** media-alta. **Origen:** hallazgo del
+Code-Reviewer (fila 111 de COMMS_LOG), confirmado y arreglado en el HB#104.
+
+**Medido en `origin/main` @ `7002e78` (no en el clon compartido):**
+- `settings-manager.js:463` `await importFromFile(file)` — lee **y escribe**
+- `:393-399` las 7 escrituras (`apiKeys`, `wv`, `wallet`, `activities`, `characters`, `meta`, `global`)
+- `:477` `if (confirm(confirmMsg))` — **pregunta, 14 lineas despues**
+- `:486` `reject('Importación cancelada')`
+
+**El defecto:** con "Cancelar", la pagina dice que no se importo nada, pero las 7
+familias **ya estan sobreescritas en `localStorage`**. Cancelar era indistinguible
+de aceptar, y el estado anterior ya no existia para volver atras.
+
+**Por que NO lo tenia el camino del Gist:** `gist-sync.js:451` confirma y `:452`
+importa — ahi siempre fue correcto. **Solo el de archivo estaba invertido, y por
+eso es un descuido y no una decision de diseño.**
+
+**Por que NO se movio el `confirm`:** `importFromFile` es **API publica**
+(`SettingsManager.importFromFile`, `:644`) y su contrato es "leer y aplicar de
+una"; meterle un confirm adentro le cambia el contrato a todos los call sites. El
+fix parte la RESPONSABILIDAD: `readImportFile` lee y valida SIN escribir,
+`applyImportData` aplica, y el llamador decide el medio. **`importFromFile` queda
+igual** porque hay call sites que la usan como "leer y aplicar de una" (asertado).
+
+**REGLA que este caso deja escrita:** un `confirm` de sobrescritura, en cualquier
+parte del codigo, se aserta por su **efecto observable** (cuantas escrituras deja
+un `Storage.set` cuando la respuesta es NO), no por su posicion en el fuente. Un
+`grep` del orden no distingue "escribo despues" de "escribo antes", porque las dos
+tienen el `confirm` escrito en el archivo.
+
+**Test:** `tests/hb104-confirm-antes-de-escribir.test.js`, **21 aserciones / 0 FAIL**,
+con **control negativo primero**: con el bug inyectado (`readImportFile` ->
+`importFromFile`, un cambio) el arnes ve escrituras; con el fix, **0 escrituras**.
+Suite completa **1238/0 en 48 de 48**.
+
+**Relacionado:** los **2 commits de la puerta de permisos** que pidio el Reviewer
+(fila 111) siguen sin empezar; este fix toca `settings-manager.js`, que es
+justo el archivo que esos commits van a tocar.
+
+---
+
+## ALERT-135 — el "apply dentro del confirm" es una ASERCION que se puede escribir mal, y la escribi mal
+
+**La que me la hice en este ciclo, y es la 2a vez con la misma causa** (la 1a en
+HB#103, el `git grep` de 49G): **una asercion que mira el archivo entero no puede
+afirmar un orden que es de UNA funcion.**
+
+Escribi `applyImportData se llama DESPUES del if (confirm(...))` con un
+`findIndex` sobre `srcReal.split('\n')` — o sea, la **primera** ocurrencia del
+archivo. Dio **FAIL** (`apply@423 confirm@524`), y el numero era correcto pero
+apuntaba a la llamada de `importFromFile`, que **existe a proposito**: es el call
+site que mantiene el contrato "leer y aplicar de una". El fix estaba bien; la
+asercion media lo que no media.
+
+**Corregido recortando el cuerpo de `importAll` primero** (el extractor por
+profundidad de llaves ya existia en `tests/hb101-t12-camino.test.js`, patron
+reutilizado) y buscando dentro. Ahora ademas aserta que `importAll` NO use
+`importFromFile` y SI use `readImportFile`, que es la discriminante real.
+
+**REGLA, y es la generalizacion de ALERT-133:** antes de escribir "el fix no
+funciona" sobre un FAIL de un arnes propio, **comprobar que el arnes esta mirando
+donde cree que esta**. Un arnes que mira el archivo entero para una pregunta de
+una funcion da FAIL con un numero plausible — y un numero plausible es
+exactamente el tipo de dato que hace que uno acepte un diagnostico equivocado.
+Un FAIL con lineas nombradas hay que leerlas antes de culpar al producto.
+
+---
+
+## ALERT-136 — el arnes de este ciclo rompio 3 veces antes de poder ver el defecto, y las 3 por el mismo motivo
+
+Sandbox de `settings-manager.js` en `vm`: `console.info is not a function`
+(`init()` lo llama al final, `:634`), `document.getElementById is not a function`
+(`init() -> bindButtons()`, `:675`), y las comillas dobles anidadas al escribir
+el parche por `node -e` a traves de `cmd.exe`.
+
+**Lo comun:** los tres fallos eran **del arnes**, y ninguno era visible en el codigo
+del producto. Si se hubiera leido el FAIL como "el fix no funciona", se habria
+mandado a revisar un cambio correcto.
+
+**REGLA:** cuando un `vm` ejecuta un modulo que se auto-inicializa (`if
+(document.readyState === 'loading') ... else init()`), **el arnes tiene que
+emular el arranque completo del DOM, no solo lo que el test ejercita**. Un stub
+minimo que alcanza para la funcion bajo prueba puede no alcanzar para el `init()`
+que corre antes. Y `cmd.exe` **no es un shell para escribir codigo**: 3 scripts
+que en bash serian una linea, aca fueron archivos con quoting defensivo.

@@ -379,25 +379,66 @@
   }
   
   /**
-   * Importa configuración desde un archivo JSON
+   * Aplica un import YA validado: las 7 escrituras.
+   *
+   * HB#104. Es un arreglo de INTEGRIDAD DE DATOS, no un refactor: antes esta
+   * lista vivia dentro de importFromFile, que hace DOS cosas a la vez (leer el
+   * archivo y escribir). importAll la llamaba en :463 y el confirm estaba en
+   * :477, o sea DESPUES de las 7 escrituras. Consecuencia medida: si Pablo
+   * cancela el confirm, importAll hace reject('Importacion cancelada') y la
+   * pagina dice que no se importo nada, pero ACCOUNT_KEYS, ACCOUNT_SELECTED,
+   * WV, wallet, activities, characters, meta y global YA estan sobreescritos en
+   * localStorage. Cancelar era indistinguible de aceptar, y el backup anterior
+   * ya no existia.
+   *
+   * Por que el camino del Gist no lo tenia: gist-sync.js:451 confirma y :452
+   * importa, o sea el ahi siempre fue correcto. Solo el de archivo estaba
+   * invertido, y por eso es un descuido y no una decision.
+   *
+   * La solucion NO es "mover el confirm": importFromFile es API publica
+   * (SettingsManager.importFromFile, :644) y hay call sites que la usan como
+   * "leer y aplicar de una". Mover el confirm adentro le cambiaria el contrato.
+   * La solucion es partir la RESPONSABILIDAD: readImportFile lee y valida SIN
+   * escribir, y esta aplica. Quien quiera preguntar, pregunta en el medio.
+   */
+  function applyImportData(importData) {
+    importApiKeys(importData.data.apiKeys);
+    importWVData(importData.data.wv);
+    importWalletData(importData.data.wallet);
+    importActivitiesData(importData.data.activities);
+    importCharactersData(importData.data.characters);
+    importMetaData(importData.data.meta);
+    importGlobalData(importData.data.global);
+  }
+
+  /**
+   * Importa configuracion desde un archivo JSON (lee, valida y APLICA).
+   *
+   * Se mantiene igual que antes, a proposito: es API publica y hay call sites que
+   * la usan como "leer y aplicar de una" (ver la nota de applyImportData). La
+   * separacion la agrega readImportFile para el caso que necesita preguntar.
    */
   function importFromFile(file) {
+    return readImportFile(file).then(function(importData) {
+      applyImportData(importData);
+      return importData;
+    });
+  }
+
+  /**
+   * Lee y valida un archivo de backup SIN escribir nada.
+   *
+   * Es la mitad de importFromFile que no tiene efectos: parsea, valida con
+   * validateImportData y devuelve el objeto. Quien la llama decide si despues
+   * aplica, y esa decision es la que se puede preguntar antes de tocar disco.
+   */
+  function readImportFile(file) {
     return new Promise(function(resolve, reject) {
       var reader = new FileReader();
       reader.onload = function(e) {
         try {
           var importData = JSON.parse(e.target.result);
           validateImportData(importData);
-          
-          // Aplicar importación
-          importApiKeys(importData.data.apiKeys);
-          importWVData(importData.data.wv);
-          importWalletData(importData.data.wallet);
-          importActivitiesData(importData.data.activities);
-          importCharactersData(importData.data.characters);
-          importMetaData(importData.data.meta);
-          importGlobalData(importData.data.global);
-          
           resolve(importData);
         } catch (err) {
           reject(err);
@@ -460,7 +501,13 @@
           }
         
         try {
-          var importData = await importFromFile(file);
+          // HB#104: LEER, no aplicar. Antes esta linea llamaba a
+          // importFromFile, que ademas de leer escribia las 7 familias, y el
+          // confirm estaba DOS LINEAS ABAJO: cancelar dejaba los datos
+          // sobreescritos y la pagina decia que no se habia importado nada.
+          // Ahora el archivo se lee y se valida aqui, se pregunta, y las
+          // escrituras pasanrecien si la respuesta es si (ver applyImportData).
+          var importData = await readImportFile(file);
           
           var keyCount = importData.data.apiKeys?.list?.length || 0;
           var confirmMsg = '¿Restaurar configuración?\n\n' +
@@ -475,6 +522,10 @@
             'La página se recargará automáticamente.';
           
           if (confirm(confirmMsg)) {
+            // Las escrituras van aca y no antes: es el unico punto del flujo
+            // donde ya se sabe que Pablo quiere el restore. Sin esta linea el
+            // confirm seria decorativo.
+            applyImportData(importData);
             if (window.toast) {
               window.toast('success', 'Configuración importada. Recargando...', { ttl: 1500 });
             }

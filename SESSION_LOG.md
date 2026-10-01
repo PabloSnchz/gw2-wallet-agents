@@ -2897,3 +2897,27 @@ criterio y el control negativo escritos.
 **Lo que el ciclo deja como regla.** Antes de mandar N propuestas al Reviewer, verificar
 las N contra `origin/main` una por una. Mandarle algo ya hecho produce una respuesta
 correcta a una pregunta que no importa, y él tarda 2-15 min.
+### HB#104 (2026-10-01) — el restore de archivo escribia antes de preguntar
+
+**Que se hizo.** Se arranco el ciclo (PASO 0 limpio: inbox vacio, `origin/main` =
+`7002e78` = mi push del HB#103, sin divergencia), se corro `git worktree list` por
+ALERT-128 y se encontro que `hb101-wt` sigue con el WIP de T12 **que ya esta
+aplicado en `origin/main`** — confirmado con las 3 partes medidas (`pintarSolo`,
+flag en el elemento, `wireViewToggle()` en `ensurePanelContent()`). Redundante.
+
+El paso 3 no se abrio: la rama del PO no tiene ronda nueva desde la 33, que es la
+misma que el HB#103 ya conto y mando. **No se fuerza.**
+
+Se aplico **ALERT-134**: el `confirm` del restore estaba 14 lineas despues de las 7
+escrituras. Fix partido en `readImportFile` / `applyImportData`, dejando intacta
+`importFromFile` por ser API publica. Test 21/0 con control negativo. Suite 1238/0.
+
+**Que se rompio.** Nada del producto. Del lado del ciclo: **3 fallos del arnes**
+(`console.info`, `document.getElementById`, quoting de `cmd.exe`) y **1
+asercion mal escrita** que dio FAIL sobre el fix correcto.
+
+**Que quedo pendiente.** Los 2 commits de la puerta de permisos. `49G` esperando
+veredicto. (A) 64 T1 y (C) 49E esperando veredicto.
+
+**Decisiones.** Nada que tomara Pablo este ciclo: el fix era un descuido con el
+Gist ya correcto al lado, o sea con el patron de la casa como respuesta.

@@ -3629,3 +3629,46 @@ replies`.
 - (e) **La pregunta al usuario antes de las escrituras** en import de archivo: hoy, si
   Pablo cancela, los datos ya están escritos.
 - (f) Resolver la colisión de writers de los docs con el Documentador.
+## HB#104 — 2026-10-01 17:3x UTC — Principal
+
+**Estado del ciclo:** cerrado con 1 fix de producto y 3 alertas nuevas.
+
+### En curso
+- **Puerta de permisos (HB#91), 2 commits del Reviewer (fila 111), SIN EMPEZAR.**
+  Persistir `perms` en `addOrUpdate` + `importApiKeys` offline via intencion unica
+  + assert de censo. Toca `settings-manager.js`, el mismo archivo del fix de este
+  ciclo. **Gravedad media** (corregida por el Reviewer): el escenario es migracion
+  entre maquinas, y lo que lo hace malo es que sea **silencioso**.
+
+### Completado este ciclo
+- **ALERT-134 cerrado: el `confirm` del restore de archivo estaba despues de las 7
+  escrituras.** Cancelar un restore no cancelaba nada. Fix partido en
+  `readImportFile` / `applyImportData`, `importFromFile` (API publica) intacta.
+  Test 21/0 con control negativo. Suite **1238/0 en 48 de 48**.
+
+### Pendientes
+- Los **2 commits de la puerta** (arriba).
+- `feat-idea49g-ach-acc-compacta` (`1a47d5c`, 620 lineas, con test) **esperando
+  veredicto** desde el HB#102. No la mergeo por merito (ALERT-48).
+- **(A) IDEA 64 T1** y **(C) IDEA 49E** esperando veredicto (fila 114).
+
+### Alertas del ciclo
+- **ALERT-134** — `confirm` despues de las escrituras en el restore (corregido).
+- **ALERT-135** — una asercion sobre el archivo entero no puede afirmar un orden
+  que es de una funcion; mi FAIL era del arnes, no del fix.
+- **ALERT-136** — el arnes rompio 3 veces antes de ver el defecto, y `cmd.exe` no
+  es un shell para escribir codigo.
+
+### Propuestas
+- **Fuente del paso 3:** `origin/po/hb99-dashboard` `DASHBOARD_PO_IDEAS.md`
+  (851 lineas). Conteo: **0 nuevas este ciclo** (la ultima es la ronda 33, ya
+  contada y mandada en el HB#103). **No se forzo ronda.**
+- **2 VENCIDAS al Reviewer** (filas 094, 097) **archivadas**: eran consultas ya
+  respondidas y aplicadas (HB#96, HB#99). No era silencio del Reviewer.
+
+### Reglas que deja el ciclo
+1. Un `confirm` de sobrescritura se aserta por **efecto** (`Storage.set` con la
+   respuesta NO), no por posicion en el fuente.
+2. Un FAIL de un arnes propio: **comprobar que el arnes mira donde cree** antes de
+   culpar al producto. Un numero plausible es el dato mas peligroso.
+3. `vm` + modulo que se auto-inicializa = emular el arranque completo del DOM.
