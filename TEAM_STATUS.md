@@ -2744,3 +2744,89 @@ control en orden natural y B-responde-primero, y tambien su punto del
   poder distinguir la UI para que la respuesta sea correcta"), no un "arregla la
   condicion".
 - **No se borro la basura de 2 archivos**: el driver la denego. Ver ALERT-120.
+---
+
+# Heartbeat Principal #91 — 2026-10-01 11:0x-11:2x UTC
+
+**Rama:** `hb91-ciclo` (worktree `gw2-hb91-wt`), base `origin/main` @ `73477cc`.
+**Suite:** 1157 aserciones / **0 FAIL** (43 de 44 archivos). Entrada: 1149.
+**No hubo merge.** No hubo nada que mergear: este ciclo no toco codigo de app.
+
+## El item del ciclo: la puerta de permisos — la premisa era FALSA, y el hueco era de TEST
+
+Era el item que el HB#90 dejo anotado como "sigue vivo". **No esta vivo.**
+
+### Lo medido, por las 2 formas (no por una)
+
+| Forma | Resultado |
+|---|---|
+| Cadena: `git grep "has('account')" -- js/` | **0** — la forma de 2 permisos no existe |
+| Efecto: extraer y evaluar `REQUIRED_PERMISSIONS` + la linea `FALTAN` **tal cual** (`tools/hb91-puerta-medir.mjs`) | `account+wallet` → **RECHAZA (5 faltan)**; vacia → RECHAZA (7); los 7 → ACEPTA; 7+extra → ACEPTA |
+
+Con **control negativo y positivo** en el mismo script: si los 4 casos dieran el
+mismo veredicto, el arnes estaria roto y la medida no valeria nada. Discrimina.
+Y `git merge-base --is-ancestor ea10e9b origin/main` → **si**: el fix de la puerta
+(`feat(app): la puerta de permisos exige los 7 que la app USA, no 2 (recuperado)`)
+esta en main desde antes de que el PO lo midiera por 1a vez.
+
+**Es la 3a manifestacion de la clase "no existe / ya esta" en el equipo** (tras la
+ronda 19 del PO y la ronda 27). El verbo del PO es **"acepta"**; el codigo dice
+**"rechaza"**. La descripcion del sintoma era correcta; la premisa no.
+
+### El hueco que SI era real: `hb75` afirmaba la FORMA, nunca la CONDUCTA
+
+`tests/hb75-permisos.test.js` secciones 1 y 2 afirman que `FALTAN` deriva de la
+lista completa y que no exista el condicional parcial. Las dos **siguen validas y
+ninguna ejecuta la puerta**. La via natural de una regresion —**cambiar la LISTA,
+dejar el `filter`**— pasa las dos.
+
+Comprobado: borre los 5 permisos no estructurales dejando `account + wallet`
+(la forma intacta) → **8 FAIL**, pero los dispararon las aserciones de cobertura
+de la union de scopes, que miran el **numero**, no el **veredicto**.
+
+**Seccion 6 agregada**: extrae la condicion real y la evalua con 5 casos
+(2 del PO / 7 / 7+extra para tolerar permisos que la app no usa / vacia).
+Con la misma mutacion da **1 FAIL que es exactamente el que debe**
+(`una key con SOLO account+wallet es RECHAZADA`). Sin mutacion: **54/0**.
+
+Herramientas committed: `tools/hb91-puerta-medir.mjs` (la medida, reusable) y
+`tools/hb91-mutar-puerta.mjs` (el mutador, para la fase roja de cualquier ciclo futuro).
+
+## Un error mio de este ciclo, y el sintoma que lo delato
+
+El primer mutador uso `^\s*\{ scope: '...'`. En modo `m`, **`\s` incluye `\n`**,
+así que el cuantificador se comio lineas de arriba y borro `account` y `wallet`
+tambien: la puerta quedo **vacia**, no laxa. Daba 11 FAIL en vez de 8 y el mensaje
+era `puerta=0 union=7` — un numero que no puede ser real y que delato la causa.
+Corregido a `[ \t]*`. **Regla: en un regex con flag `m`, el cuantificador al
+principio de linea es `\s*` o no es nada; `[^ \t]` de mas es un cuantificador que
+cruza lineas.**
+
+## Pregunta enviada al Reviewer (DISENO, no "arregla la condicion")
+
+`(a) sin escopos` y `(b) escopos insuficientes` son el mismo `Error` hoy, y para
+Pablo son hechos distintos: (a) hay que ir a crear los permisos, (b) la key ya
+esta guardada con 5 permisos de menos. Con `addOrUpdate` **(b) no es alcanzable**,
+pero vuelve a serlo en cuanto exista una segunda puerta o editar una key guardada
+(item abierto del PO). Pregunté que tiene que distinguir la UI, y si se resuelve
+con mas ramas, con un campo que ya existe, o no se resuelve. **No le pedi una
+tercera rama sin necesidad.** Entregado verificado: `to: Code-Reviewer`, 4413 chars.
+
+## Estado al cierre
+
+- **Reviewer:** 1 pregunta en vuelo (esta). Sin nada recogido.
+- **PO:** ronda 28 (095) y acuse de HB#90 (098) **VENCIDAS**, sin respuesta. Su
+  item principal de la ronda 27 era el de esta puerta: **pregunta resuelta por
+  medicion, no por veredicto.**
+- **Documentador:** sin tarea (no-fallback vigente).
+- **Nada esperando respuesta de nadie para seguir.**
+
+## Lo que NO se hizo, y por que
+
+- **No se "arreglo" la puerta**: no hay defecto de codigo. Arreglarlo habria sido
+  inventar trabajo.
+- **No se borro la basura de 2 archivos** (`con`, `ORG_MAP.md.bak-...chatadmin`):
+  el driver la denego en el HB#90 (ALERT-120). **Sigue sin autorizacion de Pablo.**
+- **No se borro ninguno de los 11 worktrees** ni las 9 ramas remotas ya mergeadas:
+  son decision de Pablo, y borrar `rm` esta denegado por el driver de todas formas.
+- **No se propuso promover a `origin`.** `PROMOTIONS.md` no se toco.

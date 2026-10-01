@@ -173,5 +173,73 @@ section('5. el mensaje de formato no promete algo que el regex no cumple');
 ok(!/20 caracteres alfanumericos/.test(app), 'nada promete "20 caracteres alfanumericos"');
 ok(/8-4-4-4-12/.test(app), 'el mensaje nombra el formato que el regex realmente exige');
 
+// ---------------------------------------------------------------------------
+// Seccion 6 (HB#91): la puerta por COMPORTAMIENTO, no por forma.
+//
+// Las secciones 1 y 2 affirmaron que la puerta exige la lista completa
+// leyendo el TEXTO: que `FALTAN` derive de `REQUIRED_PERMISSIONS` y que no
+// exista el condicional parcial de 2. Eso es analisis estatico, y alcanza
+// para decir que el codigo esta escrito asi -- no que la puerta RECHACE una
+// key de 2 permisos.
+//
+// La diferencia no es academica: el PO (rondas 21, 22 y la 27) afirmo tres
+// veces que la puerta acepta account+wallet, y lo medico extrayendo y
+// evaluando una condicion. La condicion que extrajo ya no existe, y la puerta
+// hoy la rechaza. El hallazgo era real como descripcion y no esta en el
+// codigo. Lo que faltaba era el assert que lo hubiera mostrado al primer
+// heartbeat en lugar de al cuarto.
+//
+// Se evalua la condicion REAL extraida del fuente (no una copia), con un
+// caso que DEBE pasar y otro que DEBE fallar: si los dos dieran el mismo
+// veredicto, el arnes estaria roto y el assert no valdría nada.
+// ---------------------------------------------------------------------------
+section('6. HB#91: la puerta RECHAZA por comportamiento una key de 2 permisos');
+
+const tablaM = app.match(/REQUIRED_PERMISSIONS:\s*\[([\s\S]*?)\]/);
+ok(!!tablaM, 'se puede leer REQUIRED_PERMISSIONS del fuente');
+const TABLA = tablaM ? eval('[' + tablaM[1] + ']') : [];
+
+// La linea de la puerta, tal cual esta escrita. Sin reescribirla.
+const lineaM = app.match(/const FALTAN = (KeyManager\.REQUIRED_PERMISSIONS\.filter\([^;]+;)/);
+ok(!!lineaM, 'se puede leer la linea FALTAN del fuente');
+// `perms` y `REQUIRED_PERMISSIONS` entran como parametros: la condicion se
+// evalua dentro de un scope propio, sin tocar el texto.
+const FALTAN = lineaM
+  ? new Function('perms', 'REQUIRED_PERMISSIONS',
+      'const KeyManager = { REQUIRED_PERMISSIONS };\nreturn ' +
+      lineaM[1].replace(/;$/, '') + ';')
+  : null;
+
+if (FALTAN) {
+  const scopes = TABLA.map(p => p.scope);
+
+  // El caso del PO: account + wallet, los 2 que el modal viejo decia.
+  const dos = FALTAN(new Set(['account', 'wallet']), TABLA);
+  ok(dos.length > 0,
+     'una key con SOLO account+wallet es RECHAZADA (no es lo que el PO midio)');
+  ok(dos.length === TABLA.length - 2,
+     'faltan exactamente los ' + (TABLA.length - 2) + ' permisos de los ' + TABLA.length +
+     ' que la app usa (no sobra ni falta ninguno)');
+
+  // CONTROL: sin esto, "rechaza" podria ser un `return false` constante.
+  const todos = FALTAN(new Set(scopes), TABLA);
+  ok(todos.length === 0,
+     'una key con los ' + TABLA.length + ' permisos de la app PASA (control: la puerta discrimina)');
+
+  // La puerta debe tolerar permisos de mas: /v2/tokeninfo devuelve la lista
+  // completa de la key, que puede traer scopes que la app no usa.
+  const extras = FALTAN(new Set([...scopes, 'inventories.read']), TABLA);
+  ok(extras.length === 0, 'tolera permisos que la app no usa (no es lista exacta)');
+
+  // Y la vacia, que es el otro extremo.
+  ok(FALTAN(new Set([]), TABLA).length === TABLA.length,
+     'una key sin NINGUN permiso es rechazada por los ' + TABLA.length);
+
+  // El mensaje de la puerta tiene que nombrar el permiso que falta: si
+  // alguien deja de usar `p.scope`, Pablo ve un mensaje inaccionable.
+  ok(dos.some(p => p.scope === 'characters') && dos.some(p => p.scope === 'progression'),
+     'la lista de faltantes nombra los permisos concretos, no un texto generico');
+}
+
 console.log('\n' + pass + ' pass, ' + fail + ' fail');
 process.exit(fail ? 1 : 0);
