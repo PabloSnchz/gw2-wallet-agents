@@ -2797,3 +2797,95 @@ frase (`SIN MERGEAR`) aparecieron 2 mas. Es la **quarta vez** que en este equipo
 `grep` por la cadena que uno tiene en la cabeza se lee como "el censo" (ALERT-109, la
 ronda 19 y la 27 del PO, y el `onClear` del HB#93). **Censo = buscar el ESTADO, no la
 palabra que uno uso al escribir.**
+
+# ALERT-127 — el canal de archivos ENTREGA, no DESPIERTA: hay 3 condiciones para que un mensaje llegue, y el equipo solo media 2
+
+> **Descubierto en el HB#96 (2026-10-01 13:0x UTC).** Medido, con control de scoping.
+> **Detector:** `tools/hb96-despPertenece.mjs` (committeado). Sale 1 si hay un agente
+> con preguntas legibles y sin disparador.
+
+## El sintoma
+
+El HB#92 (ALERT-122)发现了 que el canal de archivos entrega mensajes que su destinatario
+**no puede leer**, y escribio la regla correcta: `ask()` o nada, y verificar con el
+LECTOR del destinatario, nunca con `os.path.exists`.
+
+**La regla esta bien y es incompleta.** La 099 (HB#91) y la T10 (HB#94) estan
+**las dos legibles** — verificado con `agentlink.inbox('Code-Reviewer', kind='question')`,
+que devuelve 2 — y las dos **sin respuesta**. HB#91 entrego la 099, HB#92 la reentrego,
+HB#94 entrego la T10 "por 3 vias y verificada con el lector del receptor", y el
+Reviewer no contesto ninguna.
+
+## La causa, medida
+
+`Code-Reviewer/agent.json` tiene **`heartbeat.enabled: false`** y
+`qwenpaw cron list --agent-id Code-Reviewer` devuelve **`[]`**.
+
+Escribir un JSON en la carpeta del destinatario **no lo despierta**. El archivo esta
+aqui, es correcto, y el unico efecto es que exista hasta que alguien ejecute al
+destinatario. Para el Reviewer, ese alguien no existe: no hay heartbeat y no hay cron.
+
+Comparacion en la MISMA medicion, mismo endpoint, mismo momento:
+
+| agente | preguntas legibles | crons **activos** | despertado por algo |
+|---|---|---|---|
+| `default` | 0 | 1 (Heartbeat Principal) | si |
+| **`Code-Reviewer`** | **2** | **0** | **NO** |
+| `product-owner` | 0 | 1 (Heartbeat PO) | si |
+| `documenter` | 0 | 0 | NO (pero no tiene nada esperando) |
+| `architect` | 0 | 0 | NO (excluido del mecanismo por diseno) |
+
+Ultima escritura del Reviewer en su workspace: `MEMORY.md` y `sessions/console/` a las
+**05:34**, hace ~7.5 h. Sus 2 preguntas son de las 11:01 y de las 12:33.
+
+**Por que el PO no tiene el problema y el Reviewer si:** el PO tiene cron, asi que su
+PASO 0 corre solo. El Reviewer no. No es que el PO sea masordenado: es que **a el lo
+despiertan y al Reviewer no**. Es exactamente la razon por la que el PO contesto la
+ronda 27 y el Reviewer no contesta nada desde las 05:34.
+
+## Las 3 condiciones (la regla que reemplaza a la del HB#92)
+
+Para que un mensaje llegue a un agente hacen falta **3** cosas, y el equipo venia
+midiendo 2:
+
+1. **RUTA** — estar en `<agente>/inbox/`, no en la raiz de `<agente>/`. (ALERT-122, modo 1)
+2. **FORMA** — el campo `kind` tiene que valer exactamente `'question'`. (ALERT-122, modos 2 y 3)
+3. **DISPARADOR** — tiene que existir algo que ejecute al destinatario. **Este no se
+   estaba midiendo, y es el que explicaba por que las 2 Fixes de (1) y (2) no sirvieron.**
+
+**Regla:** cuando un mensaje "llegado" no tenga respuesta, no se reenvia por (1) ni (2)
+hasta haber medido (3). Reenviar por el canal canonico arregla el mensaje; **no arregla
+al destinatario que no corre**. Y el fix del lado del emisor es `submit_to_agent`, que
+si lo despierta — el mismo canal que tiene el TTL de 1800 s y que el HB#89 rechazo por
+esa razon. **Los dos canales hacen falta y para cosas distintas:** el de archivos para
+que el mensaje NO se pierda, el de agentes para que se LEAN.
+
+## Un error propio, y es la segunda vez que el mismo error cuesta el ciclo
+
+Mi primera version del detector usaba `?agent_id=` en la query string. **El server la
+ignora y devuelve la lista completa**, asi que el detector reportaba `product-owner:
+0 crons` — y de ahiiba a salir la conclusion **opuesta** ("el PO tampoco tiene
+disparador, el problema es general"), que era falsa: el PO tiene su cron.
+
+Lo correcto esta en `qwenpaw/cli/cron_cmd.py:69`: el scoping va en el header
+**`X-Agent-Id`**, no en la query. Verificado con control explicito: el detector ahora
+compara la respuesta de `default` (2 jobs) contra la de `product-owner` (1 job) y
+**falla si no difieren**, para que "0 crons" nunca se pueda leer como informacion cuando
+el filtro no esta scoping.
+
+**Es la 2a vez en 2 ciclos que un detector con un parametro mal elegido produce el
+"limpio" falso**, que es ALERT-92. La 1a fue el conteo de `kind:'reply'` (HB#92), donde
+`cli.py replies` SI los ve. **Regla: cuando un detector da 0, el 0 es del detector
+hasta que se demuestra lo contrario. Un 0 que no se puede reproducir con un caso
+positivo NO es un hallazgo, es una pregunta.**
+
+## Que NO se hace
+
+- **No se crea un cron para el Reviewer.** Su heartbeat apagado es una decision del
+  Arquitecto (AGENTS.md: "el Code Reviewer esta desactivado por diseno, bajo demanda").
+  Crear el cron seria pisar esa decision. Lo que se hace es **despertarlo con
+  `submit_to_agent` cuando hay algo que preguntarle**, que es lo que "bajo demanda" quiere decir.
+- **No se cuentan las 10 entregas invisibles viejas** (`tools/hb92-comms-legible.mjs`
+  sigue dando 10). Varias son de rondas ya cerradas por otro canal y reenviarlas
+  contamina al que las recibe. Quedan anotadas para Pablo.
+

@@ -3117,3 +3117,104 @@ regla.** No se toco codigo de producto.
 - **La 49G deja escrito que su B1 NO se arregla** (implementacion rechazada = trabajo
   tirado), y que sus 4 mediciones si sobreviven porque son datos y no codigo.
 - Suite **1183/0 en 45 de 45** tras las 4 correcciones. `ALERTS_LOG` 216393 -> 220505.
+
+---
+
+## [2026-10-01 13:0x-13:4x UTC] Heartbeat #96 - ALERT-127: hay una TERCERA condicion para que un mensaje llegue, y era la que explicaba al Reviewer mudo
+
+**PASO 0 primero.** Inbox vacio, `replies` vacio, **1 VENCIDA** (al Reviewer). `git fetch` al
+arranque: `origin/main` en `5a0c437`, mi HEAD clonado en `4573f30` (detached, 3 heartbeats
+atras). Worktree `hb96-wt` desde `origin/main` directo, sin tocar el clon.
+
+### El hallazgo del ciclo
+
+**El canal de archivos entrega, no despierta.** Las 2 preguntas del Reviewer (099 del HB#91 y
+T10 del HB#94) estan **las dos legibles** — verificado con su propio lector, `inbox('Code-Reviewer',
+kind='question')` = 2 — y las dos **sin respuesta**. El HB#92 arreglo la legibilidad
+(ALERT-122) y no cambio nada, porque la legibilidad es la condicion 2 de 3.
+
+Medido, mismo endpoint y mismo momento, comparando con el PO:
+
+| agente | preguntas legibles | crons activos | despertado |
+|---|---|---|---|
+| `default` | 0 | 1 | si |
+| **`Code-Reviewer`** | **2** | **0** | **NO** |
+| `product-owner` | 0 | 1 | si |
+
+`Code-Reviewer/agent.json` tiene `heartbeat.enabled: false` y `cron list --agent-id Code-Reviewer`
+devuelve `[]`. Su ultima escritura es de las **05:34**, hace 7.5 h. **El PO no tiene el problema
+porque a el lo despierta su cron; el Reviewer no tiene cron.** No es que el PO sea mas
+ordenado. Detector commiteado: `tools/hb96-despPertenece.mjs`, con control de scoping.
+
+**Un error propio que casi da la conclusion OPUESTA:** la primera version del detector pasaba
+`?agent_id=` en la query y el server la ignora, o sea que reportaba `product-owner: 0 crons` y de
+ahi salia "el PO tampoco tiene disparador, el problema es general" — **falso**. El scoping va en
+el header `X-Agent-Id` (`qwenpaw/cli/cron_cmd.py:69`). Corregido, y ahora el detector falla si
+`default` y `product-owner` devuelven lo mismo. **2a vez en 2 ciclos que un detector da el
+"limpio" falso** (la 1a fue contar `kind:'reply'`, ALERT-92). Regla: un 0 que no se puede
+reproducir con un caso positivo NO es un hallazgo.
+
+### Que se hizo, en el orden del ciclo
+
+- **Tareas en vuelo verificadas.** `task-b434adc70d5b` (PO) = **finished, "Max iterations (100)
+  reached"** — o sea el PO llega al tope de iteraciones, no se cuelga. La 103 quedo Resuelta en el
+  HB#95, coherente.
+- **PO consultado (paso 2).** `PRE_BACKLOG.md` a las **12:10:50Z** (ronda 30, T10): **si esta
+  escribiendo**, no estaba stagnant. Preguntado por el cron y por la ronda 31,_TASK
+  `task-b51dea39f809`. Se le dice que T10 ya esta verificado y que la puerta de `app.js:783` es
+  mia — no le doy trabajo que no es suyo.
+- **Reviewer despertado (el fix del ALERT-127).** `task-d0bc61b5e63b`, con **las 2 preguntas
+  escritas en el cuerpo**, no como referencia al archivo. Se le explica por que se lo mando por
+  este canal y no por el de archivos. **No se crea un cron para el Reviewer**: su heartbeat
+  apagado es decision del Arquitecto ("bajo demanda"), y "bajo demanda" significa que lo
+  despierto yo cuando hay algo que preguntarle.
+- **Paso 3 (3+ propuestas al Reviewer): no aplica.** El PO no tiene 3 propuestas: van 27 rondas
+  sin feature y el equipo se lo pidio 3 veces. Lo que si produce es la clase "se arma bien y no
+  se ve", y sus 3 hallazgos de ahi los cerre yo. Se le dice que siga ahi, sin pedirle features.
+- **BACKLOG revisado.** Las 4 filas falsas que corrigio el HB#95 siguen corregidas. Los items
+  abiertos grandes siguen **bloqueados por decisiones de Pablo, no por trabajo mio**: ALERT-41
+  (falta el body crudo de `/v2/account/raids` con token real), el badge CM, y el Idea 53
+  (borrar el Strike Tracker o re-apuntarlo a logros). **No hay item abierto que pueda avanzar
+  sin una respuesta del Reviewer o sin Pablo.** Eso es el estado real, no un bloqueo mio.
+- **Nada de codigo de producto tocado.** Suite sin correr porque no hay cambios de producto que
+  verificar; el unico codigo nuevo es el detector, que corre y se autoverifica.
+
+### Estado de propuestas al cierre
+
+| a quien | que | task_id | estado |
+|---|---|---|---|
+| Code-Reviewer | P1 puerta de permisos (DISENO) + P2 T10 `.raid-wing-card` | `task-d0bc61b5e63b` | en vuelo, **despertado por el canal correcto** |
+| product-owner | ronda 31 + SI/NO de si su cron produce | `task-b51dea39f809` | en vuelo |
+| documenter | — | — | sin tarea (no-fallback vigente) |
+
+**Nadie en quien esperar que no tenga una pregunta en vuelo.** Las 2 filas del Reviewer
+(099/100) y la 103 quedan anotadas como "entregadas y ahora si despertado"; la 099 no se
+cierra hasta tener veredicto, porque la pregunta de diseño sigue abierta.
+
+### Decisiones que son de Pablo, no mias
+
+1. **Que el Reviewer no tenga ni heartbeat ni cron es una decision del Arquitecto y la respeto,
+   pero le deja mudo.** Cada pregunta al Reviewer necesita 2 vias (archivos + `submit_to_agent`)
+   o no llega. Se puede sostener, pero es un costo por pregunta. Si Pablo quiere, un cron de
+   15 min que solo ejecute su PASO 0 lo resuelve — **no lo creo sin que lo pida**, porque su
+   heartbeat apagado esta escrito como decision.
+2. **Autorizar el borrado de los 2 archivos basura** (ALERT-120) y de los **16 worktrees** y las
+   **~10 ramas remotas ya mergeadas**. Todo el equipo usa `git status` para decidir si el arbol
+   esta limpio y esos lo ensucian.
+3. **Detener UNA de las dos instancias.** `origin/main`.move 3 heartbeats (HB#94 y #95 los corrio
+   la sesion paralela) mientras mi HEAD clonado estaba 3 heartbeats atras. No hubo perdida este
+   ciclo porque empece con `git fetch` y compare antes de escribir, pero ALERT-119 se cumplio 2
+   veces en 2 ciclos y una vez estaba a punto de revertir codigo.
+4. **El PO llega a "Max iterations (100) reached"** en sus tareas largas. No es cuelgue, pero
+   es un techo: si le pido mucho en un solo turno, se le corta la respuesta a la mitad.
+5. **Colision de writers de los docs con el Documentador.**
+
+### Pendiente proximo ciclo
+
+1. `git fetch` PRIMERO y comparar HEAD vs `origin/main` antes de escribir nada.
+2. `check_agent_task` sobre `task-d0bc61b5e63b` (Reviewer) y `task-b51dea39f809` (PO), con 30 s
+   entre polls.
+3. `node tools/hb96-despPertenece.mjs` en el PASO 0: si el Reviewer sigue con 0 crons y
+   preguntas legibles, la 3ra condicion sigue abierta y hay que seguir despertandolo a mano.
+4. Si el Reviewer contesta P1, el fix de la puerta se aplica recien ahi — es codigo de UI y
+   necesita su veredicto antes.

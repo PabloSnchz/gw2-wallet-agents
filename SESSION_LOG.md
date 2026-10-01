@@ -2697,3 +2697,48 @@ quedaria mixto: 211346 -> 216393 bytes.
 - **La 49G deja escrito que su B1 NO se arregla** (implementacion rechazada = trabajo
   tirado), y que sus 4 mediciones si sobreviven porque son datos y no codigo.
 - Suite **1183/0 en 45 de 45** tras las 4 correcciones. `ALERTS_LOG` 216393 -> 220505.
+
+## [2026-10-01] Heartbeat #96
+
+**Que se hizo.** Ciclo completo. Se midio la causa por la que el Reviewer no contesta nada
+desde las 05:34: el canal de archivos **entrega pero no despierta**, y su agente no tiene ni
+heartbeat ni cron. Se lo despierto con `submit_to_agent`Llevando las 2 preguntas en el cuerpo.
+Se consulto al PO (ronda 31) y se confirmo que **si esta escribiendo** (`PRE_BACKLOG.md` a las
+12:10:50Z,contradecir el "estancado" del HB#93). Detector commiteado
+`tools/hb96-despPertenece.mjs`. Sin codigo de producto tocado.
+
+**ALERT-127 (nuevo).** Para que un mensaje llegue hacen falta 3 condiciones: RUTA, FORMA
+(`kind`) y **DISPARADOR**. El equipo media las 2 primeras y las dos las arreglo — la de RUTA y
+la de FORMA en el HB#92 — y el Reviewer seguia mudo. La 3 nunca se midio. El PO no tiene el
+problema porque tiene cron; el Reviewer no, y por eso a el se le acumularon 2 preguntas.
+**Los dos canales hacen falta y para cosas distintas:** el de archivos para que el mensaje no
+se pierda, el de agentes para que se lean.
+
+**Que se rompio (mio).** La primera version del detector pasaba `?agent_id=` en la query; el
+server la ignora (el scoping va en el header `X-Agent-Id`, `cron_cmd.py:69`). Reportaba
+`product-owner: 0 crons` y de ahi salia la conclusion **opuesta y falsa** ("el PO tampoco
+tiene disparador, el problema es general"). Lo delato que era una conclusion queidia
+demasiado bien: si el problema fuera general, el PO no habria contestado la ronda 27.
+**2a vez en 2 ciclos que un detector produce el "limpio" falso (ALERT-92).** Corregido con un
+control explicito: el detector falla si `default` y `product-owner` devuelven lo mismo.
+
+**Que quedo pendiente.**
+- Veredictos de `task-d0bc61b5e63b` (Reviewer, 2 preguntas) y `task-b51dea39f809` (PO, ronda 31).
+- T10 (`.raid-wing-card` invisible con `prefers-reduced-motion`) verificado y con test en
+  rojo a proposito: **no se aplica hasta el veredicto del Reviewer**, porque es CSS.
+- P1 de la puerta de permisos: la pregunta de DISENO (que tiene que distinguir la UI entre
+  "sin escopos" y "escopos insuficientes") es del Reviewer, no mia.
+- 16 worktrees y ~10 ramas remotas mergeadas sin borrar; 2 archivos basura (ALERT-120).
+  **Todo eso es decision de Pablo.**
+
+**Decisiones que se tomaron entre nosotros.** Ninguna entre agentes: las 2 de este ciclo
+(al Reviewer no se le crea cron; al PO no se le piden features) son **aplicacion de decisiones
+ya escritas** — su heartbeat apagado es del Arquitecto, y la ronda sin feature se le pidio 3
+veces. Lo unico nuevo es la regla de las 3 condiciones, que es una correccion de un metodo
+nuestro, no una politica.
+
+**Suceso que hay que mirar de cerca.** `origin/main` estaba **3 heartbeats adelante** de mi
+HEAD clonado (HB#94 y HB#95 los corrio la sesion paralela). No hubo perdida porque empece con
+`git fetch` y compare antes de escribir, pero es la 2a vez en 2 ciclos que ALERT-119 se
+cumple, y la 1a estaba a punto de revertir codigo. **La recomendacion a Pablo sigue siendo
+detener una de las dos instancias.**
