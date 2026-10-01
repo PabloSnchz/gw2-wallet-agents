@@ -1,3 +1,79 @@
+# Heartbeat Principal #80 — 2026-10-01 UTC
+
+> Ciclo corto y de una sola clase: el PO trajo 2 hallazgos y **la premisa del
+> primero era falsa**. Lo que sigue es lo medido, no lo recibido.
+
+## Lo que se entregó (2 fixes, 2 tests, 7 de 7 mutaciones MUERTEN)
+
+- `9ab5733` **`fix(accounts)`: hacer clic en el nombre de una cuenta ya no te saca
+  de la vista.** El atributo `data-toggle-expand-name` prometia expandir el
+  nombre y lo unico que hacia era `state.view = 'cards' ? 'table' : 'cards'`.
+  Estaba en DOS sitios, los dos con `cursor:pointer`: el `<article>` ENTERO de
+  la vista compacta (`:343`) y el div del nombre (`:370`). El control honesto
+  de la vista, `accountsToggleView` (`:571`), hace la misma mutacion 118 lineas
+  mas abajo. Salida **(a)** del veredicto del Reviewer (fila 086): borrar, no
+  inventar — porque `renderAccountCard` YA tiene el estado colapsado que el
+  atributo prometia (la rama `state.compact`, `:341`), asi que implementar el
+  atributo era anadir un segundo eje con la misma forma y otra granularidad.
+  Test `tests/hb80-clic-cuenta.test.js`, 23 asserts.
+- `585367d` **`fix(app)`: el mensaje de la puerta de permisos se borra antes de
+  que se pueda leer.** El mensaje sale por 3 superficies, 2 persistentes y una
+  con reloj (`ttl: 2500`). Ahora `ttl: 0`, que es "no se borra solo" y no "no se
+  puede sacar": `toast()` arma el timer solo si `ttl>0` y el toast trae boton de
+  cerrar. Test `tests/hb80-toast-permanencia.test.js`, 11 asserts, que separa
+  los dos requisitos que el PO nombro: hb77 verifica que el mensaje **LLEGA**,
+  este que se PUEDE **LEER**.
+
+## La premisa del PO que era FALSA (y la mia, que la creyo a medias)
+
+El PO propuso `ttl: 0` porque "`.toasts` es un grid `position:fixed` SIN
+`max-width`, asi que el toast se estira hasta donde le permita el viewport".
+**`main.css:461` declara `max-width:360px` en `.toast`**, y ninguna regla
+posterior lo pisa. Medido con la cascada real: **360 x 235 px, 28,1% del
+viewport, 10 lineas de texto**. No es un banner a pantalla completa.
+
+Mi primera medicion dio **1266 px = 98,9% del viewport**, y era inventada:
+armo un harness copiando a mano las 2 reglas de `theme-polish.css` y omiti la
+de `main.css`. Es ALERT-105, y es el mismo modo de fallo que el Reviewer en la
+fila 083 (medir una superficie que nunca llega) y que ALERT-100 (escribir la
+ruta en vez del contenido): **un dato transcrito a mano desde un archivo, sin
+ejecutarlo.** La v2 del harness extrae la cascada de los dos CSS con una regex y
+la ejecuta; si el CSS cambia, el numero cambia solo.
+
+La conclusion del PO sobrevive, pero por otra via, que es la que quedo escrita
+en el codigo: 411 chars, 53 palabras, ~13 s de lectura a 250 palabras/min, contra
+2,5 s de vida. Y el techo de 411 chars tampoco es el 364 que reporto el PO:
+evaluando `REQUIRED_PERMISSIONS` (`app.js:679`) con los 7 permisos ausentes
+—el caso que la dispara— da 411, y **ningun subconjunto de permisos da 364**
+(rango de 5 ausentes: 311-357; de 6: 356-393).
+
+## Verificaciones del ciclo
+
+- Las **5 premisas del veredicto del Reviewer** sobre T2 medidas una por una
+  antes de aplicar: C1 (los dos `cursor:pointer`, no uno), C2 (`data-account-id`
+  aparece 3 veces en todo el repo, las 3 dentro de lo que se borra), C3
+  (`state.view` NO se persiste hoy), C4 (`.account-card` tiene 0 reglas en
+  `css/`), C5 (0 tests mencionan el atributo). **Las 5 confirmadas.**
+- Suite completa: **999 pass / 0 FAIL en 37 archivos**. Es cota inferior
+  (ALERT-107): el runner no cuenta 2 de los 37.
+- Newlines verificados contando bytes del Buffer, no con `git status`.
+
+## En vuelo
+
+- **Reviewer `task-69d0d09ccf0a` (T6, la pregunta del ttl) sigue `running` a los
+  40 min.** Se aplico igual, con medicion propia, y la premisa que se le paso
+  (que no habia `max-width`) resulto falsa: si contesta, su veredicto va a
+  estar sobre una premisa que ya no aplica. Se recoge el proximo ciclo.
+
+## Decisiones que son de Pablo, no mias
+
+1. **Detener la instancia duplicada del Heartbeat** (2da vez que se reporta).
+2. Que hacer con las 2 ramas remotas ya mergeadas sin borrar
+   (`docs-idea50p3-hb67`, `feat-idea56-forma-raids`), contra la regla y una del PO.
+3. Las 7 ramas sin mergear, 6 de ellas en CONFLICTO.
+4. Si `viewPref` (fila 081) se implementa: el fix de T2 tiene que estar antes,
+   y su test deja la precondicion escrita para que alguien mire esa fila.
+
 # Heartbeat Principal #77 - 2026-10-01 UTC
 
 > **Este ciclo no avanzo una feature: audite la infraestructura del repo y

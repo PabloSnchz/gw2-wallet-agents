@@ -1396,3 +1396,95 @@ numero que parece autoritativo y no lo es.** Antes de reportar un total,
 imprimir cuantos archivos quedaron SIN parsear; si es > 0, el total es una
 cota inferior, no un total. Un numero de suite mas chico que el de otro
 investigador no es "menos tests": es "no los leí".
+
+## ALERT-105 - un harness armado copiando CSS a mano dio 98,9% del viewport cuando la cascada real da 28,1%
+
+**Que paso.** Para responder si el toast de la puerta de permisos se estira a
+pantalla completa, arme un HTML con las 2 reglas `.toasts`/`.toast` de
+`css/theme-polish.css`, copiadas a mano. Medido: **1266 px de ancho en un
+viewport de 1280 = 98,9%**, 85 px de alto. Con ese numero, la respuesta a la
+pregunta del Reviewer era "si, se estira, y por eso `ttl:0` dejaria un banner
+permanente".
+
+**Falso.** `css/main.css:461` declara `max-width:360px` en `.toast`, y
+ninguna regla posterior lo pisa: la cascada real da **360 x 235 px = 28,1% del
+viewport, 10 lineas de texto**. El harness no reproducia la pagina porque le
+faltaba la mitad del CSS.
+
+**Por que importa mas que el numero.** Es la **tercera vez en tres ciclos que un
+dato se transcribe a mano en vez de ejecutarse**, y las 3 con la misma firma:
+- ALERT-100: un script escribio la RUTA de un archivo donde iba el CONTENIDO.
+- Fila 083 (Reviewer): midio 356 chars sobre una superficie que nunca llegaba
+  a la pantalla.
+- Esta: copie 2 reglas de CSS y omiti las otras 2 que estan en otro archivo.
+
+Las tres se corrigieron con la misma regla y no por buena voluntad: **extraer
+del original y ejecutar, nunca transcribir**. `tools-hb80/hb80-cascada-real.js`
+extrae la cascada de los 2 CSS con una regex de bloques, imprime las 6 reglas
+que matchean `.toasts?` en orden de cascada (con el orden de carga verificado
+contra `index.html`, no supuesto) y arma el harness con eso. Si el CSS cambia,
+el numero cambia solo.
+
+**Corolario sobre las citas.** La premisa del PO ("`.toasts` no tiene
+`max-width`) era incorrecta y yo la medi como si fuera cierta durante medio
+ciclo. Una cita de un archivo al vuelo se contrasta con un `git grep` de 10
+segundos ANTES de darla como premisa. Y cuando la cita es del CSS, el
+`grep` no alcanza: hay que resolver la cascada, porque el archivo donde uno
+mira no es el archivo donde gana.
+
+## ALERT-106 - un harness declaro "base en verde" sobre una corrida que no ocurrio, y|reporto| 7 mutaciones vivas
+
+**Que paso.** El harness de mutaciones de este ciclo paso dos controles y no
+corrio un solo test:
+
+1. `correr(t)` anteponia `'tests\\'` a un path que ya traia `'tests/'`. Node
+   pedia `tests/tests/hb80-....test.js` y tiraba `MODULE_NOT_FOUND`.
+2. El chequeo de la base era `fails(out) === 0`. Un `MODULE_NOT_FOUND` **no
+   produce ningun FAIL: da 0**. O sea que el control de "la base esta en verde"
+   daba OK sobre una corrida inexistente, y las **7 mutaciones quedaron
+   marcadas como SOBREVIVIENTES** cuando en realidad no se midio nada.
+
+**Por que es la peor clase de falla.** Es la segunda vez en dos ciclos que un
+harness se auto-verifica y la auto-verificacion no verifica (ALERT-103: el
+restore comparaba los bytes contra un snapshot en memoria y no detecto que el
+propio harness habia borrado el fix). Un harness que dice "OK" cuando no ocurrio
+nada es peor que uno que no dice nada: **convierte un error de andamiaje en un
+resultado con formato de hallazgo**.
+
+**REGLA (queda escrita para todos los harnesses de este repo).** "Verde" se
+declara exigiendo las TRES condiciones, no una:
+1. `exit code === 0`;
+2. existe la linea de resumen con el patron esperado (si no hay resumen, el
+   resultado es **INDETERMINADO**, y se reporta como tal, no como 0 fallos);
+3. el archivo de test existe.
+Y el resultado de una corrida debe poder ser `INDETERMINADO` como categoria de
+tercer tipo, al lado de `VIVE` y `MUERE`. Con las tres condiciones, la v2 del
+harness dio **7 de 7 MUEREN** con numeros por mutacion.
+
+## ALERT-107 - el runner de suite cuenta 37 archivos y no ve 2: el total es cota inferior, y ahora el riesgo cambio de lado
+
+**Estado.** `tests/_run-all.js` cuenta lineas que arrancan con `OK`/`PASS`
+(ALERT-61, que prohibio parsear los 4 formatos de resumen distintos). Resultado
+de este ciclo: **999 pass / 0 FAIL en 37 archivos contados, de 37 existentes**.
+Los dos que no entran:
+- `alert86.censo-clasificacion.test.js`: imprime sus 31 aserciones como
+  `[1] titulo` en vez de `OK`. Corre bien: **31 pass**. El runner lo marca
+  "SIN ASERCIONES" y lo cuenta 0.
+- `idea84-leyenda-pipeline.test.js`: hace un **fetch real** a la API de GW2 y
+  en este entorno fallo (`FetchError: 1 de 3 ids pedidos no volvieron`), asi que
+  no emitio ninguna asercion. Es **dependiente de la red**: su total cambia
+  entre corridas y entre maquinas.
+
+**Por que lo dejo anotado y no lo arreglo.** Arreglar el primero es cambiar la
+forma de imprimir de un test que no es mio; el segundo necesita un snapshot
+local que genera `python js/_fetch_legendary_items.py`. Los dos son de otro
+alcance que este ciclo. Lo que **no** es de otro alcance es la consequence:
+**999 es una cota inferior y asi hay que reportarlo.**
+
+**La regla de ALERT-104 era la del caso inverso, y aqui se cumple al reves.**
+Ahi: un total mas chico que el de otro investigador = "no los lei". Ahora:
+un total mas chico que el de ayer (1048) = "el runner dejo de ver 2 archivos",
+no "se perdieron 49 asserts". Y el numero cuadra por la via corta: **965 base +
+23 del test de cuentas + 11 del de permanencia = 999**. Los 3 numeros se
+suman contra una medicion previa, que es la unica forma de que un total sea un
+dato y no una cifra.
