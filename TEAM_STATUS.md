@@ -1402,3 +1402,71 @@ nadie los consuma). El resultado visible es nada; el costo no es cero.
 
 **El aserto no necesita arnés nuevo:** el §6 de `tests/alert84.leyenda-estado-honesto.test.js:223-226`
 ya arma el sandbox con `document` falso. Asertar el registro son **3 lineas mas** ahi.
+
+---
+
+## Heartbeat #75 - 2026-10-01 01:1x UTC
+
+### Tareas en curso
+- **T5 (d) - regenerador del catalogo de legendarias: HECHA Y MERGEADA.**
+  `b055bda` + merge `b1b74bb`. El regenerador paso de ser un recordatorio a ser
+  una orden, que era la cuarta opcion del PO. Esto cierra la unica tarea del
+  backlog que **no dependia de que alguien "se acuerde"**: hoy `legendary-data.js`
+  derives contra la API (206/206 verificado por el PO el 2026-10-01) y el
+  docstring "_build_legendary_data.py:5 dice One-time export script", que es lo
+  que hacia parecer sano un artefacto muerto.
+- **ALERT-92 - limite real del stripper: APLICADA** (`4eaf619`, merge `0e0d41b`).
+
+### Completadas este ciclo
+- Recogidos los 2 veredictos del ciclo anterior (Reviewer `task-fa8e1f330e9d`, PO
+  `task-1f9ff90f48d6`). Los 4 puntos del Reviewer (P1 guarda, P2 censo, P2 regla,
+  P3 regex muerto) **ya estaban aplicados** en ALERT-92: lo verifique commit por
+  commit contra el archivo, no por el resumen.
+- **Verificado que las guardas nuevas TIENEN dientes**, que era lo que faltaba:
+  - bug en linea limpia -> **1 FAIL** (assert negativo)
+  - bug en linea con URL, DENTRO del cuerpo -> **1 FAIL** (la guarda, no el assert)
+  - llave suelta en un comentario -> **2 FAIL** (guarda de llaves)
+  - baseline -> 0 FAIL
+- Suite: **964 aserciones / 0 FAIL, 34 de 34**.
+
+### Pendientes
+- **Pregunta abierta del PO al Reviewer:** el guard de la Idea 61 toleraria los
+  raw de `raid-tracker.js:891/1012/1016`, o deberia prohibirlos tambien?
+  `raid_strike_view` **esta en `MIRROR_MAP`**, asi que la lectura cruda puede ser
+  correcta por diseno. Es la misma clase que ALERT-91 cerro en accounts-panel.
+  **No la mande todavia:** es 1 pregunta y quiero juntarla con la ronda del PO.
+- **Censo de pestanas:** el PO midio **3 politicas distintas** (WV persiste bien;
+  raid/strike persiste por la puerta de atras con `localStorage` crudo; converter
+  no persiste). Y `gn:raids:strike:view` y `gn:converter:state` estan en la
+  whitelist, en `STORAGE_KEYS` y en `MIRROR_MAP` **sin un solo lector ni escritor**
+  -- el registro afirma un contrato que nadie implementa.
+- `idea50b` commiteada (`0c12adc`), sin test propio todavia.
+
+### Alertas
+- **ALERTA NUEVA - una mutacion malDiseñada se lee como un fallo del test.**
+  Puse el bug en la linea de la URL (L832), que esta en OTRA funcion, y el assert
+  esta acotado al cuerpo de `syncAccountTagsToKeys`. D dio **0 FAIL** y parecia
+  que la guarda no mordia. No era eso: mi mutacion estaba fuera del alcance del
+  assert. Repetida dentro del cuerpo -> 1 FAIL. **REGLA: un 0 FAIL de una
+  mutacion se verifica con el ALCANCE antes de acusar al assert**; si el assert es
+  acotado a una region, la mutacion tiene que caer dentro de esa region o el
+  resultado no prueba nada.
+- **ALERTA NUEVA - `open(path,'w')` en Windows convierte a CRLF TODO el archivo, y
+  `git diff --stat` lo reporta como "1 insertion".** Me paso en la restauracion de
+  la mutacion MUT3: borre el residuo, el needle no matcheo porque el archivo ya
+  estaba en CRLF y mi needle usaba `\n`. `git status` seguia limpio (git
+  normaliza por autocrlf), asi que **el archivo quedo modificado en disco sin que
+  git lo dijera**. Resuelto comparando bytes contra `git show HEAD:archivo` y
+  reescribiendo con `newline=''`. **REGLA: todo probe que escriba un archivo del
+  repo abre en `rb`/`wb` o con `newline=''`, y despues se verifica con
+  `open(p,'rb').read() == subprocess git show HEAD:p`. `git status` limpio NO es
+  prueba de que el archivo esta intacto.**
+
+### Estado de propuestas
+- Reviewer: 4/4 puntos aplicados y verificados con dientes de la prueba.
+- PO: ronda 20 incorporada; T5(d) mergeada. Sin propuestas pendientes de envio.
+
+### Verificacion del ciclo
+- `inbox` vacio, sin preguntas esperando a `default`, sin respuestas nuevas.
+- `overdue` reporta 1 vencida (fila 060, boton de cache) y es **FALSA por
+  estructura**: esta resuelta y mergeada en `950ea64`.

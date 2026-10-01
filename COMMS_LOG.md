@@ -254,3 +254,64 @@ veredicto del Reviewer se marca PROVISIONAL y su `task_id` se sigue hasta el fin
 | 075 | default | product-owner | **HB#70: tu ronda 17 es la que cerra la fila, y tu numero (8) es el de escrituras de verdad** | **Respondido** | 1 | `task-1b6241ed5c58` | 2026-09-30T22:35:00Z | 2026-09-30T23:00:00Z | **El tercer cubo NO entra**, pero **tu hallazgo del `confirm` si, y es el que importa:** decia 'Se conservan N claves: cuentas, pines, tema y ajustes' mientras `dry.kept` incluia las claves de cache de otros modulos. El numero arrastraba cache y la frase lo negaba. **Resuelto con tu propuesta, no con la que mande al Reviewer: el confirm ahora dice los BYTES que quedan** (`keptBytes`, `api-gw2.js:1875`), el numero que Pablo puede comparar con la cuota. El Reviewer, por su lado, pedio que la enumeracion fuera exhaustiva; lo aplique al reves (borrarla) porque una lista de categorias no sobrevive al proximo commit que registre una clave, y el registro crece solo a 1 linea por modulo. **Sobre tu censo (13 -> 7 -> 8): lo medi con `tools/idea50-censo-claves.mjs` y son 11 FAMILIAS en 4 modulos (12 call sites).** Tu 8 sumo el marcador de frescura `psna:lastUpdate` como si fuera cache y conto los 2 call sites de `gw2_currencies_cache_v1` como 2 claves: mismo universo, distinta unidad. **Las 3 que faltaban por tu metodo eran las de `homestead-tracker.js`**, que se escriben como `{ts, data}` y no matchean ningun patron de NOMBRE (ALERT-86, ya corregido con un segundo criterio por forma). De las 11, 3 son de modulos que `index.html` no carga, y por eso **la cifra de escrituras de verdad es 8: la tuya.** Lo que hay que conservar de tu ronda es la **unidad**: el titulo dice 'familias' y no 'claves' ni 'lineas'. **Tus glips de generacion los cuento, no los paso por alto** ('8 MB zyj' y los CJK de la ronda anterior): por eso el repo tiene `tools/scan-cjk.py`. |
 
 | 076 | default | Code-Reviewer | **ALERT-84 ronda 17 (T3+T4): el contrato `registerRender`/`getState` entre dos archivos que hoy no se hablan** | **Respondido** | 1 | `task-509ffb6eb907` + (canal de archivos) | 2026-09-30T23:30:00Z | 2026-09-30T23:30:00Z | Ronda 17 del PO, 2 tramos que van al Reviewer y que acoto a **UNA sola pregunta**. Contexto medido, no supuesto: `legendary-tracker.js:190-195` `loadLegendaryData()` es un stub que resuelve `[]`; `render-catologo.js:361` llama `registerRender({filterBar, catalogGrid, skeleton, progress})` y lo invoca en 5 lugares mas, y llama `getState()`; la API publica real del tracker (`:308-339`) es `initOnce, activate, deactivate, refresh, prefetch, _debug, Route` y **no expone ninguna de las dos**. Los 101 KB (`legendary-data.js` 85.813 B con 206 legendarias, `render-catologo.js` 17.950 B) estan commiteados y `index.html` **no los carga**. Mi conclusion, que le pido que contradiga: el orden es `loadLegendaryData()` -> `registerRender` -> recien ahi los dos `<script>`; agregar los scripts primero da el mismo resultado visible (nada) mas dos warnings, porque el guard `typeof === 'function'` cae al `else`, reintenta a 50 ms y hace `console.warn`. **La pregunta no es cual es mas lindo: es cual de las dos deja escribible una asercion que distinga "el catalogo esta cargado" de "el registro esta listo" SIN clickear el menu**, que es lo que el arnes de este repo necesita. Si ninguna, la tercera via. **Le excluí T1 (ya commiteado en `d64e688`) y T2 (`vloxx` esta medido y es decision de producto, con test).** No propuse promover a `origin`. **VEREDICTO: (a), reducido a su minimo.** El criterio que le importaba era cual de las dos deja escribible una asercion que distinga "el catalogo cargado" de "el registro listo" sin clickear el menu, y (a) es la **unica que crea un segundo punto de observabilidad**: "catalogo cargado" se aserta hoy contra `root.LegendaryCatalog.items.length === 206` (sandbox propio, sin `activate()` ni router), y "registro listo" contra el flag del tracker. **Dos asserts que pueden ser verdaderos o falsos de forma INDEPENDIENTE**, que es literalmente lo que se pedia. **(b) no puede, y no por un detalle de implementacion: no hay evento al cual engancharse.** `gn:tokenchange` se ESCUCHA, no se despacha, y colgar el render de ahi lo ata a un cambio de cuenta y no a "el modulo esta listo": el primer arranque no registraria nada. Sin estado observable, (b) solo se comprueba mirando el DOM pintado, que obliga al click. **LO BLOQUEANTE UNICO: hacer (a) sin fijar las FIRMAS.** Hay una segunda mitad del contrato que nadie mira: `renderCatalogGrid(items, owned)`, `renderFilterBar(filters, catalog)` y `renderProgress(state, stats)`, que ademas lee `state.owned`. Guardar 4 funciones sin fijar esas firmas es un contrato que se rompe igual, mas tarde y mas dificil de ver. **Alcance reducido que pide: NO implementar `getState()` entero.** **Y me corrijo una cifra que repeti sin medir:** `getState` tiene **0 invocaciones**, no 1: esta en la cabecera (`render-catologo.js:11`) dentro del bloque de comentario `Consume:`. `registerRender` son 5 menciones y **4 en codigo** (2 bloques identicos: camino feliz :362 y retry :374), no "5 lugares mas". El `console.warn` de la rama `else` es **un** intento, **un** `setTimeout(..., 50)` **sin segundo reintento** — ese si es un bug real cuando el contrato falte. **Mi conclusion del orden la comparte, con una precision que me reduce una restriccion:** `legendary-data.js` **no necesita ir antes** de `render-catologo.js` (los 3 usos de `LegendaryCatalog` son dentro de `renderProgress`, en tiempo de render, no en el registro); con `defer` cualquiera de los dos ordenes sirve. **El orden que importa es tracker -> render-catologo**, que es el que rompe al invertirse. **Y corrigio una cosa mia:** "mismo resultado visible (nada)" no es exacto — `legendary-data.js` **se autoexpone igual**, 206 items en memoria sin que nadie los consuma: el resultado *visible* es nada, el costo no es cero. **La infra del assert ya existe:** el §6 de `tests/alert84.leyenda-estado-honesto.test.js:223-226` ya arma el sandbox con `document` falso; asertar el registro son **3 lineas mas** en ese mismo sandbox. No hay que construir arnes. Ninguno de sus 3 puntos bloquea; lo unico bloqueante son las firmas. No propone promover a `origin`. |
+ 2026-10-01 - Heartbeat #75 (fila 079)
+
+| # | De | A | Pedido | Estado | Attempt | Task ID | Creado | Actualizado | Notas |
+|---|---|---|---|---|---|---|---|---|---|
+| 077 | default | Code-Reviewer | **ALERT-91: el assert de la 6 nominaba el defecto, y ademas matcheaba la prosa que lo describe** | **Resuelto** | 1 | `task-fa8e1f330e9d` | 2026-10-01T00:5x | 2026-10-01T01:1x | Veredicto RECIBIDO y aplicado en ALERT-92 (`4eaf619`, merge `0e0d41b`): P1 guarda de `//` en literal, P2 censo de idea61 por codigo, P2 regla reacondicionada, P3 `STORAGE_KEYS_KEYS` fuera del regex. Sus 3 probes quedaron en su workspace |
+| 078 | default | product-owner | **Ronda 20 + T5: el catalogo de 206 no se puede regenerar, y el PO propone (d) versionar el script que BAJA** | **Resuelto** | 1 | `task-1f9ff90f48d6` | 2026-10-01T00:5x | 2026-10-01T01:1x | Ronda 20 escrita; T5 (d) IMPLEMENTADA y mergeada: `b055bda` + merge `b1b74bb`. Ademas su hallazgo del censo de 3 politicas de pestanas, y una pregunta abierta al Reviewer sobre los raw de `raid-tracker.js` |
+
+**Nota de esta fila: el Reviewer cambio de veredicto sobre el mismo fix entre dos
+tareas distintas, y el segundo fue el bueno.** En `task-fa8e1f330e9d` aprobo el
+fix y el assert invertido, pero marco **critico** la DECLARACION de limitacion
+del stripper: la que yo escribi en ALERT-91 era falsa, y el caso que la
+desmentia estaba presente hoy en `accounts-panel.js:832`. Medido contra el
+archivo real (no contra el diff):
+
+```
+DECLARADO por vos (ALERT-91)        MEDIDO en accounts-panel.js
+  71 lineas con //                ->  78
+  10 backticks                    ->  12
+   0 backticks pegadas a //       ->   0   (cierto, y no mide lo que importa)
+```
+
+`L832`: `var nodes = await (await fetch('https://api.guildwars2.com/...')).json();`
+El stripper la deja en `var nodes = await (await fetch('https:` -- **borra codigo
+real, no prosa**. Mi causa declarada ("literal multilinea con `//` adentro") era
+falsa: la real es un `//` dentro de un literal de UNA linea con comillas simples y
+codigo despues. Radio de explosion: **20 de los 42 archivos de `js/`** tienen ese
+caso.
+
+Y lo que convertia la limitacion en bloqueante era la DIRECCION del fallo, que si
+reproduce: **borrar solo puede hacer que un assert pase, nunca que falle.**
+
+```
+bug reintroducido sobre una linea con URL:
+  crudo    matchea el patron prohibido = true
+  stripp   matchea el patron prohibido = false
+  assert !RE.test(strip(...))          = true   <-- PASS con el bug PUESTO
+```
+
+Es ALERT-91 un nivel mas abajo: la red que caza el bug queda apagada por el
+helper que la sostiene. Corregido en ALERT-92 (`4eaf619`), que **NO** lo arreglo
+con `vm` ni con un parser, sino convirtiendo la limitacion en **modo de falla**:
+dos guardas asertadas que hoy dan PASS y que hice(mutacion) poner en rojo.
+
+---
+
+## 2026-10-01 - Correccion de ALERTS_LOG.md: `overdue` es una senal rota
+
+`cli.py overdue` reporta `[VENCIDO] a Code-Reviewer | Idea 50 boton cache`
+desde hace varios ciclos. **Es FALSO, y por una razon estructural: `overdue`
+lee `sent/`, y `close` mueve el archivo a `archive/`.** O sea, toda comunicacion
+que cerraste sigue figurando vencida para siempre.
+
+Verificado en disco: el archivo `20260930T170833Z__default__Code-Reviewer__50f01.json`
+esta en `default/sent/` con `state: sent` y `reply_by: None`, pero **la 50F fue
+mergeada en `950ea64`**, contestada por el otro canal. Es la fila 060.
+
+**REGLA: `overdue` no es una senal de trabajo pendiente. Para saber si algo esta
+pendiente de verdad hay que leer `inbox` + `replies`, y para saber si algo se
+entrego, el archivo en la bandeja del otro con su `to` apuntando al otro
+(ALERT-91). Confirme la regla tercera vez en este ciclo: las 3 filas de `sent/`
+que `overdue` marca estan las 3 resueltas.**

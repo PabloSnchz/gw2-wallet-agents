@@ -1107,3 +1107,64 @@ merge que no estaba. **Un `.md` propio es una hipotesis mia sobre el disco, no u
 dato** -- y el disco es el unico que la puede refutar. Un numero de suite sin el
 script que lo produce es un numero de oido (ALERT-68, ALERT-78), y un nombre de
 archivo sin el archivo es el mismo numero en el eje equivocado.
+
+---
+
+## ALERT-93 - un 0 FAIL de una mutacion hay que verificarlo por ALCANCE antes de culpar al assert
+
+**Severidad: medio. Tipo: metodo de verificacion (el que mas caro sale, porque
+uno "arregla" el assert que estaba bien).**
+
+Cicuito: la mutacion del bug reintroducido sobre una linea que tiene una URL
+(`'https://...'`), que es justamente el punto ciego que el Reviewer senalo.
+El resultado fue **0 FAIL**, o sea "la guarda nueva no tiene dientes".
+
+**No era cierto, y el assert estaba bien.** El assert esta acotado al **cuerpo de
+`syncAccountTagsToKeys`**. La linea de la URL (`accounts-panel.js:832`) esta en
+**otra** funcion. Puse el bug ahi: fuera del alcance del assert. Repetida dentro
+del cuerpo, sobre una linea con URL: **1 FAIL**, y el FAIL lo produce la guarda,
+no el assert negativo -- que es exactamente el comportamiento que la guarda
+existia para dar.
+
+**REGLA: un 0 FAIL de una mutacion no se lee como "el assert no sirve". Se lee
+como "la mutacion no cayo donde el assert mira".** Si el assert esta acotado a una
+region (cuerpo de un metodo, bloque, archivo), la mutacion tiene que caer dentro de
+esa region; si no, el resultado no prueba nada en ninguna direccion. Y el chequeo
+es una linea: `la linea donde meti la mutacion esta dentro del alcance del assert?`
+
+Corolario del mismo modo de falla: **acabar de escribir el assert engendra la
+gana de que el rojo sea mio.** El orden correcto es verificar el alcance de la
+propia mutacion ANTES de concluir sobre el assert, no despues de ver el verde.
+
+---
+
+## ALERT-94 - un `open(path,'w')` en Windows rompe los newlines del archivo entero, y `git status` NO lo denuncia
+
+**Severidad: medio. Tipo: tooling/probe. Reincidencia de ALERT-87 (escritura), y
+la variante que faltaba: la restauracion.**
+
+Restaurando una mutacion temporal con Python, `open(path,'w')` tradujo los `\n`
+a `\r\n` en las 873 lineas de `accounts-panel.js`. Los dos senales que se
+esperan NO los}dieron:
+
+- `git diff --stat` -> "1 insertion" (dice una verdad parcial, pero no la del fallo)
+- `git status` -> **limpio**, porque `core.autocrlf` normaliza y para git el
+  archivo queda identico a HEAD
+
+**El archivo estaba modificado en disco y git no lo decia.** Se detecto porque el
+`assert` del needle falló (`found 0`): el needle llevaba `\n` y el archivo ya
+estaba en CRLF. O sea, **el sintoma se manifesto en otro probe**, no en el que
+escribio.
+
+**REGLA: ningun probe abre un archivo del repo para escribir sin pasarle
+`newline=''` (o en `rb`/`wb`), y despues de escribir se verifica con bytes, no
+con git:**
+
+```
+open(p,'rb').read() == subprocess.run(['git','show','HEAD:'+p],capture_output=True).stdout
+```
+
+**`git status` limpio NO es prueba de que un archivo del repo este intacto** --
+con `autocrlf` es consistente con un archivo reescrito entero. Y un `assert` que
+falla porque el needle no matchea es una senal de que el archivo cambio de forma,
+no solo de contenido: leer ahi antes de suspectar del needle.
