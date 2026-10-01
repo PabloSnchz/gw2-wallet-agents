@@ -884,6 +884,36 @@
     });
   }
 
+  // ── Preferencia de la pestana Raids/Strikes ─────────────────────────────
+  // Los nombres salen de storage.js cuando esta disponible, y el literal queda
+  // como red por si el modulo se carga sin el (raid-tracker.js no depende de
+  // storage.js para nada mas). La legacy va explicita en la llamada, no
+  // adivinada adentro: asi el par (gn:, legacy) se lee en el call-site, que es
+  // donde la fila 081 dijo que estaba el problema y no en los nombres.
+  var STORAGE_KEYS_RT = (typeof Storage !== 'undefined' && Storage && Storage.STORAGE_KEYS)
+    ? Storage.STORAGE_KEYS
+    : null;
+
+  function prefGet(key, legacy) {
+    try {
+      if (STORAGE_KEYS_RT && typeof Storage.getRaw === 'function') {
+        return Storage.getRaw(STORAGE_KEYS_RT[key] || key);
+      }
+    } catch (e) {}
+    try { return localStorage.getItem(legacy); } catch (e) {}
+    return null;
+  }
+
+  function prefSet(key, legacy, value) {
+    try {
+      if (STORAGE_KEYS_RT && typeof Storage.set === 'function') {
+        Storage.set(STORAGE_KEYS_RT[key] || key, value);
+        return;
+      }
+    } catch (e) {}
+    try { localStorage.setItem(legacy, value); } catch (e) {}
+  }
+
   function getSelectedToken() {
     try {
       var sel = document.getElementById('keySelectGlobal');
@@ -1009,11 +1039,24 @@
     
     if (!raidsBtn || !strikesBtn || !raidsPanel || !strikesPanel) return;
     
-    var activeView = localStorage.getItem('raid_strike_view') || 'raids';
-    
+    // La preferencia vive en la gn: (STORAGE_KEYS.RAIDS_STRIKE_VIEW), que es la
+    // que storage.js nombra y migra. La legacy queda como FALLBACK, asi que una
+    // instalacion vieja sigue leyendo su pestana. NO esta en MIRROR_MAP (medido),
+    // y por eso antes la gn: se quedaba con la foto del PRIMER arranque: la
+    // migracion la escribia una vez y nadie la actualizaba nunca. Escribir solo
+    // la gn: es lo que invierte eso, y no rompe a nadie porque no hay otro
+    // lector (tests/hb78-preferencia-pestana.test.js §5 lo cuenta).
+    //
+    // El default va ACA, que es politica de UI y no de almacenamiento, y con
+    // guard de valores validos: `setActiveView` abre Strikes en su `else`, o sea
+    // que CUALQUIER valor que no sea exactamente 'raids' -- '', 'STRIKES', un
+    // 'strikes ' editado a mano -- abria Strikes solo, sin que nadie lo pidiera.
+    var storedView = prefGet(STORAGE_KEYS_RT.RAIDS_STRIKE_VIEW, 'raid_strike_view');
+    var activeView = storedView === 'strikes' ? 'strikes' : 'raids';
+
     function setActiveView(view) {
       activeView = view;
-      localStorage.setItem('raid_strike_view', view);
+      prefSet(STORAGE_KEYS_RT.RAIDS_STRIKE_VIEW, 'raid_strike_view', view);
       
       if (view === 'raids') {
         raidsPanel.removeAttribute('hidden');
