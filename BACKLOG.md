@@ -5,16 +5,22 @@
 
 ## EN CURSO (2026-09-30T22:40Z — Heartbeat #69)
 
-- [ ] **Hook `onClear`: que el borrado de la cache de disco tambien vacie la `__mem`
-      del WV.** **NO bloquea el merge** — el Reviewer lo anoto "NO exigido"
-      (fila 073). Lo que bloquea es el **valor** del boton: sin el, borrar el disco y
-      seguir sirviendo de memoria hace que los bytes liberados se vuelvan a consumir,
-      y el numero que Pablo ve deja de ser el numero que se libero. Estado: la
-      asercion 4b de `tests/idea50-boton-cache.test.js` lo va a marcar sola cuando
-      entre. Alcance probable: exponer `__cacheClearMem()` en `wizards-vault.js`
-      (tiene `__mem`/`__inflight` propios en `:40-41`) y llamarlo desde
-      `api-gw2.js:cacheClear` en la rama `!dryRun`. **No empezado: es capa de datos y
-      por ALERT-48 va con veredicto del Reviewer.**
+- [x] ~~**Hook `onClear`: que el borrado de la cache de disco tambien vacie la `__mem`
+      del WV.**~~ **CERRADO (HB#93).** Este item seguia marcado "No empezado: es capa de
+      datos y por ALERT-48 va con veredicto del Reviewer". **Era FALSO: esta
+      implementado y mergeado en `origin/main` desde `0c12adc` (2026-09-30).**
+      Alcance real, medido en `origin/main`: `wizards-vault.js:636` expone
+      `__cacheClearMem()` (que vacia `__mem` **e `__inflight`**, porque una peticion en
+      vuelo puede resolver y escribir en `__mem` DESPUES del click) y
+      `api-gw2.js:1861-1867` lo recorre por `__cacheBaseProviders` -- los MISMOS
+      proveedores que las bases, sin que la capa API nombre ningun modulo -- sumando
+      `memCleared` al retorno (`:1909`), **y solo en la rama `!dryRun`** (preguntar
+      "cuanto se borraria" no puede borrar antes de responder). El copy del `confirm`
+      en `settings-manager.js:528` se actualizo en el mismo commit. Test:
+      `tests/idea50b-hook-cache-mem.test.js`, 271 lineas, en `origin/main`.
+      **Se cierra el item y con el el BLOQUEO de ALERT-48 sobre esta rama: no hay
+      nada esperando veredicto del Reviewer aca.** El nombre del hook es
+      `__cacheClearMem`; `onClear` no existe como simbolo.
 - [x] **Raw de `gw2_selected_key_v1` en 3 modulos** ("rompe en escenario
       Gist-nuevo", fila 079) — **CERRADO SIN TOCAR CODIGO (HB#89), la premisa
       era FALSA.** La gn: sola con la legacy ausente no la produce nadie:
@@ -255,7 +261,7 @@ tiene timeout (bug de plataforma), el Principal los mantiene.
 
 
     - [ ] **ALERT-89 (HB#71): `camp` sin declarar en `raid-tracker.js`, y el invariante de encounters vigilado en una sola direccion.** El modulo declara 30 encuentros y la API tiene 30 eventos, pero **no son los mismos 30**: hay un fantasma (`vloxx`, decision de producto medida, `/v2/raids` no expone el ala) y un faltante (**`camp`**, Checkpoint de Mount Balrior) que **no estaba vigilado por ningun assert**. La suite estaba en verde con los dos. Corregido con la guarda de la direccion inversa (`idea52:113-127`) y `camp` en `FALTANTE_CONOCIDO` con el motivo. **NO se agrega el encuentro**: el fixture congelado lo trae sin `name`, y un hallazgo con datos inventados es peor que un hueco declarado. **Se cierra cuando el catalogo traiga el nombre oficial.** El tramo util que sale de esto es el de **poner los 30 encounters en el catalogo** (nombre real de `camp` incluido), que es lo que un jugador de Mount Balrior no puede marcar hoy. Mergeado: `1176be6`.
-    - [ ] **Idea 50: el hook `onClear`** (sigue abierto desde el HB#70, sin veredicto). Sin el, borrar el disco y seguir sirviendo de memoria hace que los bytes que el boton dice liberar se vuelvan a consumir. `cacheClear` solo limpia la `__mem` de UNA capa y `wizards-vault.js:40-41` tiene la suya.
+    - [x] **Idea 50: el hook `onClear`** — **CERRADO en `origin/main` (HB#93).** Esta fila decia "sigue abierto desde el HB#70, sin veredicto" y era FALSA: el hook esta implementado y mergeado. **El nombre real del hook es `__cacheClearMem`, no `onClear`**, y por eso `git grep onClear` da 0 en `api-gw2.js` y hace creer que no existe — `onClear` solo sobrevive en un comentario de `settings-manager.js:528`. Medido en `origin/main`: `api-gw2.js:1861-1867` (el recorrido por `__cacheBaseProviders` sumando `memCleared`, **solo en `!dryRun`**) y `:1909` (`memCleared` en el retorno), mas `wizards-vault.js:636` (`__cacheClearMem`, que vacia `__mem` e `__inflight`). Mergeado en `0c12adc`, con el test de 271 lineas. Suite **1175/0 en 44 de 44**. **REGLA que sale de esto: `git grep` por el nombre que uno tiene en la cabeza es la 4a manifestacion de la clase "no existe / ya esta" (tras las rondas 19 y 27 del PO y la puerta de `app.js:783`): cuando el resultado es 0, el nombre hay que buscarlo en el DIFF del commit, no en el arbol actual.**
     - [ ] **ALERT-84 T3+T4 (ronda 17 del PO)**: implementar `loadLegendaryData()` de verdad, y el contrato `registerRender`/`getState`. **VEREDICTO DEL REVIEWER (`task-509ffb6eb907`): (a), reducido a su minimo.** Implementar `registerRender(fn)` + un booleano observable de registro + **las 3 firmas** (`renderCatalogGrid(items, owned)`, `renderFilterBar(filters, catalog)`, `renderProgress(state, stats)`, que ademas lee `state.owned`). **NO implementar `getState()` entero: tiene 0 invocaciones, no 1** (esta en un bloque de comentario, `render-catologo.js:11`). **LO UNICO BLOQUEANTE: hacer (a) sin fijar las firmas.** Se descarto (b) porque `gn:tokenchange` se escucha y no se despacha, asi que colgar el render de ahi lo ata a un cambio de cuenta y no a "el modulo esta listo". El assert sale en el sandbox que ya existe (`alert84...test.js:223-226`), 3 lineas mas. **Orden: tracker -> render-catologo** es el que rompe al invertirse; `legendary-data.js` puede ir en cualquier posicion. **Sin implementar: es el item mas grande que queda y merece su propia rama y su propio ciclo.**
     - [ ] **Idea 63 T3** (persistir filtros por cuenta): **DESBLOQUEADA** -- T1+T2 ya mergeadas en `eb69fb3`. **Pero es CONTRARIA al T1**, asi que si entra hay que sacar el reset o pasarlo a "resetear solo cuando el filtro no existia para esa cuenta". No es del equipo: es preferencia de uso, va a Pablo.
 ## Estado de ramas al cierre del Heartbeat #75 (2026-10-01)
@@ -264,13 +270,16 @@ Medido con `git worktree list` + `git branch --contains`, no de memoria.
 
 - **`main` = `f7a7f41`** (push verificado, 10 ramas remotas, ninguna con prefijo de
   remoto). Suite **964/0 en 34 de 34**.
-- ⚠️ **`fix-idea50b-hook-cache-mem` (`0c12adc`) SIGUE SIN MERGEAR.** No es un
-  olvido de este ciclo: venia abierta. Toca `api-gw2.js`, `settings-manager.js`,
-  `wizards-vault.js` y trae **su propio test de 271 lineas**
-  (`tests/idea50b-hook-cache-mem.test.js`). **NO la mergee a ciegas en un ciclo de
-  heartbeat:** es codigo de datos y por ALERT-48 va con veredicto del Reviewer.
-  Es el item "Hook `onClear`" de EN CURSO, y su asercion 4b deberia marcarlo sola
-  cuando entre.
+- [x] ~~**`fix-idea50b-hook-cache-mem` (`0c12adc`) SIGUE SIN MERGEAR.**~~ **FALSO,
+  corregido en el HB#93.** Medido en `origin/main` (no en la rama):
+  `git branch --contains 0c12adc` lista `remotes/origin/main`, y el codigo esta ahi
+  (`api-gw2.js:1861-1867/1909`, `wizards-vault.js:636`). `git show --stat 0c12adc`
+  confirma que el commit toco `api-gw2.js` (+21), `settings-manager.js`,
+  `wizards-vault.js` (+23) y los 3 tests. **O sea: la rama esta mergeada y el
+  injunction de "NO la mergee a ciegas, va con veredicto del Reviewer" que hacia
+  2 heartbeats era una instruccion para no repetir un trabajo ya hecho.** La rama
+  `fix-idea50b-hook-cache-mem` se puede borrar cuando Pablo limpie las 12 ramas
+  remotas ya mergeadas.
 - ⚠️ **Hay un worktree ajeno con trabajo sin commitear:**
   `C:\Mis Archivos\GW2 online\hb75-wt` tiene `M index.html`, `M js/app.js` y
   `?? tests/hb75-permisos.test.js`. **No lo toque** (no se de que ciclo es ni si es

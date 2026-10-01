@@ -2408,3 +2408,58 @@ diagnostique mal a otro agente.
    Antes de anotar silencio de otro, correr `tools/hb92-comms-legible.mjs`.
 4. **Un detector con una sola forma valida produce huerfanas falsas.** Y uno al
    que hay que argumentarle, no se corre.
+
+## HB#93 — 2026-10-01 — El PO no abre el canal de archivos, y el BACKLOG tenia 2 filas falsas
+
+**Que se hizo.** PASO 0 completo (inbox 0, replies 0, 2 vencidas). PASO 1: **no hay
+task_ids en vuelo** que recoger. Sin paso 3 (no hay 3+ propuestas). Paso 4: item de
+BACKLOG. Paso 5: logs. Paso 6: commit y push.
+
+**El hallazgo del ciclo (ALERT-123).** El PO tiene 4 preguntas esperando en su inbox, la mas
+vieja del HB#68 (~12,5 h), y **son legibles**: su propio comando, desde su workspace,
+las lista. Su HEARTBEAT.md tiene PASO 0 con `inbox` como primer paso. Su cron esta
+`enabled` y **corrio a las 10:09:24Z con `last_status: success`**. Y esa corrida **no
+escribio un solo archivo** (`PRE_BACKLOG.md` 07:08:24Z, `MEMORY.md` 05:06:48Z).
+Meanwhile, contesto la ronda 27 por `submit_to_agent`, session cerrada 08:31:34Z.
+O sea: **por un canal llega, por el otro no.** La causa exacta no la medi y no la
+afirmo; queda anotada como candidato sin cerrar (que su HEARTBEAT.md documenta el
+comando sin `set BOVEDA_AGENT`, y sin esa variable el `cli.py` aborta — reproducido).
+
+**Lo que cambia para el equipo.** Durante 2 heartbeats lei "VENCIDA sin respuesta" del
+PO como trabajo pendiente suyo, y persisti en un canal que el PO no abre. Eso era mio.
+Y la explicacion que tenia anotada ("un PO al que no se le pregunta nada no propone
+nada", ronda 22) **queda incompleta**: se le preguntaba, se leia, y no contestaba.
+Probe otra vez por el unico canal con evidencia, y dejo de tratar las filas vencidas
+del PO como senal de trabajo.
+
+**Lo que se corrijo (BACKLOG).** El item "Hook `onClear`" figuraba 3 veces como
+abierto, y las 3 eran falsas. Esta implementado y mergeado en `origin/main` desde
+`0c12adc`: `api-gw2.js:1861-1867` recorre `__cacheBaseProviders` sumando `memCleared`
+(solo en `!dryRun`), `:1909` lo devuelve, `wizards-vault.js:636` expone
+`__cacheClearMem` que vacia `__mem` **e `__inflight`** (una peticion en vuelo puede
+escribir en `__mem` despues del click), y el test de 271 lineas esta en main. **El
+nombre real es `__cacheClearMem`**: `onClear` da 0 y por eso el grep parecia provar que
+no existia. Con ese 0, este ciclo casi reportaba un cuarto "no existe / ya esta".
+
+**Dos avisos que me llevo.**
+1. Casi reporto "0 mensajes invisibles" leyendo la salida de OTRO comando del mismo
+   bloque de llamadas paralelas. El detector de HB#92 da 10. **Regla: en un bloque
+   con llamadas paralelas, cada resultado se identifica por lo que el comando IMPRIME,
+   no por el orden en que llegaron.**
+2. `cli.py inbox` **aborta** si no resolves el agente: o `set BOVEDA_AGENT=<agente>` o
+   correr desde tu workspace. Mi primer inbox del ciclo fallo por esto. El comando que
+   documentan los HEARTBEAT.md no lo dice.
+
+**Que se rompio.** Nada. Suite **1175/0 en 44 de 44**, sin codigo de producto tocado.
+
+**Que quedo pendiente.** `check_agent_task` sobre `task-b434adc70d5b` y la 099. Los 10
+invisiles viejos (para Pablo). Los 2 archivos basura de ALERT-120 (el driver los
+deniega).
+
+**Decisiones que son de Pablo, no mias.** (a) Si el PO debe abrir el canal de archivos
+o si se migra todo el traffic PO a `submit_to_agent` — **esto es lo que mas bloquea al
+equipo**, porque deja inoperante el paso 3 del ciclo; (b) autorizar el borrado de los 2
+archivos basura (ALERT-120); (c) borrar los 11 worktrees y las 12 ramas remotas ya
+mergeadas (incluida `fix-idea50b-hook-cache-mem`, ya mergeada); (d) **detener UNA de las
+dos instancias** (ALERT-119 se cumplio 2 veces en 2 ciclos); (e) resolver la colision
+de writers de los docs con el Documentador.

@@ -2478,3 +2478,64 @@ falsas, y un detector al que hay que argumentarle es un detector que nadie
 corre.** Las dos nomas las pago hoy: primero por no tener el detector
 (ALERT-115), despues por no creerle al que hay (ALERT-119/120/121 "faltantes"
 que existian).
+# ALERT-123 - El PO contesta por `submit_to_agent` y no lee el canal de archivos: 4 preguntas visibles, la mas vieja de hace 12,5 h
+
+**Lo que si esta medido (todo por comando, nada de memoria):**
+
+1. Las 4 preguntas que le mande al PO **SON LEGIBLES para su lector**. Corriendo su
+   propio comando documentado desde su workspace,
+   `python ...\_comms\cli.py inbox` responde `soy product-owner (via cwd del workspace)`
+   y lista **4**: `9c1e44` (HB#68), `a1ae0d` (ronda 28), `b72da0` (acuse) y
+   `2a471b` (ronda 29). La mas vieja es del **2026-09-30T23:00Z: ~12,5 h sin
+   responder**. O sea que **esta descartado que sean entregas rotas** (ALERT-122 ya
+   habia medido las invisibles; estas 4 son las 4 visibles).
+2. Su `HEARTBEAT.md` **si tiene PASO 0** con `cli.py inbox` como primer paso, con la
+   instruccion de no seguir a investigar sin responder. No es que no lo sepa.
+3. Su cron **esta activo y corrio**: `c3f30dc2`, `0 */2 * * *`, `enabled: true`,
+   `last_run_at = 2026-10-01T10:09:24.836Z`, `last_status = success`, `last_error: null`,
+   `next_run_at = 12:00Z`.
+4. **Esa corrida no dejo artifact**: en su workspace, `PRE_BACKLOG.md` tiene
+   `LastWriteTime = 07:08:24Z` y `MEMORY.md = 05:06:48Z`. No hay ningun `_r29*` ni
+   `_hb9x*`. O sea: **corrio, dio `success`, y no escribio nada ni contesto nada.**
+5. **El PO si responde por el otro canal.** Tiene 5 sesiones agent-to-agent hoy
+   (`default:to:product-owner:...`) que cerraron 04:41, 05:13, 05:49, 06:34 y
+   **08:31:34Z** — esta ultima es la respuesta a la ronda 27, que mande por
+   `submit_to_agent`. O sea: **alcanzable por `submit_to_agent`, no alcanzable por el
+   canal de archivos.**
+
+**Lo que NO esta establecido, y no lo voy a afirmar:** *por que* su ciclo no lee el
+inbox. Descartado lo que se puede descartar cheaply: (a) no es entrega rota, medido
+en (1); (b) no es que su HEARTBEAT.md ignoranta el canal, medido en (2); (c) no es un
+cron apagado, medido en (3). Candidates que quedan, ninguno verificado: que el turno
+del cron muera antes de llegar al paso 0, que la corrida de 10:09Z sea un `success`
+vacio, o que `cli.py` falle dentro de su shell por falta de `BOVEDA_AGENT` (su
+HEARTBEAT.md documenta el comando **sin** `set BOVEDA_AGENT`, y sin el el `cli.py`
+aborta: reproducido, sale `ERROR: no se puede determinar que agente sos`). **Ojo con
+este ultimo: es CANDIDATO, no causa.** El `cli.py` resuelve el agente por el cwd, y su
+cron corre en su workspace, asi que deberia funcionar — pero no lo medi desde su
+runtime y no lo voy a reportar como causa cerrada.
+
+**Por que importa mas de lo que parece:** el paso 3 del ciclo del heartbeat ("si el PO
+tiene 3+ propuestas, mandalas al Reviewer") **no se puede cumplir porque el PO no
+propone**, y no propone porque no lee. Van **10 rondas** (25 a 29 mas las reenviadas)
+mandandole lo mismo. Mi MEMORY de los HB#90-92 lo atribuyo a "un PO al que no se le
+pregunta nada no propone nada" (ronda 22) y a la clase "se arma bien y no se ve". **Las
+dos explanations son wrong o estan incompletas: la pregunta se le hacia, se leia, y
+no contestaba. La ronda 22 ya no explica el silencio; el silencio es mio y del PO a la
+vez, pero la causa medible esta en el punto (4).**
+
+**Que hago en este ciclo, sin esperar a nadie:** vuelvo a preguntarle al PO por
+`submit_to_agent` (background, con TTL grande), que es el **unico** canal con evidencia
+de que le llega (punto 5). Y **dejo de tratar "VENCIDA sin respuesta" del PO como
+senal de trabajo pendiente**: hasta el HB#92 la leia asi, y durante 2 heartbeats estuve
+persistiendo en un canal que el PO no abre.
+
+**Regla que sale (la 4a manifestacion de "afirmar un negativo con un solo
+instrumento"):** *`git grep` por el simbolo que uno tiene en la cabeza no es
+"no existe".* Buscando `onClear` en `origin/main` da 0 en `api-gw2.js`, y el hook
+**esta ahi** (`api-gw2.js:1861-1867`): se llama `__cacheClearMem`. Con ese 0 yo habria
+reportado un cuarto "ya esta / no existe" (tras las rondas 19 y 27 del PO y la puerta de
+`app.js:783`). **Cuando el grep da 0, el nombre hay que buscarlo en el DIFF del commit
+que lo implemento, no en el arbol actual.** Y su gemela en comms: *un `inbox` que
+devuelve 0 no prueba que no te leyeron; prueba que tu lector y tu entrega usaban
+nombres distintos.*

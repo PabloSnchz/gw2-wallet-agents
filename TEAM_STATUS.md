@@ -2916,3 +2916,52 @@ opuestas, y la segunda produce diagnosticos falsos sobre otro agente.**
 - **No se borro el huerfano de la raiz** ni los 2 archivos basura de ALERT-120:
   el driver deniega `rm` (5to caso) y **no se rodea una denegacion**.
 - **No se borro ninguno de los 11 worktrees** ni las ramas remotas ya mergeadas.
+## Heartbeat #93 — 2026-10-01 11:3x-12:0x UTC
+
+### Tareas en curso
+- **Reviewer:** 1 pregunta en vuelo (la 099 de la puerta de permisos, reentregada en
+  el HB#92 y verificada legible). Sin veredicto al cierre de este ciclo.
+- **PO:** 1 pregunta en vuelo por `submit_to_agent` (`task-b434adc70d5b`, TTL 3600 s),
+  ronda 30. **Cambio de mecanismo, no de estilo** — ver ALERT-123.
+- **Documentador:** sin tarea (regla de no-fallback vigente).
+
+### Completado
+- **BACKLOG.md: 3 filas corregidas, las 3 eran FALSAS.** El item "Hook `onClear`"
+  figuraba como "No empezado", "sigue abierto desde el HB#70, sin veredicto" y
+  "`fix-idea50b-hook-cache-mem` SIGUE SIN MERGEAR". **Esta implementado y mergeado en
+  `origin/main` desde `0c12adc`.** Medido en main: `api-gw2.js:1861-1867/1909`,
+  `wizards-vault.js:636`, y el test de 271 lineas esta ahi. Con esto se cierra tambien
+  el bloqueo de ALERT-48 sobre esa rama: no hay nada esperando veredicto.
+- **ALERT-123 escrito** (el PO no procesa su inbox de archivos).
+- Suite **1175 pass / 0 FAIL, 44 de 44 archivos**. Sin codigo de producto tocado.
+
+### Pendiente
+- `check_agent_task` sobre `task-b434adc70d5b` y sobre la 099 del Reviewer.
+- **Paso 3 del ciclo sigue sin poder cumplirse** (3+ propuestas del PO al Reviewer):
+  van 10 rondas. La causa esta medida y no es "el PO no propone por falta de ideas":
+  es que **no lee el canal por el que le llegan las preguntas** (ALERT-123).
+
+### Alertas
+- **ALERT-123 (nueva):** el PO contesta por `submit_to_agent` (session cerrada
+  08:31:34Z) y **no** por el canal de archivos, con 4 preguntas visibles y la mas vieja
+  de ~12,5 h. Su cron corrio a las 10:09:24Z con `success` y no escribio nada.
+  **La causa exacta NO esta establecida y no se afirma.** Regla: *un `inbox` que
+  devuelve 0 no prueba que no te leyeron.*
+- **ALERT-119/120/121/122:** siguen abiertas, sin novedad este ciclo.
+- **Regla de la 4a manifestacion de "afirmar un negativo con un solo instrumento":**
+  `git grep` por el simbolo que uno tiene en la cabeza no es "no existe". Buscar
+  `onClear` daba 0 y el hook estaba ahi, con otro nombre. **Cuando el grep da 0, el
+  nombre hay que buscarlo en el DIFF del commit que lo implemento.**
+
+### Estado de propuestas
+- Al Reviewer: **1** en vuelo (099). **0** nuevas este ciclo.
+- Del PO al Reviewer: **0**. Sin novedades de PRE_BACKLOG (`LastWriteTime 07:08:24Z`).
+- **Nada mergeado a `origin` (produccion) y nada propuesto para promover.**
+
+### Verificaciones del ciclo
+- `git fetch` PRIMERO y `origin/main` compared antes de escribir (ALERT-119 no se cumplio).
+- `node tools/hb92-comms-legible.mjs`: **10 invisibles, los mismos de siempre** (5 al
+  Reviewer, 5 al PO, los 3 modos). No se reenvian: son de rondas cerradas y
+  reenviar un mensaje viejo contamina al que lo recibe.
+- Los 3 logs anexados con `tools/append-alert.mjs`, que **se niega a escribir** si el
+  archivo queda con EOL mixto: `ALERTS_LOG` 2480 -> 2541 CRLF, `COMMS_LOG` 368 -> 370.
