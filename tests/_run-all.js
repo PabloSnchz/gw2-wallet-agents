@@ -40,6 +40,14 @@ const RESUMEN = [
   /(\d+)\s*(?:OK|pass)\s*(?:\/\s*|,)\s*(\d+)\s*FAIL/i,
 ];
 
+// Una linea de RESUMEN. Se testean los MISMOS regex que usa `resumenDe`, y sin
+// flag `g`: un RegExp con `g` guarda `lastIndex` entre llamadas y `test()` da
+// resultados alternos, o sea que un resumen con numero par contaria y con numero
+// impar no. Se prueba con una copia sin `g` para que el estado no se comparta.
+function esResumen(t) {
+  return RESUMEN.some((re) => new RegExp(re.source, re.flags.replace('g', '')).test(t));
+}
+
 function resumenDe(lineas) {
   // Se mira solo el final del archivo: el resumen se imprime al terminar.
   for (let i = lineas.length - 1; i >= 0 && i >= lineas.length - 6; i--) {
@@ -62,11 +70,23 @@ for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.test.js')).sort()) 
   let p = 0, fa = 0;
   for (const L of lineas) {
     const t = L.trim();
-    // Una linea que arranca con el veredicto de una asercion. Case-insensitive
+    // Una linea que ARRANCA con el veredicto de una asercion. Case-insensitive
     // porque no todos los runners usan mayuscula ("ok  ..." vs "OK   ...").
     // Los separadores ("====", "----", "[1] titulo") no matchean.
-    if (/^(OK|PASS)\b/i.test(t)) p++;
-    else if (/^FAIL\b/i.test(t)) { fa++; }
+    //
+    // PERO una linea de RESUMEN tambien arranca asi, y hay que separarla:
+    // "pass: 13 | FAIL: 0" empieza por "pass", y "OK: 14 pass, 0 FAIL" empieza
+    // por "OK". Contarlas como aserciones hace dos cosas malas a la vez:
+    //   (a) suma 1 de mas en todo archivo que cierra con resumen (medido: +1 en
+    //       7 archivos de la suite), y
+    //   (b) en el que NO tiene linea por asercion, `p` queda en 1 y el fallback
+    //       de resumen NUNCA se dispara, asi que un archivo de 14 aserciones se
+    //       reporta como 1 (medido: idea57t4-idioma-contrato.test.js).
+    // Los dos errores se compensan en el total (7 - 13 = -6), que es lo peor que
+    // puede pasar con una cifra de medicion: el numero final parece razonable y
+    // ninguna parte lo delata. Solo se ve comparando archivo por archivo.
+    if (/^(OK|PASS)\b/i.test(t)) { if (!esResumen(t)) p++; }
+    else if (/^FAIL\b/i.test(t)) { if (!esResumen(t)) fa++; }
   }
   // Un archivo que no reporto ninguna asercion NO esta en verde: esta sin correr.
   // Pero "no emitio linea por asercion" NO es lo mismo que "no corrio": los
