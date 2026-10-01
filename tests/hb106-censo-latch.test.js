@@ -140,6 +140,23 @@ console.log('  MODULOS_CON_LATCH (si existe) declara: ' + (deLaTabla.size ? [...
 
 const sinRutaDeSalida = [];
 const sinGlobal = [];
+const exentos = [];
+// T13-a (HB#108): un modulo puede quedar fuera de MODULOS_CON_LATCH, pero solo
+// con una RAZON MEDIDA, no por omision. La lista se lee de la tabla del router
+// y cada exencion tiene que estar escrita aca con su por que; un tripwire que
+// se puede apagar sin dejar rastro es peor que uno rojo (P6 del Reviewer).
+//
+// HomesteadTracker NO entra, y NO es una exencion de conveniencia:
+//   - su deactivate() (homestead-tracker.js:403) solo hace abortLastFetch() y
+//     no tiene panel propio: escribe en `homesteadTrackerBody`, que NO existe
+//     en index.html (medido: 0 matches de "omestead").
+//   - ademas nadie lo activa: `HomesteadTracker.activate` no aparece en ningun
+//     call site de js/ (medido: 0 matches).
+// O sea: sin panel no hay predicado de DOM posible, y su latch es inerte por
+// partida doble. Si se le da panel, esto hay que BORRARLO.
+const EXENCIONES = {
+  HomesteadTracker: 'sin panel propio (homesteadTrackerBody no existe en index.html) y sin call site de activate()'
+};
 for (const m of conGuard) {
   if (!m.tieneDeactivate) continue;                 // ya fallo en seccion 1
   const g = m.global;
@@ -148,6 +165,7 @@ for (const m of conGuard) {
   // eso se reporta como fallo del instrumento, no como exencion del sujeto.
   if (!g) { sinGlobal.push(m.archivo); continue; }
   if (routerDeactiva.has(g) || deLaTabla.has(g)) continue;
+  if (EXENCIONES[g]) { exentos.push(g + ' -> ' + EXENCIONES[g]); continue; }
   sinRutaDeSalida.push(g + ' (' + m.archivo + ')');
 }
 check('el censo le encuentra el global a TODOS los modulos con latch', sinGlobal.length === 0,
@@ -155,6 +173,11 @@ check('el censo le encuentra el global a TODOS los modulos con latch', sinGlobal
 check('ningun modulo con latch queda sin deactivate() desde el router',
   sinRutaDeSalida.length === 0,
   sinRutaDeSalida.length + ' sin ruta de salida: ' + sinRutaDeSalida.join(' | '));
+if (exentos.length) console.log('  exentos (con razon escrita): ' + exentos.join(' | '));
+// La exencion tiene que seguir siendo una excepcion real: si el modulo excluido
+// aparece en la tabla, la lista de exentos tiene que volverse a quejar.
+check('ninguna EXENCION esta en realidad en la tabla (si esta, borrala de EXENCIONES)',
+  exentos.every(e => !deLaTabla.has(e.split(' ')[0])));
 
 // ── SECCION 3: la lista no se pudre por debajo (contraposicion) ─────────────
 // El test tiene que poder FALLAR. Un censo que no puede fallar es decoracion.
