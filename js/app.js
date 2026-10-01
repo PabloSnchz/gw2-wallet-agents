@@ -672,13 +672,69 @@
       }
 
       state.selected = this.selected;
+      // T2: desde el arranque, esta pestaña escucha los cambios de lista que
+      // hacen las otras (solo se registra UNA vez).
+      this._watchOtherTabs();
       return this.list;
     },
-    save() {
+    _watching: false,
+
+    // ── T1 (Idea 64): la lista de cuentas tiene VARIOS escritores ─────────────
+    // `this.list` es una COPIA EN MEMORIA y esta pestaña es UNA de las que
+    // escriben `gn:account:keys`. Antes, `save()` escribia esa copia a pelo y
+    // la pestaña que escribía ULTIMO borraba las cuentas que solo conocia la
+    // otra (lost update: dos datos buenos que se pisan, sin aviso ni error).
+    //
+    // Por que read-modify-write POR OPERACION y no una union de listas en
+    // `save()`: el borrado de esta pestaña tiene que poder eliminar una cuenta.
+    // Una union lo hace imposible — el usuario no podria borrar nunca nada.
+    //
+    // Por que `mutate` es OBLIGATORIO: no existe forma de volcar `this.list`
+    // a pelo. La clase de bug queda imposible POR CONSTRUCCION, no mitigada.
+    //
+    // Si la cuenta no esta en la lista fresca: NO-OP + `console.warn`. La otra
+    // pestaña la borro, y lo que se borro en otra pestaña no reaparece —
+    // recrearla seria inventar estado que el otro no quiere. Esa es la decision
+    // que el PO escalo y queda escrita aca con su por que.
+    _fresh() {
+      try {
+        const d = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_KEYS);
+        return Array.isArray(d) ? d : [];
+      } catch { return []; }
+    },
+    save(mutate) {
+      const fresh = this._fresh();
+      const next = typeof mutate === 'function' ? mutate(fresh) : fresh;
+      this.list = Array.isArray(next) ? next : fresh;
       // Storage.set escribe la gn: y su legacy, que es la que leen 6 modulos
       // a pelo. Escribir solo la legacy dejaba la gn: congelada.
       try { Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, this.list); } catch { }
       state.keys = this.list.slice();
+    },
+
+    // ── T2 (Idea 64): el `storage` hace el cambio VISIBLE ─────────────────────
+    // Sin esto, el <select> ofrece cuentas que ya no son las de disco y el
+    // overwrite sigue ocurriendo pero nadie lo ve. El evento `storage` NO se
+    // dispara en la pestaña que escribe, solo en las otras: por eso esto no
+    // puede entrar en bucle con `save()`.
+    _watchOtherTabs() {
+      if (this._watching) return;
+      this._watching = true;
+      window.addEventListener('storage', (e) => {
+        if (!e || e.key !== Storage.STORAGE_KEYS.ACCOUNT_KEYS) return;
+        const fresh = this._fresh();
+        if (JSON.stringify(fresh) === JSON.stringify(this.list)) return;
+        this.list = fresh;
+        state.keys = this.list.slice();
+        // Si la seleccion era una cuenta que la otra pestaña borro, se anula
+        // en vez de dejar un token muerto selected.
+        if (this.selected && !this.list.some(k => k.value === this.selected)) {
+          this.selected = null;
+          state.selected = null;
+          try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}
+        }
+        this.refreshSelects();
+      });
     },
     setSelected(token, opts) {
       opts = opts || {};
@@ -727,12 +783,16 @@
       if (!perms.has('account') || !perms.has('wallet')) throw new Error('La API key necesita permisos: account + wallet');
 
       const idx = this.list.findIndex(k => k.value === value);
-      if (idx >= 0) this.list[idx].label = label || this.list[idx].label || '';
-      else this.list.push({ label, value });
 
-      this.save();
+      // T1: agregar/actualizar se resuelve sobre la lista FRESCA de disco, para
+      // no pisar las cuentas que otra pestaña agregado. `idx` es de la copia en
+      // memoria y solo se usa para el mensaje de abajo, no para el merge.
+      this.save(fresh => {
+        const i = fresh.findIndex(k => k.value === value);
+        if (i >= 0) fresh[i].label = label || fresh[i].label || '';
+        else fresh.push({ label, value });
+      });
       this.refreshSelects();
-
       // Selecciona y notifica (router capturará el 'change' programático)
       this.setSelected(value);
 
@@ -744,14 +804,29 @@
       window.toast?.('success', isNew ? 'Key guardada' : 'Key actualizada', { ttl: 1400 });
     },
     rename(value, newLabel) {
-      const item = this.list.find(k => k.value === value);
-      if (!item) return;
-      item.label = newLabel || '';
-      this.save(); this.refreshSelects();
+      let existe = false;
+      // T1: el renombrado se aplica sobre la lista FRESCA. Si la cuenta no esta
+      // en ella, la otra pestaña la borro entre medio: NO-OP + warn, porque lo
+      // que se borro en otra pestaña no tiene que reaparecer. Es la decision que
+      // el PO escalo; el por que esta en el bloque de T1 de arriba.
+      this.save(fresh => {
+        const item = fresh.find(k => k.value === value);
+        if (!item) return;
+        existe = true;
+        item.label = newLabel || '';
+      });
+      if (!existe) {
+        console.warn('[KeyManager] rename(): la cuenta no esta en la lista de otra pestaña; no se renombra.', value);
+        return;
+      }
+      this.refreshSelects();
     },
         remove(value) {
-      this.list = this.list.filter(k => k.value !== value);
-      this.save(); this.refreshSelects();
+      // T1: el borrado se aplica sobre la lista FRESCA. Filtrar la copia en
+      // memoria era lo que borraba en silencio las cuentas que otra pestaña
+      // habia agregado.
+      this.save(fresh => fresh.filter(k => k.value !== value));
+      this.refreshSelects();
 
       if (this.selected === value) {
         const next = this.list[0]?.value || null;
@@ -763,12 +838,24 @@
 
     // NUEVO: Guarda el tipo de cuenta (main/alter/f2p) asociado a una API key
     setKeyTag: function(token, tag) {
-      const item = this.list.find(k => k.value === token);
-      if (!item) return;
-      item.tag = tag;
-      this.save();
+      let existe = false, etiqueta = '';
+      // T1: mismo criterio que rename() — sobre la lista fresca, y no-op + warn
+      // si la otra pestaña borro la cuenta. El tag main/alter/f2p es lo que
+      // permite ordenar 27 cuentas: perderlo en silencio es el caso que el PO
+      // describio como el que mas duele.
+      this.save(fresh => {
+        const item = fresh.find(k => k.value === token);
+        if (!item) return;
+        existe = true;
+        etiqueta = item.label || '';
+        item.tag = tag;
+      });
+      if (!existe) {
+        console.warn('[KeyManager] setKeyTag(): la cuenta no esta en la lista de otra pestaña; no se etiqueta.', token);
+        return;
+      }
       this.refreshSelects();
-      console.info('[KeyManager] Tag actualizado:', item.label || 'Key', '→', tag);
+      console.info('[KeyManager] Tag actualizado:', etiqueta || 'Key', '→', tag);
     },
 
     copy(value) { return navigator.clipboard.writeText(value); }
