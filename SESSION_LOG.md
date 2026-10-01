@@ -2612,3 +2612,88 @@ mecanismo inventado a partir de un solo campo.
 294 lineas antes y despues en BACKLOG. `COMMS_LOG.md` quedo CRLF puro (435 CRLF, 0 LF).
 El append a `ALERTS_LOG.md` lo hizo `tools/append94.mjs`, que aborta si el archivo
 quedaria mixto: 211346 -> 216393 bytes.
+﻿
+---
+
+## Heartbeat #95 — 2026-10-01 12:3x-13:0x UTC
+
+**Que se hizo.** 2 filas del BACKLOG corregidas: Ideas 56 y 49G, las dos decian
+"esperando veredicto del Reviewer" con el veredicto cerrado hace 30-40 heartbeats.
+Medido con `git merge-base --is-ancestor` contra `origin/main`, no leyendo las filas.
+ALERT-126 escrita. Fila 103 cerrada: el PO respondio. 4 mensajes del PO recogidos.
+`BACKLOG.md` +2/-2 sin perdida de historial. Suite 1183/0 en 45 de 45.
+
+**Que se rompio.** Nada de codigo: no se toco producto. Lo que se rompio es el
+inventario: el BACKLOG describia dos estados que ya no existen, y el de la 49G tiene
+justamente la forma de "trabajo en curso de capa de datos con ALERT-48 encima", que es
+lo que se re-agenda o se cherry-pickea por error. El B1 de la 49G (perder el primer
+logro completado en cada lectura de cache) es real, y dejarlo a la vista invita a
+"arreglarlo"; queda escrito explicito que **no se arregla**, porque la implementacion
+esta rechazada y eso seria trabajo tirado.
+
+**El hallazgo de metodo, que es lo que mas rinde.** Intente blindar la clase con un
+detector (`hb95-rows-falsas.mjs`) y **no lo commitee, porque en 6 candidatas dio 1
+acierto, 1 falso negativo y 3 falsos positivos**. El falso negativo fue justamente la
+fila que si era falsa, y la causa es estructural, no del regex: el identificador del
+pedido vive en la fila 061 y el veredicto en la 065, que no lo repite, asi que
+cruzar pedido->veredicto exige seguir la cadena de una conversacion a mano. Los 3
+falsos positivos son prosa que *menciona* una espera en vez de *afirmar* una espera.
+Un detector con esa tasa produce el "limpio" falso, que es la clase de ALERT-92 y es
+peor que no tener detector. **La defensa real resulto ser estructural: que la fila de
+estado lleve el veredicto en la misma linea**, que es como quedo las 2.
+
+**Dos errores mios, misma clase, declarados.** (1) Mi medidor atribuyo la 49G a
+"Idea 53" porque saco el identificador de una ventana de 6 lineas alrededor del match
+y la ventana se come el identificador de la fila vecina: es ALERT-125 exacto, un
+detector con una sola forma produce falsos negativos que se leen como "es un punto".
+Corregido a sacar los ids de la linea misma. (2) Casi reporte "0 entregas invisibles"
+porque corri el detector de Invisible desde el clon compartido, **donde ese archivo no
+existe**, y le atribuia la salida de otro comando que si corria. Es el error del HB#93
+repetido: si un detector no esta donde creo, lo corro donde esta.
+
+**Una falsa alerta que NO se escribio.** El reply del Reviewer
+`20260930T185533Z__...ddc4d4.json` esta en la carpeta del Reviewer con `to:
+code-reviewer`, y por la forma del archivo iba a reportar que "el Reviewer se manda
+replies a si mismo y por eso no me llegan" — que habria sido un ALERT nuevo y grave.
+Medi antes de escribir: el JSON tiene `replied_by = default, replied_utc =
+20260930T190932Z`, o sea que **lo consumi en el HB#64** (fila 067 = ALERT-75). No
+habia nada perdido. Si lo hubiera escrito, habria sido un ALERT-126 fantasma con un
+mecanismo inventado a partir de un solo campo.
+
+**Decisiones que no son mias, en espera de Pablo.**
+1. ALERT-123 bloquea el paso 3 del ciclo: el PO no procesa su inbox de archivos.
+2. Detener una de las dos instancias (ALERT-119 se cumplio otra vez).
+3. Borrar 2 archivos basura de 0 bytes (ALERT-120) y los 16 worktrees + ramas ya mergeadas.
+4. Resolver la colision de writers de los docs con el Documentador.
+5. La pregunta del PO que solo Pablo puede contestar: con "movimiento reducido" activo,
+   el Raid Tracker aparece en blanco, y el PO no midi si a Pablo le pasa hoy.
+
+**Verificacion.** Suite 1183/0 en 45 de 45 archivos. `git diff --stat` = +2/-2 y
+294 lineas antes y despues en BACKLOG. `COMMS_LOG.md` quedo CRLF puro (435 CRLF, 0 LF).
+El append a `ALERTS_LOG.md` lo hizo `tools/append94.mjs`, que aborta si el archivo
+quedaria mixto: 211346 -> 216393 bytes.
+
+### Addendum (30 min despues): el censo era 4 filas, no 2
+﻿
+### Addendum del mismo ciclo (30 min despues) — el censo era 4, no 2
+- **Censo real: 4 filas falsas, no 2.** Las 2 primeras (Idea 56, Idea 49G) +
+  **2 mas** que aparecieron al preguntar por la OTRA frase: L252 (Tramo F, `c04496e`
+  **en main**) y L253 (P3, `376f0d5` y `9adf6dd` **en main**). Todas corregidas con su
+  medicion. **El motivo de escribir "2" fue buscar la frase que ya tenia en la cabeza
+  ("esperando veredicto") en vez del estado que las filas afirman ("sin mergear").**
+  Cuarta vez que un grep por la cadena propia se lee como el censo (ALERT-109, rondas 19
+  y 27 del PO, `onClear` en el HB#93). **Censo = buscar el ESTADO, no la palabra.**
+- **Y hay DOS clases, y solo una es instrumentable.** (1) **Mecanica** — "SIN MERGEAR"
+  con el commit ya en `main`: se comprueba con `git merge-base --is-ancestor`.
+  **Commiteada** como `tools/hb95-sin-mergear.mjs`, **0 falsos positivos** en 5
+  candidatas, con control positivo explicito. (2) **No instrumentable** — "esperando
+  veredicto" con el veredicto cerrado: el id del pedido esta en la fila 061 y el
+  veredicto en la 065, que no lo repite. **NO se commitea.** La defensa de esa clase
+  es estructural: el veredicto en la misma linea, que es como quedaron las 4.
+- **Lo que el detector marca y NO se toca, a proposito:** `L3` es la nota de cabecera
+  fechada ("Actualizado: 2026-09-30T10:10:00Z"). Es una foto de un momento; corregirla
+  es reescribir la historia cada vez que algo se mergea. Por eso ese detector **no es
+  una puerta de CIERRE**: informa, no bloquea.
+- **La 49G deja escrito que su B1 NO se arregla** (implementacion rechazada = trabajo
+  tirado), y que sus 4 mediciones si sobreviven porque son datos y no codigo.
+- Suite **1183/0 en 45 de 45** tras las 4 correcciones. `ALERTS_LOG` 216393 -> 220505.

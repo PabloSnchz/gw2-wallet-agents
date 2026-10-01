@@ -3094,3 +3094,26 @@ regla.** No se toco codigo de producto.
 2. **Detener UNA de las dos instancias.** ALERT-119 se cumplio otra vez: `origin/main` estaba 9 commits adelante con el HB#94 ya hecho, y perdi el inicio del ciclo hasta hacer `git fetch`. Esta vez no rompi nada porque compare antes de escribir; la anterior casi revierte codigo.
 3. **Borrar los 2 archivos basura de 0 bytes** (ALERT-120) y los **16 worktrees** + las ramas remotas ya mergeadas, entre ellas `feat-idea49g-ach-acc-compacta` y `feat-idea56-forma-raids`, que este ciclo dejo confirmado que **no** se van a mergear.
 4. **La pregunta del PO que necesita a Pablo y no a un grep:** con la preferencia de "movimiento reducido" activa, el Raid Tracker aparece en blanco. El PO **no midi cuantos usuarios la tienen ni si a Pablo le pasa hoy**. Si no le pasa, el hallazgo es real y de alcance acotado; si le pasa, es la pantalla entera.
+﻿
+### Addendum del mismo ciclo (30 min despues) — el censo era 4, no 2
+- **Censo real: 4 filas falsas, no 2.** Las 2 primeras (Idea 56, Idea 49G) +
+  **2 mas** que aparecieron al preguntar por la OTRA frase: L252 (Tramo F, `c04496e`
+  **en main**) y L253 (P3, `376f0d5` y `9adf6dd` **en main**). Todas corregidas con su
+  medicion. **El motivo de escribir "2" fue buscar la frase que ya tenia en la cabeza
+  ("esperando veredicto") en vez del estado que las filas afirman ("sin mergear").**
+  Cuarta vez que un grep por la cadena propia se lee como el censo (ALERT-109, rondas 19
+  y 27 del PO, `onClear` en el HB#93). **Censo = buscar el ESTADO, no la palabra.**
+- **Y hay DOS clases, y solo una es instrumentable.** (1) **Mecanica** — "SIN MERGEAR"
+  con el commit ya en `main`: se comprueba con `git merge-base --is-ancestor`.
+  **Commiteada** como `tools/hb95-sin-mergear.mjs`, **0 falsos positivos** en 5
+  candidatas, con control positivo explicito. (2) **No instrumentable** — "esperando
+  veredicto" con el veredicto cerrado: el id del pedido esta en la fila 061 y el
+  veredicto en la 065, que no lo repite. **NO se commitea.** La defensa de esa clase
+  es estructural: el veredicto en la misma linea, que es como quedaron las 4.
+- **Lo que el detector marca y NO se toca, a proposito:** `L3` es la nota de cabecera
+  fechada ("Actualizado: 2026-09-30T10:10:00Z"). Es una foto de un momento; corregirla
+  es reescribir la historia cada vez que algo se mergea. Por eso ese detector **no es
+  una puerta de CIERRE**: informa, no bloquea.
+- **La 49G deja escrito que su B1 NO se arregla** (implementacion rechazada = trabajo
+  tirado), y que sus 4 mediciones si sobreviven porque son datos y no codigo.
+- Suite **1183/0 en 45 de 45** tras las 4 correcciones. `ALERTS_LOG` 216393 -> 220505.

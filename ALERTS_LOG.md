@@ -2734,3 +2734,66 @@ en la misma linea**, que es como quedo ahora.
    atribuyendole la salida de otro comando (el archivo no existia y el comando "corria
    bien"). Es el error de HB#93, repetido: **si un detector no esta donde creo, no le
    atribuyo su salida: lo corro donde esta.**
+﻿
+---
+
+## ALERT-126 — ADDENDUM (mismo heartbeat, 30 min despues): el censo era 4 filas, no 2, y hay DOS clases distintas
+
+Escribi el hallazgo como "2 filas falsas" y **era la mitad**. Al preguntarle al BACKLOG
+cuantas filas mas afirman "SIN MERGEAR" (`tools/hb95-sin-mergear.mjs`, que si se
+commitea), el numero real es **4 de 6**, y las 4 se corrigieron.
+
+**Censo completo, todas medidas con `git merge-base --is-ancestor` contra `origin/main`:**
+
+| Fila | Afirmaba | Realidad medida | Que se hizo |
+|------|----------|-----------------|-------------|
+| L114 | Idea 56 "PROVISIONAL: en rama, NO mergeada... esperando veredicto" | **APROBADA y MERGEADA** en el HB#55 (`6178a8f` en main) | Corregida |
+| L199 | Idea 49G "esperando veredicto (`20260930T181500Z-49g01`)" | **RECHAZADA** en el HB#63 (`1a47d5c` **fuera** de main) | Corregida |
+| L252 | Tramo F "SIN MERGEAR" | **MERGEADA** (`c04496e` en main; COMMS_LOG 067 la registra como `86b351a`) | Corregida |
+| L253 | P3 "SIN MERGEAR" | **MERGEADA** (`376f0d5` **y** `9adf6dd` en main; COMMS_LOG 073: los 4 cambios en `0d1d0aa`) | Corregida |
+
+Las 4 tenian la misma forma: **el commit de la rama y el estado "sin mergear"conviven
+en la misma linea, y cuando el merge ocurre, la linea no se toca.** Las 4 quedaron obsoletas hace 30-40 heartbeats cada una.
+
+## LAS DOS CLASES, Y SOLO UNA ES INSTRUMENTABLE
+
+Esto es lo que la primera version de la 126 no distinguia, y es la leccion que mas rinde:
+
+1. **Clase MECANICA — "SIN MERGEAR" cuando el commit ya esta en `main`.**
+   Instrumentable, y de forma trivial: `git merge-base --is-ancestor <sha> origin/main`.
+   **Committed** como `tools/hb95-sin-mergear.mjs`. Sale 1 si hay filas de esta clase.
+   Control de calidad: **0 falsos positivos** sobre 5 candidatas, con control positivo
+   explicito (las 3 filas que ahora marca son las 3 que *estan* mal) y saltando las
+   filas ya corregidas por tachado.
+2. **Clave NO instrumentable — "esperando veredicto" cuando el veredicto ya se cerro.**
+   `tools/hb95-rows-falsas.mjs` dio 1 acierto, 1 falso negativo (justo la L199) y 3
+   falsos positivos, y **no se commitea**. El falso negativo es **estructural**: el id
+   del pedido esta en la fila 061 y el veredicto en la 065, que **no repite el id**, asi
+   que cruzar pedido->veredicto exige seguir la cadena de una conversacion a mano. Los
+   falsos positivos son prosa que *menciona* una espera en vez de *afirmar* una espera.
+
+**Regla: separar "estado de git" de "estado de conversacion."** El primero se comprueba
+con una llamada; el segundo no tiene ninguna. **Un detector solo es honesto sobre la
+primera**, y en la segunda la unica defensa es estructural: **que la fila lleve el
+veredicto en la misma linea**, que es como quedaron las 4.
+
+## Dos formas distintas de decir "esto ya no lo arregles"
+
+- **La 49G (L199):** el bug (B1) es real y **no se arregla**, porque la implementacion
+  esta rechazada. Queda escrito en la fila para que "arreglarlo" no se lea como pendiente.
+- **La L114 y la L253:** no hay bug, hay una afirmacion vieja. Se corrigen y listo.
+- **El resto que el detector marca y NO se toca:** `L3` es la nota de cabecera fechada
+  ("Actualizado: 2026-09-30T10:10:00Z"). **Es una foto de un momento y se deja como
+  historia.** Un detector que pide corregir una foto historica no se puede usar como
+  puerta: habria que reescribir la historia cada vez que algo se mergea.
+  `L211` (`18ef9a4`) dice la verdad, el commit esta fuera de main.
+
+## Nota sobre como fallo el conteo
+
+Escribi "2 filas" y solo cuando me pregunte *cuantas* me di cuenta de que no habia
+preguntado. La razon por la que el primer conteo fue 2: **busque la frase que ya tenia
+en la cabeza** ("esperando veredicto"), no el estado que las filas afirman. Con la otra
+frase (`SIN MERGEAR`) aparecieron 2 mas. Es la **quarta vez** que en este equipo un
+`grep` por la cadena que uno tiene en la cabeza se lee como "el censo" (ALERT-109, la
+ronda 19 y la 27 del PO, y el `onClear` del HB#93). **Censo = buscar el ESTADO, no la
+palabra que uno uso al escribir.**
