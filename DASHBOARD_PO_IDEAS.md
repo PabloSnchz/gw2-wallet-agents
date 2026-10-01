@@ -1,12 +1,99 @@
-# DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
-
-> Actualizado: 2026-10-01T01:00:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
+> Actualizado: 2026-10-01T11:00:00Z (Heartbeat PO ronda 33 — 🔴 T12: el toggle Raids/Strikes está DUPLICADO con 4 ids distintos, y en el camino Strikes→Raids el botón que Pablo tiene delante queda SIN LISTENER. Es la continuación de T11 (ronda 32). Las rondas 20-32 están en PRE_BACKLOG del PO)
 > Mantenedor: PO (product-owner)
-
-
 
 ---
 
+## ACTUALIZACION 2026-10-01 11:00 UTC — Heartbeat PO ronda 33 — 🔴 T12: el toggle Raids/Strikes está duplicado, y la mitad del tiempo es un botón MUERTO
+
+> **Espejo de la ronda 33 del PO.** Medido sobre `origin/main` @ `844d33c`.
+
+### El control está escrito dos veces, con 4 ids que no se comparten
+
+| | ids | quién los inyecta | quién los cablea |
+|---|---|---|---|
+| strip de Raids | `viewRaidsBtn` / `viewStrikesBtn` | `raid-tracker.js:1200-1201` | `wireViewToggle()` (`:1034`) |
+| strip de Strikes | `strikeViewRaidsBtn` / `strikeViewStrikesBtn` | `strike-tracker.js:563-564` | `wireStrikeViewToggle()` (`:1202`) |
+
+Cada módulo inyecta su fila dentro de **su** panel y cablea **su** fila. `git grep` de los 4 ids
+juntos: **ningún id en común**. Es el mismo control, dos veces.
+
+### La copia sin la garantía (medido sobre el código, no supuesto)
+
+| | escribe la pref | cambia las clases | llama `activate()` del otro |
+|---|---|---|---|
+| `wireViewToggle` (`raid-tracker.js:1034`) | **sí** (`prefSet`, `:1059`) | **sí** (`:1064-1067`) | **sí** |
+| `wireStrikeViewToggle` (`strike-tracker.js:1202`) | **NO** | **NO** | **NO** — llama `refresh()` |
+
+Misma forma visual (`.btn.btn--ghost` / `.btn--accent`), misma posición en la fila,
+semántica distinta: **el de Raids recuerda la elección, el de Strikes no.**
+
+### 🔴 El botón muerto — por qué esto es 🔴 y no 🟡
+
+`ensurePanelContent()` (`raid-tracker.js:1184`) puebla el panel **con los botones pero sin
+listener**. El único que se los pone es `wireViewToggle()`, y ese corre **solo** desde
+`activate()` (`:1847`), que tiene guard de una vez (`:1826`).
+
+El camino que hace Pablo — entrar por `#/account/strikes` y hacer clic en "Raids" — llama
+`window.RaidTracker.refresh(false)` (`strike-tracker.js:1216`), **no** `activate()`.
+
+Arnés con los strips extraídos *verbatim* del fuente (`_hb100_arnes2.mjs`):
+
+```
+CASO REAL — Pablo entra por #/account/strikes
+  STRIKES visible   strikeViewRaidsBtn (ghost, CON listener)   strikeViewStrikesBtn (accent, CON listener)
+  Pablo hace clic en "strikeViewRaidsBtn"...
+  RAIDS visible     viewRaidsBtn (accent)   *** SIN LISTENER — BOTÓN MUERTO ***
+```
+
+**El F5 que Pablo acaba de hacer le restaura los listeners** (porque `activate()` corre en el
+arranque de la ruta). O sea: el botón funciona *recién después de recargar*, que es
+exactamente al revés de lo que espera cualquiera.
+
+**Y es asimétrico:** en el sentido inverso (Raids → Strikes) `wireViewToggle` sí llama
+`StrikeTracker.activate()`. Un sentido funciona, el otro no.
+
+### Por qué 1100+ aserciones no lo ven
+
+`tests/hb78-preferencia-pestana.test.js` prueba `wireViewToggle` con un sandbox donde **los 2
+botones ya están inyectados y `document` resuelto** (`:161`): prueba el cableado en el mejor
+caso, nunca el camino de entrada. Y `git grep strikeViewRaidsBtn tests/` → **0 matches**:
+el segundo strip no tiene ni un assert.
+
+*Un test de un control tiene que probar el camino de llegada al control, no el control ya
+armado.* Es la misma clase que el lost update de la Idea 64 y que T8: hay que controlar el
+**orden de las llamadas**, no un valor. El arnés discrimina porque el control y el caso real
+dan resultados distintos — sin control, ambos habrían dado "no pasa nada" y el PO lo habría
+reportado al revés.
+
+### Tramos (el PO no implementa)
+
+| # | tramo | dificultad | nota |
+|---|---|---|---|
+| **T12-a** | el camino inverso cablea el toggle del panel de destino | 🟢 ~30 min | lo barato: mover el cableado de `activate()` a `ensurePanelContent()` (donde los botones nacen), patrón ya presente en el repo |
+| **T12-b** | borrar `wireStrikeViewToggle` y sus 2 botones; el strip de Strikes usa `viewRaidsBtn`/`viewStrikesBtn` | 🟢 ~15 min | 4 botones → 2, una sola implementación, y ya tiene la preferencia + el test. **Va después de T12-a**: toca el mismo archivo |
+| **T12-c** | el resaltado de la pestaña activa | 🟡 | desaparece solo con T12-b |
+
+### Falso positivo propio de la ronda (corregido antes de reportar)
+
+Medí las claves de preferencia buscando **literales** `gn:...` en las líneas de `Storage.get`
+y salieron **5 "declaradas sin lectura"**. **Las 5 sí persisten**: se leen y escriben por
+**constante**, no por literal (`wallet-dashboard.js:249-250` + `:345/:358/:364/:374`;
+`meta.js:36` + `:39/:873`). `STORAGE_KEYS` existe justamente para no repetir literales — mi
+grep leía lo que el código evita. Regla: *la herramienta que encuentra el bug puede ser la que
+lo inventó; contrastar el hallazgo contra el disco antes de escribirlo.*
+
+Del censo queda una sola cosa real, anotada y **no propuesta**: `STATIC_KEYS`
+(`storage.js:40-53`, 34 claves) se declara y no se usa en ningún lado (`git grep` → 1 match,
+su propia declaración). No rompe nada — la migración usa `MIGRATION_PREFIXES` y el import usa
+`KNOWN_NAMESPACES`. Es deuda, y borrar deuda no es valor para Pablo.
+
+**Web: 33 de 33 rondas sin aporte.** `gw2treasures.com/feeds` → 404; Reddit sin nada;
+Google devuelve anuncios de GW3 y balance. Confirma la regla de la ronda 22: con 0 aporte
+externo, forzar una idea sería inventarla. **T12 salió sin web.**
+
+---
+
+## ACTUALIZACION 2026-10-01 01:00 UTC — Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta sin aviso
 ## ACTUALIZACION 2026-10-01 01:00 UTC — Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta sin aviso
 
 > **Espejo de la ronda 19 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
