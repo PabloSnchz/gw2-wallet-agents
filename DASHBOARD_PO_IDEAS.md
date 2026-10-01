@@ -1,11 +1,110 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T08:00:00Z (Heartbeat PO ronda 26) **T7: el call site ya esta arreglado, la linea 215 no** (`Number(opts.ttl || 3500)`) - **y arreglarlo ROMPE un assert que hoy pasa** (`hb80-toast-permanencia.test.js` seccion 3: exige `opts.ttl || (\d+)`, la misma expresion que causa el bug) => **T7 son 2 lineas, no 1** - **la clase es 1 caso en 46 modulos** (`opts.x || <n>`: 1 match; `toast.legacy:221` es el gemelo, a arreglar en la misma pasada) - **5 sitios de `wv-purchase-detail.js` no normalizan `purchase_limit`**: P3, sin caso vivo verificado (no se puede confirmar sin token)
+> Actualizado: 2026-10-01T09:00:00Z (Heartbeat PO ronda 27) **T8 NUEVO: la carga de la cuenta ANTERIOR gana si termina despues** (`loadAllForToken` escribe `state.wallet` sin ninguna guarda; `git grep 'KeyManager.selected (===|!==)'` sobre `js/` = 0 resultados; **ejecutado** en sandbox con el orden de resolucion controlado, con control) - **el desplegable global (`app.js:1260`) es el camino de Pablo**: `setSelected` corre ANTES del `await`, asi que el dropdown dice B y el wallet es de A - **la ventana son los primeros 2 min tras el F5** (`TTL.WALLET = 2 min`): con cache no hay carrera posible, sin cache la hay, y sin cache esta el arranque - **T7 CERRADA** (`1f0fd6e`, `opts.ttl ?? 3500`) y **T6 CERRADA** (`2593306`, z-index) - `toast.legacy:228` quedo con `ms||2500`: **latente, 4 callers, ninguno pasa 0** - `task-254bb8f34cca` (Reviewer) **cerrada**: `raid_strike_view` NO esta en `MIRROR_MAP`, y su punto 2 ya quedo superado por `f9239d7`
 > Mantenedor: PO (product-owner)
 
 
 
 ---
+---
+
+## ACTUALIZACION 2026-10-01 09:00 UTC - Heartbeat PO ronda 27 - **T8: la cuenta que Pablo dejo es la que aparece**
+
+> **Espejo de la ronda 27 del PO.** Detalle largo en `PRE_BACKLOG.md` (privado).
+> La ronda abre **una idea (T8)** y cierra **dos tramos viejos + una consulta**.
+
+### 1) NOVEDADES: sin feature externa. **25 de 25 rondas**
+
+Reddit **403**, gw2treasures `/feeds` **404** (25 de 25). La pregunta de la ronda no
+fue "¿qué feature falta?" sino la que nacía de `1f0fd6e`: **el toast de carga pasó a
+ser persistente**, y si un toast dura lo que dura la carga, la pregunta es
+**¿cuál de las 27 está cargando?** Y de ahi la de verdad: **¿qué pasa si hay dos?**
+
+### 2) 🔴 T8 - la carga vieja gana (🟢 3-4 lineas)
+
+`loadAllForToken` (`app.js:638-661`) escribe `state.accountName`, `state.wallet` y
+`el.ownerLabel` **sin ninguna guarda**. `git grep -nE "KeyManager\.selected\s*(===|!==)"`
+sobre todo `js/` -> **0 resultados**.
+
+**Ejecutado, no inferido.** Extraje la funcion **verbatim** de `origin/main`, la
+evaluate con deps inyectadas y el **orden de respuesta controlado por mi**, con un
+control en orden natural:
+
+```
+CASO 1 CONTROL (la ultima en pedir es la ultima en responder):
+   accountName = CUENTA-B | wallet = [{"id":"item-de-B"}]        <- correcto
+CASO 2 (B responde primero, la carga vieja de A despues):
+   tras la carga vieja -> accountName = CUENTA-A | wallet = [{"id":"item-de-A"}]
+   Pablo selecciono B. Lo que la app le muestra es: CUENTA-A
+```
+
+**El titular casi salio mal.** El bug no es "se pisan dos cargas": es **"el dropdown
+dice B y el wallet es de A"**, porque `KeyManager.setSelected` ya corrio **antes**
+del `await`. Y el `ownerLabel` recibe el mismo valor viejo, asi que **el rotulo del
+bug miente junto con los datos**.
+
+**Camino real:** `app.js:1260`, el `change` del **desplegable global** — handler
+`async`, sin debounce, sin abort. Tambien el boton "Usar" (`:1047`) y el borrado
+(`:900`, sin `await`).
+
+**La ventana: los primeros 2 minutos tras el F5.** `TTL.WALLET = 2 * 60 * 1000`
+(`api-gw2.js:409`). Cacheado -> `Promise.resolve(cached)`, **la carrera no puede
+ocurrir**. Sin cache -> red. Y sin cache esta **el arranque**, que es cuando Pablo
+abre la boveda y pasa de cuenta en cuenta.
+
+**Tramo 1 🟢 3 lineas, sin cambiar firmas:**
+```js
+let loadSeq = 0;
+async function loadAllForToken(token) {
+  const mine = ++loadSeq;
+  ...
+    if (mine !== loadSeq) return;      // una carga vieja NO escribe
+    state.accountName = acct?.name || '—'; state.wallet = w || [];
+```
+No cancela la request, pero impide que se muestre. El `abort` real (🟡) ya tiene
+patron en el repo: `router.js:1466` (`_actAbort`). La guarda va **dentro** del
+`try`, asi que el `finally` de `1f0fd6e` sigue cerrando el toast viejo: **este fix
+no deshace el anterior**.
+
+**Tramo 2 🟢 1 linea, mismo diff:** `'Cargando wallet...'` no dice de que cuenta.
+Con la carrera hay **2 toasts identicos apilados** (medido por el harness:
+`textos = ["Cargando wallet..."]`), y el `setStatus` da **dos "Listo."**.
+
+**Por que los 1122 asserts no lo ven:** ninguno puede montar dos cargas
+concurrentes — hace falta controlar el **orden de resolucion de la red**, no un
+valor. Misma clase que el lost update de la Idea 64.
+
+### 3) Cierres de la ronda
+
+- **T7 CERRADA** — `1f0fd6e` puso `opts.ttl ?? 3500`. La ronda 26 la dio por abierta
+  y esta la mide **cerrada**.
+- **T6 CERRADA** — `2593306` (el toast estaba **detras** del modal) + test de la
+  *relacion* `z-index(toasts) > z-index(modal)`.
+- **Cuentas-panel** — `9ab5733`: clickear el nombre ya no te saca de la vista.
+- **`toast.legacy:228`** quedo con `ms||2500` (el gemelo que la ronda 26 previjo).
+  **Latente, no vivo**: los 4 callers pasan 1600/1200/2400/1400, ninguno 0.
+  No abro ticket; se arregla en el mismo diff si se vuelve a tocar `toast()`.
+- **Consulta al Reviewer `task-254bb8f34cca` CERRADA.** Medio que `raid_strike_view`
+  esta **fuera** de `MIRROR_MAP` (solo `FALLBACK_MAP` + `MIGRATION_PREFIXES`), lo
+  cual **coincide con mi correccion de la ronda 23** (lo habia citado como si
+  estuviera en `MIRROR_MAP`; no lo esta). "Tolerant" en las dos, acepto.
+  **Su punto 2 quedo superado antes de que contestara:** `f9239d7` paso
+  `:1012/:1016` por `prefSet(STORAGE_KEYS_RT.RAIDS_STRIKE_VIEW, ...)` -> `Storage.set`
+  (`:910`), lee por `prefGet` la `gn:` (`:1054`). Verificado en `origin/main`.
+  *Un veredicto medido sobre el arbol de otro es un veredicto con fecha.*
+- **T2 sigue ABIERTA:** `tokenHasWVPermissions` (`api-gw2.js:712`, expuesta en
+  `:1918`) sigue con **0 callers**.
+
+### 4) Prioridades
+
+**T8 (🟢 4 lineas) -> T2-mini (🟢 20 min) -> T2 chips (🟡) -> T4 (🟢) -> 49G -> 47/57
+-> 49D -> 49F/49E -> 42 -> 45.** Fuera: Idea 44.
+
+### 5) Estado del repo
+
+`origin/main` @ **`950753d`**. Clon compartido en `fix-hb77-puerta-llega` @
+`11285a0` con 2 untracked ajenos — **no lo toco** (ALERT-43/59). Este dashboard va
+en el worktree propio `wt-r22`, rama `po/hb77-dashboard`. **El PO no mergea.**
 
 ## ACTUALIZACION 2026-10-01 08:00 UTC — Heartbeat PO ronda 26 — **T7 no se implemento, y el test que lo bloquea afirma la razon por la que no se puede**
 
