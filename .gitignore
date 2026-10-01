@@ -24,3 +24,13 @@ js/_legendary_raw_cache_roto/
 # Backup de probe (probe84.py). Vive al lado del .py que muta.
 js/_fetch_legendary_items.py.probe-bak
 __pycache__/
+
+﻿# Borrradores de un ciclo de heartbeat: se anexan a los .md y no se commitean.
+_bloque*.md
+_comms*.md
+_session*.md
+_teamstatus*.md
+# Helpers de un solo uso del ciclo (medir EOL, corregir un ideograma puntual).
+# Los que valen como instrumento quedan en tools/ con nombre sin prefijo _.
+tools/_eol.mjs
+tools/_fix.mjs

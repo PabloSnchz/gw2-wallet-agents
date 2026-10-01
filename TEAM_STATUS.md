@@ -1,3 +1,139 @@
+# Heartbeat Principal #87 — 2026-10-01 08:0x–09:0x UTC
+
+> Ciclo de **auditoria de un hallazgo ya cerrado**. La ALERT-115 (HB#86) cerro
+> con "las 4 huerfanas no se inventan". Este ciclo midi si eso era cierto y
+> **para 1 de las 4 es falso**. No agregue features: el codigo que el Reviewer
+> aprobo ya esta entero en `main`, y el item del BACKLOG que quedaba abierto
+> resulto tener la premisa **medida falsa** en HB#78.
+
+## Lo que se entrego
+
+- **ALERT-116** (nueva): `tools/audit-alert-refs.mjs` acierta el numero y se
+  equivoca en el verbo. **1 de las 4 ids "nunca escritas" si se escribio.**
+- **`tools/append-alert.mjs`** (nuevo): anexa a un `.md` respetando su EOL y
+  **se niega a escribir si el archivo ya es mixto**. Cierra la causa de los LF
+  pelados de HB#77 y HB#86.
+- **`tools/_eol.mjs`** (nuevo): cuenta CRLF/LF de un archivo y avisa si es
+  mixto. El instrumento de la regla.
+
+## El hallazgo del ciclo: "nunca existio" no es lo que el script midio
+
+HB#86 cerro con 4 ids huerfanas y la frase de que **no se inventan** porque
+"son referencias a entradas que nunca se escribieron". Medi cada una por
+separado, con un metodo que **no comparte codigo** con el audit:
+
+| id | citado desde | definicion | veredicto |
+|---|---|---|---|
+| **`ALERT-20`** | `ALERTS_LOG.md:422` (fila ALERT-25), `PRE_BACKLOG.md`, `SESSION_LOG.md` | **`d91888b`**, en `legacy/fix-concurrency-pool-phase2` | **si se escribio; la rama nunca llego a `main`** |
+| `ALERT-22` | `ALERTS_LOG.md:418` (fila ALERT-24) | 0 en las 11 ramas remotas | nunca existio |
+| `ALERT-30` | `ALERTS_LOG.md:432` (fila ALERT-35) | 0 en las 11 ramas remotas | nunca existio |
+| `ALERT-86` | `TEAM_STATUS`, `SESSION_LOG`, `COMMS_LOG:259` | nunca existio, **y describe algo que SI se implemento** | registro perdido |
+
+Los 3 pasos de `ALERT-20`, que es el que cambia el veredicto:
+
+1. `git log --all -S"| **ALERT-20** |" -- ALERTS_LOG.md` -> **un** commit:
+   `d91888b`, fila completa ("FASE 2 sin pool", "Corregido HB#36", pico 27->3).
+2. `git branch -a --contains d91888b` -> `legacy/fix-concurrency-pool-phase2`.
+3. `git merge-base --is-ancestor d91888b origin/main` -> **falla**.
+
+**Por que el script no lo puede ver.** `audit-alert-refs.mjs` responde *¿esta el
+id definido en el `ALERTS_LOG.md` de **este** arbol?*. Una fila que vivio en una
+rama no mergeada es indistinguible de una que nunca existio. El numero es
+correcto para la pregunta que hace, y no sirve para la que se le esta haciendo.
+
+**`ALERT-86` es el caso caro.** Su cita describe el segundo criterio por **forma**
+de `tools/idea50-censo-claves.mjs` (las 3 familias de `homestead-tracker.js` que
+se escriben como `{ts, data}`). **Ese criterio esta implementado.** Se perdio
+el registro de que algo se arreglo y por que: sin la entrada, el proximo que lea
+ese script ve un criterio raro sin explicacion y lo puede borrar.
+
+**El fallo de metodo, que es la parte que mas rindio.** El control del audit
+(`definidos.size >= 100`) protege contra el extractor roto — y asi detecto los
+**343 huerfanos falsos** del primer borrador. Lo que **no** cubre es **el archivo
+equivocado**: si el `ALERTS_LOG.md` de este arbol no tiene lo que un commit de
+otra rama si tiene, no hay forma de saber que le falta. El segundo metodo existia
+y **no se corrio**, porque la ALERT-115 ya narraba el resultado como cerrado.
+**Un hallazgo sin contraste no se escribe aunque el instrumento que lo produce
+tenga control.**
+
+## Lo que se midio y NO se aplico (y por que)
+
+- **El "fix de 3 lineas" de los raws de `raid-tracker.js`** (fila 079, el unico
+  item de codigo que quedaba del BACKLOG): **su premisa ya estaba medida FALSA**
+  en HB#78. `raid-tracker.js:921` lee `gw2_selected_key_v1` a pelo, y la fila
+  079 lo marcaba como "rompe en escenario Gist-nuevo". **`gw2_selected_key_v1`
+  SI esta en `MIRROR_MAP`** (`storage.js:211`), o sea que la legacy **es** la
+  fuente de verdad por declaracion y el raw devuelve **exactamente lo mismo** que
+  `Storage`. Aplicar el fix habria sido cambiar 4 lineas de 4 modulos para no
+  cambiar nada. **El item ya no es un fix: es una correccion de la fila 079.**
+- **`raid_strike_view`** (`raid-tracker.js:1054/1059`): ya **arreglado** en
+  `f9239d7` (HB#78), con default en la llamada y guard de valores validos, tal
+  como pidio el Reviewer. No queda nada.
+- **No se mergero `legacy/fix-concurrency-pool-phase2`.** Resucitaria texto, no
+  trabajo: la ALERT-20 dice "Corregido". **Que el registro se complete o se
+  acepte la perdida es decision de Pablo.**
+
+## Tareas en curso
+
+- **Reviewer: sin nada en vuelo.** Recoggi 2 veredictos con `check_agent_task`
+  (`task-f191daf882b7` y `task-98befbf8c084`): **los 2 ya estaban aplicados** en
+  `agents/main` (`1f0fd6e` para P1/P2/P3, `2206217` + `386a022` para el runner).
+  No hay nada que reenviar ni que aplicar.
+- **PO: ronda 28 enviada** (`task-dafa909f1450`), en vuelo al cierre. Se le
+  pregunto por (a) novedades de PRE_BACKLOG, (b) si hay una **tercera** instancia
+  de la clase "el mensaje se arma bien y no se ve" (hoy hay 2), y (c) cual de los
+  2 raws Pablo nota primero.
+- **Documentador: sin tarea.** La regla de no-fallback sigue vigente.
+
+## Completadas (verificado en `origin/main`, no de memoria)
+
+- **P1 — el contrato del `ttl`**: `app.js:222` es `Number(opts.ttl ?? 3500)` y
+  `loadAllForToken` tiene el `try/finally`. En `1f0fd6e`.
+- **P2 — `.side-nav__icon`**: `theme-polish.css:118` ya **no** declara
+  `display:grid`. Era el unico choque de capa 2 vivo de los 29.
+- **P3 — `kind` de `parseKeyError`**: `git grep kind -- js/app.js` da **0**, y
+  `hb77-puerta-llega.test.js` se ajusto en el **mismo** commit.
+- **El runner de suite**: `2206217` (dejaba pasar 77 aserciones en silencio) y
+  `386a022` (contaba la linea de resumen como asercion). Contrastado con un
+  **segundo contador de codigo propio** que dio el mismo total.
+
+## Pendientes / alertas
+
+- **ALERT-116 (nueva).** Ver arriba. La accion pendiente es de **Pablo**: si la
+  perdida del registro de `ALERT-86` (y de `ALERT-20`) se acepta o se rescata.
+- **`ALERT-22` y `ALERT-30` siguen sin escribirse.** Sus citas son de filas que
+  **si** existen (ALERT-24 y ALERT-35), o sea que el que las escribo se estaba
+  refiriendo a algo real que no quedo anotado. **No se inventan.**
+- **`tools/audit-alert-refs.mjs` no se corre en ningun sitio.** `git grep` lo
+  encuentra **solo en prosa de `.md`**: no hay hook, ni test, ni script que lo
+  invoquen. Es decir que **el instrumento existe y el agujero sigue abierto**:
+  la ALERT-115 es correcta en que "los `.md` no se validan", y el fix que el
+  mismo ciclo dejo es **optativo**. Anotado, no resuelto en este ciclo.
+- **Una ocurrencia en vivo de la ALERT-112**, y con el canario funcionando: se me
+  colaron 2 ideogramas en el borrador de la ALERT-116 y los atrapo
+  `tools/probe-cjk.mjs` **antes** de anexar. Uno estaba en una palabra clave
+  ("describir"), que es donde mas dano hace porque se lee como texto correcto.
+- **La instancia duplicada.** `origin/main` esta en `950753d`. El clon
+  compartido sigue en `11285a0` con 9 commits **que no son ancestro de `main`**:
+  es la firma de la otra instancia, y confirma la regla de siempre (**la verdad
+  es `origin/main`**). Todo este ciclo fue en `hb86-wt`, sin tocar el clon
+  compartido. **No se decide: es de Pablo.**
+- **11 worktrees vivos** y **2 ramas remotas ya mergeadas sin borrar**
+  (`docs-idea50p3-hb67`, `feat-idea56-forma-raids`). **No se borran:** borrar
+  worktrees con WIP ajeno es lo unico que no hago sin que lo pida.
+
+## Estado de propuestas
+
+- **Reviewer: 3/3 aplicadas** (P1, P2, P3) + 3 hallazgos no pedidos y tambien
+  cerrados (runner de suite, artefacto del scanner CSS, `.an-hero` muerto por el
+  `!important` de `main.css:1239`). **Sin nada en vuelo.**
+- **PO: ronda 28 en vuelo.** No hay 3+ propuestas para mandar al Reviewer, asi que
+  **el paso 3 del ciclo no aplica** — y eso es una decision, no un olvido: la
+  ronda 22 ya establecio que un PO al que no se le pregunta nada no propone nada.
+  En este ciclo **si se le pregunto** (3 preguntas concretas), asi que la ronda
+  28 tiene material para producir.
+- **Sin propuestas pendientes de envio al Reviewer.**
+
 # Heartbeat Principal #86 — 2026-10-01 07:30–08:0x UTC
 
 > Ciclo de **cierre de deuda de documentacion**. No agrego features: el codigo

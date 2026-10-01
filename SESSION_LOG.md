@@ -1,3 +1,78 @@
+## 2026-10-01 — hb87: "nunca existio" era 3 de 4, y el verbo del script era el error
+
+**Auditoria de un hallazgo que el ciclo anterior dio por cerrado.** La ALERT-115
+dejo 4 ids "huerfanas" y escribio que **no se inventan** porque "son referencias a
+entradas que nunca se escribieron". Fui a ver si era cierto, id por id.
+
+**`ALERT-20` si se escribio.** Tres comandos, y el tercero es el que decide:
+`git log --all -S"| **ALERT-20** |"` devuelve **un** commit (`d91888b`, fila
+completa, "Corregido HB#36"); `git branch -a --contains` dice que vive en
+`legacy/fix-concurrency-pool-phase2`; y `git merge-base --is-ancestor
+d91888b origin/main` **falla**. La fila existio y se perdio porque la rama nunca
+llego a `main`.
+
+**El fallo de metodo, que es la parte que mas rindio.** `audit-alert-refs.mjs`
+pregunta *¿esta el id definido en el `ALERTS_LOG.md` de **este** arbol?*. Una
+fila que vivio en una rama no mergeada es indistinguible de una que nunca
+existio. **El numero era correcto y la conclusion no.** Y el control del script
+(`definidos.size >= 100`, que es lo que atrapo los 343 huerfanos falsos del
+primer borrador) protege contra el extractor roto, **no** contra el archivo
+equivocado.
+
+**El segundo metodo existia y no se corrio.** `ALERT-22` y `ALERT-30` los
+confirme con un metodo que no comparte codigo: `git grep` del patron de fila
+sobre las 11 ramas remotas, una por una, 0 en todas. Lo que **no** hice fue
+correr ese contraste para `ALERT-20` antes de escribir la ALERT-115, que ya
+narraba el resultado como cerrado. **Un hallazgo sin contraste no se escribe
+aunque el instrumento que lo produce tenga control.**
+
+**`ALERT-86` es el caso caro y no se cierra solo.** Su cita describe el segundo
+criterio por **forma** de `tools/idea50-censo-claves.mjs` (las 3 familias de
+`homestead-tracker.js` que se escriben como `{ts, data}` y no matchean ningun
+patron de nombre). **Ese criterio esta implementado.** Se perdio el registro de
+que algo se arreglo y por que: sin la entrada, el proximo que lea ese script ve
+un criterio raro sin explicacion y lo puede borrar creyendo que sobra. Es la
+unica de las 4 cuya perdida cuesta trabajo futuro, y por eso la accion queda
+para Pablo y no la tomo yo.
+
+**Instrumentos nuevos, y por que cada uno existe.**
+`tools/append-alert.mjs` anexa a un `.md` respetando su EOL y **se niega a
+escribir si el archivo ya es mixto** — la causa de los LF pelados de HB#77 y
+HB#86 era el one-liner de `cmd`, no el criterio del texto. `tools/_eol.mjs`
+cuenta CRLF/LF y avisa. A los dos los uso en este mismo ciclo: el
+`append-alert` dejo `ALERTS_LOG.md` en **1901 CRLF / 0 LF**, y el `_eol` lo
+verifica.
+
+**Una ocurrencia en vivo de la ALERT-112, con el canario funcionando.** Se me
+colaron 2 ideogramas en el borrador de la ALERT-116 y los atrapo
+`tools/probe-cjk.mjs` **antes** de anexar. Uno estaba en la palabra "describir",
+que es donde mas dano hace porque se lee como texto correcto. Al corregirlo con
+un script, la sustitucion salio duplicada ("describedescribe"): un `replace`
+global sin mirar lo que ya habia escrito. Lo vi comparando antes/despues, que es
+lo que el script imprime justamente para eso.
+
+**Lo que NO se aplico, y por que.** El unico item de codigo que quedaba del
+BACKLOG era el "fix de 3 lineas" de los raws de `raid-tracker.js` (fila 079).
+**Su premisa ya estaba medida FALSA en HB#78**: `raid-tracker.js:921` lee
+`gw2_selected_key_v1` a pelo y la fila lo marcaba como "rompe en escenario
+Gist-nuevo", pero `gw2_selected_key_v1` **si esta en `MIRROR_MAP`**
+(`storage.js:211`), o sea que la legacy **es** la fuente de verdad por
+declaracion y el raw devuelve lo mismo que `Storage`. Aplicar el fix era cambiar
+4 lineas de 4 modulos para no cambiar nada. Y `raid_strike_view` ya quedo
+arreglado en `f9239d7`. **El item no era un fix: era una correccion de la fila
+079, y no un fix de codigo.**
+
+**DENEGACION del driver (ALERT-39, en vivo).** `del tools\\_swap-status.mjs`
+fue denegado como "contiene `rm`". No hay ningun `rm`: es un `del` de un archivo
+helper mio, y la subcadena la trae el **nombre del archivo**. Es el tercer caso
+de ALERT-39 (los dos previos, por "formato" y "confirmar"). **La denegacion
+cancela el INTENTO, no el trabajo:** reescribi el comando sin la parte de borrar y
+el anexo salio bien. El helper queda en disco sin commitear.
+
+**Estado.** Rama `hb86-ciclo` en el worktree `hb86-wt`, base `origin/main` @
+`950753d`. Suite **1123 pass / 0 FAIL** antes y despues de anadir la ALERT. `git
+log origin/main..HEAD` revisado antes de commitear: **solo lo mio**.
+
 ## HB#86 (2026-10-01 07:30–08:0x UTC) — 7 ALERTs que se citaban desde 4 archivos committed y no existian nunca
 
 **Que se hizo.** Cierre de deuda de documentacion, sin feature. El codigo que el

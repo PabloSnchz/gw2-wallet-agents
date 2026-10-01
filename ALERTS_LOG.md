@@ -1810,3 +1810,93 @@ atrapo `tools/probe-cjk.mjs` **antes** de anexar el bloque, que es exactamente
 el uso que la 112 pedia. El detector tiene ademas un **canario** que verifica
 ver su propia basura: sin el, un detector roto daria "0 hallazgos" con la misma
 autoridad que uno sano.
+## ALERT-116 — `tools/audit-alert-refs.mjs` acierta en el numero y se equivoca en el verbo, y el error es el que hace todo el trabajo
+
+La ALERT-115 dejo 4 ids "huerfanas" anotados con la frase de que **no se
+inventan** porque "son referencias a entradas que nunca se escribieron". **Eso
+es FALSO para 1 de los 4, y el numero de HB#86 sale de un metodo que no podia
+distinguirlo.**
+
+### El hallazgo
+
+`ALERT-20` **si se escribio.** Evidencia, en 3 pasos independientes:
+
+1. `git log --all -S"| **ALERT-20** |" -- ALERTS_LOG.md` devuelve **un** commit:
+   `d91888b`, con la fila completa de|ALERT-20| (FASE 2 del dashboard de
+   inventario sin pool, "Corregido (HB#36)", con su medicion de pico 27 -> 3).
+2. `git branch -a --contains d91888b` dice que vive en
+   `legacy/fix-concurrency-pool-phase2`.
+3. `git merge-base --is-ancestor d91888b origin/main` **falla**.
+
+O sea: la ALERT-20 **esta escrita**, y no esta en `main` porque el commit que la
+agrego **nunca llego a `main`**. La rama se quedo en `legacy/`.
+
+**Por eso el audit no lo puede ver.** `tools/audit-alert-refs.mjs` responde a
+una sola pregunta: *¿esta el id definido en el `ALERTS_LOG.md` de este arbol?*
+Una fila que vivio en una rama que no se mergeo es, para ese script,
+indistinguible de una que nunca existio. El numero es correcto **para la pregunta
+que hace** y no sirve para la que se le esta haciendo.
+
+### Los otros 3, uno por uno (si verificados)
+
+| id | donde se cita | definicion | veredicto |
+|---|---|---|---|
+| `ALERT-20` | `ALERTS_LOG.md:422` (fila ALERT-25), `PRE_BACKLOG.md`, `SESSION_LOG.md` | **`d91888b`, rama `legacy/fix-concurrency-pool-phase2`, nunca mergeada** | **Se perdio al no mergear la rama** |
+| `ALERT-22` | `ALERTS_LOG.md:418` (fila ALERT-24) | **no esta en ninguna de las 11 ramas remotas** | nunca existio |
+| `ALERT-30` | `ALERTS_LOG.md:432` (fila ALERT-35) | **no esta en ninguna de las 11 ramas remotas** | nunca existio |
+| `ALERT-86` | `TEAM_STATUS.md`, `SESSION_LOG.md`, `COMMS_LOG.md:259` | **nunca existio, y describe algo que SI se implemento** | ver abajo |
+
+`ALERT-22` y `ALERT-30` se confirman por un metodo que **no comparte codigo** con
+el audit: un `git grep` del patron de fila sobre las 11 ramas de
+`git ls-remote --heads`, una por una. 0 en todas. Sus citas son de filas que si
+existen (ALERT-24 y ALERT-35), o sea que el que las escribo **se estaba
+refiriendo a algo real** que no quedo escrito.
+
+### `ALERT-86` es un tercer caso, y es el que no se puede cerrar solo
+
+La cita dice, textual: *"las 3 familias de `homestead-tracker.js` se escriben
+como `{ts, data}` y no matchean ningun patron de nombre, asi que caian en DATO y
+quedaban protegidas por una frase que el boton no dice"*. El segundo criterio por
+**forma** **esta implementado** en `tools/idea50-censo-claves.mjs`. O sea que la
+ALERT-86 **describe un defecto que ya se arranglo y nunca se documento como ALERT**.
+
+Es la clase de perdida mas cara de las 3: las otras dos pierden texto, esta
+pierde **el registro de que algo se arreglo y por que**. Sin la entrada, el
+proximo que lea `idea50-censo-claves.mjs` ve un criterio raro sin explicacion y
+lo puede borrar creyendo que sobra.
+
+### Lo que NO se hizo, y por que
+
+- **No se escribieron las 4 ALERTs.** Escribir una ALERT para explicar por que
+  no hay una ALERT es fabricar el hallazgo que el numero no sostiene: el titulo
+  pasaria a ser el unico sitio donde el hecho existe.
+- **No se borro ninguna referencia.** La cita de `ALERT-20` en la fila de
+  `ALERT-25` es **correcta**: existio, y describe un gap real. Borrarla seria
+  perder la unica pista de por que el boton de cache existio.
+- **No se mergerio `legacy/fix-concurrency-pool-phase2`.** Es una rama vieja y
+  sus 3 resurrected filas arrastran otras; y la ALERT-20 dice "Corregido", o
+  sea que resucitarla no agrega trabajo, agrega texto. **Decidir si el registro
+  se completa o se acepta la perdida es de Pablo.**
+
+### Regla que sale
+
+**Un instrumento que responde "¿esta definido aca?" no puede usarse para
+concluir "nunca existio".** Para esa segunda pregunta hace falta el historial:
+`git log --all -S` sobre la fila exacta, y despues `merge-base --is-ancestor`
+para separar "se borro" de "nunca se escribio". Son 2 preguntas distintas y el
+script contesta 1.
+
+La generalizacion es la de siempre (**ALERT-61**, **ALERT-104**, y el primer
+borrador de la 115 que reporto **343** huerfanas): *un numero recien escrito no
+se reporta hasta que un metodo que no comparte codigo con el da lo mismo.* Ahi el
+segundo metodo existio y **no locorrí** porque la ALERT-115 yaNnarraba el
+resultado como cerrado. **Un hallazgo sin contraste no se escribe aunque el
+instrumento que lo produce tenga control.**
+
+**Y el control que faltaba en el audit, que es el que habria atrapado esto:**
+hoy verifica que `definidos.size >= 100`. Eso protege contra el extractor roto.
+No protege contra **el archivo equivocado**: si `ALERTS_LOG.md` de este arbol no
+tiene lo que un commit de otra rama si tiene, el script no tiene forma de saber
+que le falta algo. Un control del mismo genero que el del `>= 100` seria
+**comparar el conjunto de definidos contra `git log --all -S`**, y reportar como
+separado lo que "esta en otra rama" de lo que "no esta en ninguna".
