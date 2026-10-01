@@ -340,7 +340,7 @@
 
     if (state.compact) {
       // VISTA COMPACTA
-      return '<article class="card account-card" style="border-left:3px solid ' + bLeft + ';cursor:pointer;" data-account-id="' + acc.id + '" data-toggle-expand-name>' +
+      return '<article class="card account-card" style="border-left:3px solid ' + bLeft + ';">' +
         '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;">' +
           '<div style="width:36px;height:36px;border-radius:10px;background:var(--bg-1);display:flex;align-items:center;justify-content:center;box-shadow:' + iGlow + ';flex-shrink:0;"><img src="' + displayIcon + '" width="24" height="24" style="filter:brightness(0.9);"></div>' +
           '<div style="flex:1;min-width:0;">' +
@@ -367,7 +367,7 @@
         '<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">' +
           '<div style="width:52px;height:52px;border-radius:14px;background:var(--bg-1);display:flex;align-items:center;justify-content:center;box-shadow:' + iGlow + ';flex-shrink:0;"><img src="' + displayIcon + '" width="34" height="34" style="filter:brightness(0.9);"></div>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-weight:700;font-size:1.05rem;color:var(--tx-1);cursor:pointer;" data-account-id="' + acc.id + '" data-toggle-expand-name>' + esc(acc.name || 'Cuenta') + '</div>' +
+            '<div style="font-weight:700;font-size:1.05rem;color:var(--tx-1);">' + esc(acc.name || 'Cuenta') + '</div>' +
             '<div style="font-size:0.82rem;color:' + typeColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" data-copy="' + esc(login.email || '') + '" data-field="Email">' + esc(login.email || '—') + '</div>' +
             (tagIconsHtml ? '<div style="display:flex;align-items:center;gap:5px;margin-top:4px;">' + tagIconsHtml + '</div>' : '') +
           '</div>' +
@@ -448,9 +448,6 @@
     // Wire: toggle secciones colapsables (expansiones)
     document.querySelectorAll('[data-toggle-section]').forEach(function(el) { if (el.__wiredSection) return; el.__wiredSection = true;
       el.addEventListener('click', function(e) { e.stopPropagation(); var id = el.getAttribute('data-toggle-section'); var section = el.getAttribute('data-section'); var current = state.expandedAccounts[id] || {}; current[section] = !current[section]; state.expandedAccounts[id] = current; renderList(); }); });
-    // Wire: expandir al click en nombre
-    document.querySelectorAll('[data-toggle-expand-name]').forEach(function(el) { if (el.__wiredName) return; el.__wiredName = true;
-      el.addEventListener('click', function(e) { e.stopPropagation(); var id = el.getAttribute('data-account-id'); state.view = state.view === 'cards' ? 'table' : 'cards'; renderList(); }); });
     // Wire: copiar al portapapeles
     document.querySelectorAll('[data-copy]').forEach(function(el) { if (el.__wiredCopy) return; el.__wiredCopy = true;
       el.addEventListener('click', function(e) { e.stopPropagation(); var t = el.getAttribute('data-copy'), f = el.getAttribute('data-field')||'Texto'; if (t && t!=='—') copyToClipboard(t, f); else window.toast('info', 'No hay ' + f + ' para copiar', {ttl:1500}); }); });
