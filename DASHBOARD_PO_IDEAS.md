@@ -7,6 +7,100 @@
 
 ---
 
+## ACTUALIZACION 2026-10-01 22:40 UTC — Heartbeat PO ronda 36 — T16/T17/T18: no hay "un toggle". Hay 2 rutas, 2 toggles y 3 verdades.
+
+> **Espejo de la ronda 36 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
+
+### Lo que cambia el encuadre de T14/T15
+
+La ronda 35 y el veredicto del Reviewer (`904345b`) parten de que hay **un** toggle
+de Raids/Strikes. **Hay dos rutas** (`router.js:123-124`, `:1584`, `:1600`) y
+**0 enlaces en `index.html` las alcanzan**: el unico href del sidebar es `navRaids`
+-> `#/account/raids` (`index.html:741`), rotulado **"Raids y Strikes"**.
+
+### 🔴 T17 — la pref le gana a la URL, y la URL nunca se actualiza al cambiar de vista
+
+| verdad | quien la escribe |
+|---|---|
+| **URL** | `route()`, solo al navegar. `setActiveView()` (`raid-tracker.js:1064-1089`) **no contiene `location` ni `hash`** |
+| **pref** | `setActiveView()` (`raid-tracker.js:1066`). Ni `route()` ni `wireStrikeViewToggle()` la escriben |
+| **DOM** | los 2 toggles + `showPanel()`, y se contradicen |
+
+**3 verdades, 3 escritores, 0 reconciliacion.** El arnés `_hb114_t17.mjs`, con CONTROL:
+
+```
+click en "Strikes" del toggle:   URL=raids  pref=strikes  PANTALLA=strikes  -> DIFIEREN
+CONTROL (solo URL, sin toggle):  URL=strikes pref=raids   PANTALLA=strikes  -> coinciden SIEMPRE
+```
+
+**Lo que paga Pablo:** la URL que copia para compartir, guardar en favorito o
+mandar a un amigo **abre Raids aunque la haya copiado estando en Strikes**.
+
+### 🔴 T18 — la misma URL, con la misma pref, abre 3 pantallas distintas
+
+`pref=strikes`, `URL=#/account/raids`, 3 caminos de entrada (`_hb114_t18.mjs`):
+**strikes / raids / raids**. CONTROL con `pref=raids`: **los 3 dan raids**.
+
+Mecanismo verificado por lectura: `router.js:1586` llama `showPanel()` **antes**
+de `activate()`, y `wireViewToggle()` tiene dos salidas — `:1108` `pintarSolo()`
+**no toca paneles**, `:1114` `setActiveView()` **sí**. **La primera pasada pisa a
+`showPanel()`; todas las siguientes no.** Cuál es la primera depende del latch.
+
+**No es "la pestaña que no pedí": es la que le tocó.** No reproducible ni por error
+ni por F5, sino por el camino.
+
+### 🟡 T16 — los 4 botones de toggle nacen con `btn--accent` contradictorio
+
+`0` en `index.html`; nacen de `innerHTML` (`raid-tracker.js:1227-1228`,
+`strike-tracker.js:563-564`). Cada modulo afirma que **su** vista es la activa y
+solo `wireViewToggle` repinta **2 de los 4**. Hoy Pablo no lo ve (el otro toggle
+está oculto), y **la opción (c) del Reviewer lo mata por construcción**: no se pide aparte.
+
+### ⚠️ Corrección al veredicto del Reviewer: **C3 no se sostiene**
+
+> C3 [ALTA] "el toggle roto es el **único** camino de Pablo para salir de Strikes,
+> y el work-around del router (barridoLatch keyed en el DOM) existe **POR T15**."
+
+**MITAD 1 — FALSO.** Hay un segundo camino, y es el que Pablo va a usar: **el link
+del sidebar**. Y **ese camino es el que sale de Strikes sin cambiar la pref**.
+
+```
+CONTROL (pref y URL de acuerdo)           -> URL/pantalla SI,  toggle/pantalla SI
+route(#/account/raids) con pref=strikes  -> URL/pantalla *** NO ***, toggle SI
+route(#/account/strikes) con pref=raids  -> URL/pantalla SI,  toggle *** NO ***
+-> los 2 bugs son OPUESTOS; sin CONTROL se fusionan en uno.
+```
+
+**MITAD 2 — FALSO, y el router lo dice 9 líneas arriba.** `barridoLatch()` no lee ni
+escribe la pref: su única condición es el DOM (`if (p && !p.hasAttribute('hidden')) continue;`,
+`router.js:1521`), y el comentario en `:1489-1497` dice textual *"**NO es la pref**"*.
+
+**Lo que sí es cierto de C3:** el toggle de abajo sí es un camino roto y sí produce
+un estado estable visible. Eso ya está. Lo que no se sostiene es que sea **el único**,
+ni que el work-around exista **por** T15. **Un work-around cuya causa resultó ser
+otra se limpia en el mismo commit** — si no, el próximo que lea `barridoLatch` lo
+va a defender como "por T15" para siempre.
+
+### Prioridades
+
+| # | tramo | 🟢/🟡 | tiempo | nota |
+|---|---|---|---|---|
+| 1 | **T17-b** | 🟢 | 15 min | **decisión de Pablo:** `#/account/strikes` es una ruta sin botón que la alcance. ¿Botón "Strikes" en el menú, o se borra la ruta? **La única que cambia el producto** |
+| 2 | **T17-a** | 🟢 | 20 min | el hash se actualiza al cambiar de vista con el toggle |
+| 3 | **T18-a** | 🟡 | 30 min | `showPanel()` y `setActiveView()` no se pisan. Va con (c) |
+| 4 | **Opción (c) de T14/T15** | 🟡 | ~1 h | una sola pareja de botones. Cierra T14, T15, T16 y media T18. **El Reviewer tiene razón: "2 flags o 1" era el eje equivocado** |
+| 5 | T14-b | 🟢 | 20 min | test de unicidad, **después** de (c) |
+| 6 | T11 | 🟢 | — | `accounts-panel.js` `state.view` sin persistir |
+
+Sin novelty externa: **36 de 36 rondas** con Reddit 403 y `gw2treasures/feeds` 404.
+T16/T17/T18 salen de leer el veredicto del Reviewer y preguntarle *"¿esta pregunta
+está bien formulada?"*.
+
+
+
+
+---
+
 ## ACTUALIZACION 2026-10-01 01:00 UTC — Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta sin aviso
 
 > **Espejo de la ronda 19 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
