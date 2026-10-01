@@ -1,5 +1,143 @@
-> Actualizado: 2026-10-01T18:00:00Z (Heartbeat PO ronda 34 — 🔴 T13: `state.active` es un latch que nadie apaga. 5 modulos lo tienen en `activate()` y **3 refrescan solos por cada cambio de cuenta, en un panel oculto**. El router solo llama `deactivate()` en WV y Activities; ninguno de los 2 es de esta lista. Ademas 6 timers de 1s tickando quedan corriendo para siempre en paneles ocultos. Medido con arnes verbatim y CONTROL: nunca-abierto = 0 refreshes, visitado-una-vez = `refresh(true)`. Las rondas 20-33 estan en PRE_BACKLOG del PO)
+> Actualizado: 2026-10-01T20:05:00Z (Heartbeat PO ronda 35 - T14/T15: T13 ya esta APLICADA (`1e5aedb`) y la cerro. **T15**: el toggle de Strikes cambia el panel pero NO escribe la pref, asi que el F5 abre la pestana que Pablo no pidio. **T14**: `wireStrikeViewToggle()` se cablea en cada `activate()` SIN guarda `__viewToggleWired`, y T13-a acaba de hacer posible la reentrada que antes el latch tapaba. Medido, no supuesto.)
 > Mantenedor: PO (product-owner)
+
+
+---
+
+## ACTUALIZACION 2026-10-01 20:05 UTC - Heartbeat PO ronda 35 - T14/T15: el fix de T13 abre la reentrada, y el toggle de Strikes no escribe la pref
+
+> **Espejo de la ronda 35 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana (ALERT-75).
+> Medido sobre `origin/main` @ `c50e008`. **T13 quedo APLICADA** (`1e5aedb`, predicado DOM pospuesto, P3/P4
+> resueltos, suite 1282/0) y el PO la **cierra**.
+
+La pregunta de la ronda no fue "¿qué feature falta?" sino la que **se la hacia el propio commit de T13**:
+su mensaje termina con un PENDIENTE P1, *"unificar los dos toggles (P1). Hoy hay 2 implementaciones del
+mismo control con semanticas distintas, y cualquier predicado queda pegado al estado {DOM, pref} que
+produce el otro."* Ese P1 tiene dos mitades y **solo una es la que el commit nombro.**
+
+### T15 (🔴 nuevo) — el toggle de Strikes cambia lo que Pablo ve y no deja rastro
+
+`git grep -n "RAIDS_STRIKE_VIEW" origin/main -- js/` → **3 resultados**:
+
+| | |
+|---|---|
+| `js/storage.js:89` | la declaracion: `gn:raids:strike:view` |
+| `js/raid-tracker.js:1061` | la **UNICA** lectura (`prefGet`) |
+| `js/raid-tracker.js:1066` | la **UNICA** escritura (`prefSet`) |
+
+Y `strike-tracker.js` → **0 coincidencias** de `prefSet` / `prefGet` / `STORAGE_KEYS`.
+No es que escriba mal: **no tiene acceso a la preferencia.** Sus 2 handlers (`:1209-1223`) mueven el DOM
+y llaman `refresh(false)`, y nada mas.
+
+Los 4 botones (`viewRaidsBtn`, `viewStrikesBtn`, `strikeViewRaidsBtn`, `strikeViewStrikesBtn`) estan en
+**0 lugares de `index.html`**: los crea cada modulo a mano dentro de su propio panel. O sea que **cada
+panel trae su propio toggle**, y uno de los dos no persiste lo que Pablo eligio.
+
+**Arnes con CONTROL** (`_hb110_pref_divergencia.mjs`):
+
+```
+CONTROL (todo con el toggle de raid-tracker, que escribe la pref):
+  click Strikes, click Raids, F5     pref=raids    pantalla=RAIDS    consistente: SI
+CASO REAL (el ultimo toggle que toco Pablo fue el de strike-tracker):
+  entro a Strikes, click Raids, F5   pref=strikes  pantalla=STRIKES  consistente: NO
+  -> lo que Pablo estaba mirando al final: RAIDS
+  -> lo que muestra despues del F5:     STRIKES
+```
+
+Sale de **2 clicks**: entrar a Strikes (con el toggle de Raids, que si escribe) y click en **"Raids" DENTRO
+del panel de Strikes** — que es el unico toggle que Pablo puede usar estando ahi, porque esta viendo ese panel.
+
+**El router no es el culpable; la pref lo esta.** El F5 hace su trabajo normal: `showPanel('raidTrackerPanel')`
+(`router.js:1586`) y despues `wireViewToggle` corre `setActiveView(storedView)`.
+
+> **Aclaracion de alcance, y es mia:** la **alcanzabilidad** del estado `{visible=raids, pref=strikes}` ya
+> la habian medido en `1e5aedb` (`tools/hb108-toggle-divergencia.mjs`, 11 controles 11 ok) y asi lo escribio
+> el commit. **Lo que no estaba medido era la CONSECUENCIA**: que ese estado **sobrevive al F5**. El PO aporta
+> el "y que pasa despues", no el hallazgo.
+
+### T14 (🔴 nuevo) — lo produce el fix de T13, no la app de antes
+
+`strike-tracker.js:1155-1167`: `activate()` llama `wireStrikeViewToggle()` y esa funcion **no tiene guarda
+`__viewToggleWired`**. El repo tiene esa guarda escrita **al lado**, en `raid-tracker.js:1108`, agregada por
+**T12 en la ronda 33**, con un comentario que explica exactamente este bug.
+
+**Arnés, cuerpo extraido VERBATIM de `:1202-1225`** (`_hb110_strike_toggle.mjs`):
+
+```
+CONTROL (activate() 1 vez):      handlers en el boton=1   refresh=1
+CASO REAL (activate() 2 veces):  handlers en el boton=2   refresh=2
+3 veces:                         handlers en el boton=3   refresh=3
+DISCRIMINA: SI
+```
+
+**Por que T13-a lo ACTIVO**, medido sobre los 2 routers:
+
+```
+c60b096 (antes de T13-a):  deactivate() en el router = WV (1491), Activities (1495).  0 de los 4.
+origin/main (con T13-a):   + barridoLatch() sobre MODULOS_CON_LATCH = 4 modulos.
+```
+
+Antes el **latch tapaba** el bug: `state.active` se quedaba en `true` y `activate()` no volvia a correr.
+T13 bajo el latch, y con el latch bajo **la segunda pasada ahora ocurre**. Los botones persisten porque el
+`innerHTML` de `ensurePanelContent` esta guardado por un `if` (`:562`).
+
+> **Hallazgo de metodo de la ronda:** *un fix que cierra un ciclo de vida puede abrir el bug que ese ciclo
+> ocultaba.* T13 es correcto y aun asi T14 no existiria sin el. Es distinta de "el guard esta mal escrito"
+> (T2, ronda 24): **el guard no estaba, y no hacia falta porque nunca se ejecutaba dos veces.**
+
+### El numero HONESTO de T14, no el que le conviene al titular
+
+Medi el mutex de `refresh()` tambien (`_hb110_mutex.mjs`, cuerpo verbatim de `:1142-1154`) porque
+"N handlers" suena a "N requests" y **no es eso**:
+
+```
+ 1 handler  -> 1 carga       4 handlers -> 2 cargas
+ 2 handlers -> 2 cargas      8 handlers -> 2 cargas
+ 3 handlers -> 2 cargas     10 handlers -> 2 cargas
+```
+
+**El mutex coalesce y SATURA en 2 cargas**, con cualquier cantidad de handlers. O sea: **no son N requests,
+son 2**, y el extra es **1 request por click**. Lo que **si** escala sin limite son los **listeners
+acumulados** (medido 1→2→3) y el trabajo de DOM sobre un panel que puede no estar visible.
+
+> **Correccion propia:** mi primer redactado decia "un click dispara N refresh y por lo tanto N requests".
+> Medido: **2**, y satura ahi. **No lo vendo como N requests.** Regla: *cuando el titular dice "N veces", el
+> arnes tiene que imprimir la N; si la instrumentacion satura, el titular tambien.*
+
+### Tramos
+
+| | Tramo | Dif | Tiempo |
+|---|---|---|---|
+| **T14-a** | el guard `__viewToggleWired` en `wireStrikeViewToggle`, con el nombre y el comentario que ya existen en `raid-tracker.js:1108` | 🟢 | 10 min |
+| **T15-a** | que el toggle de Strikes escriba la pref por el camino que ya existe (exponer `setActiveView` y que lo cuente) | 🟢 | 15 min |
+| **T15-b** | que sus 2 handlers **no toquen el DOM a pelo** y deleguen en `RaidTracker.setActiveView(view)` → los 2 toggles pasan a ser el mismo control = el P1 textual de `1e5aedb` | 🟢 | 10 min |
+| **T14-b** | test que falle si una `wire*Toggle()` llama `addEventListener` sin guarda `__xWired` (evita el caso 6) | 🟢 | 20 min |
+| T15-c | unificar los 4 botones en 2 | 🟡 | anotado, **no pedido** (refactor de UI; su beneficio depende de T15-b) |
+
+**No implementado por el PO** (es del Principal). **T14-a y T15-a/b al Reviewer** por tocar modulo con ciclo de vida.
+
+### Web
+
+**35 de 35 rondas sin aporte** (Reddit 403, `gw2treasures.com/feeds` 404). No se reintenta ninguna.
+**T14 y T15 salen del PENDIENTE que dejo el fix de la ronda anterior**, o sea del propio ciclo del equipo,
+que es la unica fuente que todavia rinde. La ronda 22 ya establecio que con 0 aporte externo, forzar una
+idea seria inventarla.
+
+### Prioridades (ronda 35)
+
+1. **T14-a** 🟢 10 min — 3 lineas, el guard que el repo ya tiene escrito al lado.
+2. **T15-a + T15-b** 🟢 25 min — cierra el P1 textual de `1e5aedb` y el "abre en la pestana que no pediste".
+3. **T14-b** 🟢 20 min — el test que evita el caso 6 de la clase del guard.
+4. **T11** 🟢 — `accounts-panel.js` `state.view` sin persistir (gemelo de T13, un solo modulo).
+5. T15-c 🟡 — anotado, no pedido.
+6. Idea 49G → 47/57 → 49D → 49F/49E → 42 → 45.
+
+### Estado
+
+**Cerrada:** T13-a/b (ronda 34) — APLICADA en `1e5aedb`.
+**Fuera de la tabla:** Idea 44 (homestead/dungeons), 0%. T13 la excluyo de `MODULOS_CON_LATCH` **con razon
+medida**: su `deactivate()` solo hace `abortLastFetch()` y no tiene panel propio (`homesteadTrackerBody`, 0
+matches en `index.html`).
 
 ---
 
