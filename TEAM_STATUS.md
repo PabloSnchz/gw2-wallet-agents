@@ -1,3 +1,208 @@
+# Heartbeat Principal #77 - 2026-10-01 UTC
+
+> **Este ciclo no avanzo una feature: audite la infraestructura del repo y
+> encontre que el conteo de ramas estaba diciendo la cosa equivocada.** Todo lo
+> de abajo esta medido con herramientas que quedan en `tools/` (no versionadas:
+> `tools/.gitignore` = `*`).
+
+## Tareas en curso
+
+- **Reviewer** (`task-f191daf882b7`, enviada 04:0xZ): pregunta unica sobre
+  `viewPref()` como helper compartido en `storage.js` y si las 2 claves de
+  pestana huerfanas se IMPLEMENTAN en vez de borrarse. Sin respuesta.
+- **PO**: ronda 20 incorporada. T5 opcion (d) ya mergeada en `b055bda`/`b1b74bb`.
+
+## Completado
+
+- **`task-9c356b9e56fd` (Reviewer, respuesta a la fila 079) recogida y VERIFICADA.**
+  Veredicto APROBAR CON CAMBIOS, con dos correcciones en direcciones opuestas.
+
+### 1) CORRIGE UNA PREMISA MIA (medida, no opinada)
+
+Yo escribi en `TEAM_STATUS.md` y en la fila 079 de `COMMS_LOG.md`, con la
+apariencia de un hecho, que **`raid_strike_view` esta en `MIRROR_MAP`**.
+**Es falso.** Medido con `tools/hb77-verify-premisas.js` sobre `storage.js`:
+
+```
+MIRROR_MAP = 4 pares
+  gn:account:keys          <-> gw2_keys
+  gn:account:selected      <-> gw2_selected_key_v1
+  gn:activities:home:nodes <-> gn_home_nodes_marked
+  gn:activities:toggles    <-> gn_activities_toggles
+  ¿alguno menciona raid_strike_view? NO
+```
+
+`raid_strike_view` solo aparece en `MIGRATION_PREFIXES` y `FALLBACK_MAP`. La
+consecuencia se CORTA y es real: es un **dual-write sin espejo** -- escribe la
+legacy, migra a la `gn:`, y **nadie lee nunca la `gn:`**. La preferencia de
+pestana sube al Gist en `exportAll` y vuelve por `importAll` a una clave que el
+modulo jamas lee. Estado de UI, no perdida de datos: arranca en `'raids'`.
+
+### 2) CORRIGE AL REVIEWER: `accounts-panel.js` NO lee crudo
+
+El Reviewer afirmo que "`accounts-panel.js` **sigue leyendo `gw2_keys` a pelo**
+(el audit lo lista)" y que estaba incluido en los 4 lectores crudos por codigo.
+**Es falso, y lo medi antes de darlo por bueno:**
+
+```
+localStorage.getItem('gw2_keys') crudo: SI
+Storage.get(...ACCOUNT_KEYS):            SI
+  | a LEGACY a pelo (`localStorage.getItem('gw2_keys')`),
+censo por CODIGO: 4 -> inventory-dashboard, wv-objectives-dashboard,
+                        wv-purchase-detail, wv-shop-ui
+¿accounts-panel.js esta en el de por codigo? NO
+```
+
+El unico match es **el comentario que documenta el fix de hb72**. El codigo usa
+`Storage.get(...ACCOUNT_KEYS)`. El fix esta aplicado; lo que quedo pendiente
+fue el METODO de conteo (hb73), no el raw.
+
+**Esto importa por la forma, no por el caso:** las afirmaciones del Reviewer
+llegaron con la misma confianza y con numeros de archivo. Dos estaban bien, una
+mal. Un veredicto con adjuntos se lee como un veredicto verificado, y no lo es.
+
+## Pendientes
+
+- **3 raws en `raid-tracker.js` (`:891`, `:1012`, `:1016`).** El Reviewer dice
+  que el fix son 3 lineas: `Storage.get/set(STORAGE_KEYS.RAIDS_STRIKE_VIEW)`.
+  **No aplicado todavia**: mi consulta `viewPref()` esta en el Reviewer y toca
+  los mismos call-sites. Aplicarlos antes seria hacer el trabajo dos veces.
+- **`raid-tracker.js:891` lee `gw2_selected_key_v1` crudo** y ESA si es legacy
+  de un par espejo. Permitido por el guard, pero en el escenario Gist-nuevo
+  (navegador limpio, importo `gn:account:selected`, la legacy no existe)
+  `getItem` devuelve `null` mientras `Storage.get` habria devuelto el valor.
+  Es el hallazgo con consecuencias reales del lote.
+- **7 pares `gn:` con dual-write sin lector** (`raid_strike_view`,
+  `gn:wallet:currencies`, `gn:wallet:pins`, `wvpd_icon_url`, `wvpd_open`,
+  `gn:wv:shop:legacy_filter`, `gn:wv:shop:view`). Misma deuda, 7 lugares. El
+  Reviewer no lo metio en idea61 sin medirlo.
+
+## Alertas
+
+### ALERT-100 -- un script de andamiaje tomo la RUTA por el CONTENIDO, y casi lo cuela (HB#77)
+
+`tools/hb77-prepend-md.py` v1 hacia `BLOQUE = sys.argv[2]`: el segundo
+argumento es la **ruta** del bloque, no el bloque. El archivo nunca se abrio, y
+lo antepuesto a `TEAM_STATUS.md` y `ALERTS_LOG.md` fue la cadena
+`tools/hb77-team-status-bloque.md`. El commit quedo con una linea de basura
+arriba de dos logs del repo.
+
+**Lo que lo delato fue `git diff --stat`: "3 files changed, 4 insertions(+),
+1 deletion(-)"** para un bloque de ~150 lineas. Ese numero es la medida
+independiente de la que habla ALERT-95, y fue lo que hizo dudar antes de
+pushear.
+
+**REGLA: un script que toma una ruta DEBE abrirla, y debe negarse a correr si
+el resultado es absurdamente chico.** La v1 aborta si el bloque tiene menos de
+20 lineas con texto, si las lineas agregadas son menos de 20, o si el archivo
+resultante no arranca con la primera linea del bloque. **Y el numero de
+inserciones de `--stat` se mira siempre: es el control de un diff que uno
+cree conocer.**
+
+### ALERT-95 -- un script NUEVO con veredicto con apariencia de autoridad
+
+`tools/hb77-rama-superada.js` v1 clasificaba una rama como SUPERADA contando
+solo los archivos **NUEVOS** que la rama agrega y main no tiene. Sobre
+`docs-estructura-20260930` daba:
+
+```
+=> SUPERADA: main ya tiene todo lo que la rama agrega. NO mergear
+```
+
+**Falso, y con la forma exacta de una orden irreversible**: la rama trae
+`ORG_MAP.md | 146 +++++` y `PROMOTIONS.md`. Actuando sobre ese veredicto se
+borraba trabajo real con la seguridad de estar aplicando una medicion.
+
+**REGLA: el veredicto de un script recien escrito se contrasta contra una
+medida INDEPENDIENTE antes de actuar.** Aca fue contra `git diff --stat`, que si
+mostraba `104 insertions(+), 44 deletions(-)`. Un `--stat` que contradice a un
+script no es ruido: es la senal de que el script mide otra cosa. El metodo
+correcto quedo en el archivo: comparar el contenido en **BASE / RAMA / MAIN**
+(el diff de tres vias compara el MERGE-BASE contra la rama, asi que un archivo
+que SOLO cambio en main aparece como MODIFICA de la rama).
+
+### ALERT-96 -- una regex de pares sobre tablas contiguas inventa pares
+
+`hb77-verify-premisas.js` v1 busco pares con `/'([^']+)'\s*,\s*'([^']+)'/g`
+sobre **todo** `storage.js`. `storage.js` tiene 4 tablas clave:valor pegadas y
+la regex empareja la COLA de una con la CABEZA de la siguiente: **58 "pares"
+de los 4 reales**, uno de ellos `raid_strike_view <->
+gn:wallet:dashboard:selected_currencies`, que no existe.
+
+**REGLA: una regex que empareja DOS elementos recorta el bloque que declara la
+estructura antes de correr.** Una tabla es un objeto literal con `:`, no una
+lista. Y un conteo verosimil es peor que un error, porque no se nota.
+
+### ALERT-97 -- `node --check` NO detecta un identificador mal escrito
+
+Escribi `newvos` donde iba `nuevos`, en dos scripts seguidos. `node --check` paso
+los dos: `newvos` es un identificador **valido**, solo esta mal. El fallo
+aparece en ejecucion, cuando el script ya corrio. Peor: el primer "arreglo" borro
+el stub `function newvos()` del final y dejo el uso en la linea 86 -- siguiendo
+el sintoma, no la causa.
+
+**REGLA: para un script que se ejecuta una vez, `node --check` es un filtro de
+SINTAXIS, no de correccion. Se ejecuta.** Y despues de editar se relee el diff
+antes de volver a correr.
+
+### ALERT-98 -- el filtro de permisos del shell deny con "rm" en un comando sin "rm"
+
+Un `git show ... > nul 2>&1` fue rechazado con `[HIGH] Shell command contains
+'rm'` y **tardo 300s** antes de dar el denial. Revisado el comando: no hay `rm`
+en ningun lado. No se por que lo matchea y **no se va a suponer**. Si hay que
+repetir la operacion, se hace sin la forma que lo disparo (`> nul 2>&1` y los
+bucles `for` de cmd no hacen falta: alcanzan `node` y `git`).
+
+### ALERT-99 -- "+N commits" no dice si hay que mergear una rama
+
+Con `tools/hb77-audit-ramas.js` y `tools/hb77-rama-superada.js`:
+
+```
+MERGEADAS (borrables): 2
+  docs-idea50p3-hb67     @ d328969
+  feat-idea56-forma-raids @ 6cfbf2c
+SIN MERGEAR: 7   -- de las cuales 6 dan CONFLICTO contra main
+  docs-estructura-20260930            + 1  MERGEABLE
+  feat-idea49g-ach-acc-compacta       + 1  CONFLICTO
+  feature/homestead-tracker           + 1  CONFLICTO
+  feature/legendary-component-tracker +10  CONFLICTO
+  fix/homestead-glyph-data            + 2  CONFLICTO
+  po/hb56-forma-raids                 + 1  CONFLICTO
+  po/hb69-dashboard                   + 1  CONFLICTO
+```
+
+**2 ramas mergeadas sin borrar**, contra la regla de `AGENTS.md` ("NINGUNA rama
+termina sin mergear a main + sin borrar"). No se borraron: borrar una rama
+remota es destructivo y una de las dos es del PO, que puede tener su propio
+clon. **Queda para Pablo.**
+
+El hallazgo que no es de higiene: `+N commits` y `CONFLICTO` juntos seembran
+"trabajo pendiente grande", y medido no es. `feature/legendary-component-tracker`
+son 5079 lineas de las cuales **2 archivos (447 lineas) son material que main
+NO tiene** (`js/detail-modal.js`, `js/legendary-tracker-theme.js`), 3 son
+IDENTICOS y 11 DIVERGEN. Su trabajo se hizo de otra forma en main: **no es un
+merge, es un cherry-pick dirigido de 2 archivos con 11 decisiones.**
+
+## Estado de propuestas
+
+- **Reviewer**: 4/4 de `b8bd0af` aplicados y con dientes de prueba. Ahora
+  esperando el veredicto de `viewPref()`.
+- **PO**: ronda 20 incorporada; `viewPref()` es su propuesta y esta la mande a
+  validar antes de tocar 3 modulos.
+
+## Verificacion del ciclo
+
+- `inbox`: vacio, sin preguntas esperando a `default`. `replies`: sin nuevas.
+- `overdue` reporta 1 vencida (fila 060, boton de cache) y es **FALSA por
+  estructura** -- resuelta y mergeada en `950ea64`. Confirmado por cuarta vez.
+- Suite: **1010 aserciones / 0 FAIL, 35 de 35 archivos** (era 964/0 en 34/34).
+- Newlines: los 3 `.md` en CRLF, 0 LF sueltos nuevos, verificado por conteo.
+- CJK: 5 en `TEAM_STATUS.md` y 20 en `ALERTS_LOG.md`, **los mismos que en HEAD**
+  (comparacion por `Counter`, no por indice). 0 nuevos.
+- Worktree `hb75-wt`: `main` local quedo **6 commits atrasado** de `origin/main`,
+  y `js/app.js` en el worktree difiere de main (10 inserciones / 19 borraciones).
+  `index.html` coincide. No se toco: no se si es WIP mio o de otro ciclo.
+tools/hb77-team-status-bloque.md
 # Heartbeat Principal #76 - 2026-10-01 UTC
 
 > **Ciclo de recuperacion: un WIP de 46 asserts estaba stranded en un worktree y

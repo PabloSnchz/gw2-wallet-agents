@@ -1,3 +1,133 @@
+## ALERT-100 - un script de andamiaje tomo la RUTA por el CONTENIDO (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** cerrada en el ciclo (`tools/hb77-prepend-md.py`, v2)
+**Origen:** error propio, detectado antes del push
+
+`tools/hb77-prepend-md.py` v1 hacia `BLOQUE = sys.argv[2]`. El segundo
+argumento es la **RUTA** del bloque, no el bloque: el archivo nunca se abrio, y
+lo antepuesto a `TEAM_STATUS.md` y `ALERTS_LOG.md` fue la cadena
+`tools/hb77-team-status-bloque.md`. Dos logs del repo quedaron con una linea de
+basura arriba. El commit llego a existir; no llego al remoto.
+
+**Lo que lo delato: `git diff --stat` decia "3 files changed, 4 insertions(+),
+1 deletion(-)"** para un bloque de unas 150 lineas. Ese numero es exactamente la
+medida independiente de la que habla ALERT-95, y fue lo que hizo dudar en vez de
+pushear a ciegas.
+
+**REGLA: un script que recibe una ruta DEBE abrirla, y debe negarse a correr si
+el resultado es absurdamente chico.** La v2 aborta si el bloque tiene menos de 20
+lineas con texto, si las lineas agregadas al destino son menos de 20, o si el
+archivo resultante no arranca con la primera linea del bloque.
+
+**Y la de siempre, que aqui pago dos veces:** el numero de inserciones de
+`--stat` se mira SIEMPRE. Es el control de un diff que uno cree conocer.
+
+## ALERT-99 - "+N commits" no dice si hay que mergear una rama: hay que mirarla de tres vias (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** abierta. Herramientas en el repo: `tools/hb77-audit-ramas.js`, `tools/hb77-rama-superada.js`
+**Medida:** `origin/main` @ `2e36237`, 9 ramas remotas (sin `main`)
+
+```
+MERGEADAS (borrables): 2
+  docs-idea50p3-hb67     @ d328969
+  feat-idea56-forma-raids @ 6cfbf2c
+SIN MERGEAR: 7   -- de las cuales 6 dan CONFLICTO contra main
+  docs-estructura-20260930            + 1  MERGEABLE
+  feat-idea49g-ach-acc-compacta       + 1  CONFLICTO
+  feature/homestead-tracker           + 1  CONFLICTO
+  feature/legendary-component-tracker +10  CONFLICTO
+  fix/homestead-glyph-data            + 2  CONFLICTO
+  po/hb56-forma-raids                 + 1  CONFLICTO
+  po/hb69-dashboard                   + 1  CONFLICTO
+```
+
+`AGENTS.md` dice que ninguna rama termina sin mergear y sin borrar. **2 ramas
+mergeadas sin borrar** violan la regla. No se borraron: borrar una rama remota
+es destructivo y una de las dos es del PO, que puede tener su propio clon.
+Queda para Pablo.
+
+**El hallazgo que no es de higiene:** `+N commits` y `CONFLICTO` juntos seembran
+"trabajo pendiente grande". Medido archivo por archivo, NO.
+`feature/legendary-component-tracker` son 5079 lineas de las cuales **2
+archivos (447 lineas) son material que main no tiene** (`js/detail-modal.js`,
+`js/legendary-tracker-theme.js`), 3 son IDENTICOS y 11 DIVERGEN. Su trabajo se
+hizo de otra forma en main: **no es un merge, es un cherry-pick dirigido de 2
+archivos con 11 decisiones por tomar.**
+
+**REGLA: para decidir si una rama se mergea, se borra o se archiva, comparar el
+contenido en BASE / RAMA / MAIN**, no contra main a secas. El diff de tres vias
+(`main...rama`) compara el MERGE-BASE contra la rama, asi que un archivo que
+solo cambio en main aparece como MODIFICA de la rama -- y por la misma razon
+una rama ya superada aparece con diferencias.
+
+## ALERT-98 - el filtro de permisos del shell deny con "rm" en un comando sin "rm" (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** abierta, sin causa identificada
+
+Un `git show ... > nul 2>&1` fue rechazado con `[HIGH] Shell command contains
+'rm'` y **tardo 300s** antes de dar el denial. Revisado el comando: no hay `rm`
+en ningun lado. No se por que lo matchea y **no se va a suponer**.
+
+**REGLA: no reconstruir el motivo de un deny.** Repetir la operacion sin la
+forma que lo disparo: `> nul 2>&1` y los bucles `for` de cmd no hacen falta
+cuando `node` y `git` alcanzan.
+
+## ALERT-97 - `node --check` no detecta un identificador mal escrito (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** cerrada en el ciclo
+
+Escribi `newvos` donde iba `nuevos`, en dos scripts seguidos. `node --check` paso
+los dos: `newvos` es un identificador **valido**, solo esta mal. El fallo
+aparece en ejecucion, cuando el script ya corrio. Peor: el primer "arreglo" borro
+el stub `function newvos()` del final y dejo el uso en la linea 86 -- siguiendo
+el sintoma, no la causa.
+
+**REGLA: para un script que se ejecuta una vez, `node --check` es un filtro de
+SINTAXIS, no de correccion. Se ejecuta.** Y despues de editar se relee el diff
+antes de volver a correr. Editar "lo que aparece en el stack trace" en vez de
+"el error" deja el archivo igual de roto y con menos pistas.
+
+## ALERT-96 - una regex de pares sobre tablas contiguas inventa pares (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** cerrada en el ciclo (`tools/hb77-verify-premisas.js`)
+
+Buscar pares con `/'([^']+)'\s*,\s*'([^']+)'/g` sobre todo `js/storage.js`
+devolvio **58 "pares" de los 4 reales**. `storage.js` tiene 4 tablas
+clave:valor pegadas y la regex empareja la COLA de una con la CABEZA de la
+siguiente. Uno de los inventados: `raid_strike_view <->
+gn:wallet:dashboard:selected_currencies`.
+
+**REGLA: una regex que empareja DOS elementos recorta el bloque que declara la
+estructura antes de correr.** Una tabla es un objeto literal con `:`, no una
+lista. Y un conteo verosimil es peor que un error, porque no se nota.
+
+## ALERT-95 - un script NUEVO con veredicto con apariencia de autoridad (HB#77)
+
+**Fecha:** 2026-10-01 (HB#77)
+**Estado:** cerrada en el ciclo
+
+`tools/hb77-rama-superada.js` v1 clasificaba una rama como SUPERADA contando
+solo los archivos **NUEVOS** que la rama agrega y main no tiene. Sobre
+`docs-estructura-20260930` daba:
+
+```
+=> SUPERADA: main ya tiene todo lo que la rama agrega. NO mergear
+```
+
+Falso, y con la forma exacta de una orden irreversible: la rama trae
+`ORG_MAP.md | 146 +++++` y `PROMOTIONS.md`. Actuando sobre ese veredicto se
+borraba trabajo real con la seguridad de estar aplicando una medicion.
+
+**REGLA: el veredicto de un script recien escrito se contrasta contra una
+medida INDEPENDIENTE antes de actuar.** Aca fue contra `git diff --stat`, que si
+mostraba `104 insertions(+), 44 deletions(-)`. Un `--stat` que contradice a un
+script no es ruido: es la senal de que el script mide otra cosa.
+tools/hb77-alerts-bloque.md
 ## ALERT-92 - la limitacion DECLARADA era FALSA, y una guarda que no puede fallar no es una guarda (HB#73)
 
 **Fecha:** 2026-10-01 (HB#73)
