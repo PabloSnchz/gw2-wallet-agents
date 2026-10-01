@@ -115,7 +115,7 @@ select:disabled { opacity:.55; cursor:not-allowed; }
 }
 .side-nav__link:hover { background:var(--bg-2); border-color: var(--bd-1); color: var(--tx-1); }
 .side-nav__link.is-active { background:var(--bg-2); border-color:var(--bd-2); color: var(--tx-1); }
-.side-nav__icon { width:18px; height:18px; display:grid; place-items:center; flex: 0 0 18px; }
+.side-nav__icon { width:18px; height:18px; place-items:center; flex: 0 0 18px; }
 
 .side-nav__link:focus-visible {
   outline: 2px solid var(--acc-1);

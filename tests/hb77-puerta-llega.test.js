@@ -111,25 +111,37 @@ section('3. el clasificador NO puede pisar un mensaje que ya es especifico');
 // "no se parece a account + wallet" — afirmamos que lo que el codigo hace es
 // conservarlo. Si manana la puerta se reescribe y tira otro mensaje, el test
 // 1 vuelve a evaluarlo contra el fixture y avisa.
-ok(r.msg === mensajePuerta && r.kind === 'perms',
-   'el mensaje vuelve IDENTICO y con el mismo kind que antes de pasar por aca',
-   'kind=' + r.kind);
+// P3 (HB#85): el `kind` se SACO de parseKeyError. No lo leia nadie y sus 7
+// valores mapean TODOS a 'info' en normalizeType, asi que cablearlo al toast
+// volveria azul cada 401/429/error de red. La asercion queda sobre el `msg`,
+// que es lo que Pablo ve, y el fixture de arriba es el que la sostiene.
+ok(r.msg === mensajePuerta,
+   'el mensaje vuelve IDENTICO, sin reescribir ni perder una palabra',
+   'llego: ' + JSON.stringify(r.msg).slice(0, 120));
 
 /* Un mensaje de la API que NO es de la puerta: el clasificador tiene que
    seguir clasificando, no quedarse mudo. Esto es lo que impide que el fix
    sea "dejar de clasificar" en vez de "clasificar sin pisar". */
+// El `kind` se fue (P3), asi que la clasificacion se verifica por el TEXTO que
+// cada rama devuelve: es el dato que se muestra, y 4 textos distintos se
+// pueden afirmar de forma independiente. Si alguien colapsa el clasificador en
+// una sola rama, 4 de estas 4 aserciones mueren.
 const otros = [
-  ['Invalid access token (HTTP 401)', 'invalid'],
-  ['HTTP 403 forbidden', 'forbidden'],
-  ['HTTP 429 rate limit', 'rate'],
-  ['fetch failed: error de conexion', 'network'],
+  ['Invalid access token (HTTP 401)', 'Key inválida (HTTP 401)'],
+  ['HTTP 403 forbidden', 'Key prohibida (HTTP 403)'],
+  ['HTTP 429 rate limit', 'Demasiadas peticiones (HTTP 429)'],
+  ['fetch failed: error de conexion',
+   'Error de red: no se pudo conectar a la API de GW2'],
 ];
-for (const [msg, kindEsperado] of otros) {
+for (const [msg, textoEsperado] of otros) {
   const rr = parseKeyError({ message: msg });
-  ok(rr.kind === kindEsperado,
-     'sigue clasificando "' + msg.slice(0, 34) + '" como ' + kindEsperado,
-     'dio kind=' + rr.kind);
+  ok(rr.msg === textoEsperado,
+     'sigue clasificando "' + msg.slice(0, 30) + '" en su propio texto',
+     'dio: ' + JSON.stringify(rr.msg).slice(0, 90));
 }
+// El campo muerto no puede volver por la puerta de atras.
+ok(!('kind' in r) && !('kind' in parseKeyError({ message: 'HTTP 401' })),
+   'parseKeyError NO vuelve a exponer `kind` (0 productores, 0 consumidores)');
 
 section('4. el caso 403 de la API (subtoken con allowlist) no es el de la puerta');
 // La wiki de /v2/tokeninfo dice que un subtoken restringido puede devolver 403
@@ -137,8 +149,9 @@ section('4. el caso 403 de la API (subtoken con allowlist) no es el de la puerta
 // "forbidden", NO "permisos", porque el diagnostico es otro: la key esta bien,
 // lo que falla es que el subtoken no llega a ese endpoint.
 const r403 = parseKeyError({ message: 'HTTP 403' });
-ok(r403.kind === 'forbidden', 'un 403 crudo sigue siendo forbidden, no perms',
-   'kind=' + r403.kind);
+ok(r403.msg === 'Key prohibida (HTTP 403)',
+   'un 403 crudo conserva su propio texto, no el de la puerta',
+   'dio: ' + JSON.stringify(r403.msg).slice(0, 90));
 ok(!/account\s*\+\s*wallet/.test(r403.msg || ''),
    'el 403 crudo no arrastra el mensaje de la puerta');
 

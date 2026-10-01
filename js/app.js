@@ -212,7 +212,14 @@
       const kind = normalizeType(type);
       const el = makeToastEl(kind, msg);
       host.appendChild(el);
-      const ttl = Number(opts.ttl || 3500);
+      // `opts.ttl || 3500` se tragaba el 0: 0 es falsy, asi que `ttl: 0` -- la
+      // UNICA forma documentada de pedir persistente -- subia a 3500 y el toast
+      // se autodestruia a los 3,5 s. `??` separa "no informado" de "informado 0".
+      // Un NEGATIVO tambien queda persistente (no hay timer): es lo que hacia
+      // antes, ahora escrito en vez de oculto. Prohibirlo en el contrato seria
+      // inventar una regla que el codigo no tiene; la prohibion verificable
+      // vive en el test, que afirma que ningun call-site pasa un negativo.
+      const ttl = Number(opts.ttl ?? 3500);
       const timer = ttl>0 ? setTimeout(close, ttl) : null;
       function close(){ if(timer) clearTimeout(timer); el.classList.add('toast--out'); setTimeout(()=>el.remove(),180); }
       el.querySelector('.toast__close')?.addEventListener('click', close);
@@ -632,16 +639,25 @@
     setStatus('Cargando datos…');
     // Propuesta 9: toast persistente (ttl:0) con feedback de carga
     const loadToast = window.toast?.('info', 'Cargando wallet…', { ttl: 0 });
-    await ensureCurrencies();
-    const [acct, w] = await Promise.all([API.account(token).catch(() => null), API.wallet(token)]);
-    state.accountName = acct?.name || '—'; state.wallet = w || [];
-    el.ownerLabel && (el.ownerLabel.textContent = state.accountName);
+    // El toast es persistente, asi que cerrarlo es RESPONSABILIDAD de esta
+    // funcion. El close estaba solo en el camino feliz: API.wallet no tiene
+    // .catch, un fallo de red saltaba esa linea y el toast quedaba pegado. Con
+    // el `||` el bug no se ve (a los 3,5 s se va solo), o sea que estaba
+    // enmascarado; con el ttl ya arreglado aparece. Por eso el `finally` va en
+    // el MISMO commit y no en uno aparte.
+    try {
+      await ensureCurrencies();
+      const [acct, w] = await Promise.all([API.account(token).catch(() => null), API.wallet(token)]);
+      state.accountName = acct?.name || '—'; state.wallet = w || [];
+      el.ownerLabel && (el.ownerLabel.textContent = state.accountName);
 
-    // Migración favs→pins (si aplica)
-    migrateFavsToPinsIfNeeded();
+      // Migración favs→pins (si aplica)
+      migrateFavsToPinsIfNeeded();
 
-    setStatus('Listo.', 'ok'); render();
-    loadToast?.close();
+      setStatus('Listo.', 'ok'); render();
+    } finally {
+      loadToast?.close();
+    }
   }
 
   /* ==================== KeyManager ================== */
@@ -1068,12 +1084,12 @@
     // que la puerta exigiera 7 — y ese texto pisaba el detalle, que se
     // construia bien y no se mostraba nunca. Un error de la API con la palabra
     // "permisos" conserva ahora su propio texto en vez de perderlo.
-    if (/permisos/i.test(m)) return { msg: m, kind: 'perms' };
-    if (/HTTP 401/i.test(m)) return { msg: 'Key inválida (HTTP 401)', kind: 'invalid' };
-    if (/HTTP 403/i.test(m)) return { msg: 'Key prohibida (HTTP 403)', kind: 'forbidden' };
-    if (/HTTP 429/i.test(m)) return { msg: 'Demasiadas peticiones (HTTP 429)', kind: 'rate' };
-    if (/fetch|conexi|network|red/i.test(m)) return { msg: 'Error de red: no se pudo conectar a la API de GW2', kind: 'network' };
-    return { msg: m || 'Error desconocido', kind: 'unknown' };
+    if (/permisos/i.test(m)) return { msg: m };
+    if (/HTTP 401/i.test(m)) return { msg: 'Key inválida (HTTP 401)' };
+    if (/HTTP 403/i.test(m)) return { msg: 'Key prohibida (HTTP 403)' };
+    if (/HTTP 429/i.test(m)) return { msg: 'Demasiadas peticiones (HTTP 429)' };
+    if (/fetch|conexi|network|red/i.test(m)) return { msg: 'Error de red: no se pudo conectar a la API de GW2' };
+    return { msg: m || 'Error desconocido' };
   }
 
   // === Propuesta 3: Validación local de formato (antes de enviar a la API) ===
@@ -1162,8 +1178,8 @@
 
         // Propuesta 8: parsear error específico
         const isTimeout = err.name === 'AbortError';
-        const { msg, kind } = isTimeout
-          ? { msg: 'Timeout: la API de GW2 no respondió en 10s.', kind: 'timeout' }
+        const { msg } = isTimeout
+          ? { msg: 'Timeout: la API de GW2 no respondió en 10s.' }
           : parseKeyError(err);
 
         // Propuesta 4: marcar error
