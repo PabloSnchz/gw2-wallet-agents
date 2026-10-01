@@ -1,3 +1,136 @@
+# Heartbeat Principal #86 — 2026-10-01 07:30–08:0x UTC
+
+> Ciclo de **cierre de deuda de documentacion**. No agrego features: el codigo
+> que el Reviewer apruebo en HB#81 (P1/P2/P3) ya esta entero en `main` desde
+> HB#84/HB#85. Lo que quedaba era el agujero que rodeaba al codigo, y encima
+> faltaban los logs de dos ciclos.
+
+## Lo que se entrego
+
+- **ALERT-108 a ALERT-112 RESCATADAS** (`ALERTS_LOG.md`, +128 lineas). Estaban
+  escritas en el WIP sin commitear de `hb81-wt` y **nunca llegaron a `main`**, pero
+  si sus referencias: `COMMS_LOG.md` filas 087/088 y `TEAM_STATUS.md` las
+  citaban como si existieran. Ver ALERT-115.
+- **`tools/audit-alert-refs.mjs`** (nuevo): indexa los ids definidos en
+  `ALERTS_LOG.md` y lista toda referencia `ALERT-n` de los `.md` de la raiz que
+  no resuelve. Acepta `--alerts=<ruta>` y `--docs=<dir>` para medir un commit
+  anterior sin tocar el arbol. Sale 1 si hay huerfanas, 2 si el extractor fallo.
+- **`tools/probe-cjk.mjs`** (nuevo): el detector que la ALERT-112 pedia y que no
+  existia en el repo. **REPORTA, no juzga**: los 8 aciertos de `ALERTS_LOG.md` son
+  texto corrupto citado a proposito como evidencia.
+- **Fila 088 de `COMMS_LOG.md` cerrada** con los 3 veredictos del Reviewer.
+
+## El hallazgo del ciclo: 7 ALERTs se citaban desde 4 archivos committed y no existian
+
+Medido con el mismo script sobre el mismo arbol, antes y despues:
+
+| arbol | ALERTs definidos | referencias | huerfanas | ids huerfanos |
+|---|---|---|---|---|
+| `a5ec94f` (HEAD al empezar) | 103 | 524 | **16** | 20, 22, 30, 86, **108**, **110**, **112** |
+| este ciclo | 108 | 549 | 13 | 20, 22, 30, 86 |
+
+Las 5 en negrita son las rescatadas. Las 13 referencias huerfanas que quedan son
+4 ids (**`ALERT-20`, `ALERT-22`, `ALERT-30`, `ALERT-86`**) y **5 de esas 13 son
+las del propio informe que las nombra**: la auditoria cuenta sus propias
+referencias, asi que el script imprime los ids distintos como cifra de cabeza.
+**Quedan ANOTADAS, no resueltas.** Escribir un ALERT para explicar por que no
+hay un ALERT es fabricar el hallazgo que el numero no sostiene.
+
+## Lo que casi se reportaba y no se reporto
+
+La primera version del extractor de definiciones solo reconocia **titulos**
+(`## ALERT-n`) y reporto **343 referencias huerfanas**, porque las filas de
+tabla `| **ALERT-n** |` — que son la mayoria de las definiciones — le parecian
+referencias. Un numero **25 veces mayor que el real**, salido de un regex que
+escribi ese mismo ciclo. Lo unico que lo impidio fue el **CONTROL** del script:
+si el conjunto de definidos baja de 100, sale con codigo 2 y se niega a dar un
+total. Ese control es lo que hay que escribir en cualquier contador nuevo, y es
+mas barato que las 343.
+
+## Verificacion
+
+- Suite completa: **1123 pass / 0 FAIL, 41 archivos contados, STATUS=0**. Sin
+  `SIN ASERCIONES`. Es el numero que pedia el Reviewer como condicion de merge
+  de HB#81 ("no se aprueba hasta que el STATUS sea 0 y el numero que reportas
+  sea el que sale"): **los 2 archivos que el runner no contaba ya se cuentan por
+  resumen** (`alert86` 31, `idea57t4` 14, `idea84` 46).
+- `node tools/audit-alert-refs.mjs`: **CONTROL ok, 109 definidos, 4 ids
+  huerfanos** (la cifra sube a 108->109 porque la ALERT-115 misma define una).
+- `node tools/probe-cjk.mjs`: CONTROL ok (ve su canario). Sin CJK en los 2
+  archivos nuevos y en la ALERT-115.
+- EOL: `ALERTS_LOG.md` quedo con **14 LF pelados** al anexar el addendum con un
+  one-liner de `cmd` donde `\$` llego al regex como dollar literal y el trim no
+  ocurrio. Medido (crlf 1798 / lf 1812) y normalizado con un script que **se
+  niega a normalizar si el archivo es mayormente LF**. Final: 1812/1812. Es el
+  hueco de TEAM_STATUS en HB#77, repetido por la misma causa: un one-liner en
+  vez de un script con guardas.
+
+## Tareas en curso
+
+- **Reviewer**: sin nada en vuelo. Las 3 preguntas de la fila 088 llegaron
+  completas y las 3 estan aplicadas.
+- **PO**: ronda 26 recibida (fila 090). T7 era real y ya lo cubre `1f0fd6e`.
+- **Documentador**: sin tarea. La regla de no-fallback sigue vigente.
+
+## Completadas (verificado en `origin/main`, no de memoria)
+
+- **P1 — el contrato del `ttl`.** `app.js:222` es `Number(opts.ttl ?? 3500)`
+  (no `||`), y `loadAllForToken` tiene el `try/finally` que hacia falta para que
+  el toast persistente no se cuelgue en error de red. En `1f0fd6e`.
+- **P2 — `.side-nav__icon`.** `theme-polish.css:118` ya **no** declara
+  `display:grid`; la capa 1 conserva `inline-grid`. Era el unico choque de capa
+  2 vivo de los 29.
+- **P3 — `kind` de `parseKeyError`.** `git grep kind -- js/app.js` da **0**. Las
+  6 ramas y el destructure se fueron, y `hb77-puerta-llega.test.js` se ajusto
+  en el **mismo** commit, como pedia el Reviewer.
+
+## Pendientes / alertas
+
+- **ALERT-115 (nueva).** Ver arriba. El agujero es de una clase entera: **los
+  `.md` no se validan** y la suite no los mira.
+- **`ALERT-20`, `ALERT-22`, `ALERT-30`, `ALERT-86` siguen huerfanas.** La mas
+  alcanzada es la 86, citada desde `COMMS_LOG.md`, `SESSION_LOG.md` y
+  `TEAM_STATUS.md`. No se inventan.
+- **`TEAM_STATUS.md` tiene huecos: faltan los ciclos #82, #84 y #85.** Los
+  tres commitearon codigo y ALERT-113/114 pero ninguno actualizo el estado del
+  equipo, que es lo que la regla de `AGENTS.md` pide en cada heartbeat. Este
+  ciclo cierra el #86 y deja el hueco anotado.
+- **La instancia duplicada.** `origin/main` esta en `a5ec94f` desde las 04:19 y
+  este ciclo es el primero que escribe desde ahi. La verdad sigue siendo
+  `origin/main`, no el clon compartido, que seguia en `11285a0` — un commit que
+  **no es ancestro de `main`**. Todo el trabajo de este ciclo fue en el
+  worktree nuevo `hb86-wt`, sin tocar el clon compartido ni los worktrees de
+  la otra instancia.
+- **11 worktrees vivos** (5 de ellos de esta familia). Sigue sin decidirse si se
+  limpian: es decision de Pablo y borrar worktrees con WIP ajeno es lo unico
+  que no hago sin que lo pida.
+- **2 ramas remotas ya mergeadas y sin borrar**
+  (`docs-idea50p3-hb67`, `feat-idea56-forma-raids`): contra la regla de
+  `AGENTS.md`. No las borro.
+
+## Estado de propuestas
+
+- **Reviewer: 3/3 aplicadas** (P1, P2, P3), mas los 3 hallazgos que no
+  pregunte y tambien cerrados: el runner de suite, el artefacto del scanner CSS
+  (esta en `main.css` tambien, no solo en `theme-polish.css`) y el
+  `.an-hero{min-height:240px}` muerto por el `!important` de `main.css:1239`.
+- **PO: 1 propuesta received** (ronda 26), y su propuesta **chocaba con un
+  assert** de `hb80` que defendia el defecto. No se aplico: hay veredicto del
+  Reviewer en vuelo sobre esa misma linea. Ese veredicto ya llego y la aplico
+  `1f0fd6e`.
+- **Sin propuestas pendientes de envio.**
+
+## Lo que NO se hizo, y por que
+
+- **No se borro el WIP de `hb81-wt`.** Se rescue lo que era evidencia (las 128
+  lineas de ALERT) y se dejo el resto. `_hb81_probe.html` sigue ahi y las 159
+  lineas de `TEAM_STATUS.md` de ese ciclo no se copiaron: HB#83 ya escribio una
+  seccion para el #81, y pegar dos versiones del mismo ciclo seria peor que
+  dejar una.
+- **No se escribieron las 4 ALERTs huerfanas que faltan.** Ver arriba.
+- **No se hizo la ronda 27 al PO.** No hay 3+ propuestas que mandar al Reviewer, y
+  la ronda 26 ya no dejo nada sin aplicar.
+
 # Heartbeat Principal #83 — 2026-10-01 UTC
 
 > Ciclo de **cierre**: dos ciclos mios quedaron con commits sin mergear y este

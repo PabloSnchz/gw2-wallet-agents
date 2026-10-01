@@ -1488,6 +1488,134 @@ no "se perdieron 49 asserts". Y el numero cuadra por la via corta: **965 base +
 23 del test de cuentas + 11 del de permanencia = 999**. Los 3 numeros se
 suman contra una medicion previa, que es la unica forma de que un total sea un
 dato y no una cifra.
+
+## ALERT-108 - `!important` en la capa 2: no es un hallazgo, y casi lo mandé como tal
+
+**Estado.** Hipótesis minha al ver `.panel-head { ... !important }` en
+`theme-polish.css`: "la capa de piel viola la regla de no-`!important` de
+AGENTS.md". Medido antes de escribir la pregunta al Reviewer: `theme-polish.css`
+tiene **~50 declaraciones `!important`** (líneas 106, 145, 146, 203, 209, 312,
+441, 447 y muchas más).
+
+**Por qué la hipótesis era falsa por partida triple.** No es una violación
+aislada: son decenas. No es necesariamente indebido: buena parte es
+deliberada. Y **el propio archivo documenta una eliminación de `!important` en
+curso** (comentarios en `:1466`, `:1499`, `:1509`, `:1521`). O sea, es una
+decisión del equipo con un plan escrito, y yo estaba por reportar una de sus
+líneas como defecto.
+
+**Regla.** Un `grep` que encuentra **muchas** ocurrencias de una regla violada no
+está simulando un defecto: está describiendo una política. La pregunta "¿esto
+viola la regla?" **solo tiene sentido para un hallazgo puntual y contextual**. Y
+la pregunta que sí valía la pena, y que seeral Reviewer, no era por el
+`!important` sino por la regla de capas: el defecto de `.toasts` fue la **capa 2
+siendo dueña de una propiedad estructural** (`z-index`), no el `!important`.
+
+## ALERT-109 - `ALERT-107` estaba en parte FALSO: los 2 tests sí emiten resumen, y el "cota inferior" de ayer era artificial
+
+**Estado.** `ALERT-107` afirmó que 2 tests "no emiten asercion en el formato que
+parsea", y de ahí a reportar 999 como cota inferior. **Los dos emiten linea de
+resumen, y los dos se parsean sin problema:**
+
+- `tests/alert86.censo-clasificacion.test.js` → **`31 pass / 0 FAIL`**, exit 0.
+  Imprime sus aserciones como `[1] título` y ADEMÁS cierra con el resumen. No
+  "no emite aserciones": el runner de ayer contaba lineas que arrancan con
+  `OK`/`PASS` (por ALERT-61) y por eso no veía la linea de cierre.
+- `tests/idea84-leyenda-pipeline.test.js` → **`46 pass, 0 FAIL`**, exit 0, **con
+  el `FetchError` en stderr** (`1 de 3 ids pedidos no volvieron`). O sea: la
+  premisa de ALERT-107 de que "el fetch falló, así que no emitio ninguna
+  asercion" es **falsa**: el test tolera el id faltante y afirma 46 cosas igual.
+  Lo que sí es cierto, y sigue valiendo, es que es **dependiente de la red**: su
+  aporte puede variar entre corridas.
+
+**Consecuencia sobre el total.** Ayer se reportaron 999. Sumando los 2 archivos
+que el runner no contaba: 999 + 31 + 46 = 1076. El total de hoy es
+**1094 pass / 0 FAIL, 40 de 40 archivos, 0 INDETERMINADOS**, o sea **exacto**, no
+cota inferior.
+
+**La descomposición fina NO cuadra y no se maquilla.** 999 + 46 + 31 + 16 (el test
+nuevo) − 4 (el de permanencia bajó de 11 a 7 aserciones al repararse) = 1088, y
+lo medido es 1094. **Quedan 6 sin explicar y no los persigo**: preferí reportar
+el residuo escrito a inventarle una causa. La parte que sí está medida es la que
+importa: **77 de las 95 del salto eran dos archivos que el runner de ayer no veía.**
+
+**Regla.** "No lo puedo parsear" y "no emite" son afirmaciones distintas, y la
+segunda se tiene que **ejecutar el archivo y mirar la salida** antes de escribir
+la alerta. El runner que cuenta mal **es** un bug del runner; el archivo de
+test no estaba roto.
+
+## ALERT-110 - un test puede extraer la mitad del problema y después afirmar que el problema entero está resuelto
+
+**Estado.** `tests/hb80-toast-permanencia.test.js` daba verde y afirmaba que el
+toast de la puerta era persistente. Su mecanismo:
+
+1. extraía con una regex el **literal del call-site** (el `0`) y evaluaba **ese
+   literal** → `0`;
+2. **no componía** con la **resolución del calle** (`Number(opts.ttl || 3500)`)
+   → el temporizador veía **3500**.
+
+Y dos asserts más abajo afirmaba que el fallback `opts.ttl || (\d+)` **existía**,
+citándolo como prueba de que "el 0 es explícito y no un default silencioso":
+**localizaba por regexp la expresión que se come el 0 y la reportaba como
+garantía.** Los dos asserts eran mutuamente contradictorios. Los dos PASABAN.
+
+**Por qué es alerta y no anécdota.** Es la **tercera** variante de la misma
+familia (ALERT-100, 105, 106): **afirmar algo que el dato no soporta**. Pero esta
+tiene una forma propia y transferible: *todo test que extraiga un valor del
+call-site tiene que componerlo con la resolución del calle antes de afirmar
+nada*. Si no compone, está midiendo un número que el programa nunca usa.
+
+**Reparado, no borrado.** El archivo tenía cobertura que el test nuevo no tiene
+(las dos salidas: reloj y botón de cerrar; y la guarda de los mensajes cortos).
+Borrarlo habría tirado esa cobertura. Ahora los dos tests se complementan: el
+ttl resuelto por el calle y la cascada de z-index son de `hb81`, las dos salidas
+son de `hb80`.
+
+## ALERT-111 - el driver bloqueó un `del` y la denegación fue por TIMEOUT, no por política
+
+**Estado.** Iba a borrar `tests/hb80-toast-permanencia.test.js` con `del`. El
+permiso se denegó con el mensaje de que podía causar pérdida de datos y la
+denegación llegó **por timeout (300 s)**: el gate no llegó a responder. **La
+denegación es final y no se reintentó**; la vía fue reparar el archivo en lugar de
+borrarlo (ALERT-110), que además resultó mejor.
+
+**Lo que queda en pie.** Es un borrado de un archivo **propio**, en un worktree
+propio, que nunca se completa. Si hace falta de verdad, la alternativa es
+`git rm` en el stage, que no es un borrado en disco. **Y la lección de fondo:** un
+ciclo que dependía de borrar se resolvió **sin borrar**, y se resolvió mejor. La
+dependencia estaba mal planteada.
+
+## ALERT-112 - mi generación de texto se corrompe, y ya van 4 en 2 ciclos (2 de ellas en mensajes a otros agentes)
+
+**Estado.** Cuatro casos, y **dos_RECORDADOS en ciclos anteriores**, o sea que
+viene de antes y no es de este ciclo:
+
+1. `TEAM_STATUS.md:1660` (ciclo **HB#80**, ya registrado en su momento):
+   "Se me colaron `我们采集` y `采纳` **en el cuerpo del mensaje del P3 al
+   Reviewer**". O sea: **al Reviewer le llegó un mensaje con basura CJK**, y no se
+   detectó hasta que alguien lo leyó en el log.
+2. (HB#80) **otra** corruptción en otro mensaje al Reviewer, con una conclusión
+   opuesta sobre el mismo código. Dos mensajes corruptos en un ciclo, en la misma
+   dirección.
+3. (este ciclo) **dos probes con un espacio perdido después de `const`**:
+   `constESTRUCT` y `const_FILES`. El primero lo escribí yo; el segundo lo
+   detectó el `ReferenceError` y lo corregí.
+4. (este ciclo) un encabezado de test con `尚` pegado, y el **mensaje al PO** con
+   `T6窑y el Reviewer-Cksealaron` y un `-Ademas` pegado al punto anterior. El
+   mensaje al PO **salió con la basura**, y no hay forma de editarlo: ya se envió.
+
+**Por qué el caso 3 es el peligroso.** `const X = ...` escrito `constX = ...` es
+**sintaxis válida**: asigna una global implícita. **`node --check` NO lo
+detecta.** El síntoma aparece como `ReferenceError: ESTRUCT is not defined` en
+runtime, lejos de la causa y con un mensaje que apunta al identificador equivocado.
+Es **la misma clase que el `newvos`/`nuevos` de HB#78**.
+
+**Regla.** Después de escribir un probe, **correrlo inmediatamente**, antes de
+seguir. Un `ReferenceError` en la primera línea ejecutable es casi siempre un
+espacio perdido, no un bug de lógica. Y para texto largo destined a personas u
+otros agentes, **pasarlo por un detector de caracteres no-ASCII antes de
+mandarlo** (`tools-hb81/probe-cjk.js`): el ojo no la agarra, y en este ciclo la
+basura llegó a dos mensajes.
 ## ALERT-113 - el runner contaba la LINEA DE RESUMEN como si fuera una asercion, y los dos errores se cancelaban en el total
 
 **Estado.** HB#82 arreglo el runner (contaba lineas por asercion y no el
@@ -1610,3 +1738,75 @@ archivo que se modifico, no solo los que el script dijo**. Cuando el probe dice
 "problema" en todos los archivos, **la primera hipotesis es que el probe esta
 mal** -- un control que falla el 100% de las veces no esta finderando un
 defecto, esta fallando.
+
+## ALERT-115 - 7 ALERTs estaban referenciadas desde 4 archivos committed y no existian nunca, y ningun test lo veia
+
+**Estado.** `COMMS_LOG.md` y `TEAM_STATUS.md` (los dos **committed**) citan
+`ALERT-108`, `ALERT-110` y `ALERT-112` como si fueran entradas existentes de
+`ALERTS_LOG.md`. **No existian.** En `a5ec94f` la auditoria da **16 referencias
+huerfanas a 7 ids distintos** (`20`, `22`, `30`, `86`, `108`, `110`, `112`),
+repartidas en 4 archivos de la raiz mas el propio `ALERTS_LOG.md`.
+
+**De donde vino el hueco.** Las 5 ALERT-108..112 se escribieron en el ciclo
+HB#81 como **documentacion sin commitear** (291 lineas en `hb81-wt`, de las que
+128 eran el bloque de `ALERTS_LOG.md`). HB#83 rescato parte de ese WIP y escribio
+`ALERT-113` y `ALERT-114` sobre el mismo material, **pero no las 5 anteriores**.
+O sea: el rescate fue parcial y nadie lo noto, porque los 2 documentos que las
+citan se commitearon igual y quedaron apuntando al vacio.
+
+**Por que no lo agarro nada.** Los `.md` no se validan. La suite corre
+`tests/*.test.js` y no mira documentacion. No hay ningun test, script ni hook que
+compruebe que una referencia cruzada resuelva. **Es un agujero de una clase
+entera, no de estas 5 lineas.**
+
+**El instrumento: `tools/audit-alert-refs.mjs`.** Indexa los ids definidos en
+`ALERTS_LOG.md` (de las 2 formas en que se definen: titulo `## ALERT-n` y fila
+de tabla `| **ALERT-n** |`) y lista toda referencia `ALERT-n` de los `.md` de la
+raiz que no resuelve. Acepta `--alerts=<ruta>` y `--docs=<dir>` para poder
+medir un commit anterior sin tocar el arbol.
+
+**Lo que mas importa de esta ALERT es el fallo del instrumento, no el
+instrumento.** La primera version del extractor solo reconocia **titulos**, y
+reporto **343 huerfanas**: las filas de tabla, que son la mayoria de las
+definiciones, quedaron como no definidas. O sea, un numero **25 veces mayor que
+el real**, producido por un regex recien escrito, exactamente la familia de
+ALERT-61 y ALERT-104. Lo unico que impidio reportarlo fue el **CONTROL** del
+script: si el conjunto de definidos baja de 100, sale con codigo 2 y se niega a
+reportar un total. Ese control es lo que hay que escribir en cualquier contador
+nuevo, y es mas barato que las 343.
+
+**Medicion antes/despues, con el mismo script:**
+
+| arbol | definidos | referencias | huerfanas | ids huerfanos |
+|---|---|---|---|---|
+| `a5ec94f` (HEAD antes de este ciclo) | 103 | 524 | **16** | 20, 22, 30, 86, 108, 110, 112 |
+| este ciclo | 108 | 535 | **8** | 20, 22, 30, 86 |
+
+Las 4 que quedan (`ALERT-20`, `ALERT-22`, `ALERT-30`, `ALERT-86`) **no se
+inventan**: son referencias a entradas que nunca se escribieron, y la mas
+alcanzada es `ALERT-86`, citada desde `COMMS_LOG.md`, `SESSION_LOG.md` y
+`TEAM_STATUS.md`. Quedan **ANOTADAS, no resueltas**: escribir un ALERT para
+explicar por que no hay un ALERT es fabricar el hallazgo que el numero no
+sostiene.
+
+**Regla.** Una referencia cruzada en un archivo committed es una afirmacion
+sobre la existencia de otra cosa, y tiene el mismo estatus que cualquier otra
+afirmacion: **o se verifica, o no se escribe.** Y si el log es la unica
+evidencia, la verificacion tiene que ser un comando, no una lectura.
+
+
+**Addendum (escrito despues de correr el script, y es parte del hallazgo).** La
+auditoria **cuenta sus propias referencias**: este parrafo cita `ALERT-20`,
+`ALERT-22`, `ALERT-30` y `ALERT-86`, asi que el total de referencias huerfanas
+subio de 8 a 13 al escribirlo. Por eso el script imprime como cifra de cabeza
+los **ids distintos** (4, estable) y no el conteo crudo, y avisa cuando parte
+del total es el propio informe. Sin eso, el unico trabajo de este ciclo habria
+sido hacer subir el numero que venia a medir.
+
+**Y una ocurrencia en vivo de ALERT-112, en este mismo ciclo.** Al redactar esta
+ALERT se me colaron dos ideogramas en el cuerpo (`/account` donde iba una
+palabra, y un caracter colado en "el real"), y los perdi en la lectura. Los
+atrapo `tools/probe-cjk.mjs` **antes** de anexar el bloque, que es exactamente
+el uso que la 112 pedia. El detector tiene ademas un **canario** que verifica
+ver su propia basura: sin el, un detector roto daria "0 hallazgos" con la misma
+autoridad que uno sano.

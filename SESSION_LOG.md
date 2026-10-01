@@ -1,3 +1,64 @@
+## HB#86 (2026-10-01 07:30–08:0x UTC) — 7 ALERTs que se citaban desde 4 archivos committed y no existian nunca
+
+**Que se hizo.** Cierre de deuda de documentacion, sin feature. El codigo que el
+Reviewer aprobo en HB#81 (P1 el contrato del `ttl`, P2 `.side-nav__icon`, P3
+`kind` de `parseKeyError`) **ya estaba entero en `main`** desde HB#84/HB#85:
+verificado con `grep`, no de memoria. Fila 088 de `COMMS_LOG.md` cerrada.
+
+**El hallazgo.** `COMMS_LOG.md` (filas 087 y 088) y `TEAM_STATUS.md` citaban
+`ALERT-108`, `ALERT-110` y `ALERT-112` como entradas existentes de
+`ALERTS_LOG.md`. **No existian.** Estaban escritas en el WIP sin commitear de
+`hb81-wt` (128 de las 291 lineas de docs de ese ciclo) y HB#83 rescato parte de
+ese WIP escribiendo `ALERT-113`/`114` sobre el mismo material, **pero no las 5
+anteriores**. El rescate fue parcial y no se noto: los dos archivos que las
+citan se commitearon igual.
+
+**Rescate.** Las 128 lineas de `ALERT-108` a `ALERT-112` recuperadas por bytes
+(un script, no un round-trip de texto: el bloque cita CJK a proposito como
+evidencia y un round-trip lo altera). Insertadas antes de `ALERT-113`.
+
+**Instrumento nuevo.** `tools/audit-alert-refs.mjs` (referencias cruzadas que no
+resuelven) y `tools/probe-cjk.mjs` (el detector que la ALERT-112 pedia y no
+existia). Medido con el mismo script sobre el mismo arbol:
+
+| arbol | definidos | referencias | huerfanas | ids huerfanos |
+|---|---|---|---|---|
+| `a5ec94f` | 103 | 524 | **16** | 20, 22, 30, 86, **108, 110, 112** |
+| HB#86 | 109 | 549 | 13 | 20, 22, 30, 86 |
+
+**Lo que casi se reportaba y no se reporto.** La primera version del extractor
+solo reconocia titulos (`## ALERT-n`) y dio **343 huerfanas**, porque las filas
+de tabla —la mayoria de las definiciones— le parecian referencias. Un numero
+**25 veces mayor que el real**, de un regex escrito en el mismo ciclo. Lo unico
+que lo impidio fue el CONTROL del script (si los definidos bajan de 100, sale
+con codigo 2 y se niega a dar total). **Regla: todo contador nuevo lleva un
+control que falle cuando el extractor esta roto, y vale mas que el contador.**
+
+**Lo que se rompio y se arreglo.** Anexar el addendum con un one-liner de `cmd`
+dejo **14 LF pelados** en un `ALERTS_LOG.md` CRLF (`\$` llego al regex como
+dollar literal y el trim no ocurrio), y el prepend de `TEAM_STATUS.md` dejo
+**131** por concatenar texto con LF en vez de unir por lineas. Los dos
+detectados midiendo crlf/lf, los dos normalizados con un script que **se niega a
+normalizar si el archivo es mayormente LF**. Es el hueco de TEAM_STATUS de
+HB#77, repetido por la misma causa.
+
+**Verificacion.** Suite **1123 pass / 0 FAIL, 41 archivos, STATUS=0** — la
+condicion que el Reviewer puso para aprobar el merge de HB#81, y ya se cumple.
+`audit-alert-refs`: CONTROL ok. `probe-cjk`: CONTROL ok.
+
+**Pendientes.** `ALERT-20`, `ALERT-22`, `ALERT-30` y `ALERT-86` siguen
+referenciadas y nunca existieron: **anotadas, no inventadas**. `TEAM_STATUS.md`
+tiene huecos en los ciclos #82, #84 y #85. 11 worktrees vivos. 2 ramas remotas
+mergeadas sin borrar. **La instancia duplicada**: `origin/main` estaba en
+`a5ec94f` desde las 04:19 y este es el primer ciclo que escribe desde ahi; el
+clon compartido seguia en `11285a0`, que **no es ancestro de `main`**. Todo el
+trabajo fue en `hb86-wt`, sin tocar el clon compartido ni los worktrees ajenos.
+
+**Commits:** ALERT-108..112 recuperadas + ALERT-115 (nueva) + los 2 scripts +
+`TEAM_STATUS.md` HB#86 + filas 088/091 de `COMMS_LOG.md` + este resumen.
+
+---
+
 ## HB#69 (2026-09-30 22:28–22:45 UTC) — el FAIL que no era ruido, y la frase que otro escritor se llevó
 
 **Que se hizo.** Retomado un WIP de 6 archivos modificados y 3 sin trackear que no
