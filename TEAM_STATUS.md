@@ -1,4 +1,116 @@
 # TEAM STATUS — Bóveda del Gato Negro
+# Heartbeat Principal #73 — 2026-10-01 01:40–02:20 UTC
+
+> **Ciclo de auditoria: el Reviewer acerto en sus 4 puntos, y su propia guarda
+> propuesta era una que NO puede fallar.** Las dos cosas se midieron, no se
+> creyeron. Lo que sale del ciclo es una regla: **antes de agregar una guarda,
+> MEDIR si puede fallar.**
+
+## Lo que cambio: una limitacion DECLARADA era un hecho FALSO
+
+ALERT-91 (el ciclo anterior) declaraba que el stripper de comentarios solo fallaba
+con "cadenas multilinea con `//`". Eso era cierto y no media lo que importa.
+
+La causa real es `//` **dentro de un literal de una linea** con codigo real
+despues. `accounts-panel.js:832`:
+
+    fetch('https://api.guildwars2.com/v2/account/home/nodes?access_token=' + x)
+
+El stripper corta en `//` y se lleva `://api.guildwars2.com/... + x)).json();`.
+
+| Lo que se declaraba | Lo que se midio (`tools/hb73-probe.js`) |
+|---|---|
+| "este archivo esta limpio" | **20 de los 42 archivos de `js/`** tienen al menos una linea asi |
+| "0 backticks pegadas a `//`" | Era cierto y medi la pregunta equivocada: comillas simples, una sola linea |
+
+**Y la direccion del fallo es la peor posible: BORRAR solo puede hacer que un
+assert NEGATIVO pase, nunca que falle.** Demostrado con `tools/hb73-mutate.js`:
+con el LECTOR CRUDO de la Idea 64 en una linea con URL, el assert negativo de la
+seccion 6 **da PASS**. Solo la guarda nueva lo delata.
+
+## El hallazgo contra el Reviewer: la guarda 2 era TAUTOLOGICA
+
+Propuso "las llaves del texto crudo balancean". Medido: eso es **0 por
+construccion**, porque `cuerpoDeMetodo` retorna solo cuando el depth llega a 0.
+No puede fallar nunca — seria un `ok(true, ...)` disfrazado, la misma
+enfermedad que este ciclo le saca a `idea61:193` y `:235`.
+
+La que si puede fallar compara dos conteos (llaves CRUDAS == llaves SIN
+comentarios). Y el caso que vigila es serio (`tools/hb73-probe3.js`): **una sola
+llave desbalanceada en un comentario hace que el extractor devuelva 709 lineas
+en vez de 34**, es decir, se come el resto del archivo. Con un assert POSITIVO eso
+hace matchear codigo de otra funcion.
+
+## El censo de idea61 contaba su propia documentacion
+
+`idea61:234` contaba por TEXTO y daba 5. El quinto era `accounts-panel.js`, cuyo
+unico match era el comentario que documenta el fix de la Idea 64. El mismo
+comment-injection que apagaba el assert de idea64 estaba **inflando el censo de
+idea61 en el mismo heartbeat**. Por codigo son **4**, y el `>= 5` seguia verde.
+
+## Verificacion (fase roja por mutacion, no solo en verde)
+
+| Chequeo | Resultado |
+|---|---|
+| idea64 con el fix | 30 pass / 0 FAIL (era 28) |
+| **M1** LECTOR CRUDO en linea con URL | guard1 **FAIL**, y el negativo **PASS**: la guarda es lo que lo salva |
+| **M2** llave en la prosa | guard2 **FAIL**, y guard1 tambien (el extractor se comio la funcion siguiente) |
+| **M3** guarda tautologica del Reviewer | 0 por construccion: no se puede construir el caso que la haga fallar |
+| idea61: mutar `wv-shop-ui.js` a leer por `Storage` | censo **PASS(4) -> FAIL**, restaurado -> PASS(4) |
+| Suite completa | **883 aserciones / 0 FAIL**, 32 de 32 |
+| Newlines y CJK en los 3 `.md` | preservados; 0 CJK nuevos |
+
+**El total no se movio (883) y la red si:** +2 guardas que pueden fallar, -2
+asserts que no podian. Mismo numero, distinta red.
+
+Dos errores de arnes **mios**, del mismo modo que ALERT-79: mi primer detector de
+lineas peligrosas contaba mal las comillas y reportaba **0** mientras la medicion
+directa probaba que el codigo se borraba; y mi primer mutador indexaba el texto
+**strippeado** pero mutaba el array **crudo** (el strip colapsa lineas), asi que
+mutaba la linea equivocada y el piso no bajaba. Los dos errores salieron por un
+assert que exigia el numero, no por leer el codigo.
+
+## Estado del equipo
+
+| Agente | Estado |
+|---|---|
+| **Code-Reviewer** | OPERATIVO. Respondio la fila 077 con P1/P2/P3/P4 y 3 preguntas de criterio. Veredicto: **aprobar con cambios**. |
+| **PO** | Respondio la fila 078: ronda 20 escrita, y T5 con una **cuarta** opcion que no estaba en la lista. |
+| **Documentador** | heartbeat 4h. Sin novedad este ciclo. |
+
+**PASO 0 (canal `_comms`):** inbox vacio, sin preguntas esperando a `default`,
+sin respuestas nuevas. `overdue` reporta 1 vencida (fila 060, boton de cache) y
+es **FALSA** otra vez: esta resuelta y mergeada en `950ea64`, verificado hoy.
+
+## T5: la cuarta opcion del PO (descarta 3 y propone una)
+
+El PO medido sobre el catalogo de 206 y el input faltante:
+- **(a) versionar el JSON** — no: dentro de 6 meses el build *funciona* y
+  produce el catalogo viejo. Un proceso que funciona mintiendo.
+- **(b) test de cantidad** — tal como estaba escrito es tautologico (`206 ===
+  206`) o convierte la suite offline en la unica con red.
+- **(c) dependencia externa no gestionada** — falsa: son endpoints publicos.
+  Congelar para siempre con una etiqueta que suena a aceptada.
+- **(d) versionar el SCRIPT QUE BAJA** — el patron ya esta al lado
+  (`_fetch_thematic_prices.py`), y hoy el repo tiene el *transformador* del
+  catalogo y le falta el que lo **baja**.
+
+Ademas: el input faltante tiene **dos** consumidores, no uno.
+
+## Pendiente
+
+- **T5 (d)**: ~1 h, es la que mas duerde porque hoy el refresh depende de que el
+  PO "se acuerde", y no hay forma de regenerar el catalogo.
+- **Pregunta al Reviewer que dejo el PO**: `raid-tracker.js` tiene 3 operaciones
+  crudas sobre claves legacy que estan en `MIRROR_MAP`. El guard de la Idea 61 no
+  las excluye. ¿Las tolera o deberia prohibirlas tambien?
+- **`viewPref()`**: 2 superficies de pestanas con persistencia parcial y 2 claves
+  huerfanas ya registradas en la whitelist. Arregla 2 superficies sin crear feature.
+- La ronda 20 del PO esta en su workspace, no en el mirror.
+
+---
+
+
 
 # Heartbeat Principal #72 — 2026-10-01 00:05–00:50 UTC
 
