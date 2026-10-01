@@ -1,9 +1,93 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T07:00:00Z (Heartbeat PO ronda 25 — 🔴 **T7: `{ttl: 0}` es inalcanzable** (`app.js:215` `Number(opts.ttl || 3500)`): los 2 toasts que piden permanencia viven 3500 ms, y el fix del HB80 `585367d` no logró lo que su propio test afirma · 🟢 los toasts que nacen dentro de un `.modal` son **5, no 3** — el fix de z-index `b1fe9e7` los cierra juntos y **no está mergeado**)
+> Actualizado: 2026-10-01T08:00:00Z (Heartbeat PO ronda 26) **T7: el call site ya esta arreglado, la linea 215 no** (`Number(opts.ttl || 3500)`) - **y arreglarlo ROMPE un assert que hoy pasa** (`hb80-toast-permanencia.test.js` seccion 3: exige `opts.ttl || (\d+)`, la misma expresion que causa el bug) => **T7 son 2 lineas, no 1** - **la clase es 1 caso en 46 modulos** (`opts.x || <n>`: 1 match; `toast.legacy:221` es el gemelo, a arreglar en la misma pasada) - **5 sitios de `wv-purchase-detail.js` no normalizan `purchase_limit`**: P3, sin caso vivo verificado (no se puede confirmar sin token)
 > Mantenedor: PO (product-owner)
 
 
+
+---
+
+## ACTUALIZACION 2026-10-01 08:00 UTC — Heartbeat PO ronda 26 — **T7 no se implemento, y el test que lo bloquea afirma la razon por la que no se puede**
+
+> **Espejo de la ronda 26 del PO.** Detalle largo en `PRE_BACKLOG.md` (privado). Esta ronda **no abre idea ni tramo nuevo**: su producto es **el fix de T7 cerrado con su test**, mas un **censo que responde si la clase es 1 caso o una familia**.
+
+### 1) NOVEDADES: sin idea nueva. **24 de 24 rondas** de web research sin feature externa
+
+Reddit `/r/Guildwars2` → **403** (24 de 24, probé también la variante `.json`). gw2treasures `/feeds` → **404** (24 de 24). El único resultado GW2 toolado fue FarmingTracker (Raidcore), que además usa un **DRF Token** (servicio externo) — **no abro idea**: contradice el criterio de Pablo de "todo en el navegador, sin servidores externos". Queda anotado como P3 descartado para que no vuelva a salir.
+
+### 2) T7: el call site ya esta arreglado, la linea que lo anula no
+
+`agents/main` @ **`d970995`** (sin cambio desde el cierre de la ronda 25). Dato nuevo de esta ronda: el fix del HB80 (`585367d`) **si puso `{ ttl: 0 }` en `app.js:1180`**. O sea que el paso 1 de T7 ya se dio — **falta solo la linea 215**:
+
+| call site | pide | obtiene | lee 411 chars? |
+|---|---|---|---|
+| `app.js:634` (`'Cargando wallet...'`) | `ttl: 0` | **3500 ms** | no aplica (cortos) |
+| **`app.js:1180`** (puerta de permisos) | `ttl: 0` | **3500 ms** | **~16 s de lectura contra 3,5 s** |
+
+```js
+app.js:215   const ttl = Number(opts.ttl || 3500);   // 0 es falsy -> el default pisa el cero
+app.js:216   const timer = ttl>0 ? setTimeout(close, ttl) : null;
+```
+
+### 3) LO NUEVO Y LO QUE CAMBIA EL ESTADO: **arreglar T7 rompe un test que hoy pasa**
+
+`tests/hb80-toast-permanencia.test.js`, seccion 3, assert 4:
+
+```js
+// El ttl por defecto, si alguien pasa un opts vacio, sigue siendo finito: el 0
+// es explicito en el call-site, no un default silencioso.
+const defTtl = app.match(/opts\.ttl\s*\|\|\s*(\d+)/);
+ok(!!defTtl, 'el ttl por defecto de toast() sigue siendo un numero finito', ...);
+```
+
+Con el fix de T7 este assert **deja de matchear y falla**. Y no es un assert accidental: su comentario afirma un requisito real (*"el default tiene que seguir siendo finito"*), y la expresion `opts.ttl || (\d+)` es la unica forma de garantizarlo con un `match`.
+
+**La paradoja, textual: el `||` es a la vez el defecto (se come el 0) y lo que el test garantiza (default finito).** El test no puede distinguir *"un `||` con default 3500"* de *"un `||` que se come el 0"*, porque **son literalmente la misma expresion**. *La forma que el bug necesita es la forma que la garantia necesita.*
+
+**El fix completo son 2 lineas, no 1.** La ronda 25 dijo "el assert 4 hay que cambiarlo" sin medir cuanto ni que tenia que decir el reemplazo. Medido:
+
+```js
+// app.js:215  — respeta el 0 explicito y mantiene el default finito
+const ttl = Number(opts.ttl === undefined ? 3500 : opts.ttl);
+
+// el assert baja de la FORMA al COMPORTAMIENTO, que es lo que su comentario
+// decia querer:  {ttl: 0} -> 0 (sin temporizador)   |   {} -> 3500 (finito)
+```
+
+### 4) El censo que responde la pregunta de la ronda: **la clase es 1 caso**
+
+Busque `(opts|o|options|config|params)\.<campo> \|\| <numero>` en los 46 modulos de `js/` + `index.html`:
+
+```
+origin/main:js/app.js:215    const ttl = Number(opts.ttl || 3500);
+```
+
+**1 coincidencia.** Con el patron ancho hay 200+ (`count || 0`, `cost || 0`, `size || 48`), pero **ninguna puede fallar**: ahi el valor legitimo y el default son el mismo (`0 || 0 === 0`). La condicion para que la clase exista es ***"el default es distinto del valor legitimo"*** — y hay **1**.
+
+**`toast.legacy` (`app.js:221`, `{ttl: ms||2500}`) es el mismo defecto con el mismo default distinto**, pero los 4 callers (`meta.js`) pasan `ms` posicional y ninguno tiene un `0` natural. **Se arregla en la misma pasada que `:215`; no es un ticket aparte.** Si se toca solo `:215`, `:221` queda como el gemelo que nadie vuelve a mirar.
+
+### 5) Anotado sin backlog (P3) — y explicitamente **NO verificado**
+
+- **`wv-purchase-detail.js` 5× `limit` sin normalizar** (`:1744/1781/1824/1883/2004`): usan `rowData.purchase_limit` a pelo, mientras **24 sitios del mismo repo** usan el patron guardado (`typeof X === 'number' ? X : null`, en `router.js` y `wv-shop-ui.js`). Si un item llega sin `purchase_limit`, el input permite `999` inventado, el boton MAX queda inerte (`data-limit="0"` + `if (maxLimit > 0)`) y el status imprime **literalmente `"Pendiente: null (0 AA)"`**.
+  **No se puede confirmar sin token de cuenta:** `/v2/items` devuelve `purchase_limit` en **0 de 958** items (ids 19000–20599, medido) — el campo solo existe en las listings de `/v2/account/commerce/listings`. **No hay caso vivo verificado, asi que no entra al backlog.**
+- `activities.js:713` (feedback de "copiado" a 200 ms, con un toast de 900 ms que dice lo mismo) · `gn:toast` (`legendary-tracker.js:124`, dispatch sin listener) · DRF como dependencia (descartado).
+
+### Prioridades al cierre
+
+1. **T7 — 2 lineas** (`:215` + assert 4). **PRIMERO.** El unico fix de 1 linea del backlog donde el unico obstaculo es el test que lo defiende.
+2. **T2-mini** (contador de cuentas con permisos incompletos) → 3. **T2** chips por fila → 4. **T4** (el import dice cuantas llegaron sin los 7)
+5. **49G** (`ach_acc` compacto — la que cierra la cuota) → 6. **47/57** (la capa que degrada a `[]` es la causa de que una key mala parezca una cuenta vacia) → 7. 49D → 49F/49E → 42 → 45
+8. **Idea 44: fuera de la tabla** (decimoctavo heartbeat en 0%).
+
+### Reglas que salen
+
+1. *Un test que afirma una forma no puede guardar una propiedad de esa forma.* El assert 4 exige `opts.ttl || (\d+)`; el fix correcto borra exactamente esa expresion. **El test y el bug son la misma linea leida con dos intenciones.** El reemplazo no es "arreglar el test para que pase": es **bajar la asercion de la forma al comportamiento**, que es lo que el comentario del test ya decia querer.
+2. *La clase se cierra cuando el valor legitimo y el default coinciden.* `count || 0` no es un caso porque no puede fallar; `ttl || 3500` si porque puede. **Un grep de `|| <n>` sin el filtro "default != legitimo" da 200 falsos positivos**, y se lee como "el repo entero tiene el bug".
+3. *Cuando dos modulos hacen lo mismo con convenciones distintas, el bug no esta en ninguno: esta en que uno de los dos va a ser el que se actualice.* 24 sitios normalizan `purchase_limit`, 5 no. Sin caso vivo verificado, **no entra al backlog** — pero el dia que haya uno, la causa va a ser "este archivo no normaliza", no "la API cambio".
+
+### Estado
+
+`agents/main` @ **`d970995`**. El fix de z-index de la ronda 25 sigue en `hb81-ciclo` @ `b1fe9e7`, **sin mergear**. Clon compartido en `fix-hb77-puerta-llega` con 2 untracked ajenos — **no lo toco** (ALERT-43/59). Trabajo en mi worktree limpio `wt-r22`, rama `po/hb77-dashboard`, solo `.md`, **no mergeo** (el PO no mergea).
 
 ---
 
