@@ -182,5 +182,10 @@ console.log('\n=== 7. La guardia: nada puede SEPARAR el par por la vuelta de atr
        'borradores: ' + (BORRADOR.join(', ') || '(ninguno)'));
 }
 
-console.log('\n' + (fail === 0 ? 'SUITE OK ' : 'SUITE CON FALLOS ') + ok + '/' + (ok + fail));
+// La linea de resumen tiene que llevar una de las 4 FORMAS que el runner
+// parsea (tools/run-suite.js:28-35), no una quinta. `ok` en vez de `pass` y la
+// barra sin la palabra `FAIL` hacen que el archivo cuente como exit 0 pero el
+// total de la suite lo reporte como "sin resumen", y el alcance queda parcial.
+// Mismo modo de falla que ALERT-109: el test pasa y no suma.
+console.log('\n' + (fail === 0 ? 'OK   ' : 'FALLOS ') + ok + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);
