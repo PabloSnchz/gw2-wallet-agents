@@ -3312,15 +3312,57 @@ resultado. ALERT-119 **no se cumplio** este ciclo (HEAD era ancestro de
 
 ## En curso
 
-- **`task-bbf65a6542fe` al Code-Reviewer**: T11 del PO, pregunta de **contrato
-  de UI**, no de strings. Dos controles con la misma forma visual significan
-  cosas opuestas: `wvShopToggleView` nombra el ESTADO y persiste;
-  `accountsToggleView` nombra la ACCION y no persiste nada (`state.view` no
-  tiene un solo `Storage.set` en todo `accounts-panel.js`). Las 3 opciones van
-  en el cuerpo; se acepta cualquiera si la justifica.
-- **T1-bis**: la rama `else` de `router.js:775-780` es codigo **MUERTO**
-  (`wv-shop-ui.js` con `defer` en `index.html:1009` antes que `router.js` en
-  `:1020`). Es lo unico que dependia de T1 y no se hizo. Preguntado al Reviewer.
+- **`task-bbf65a6542fe` al Code-Reviewer: RESPONDIDO** (verdict completo, ~4.5 k
+  caracteres). **APROBADO CON CAMBIOS: (a), y T1-bis ANTES que T11.**
+
+  El censo **cambio la pregunta**: no son 2 controles, son **5, y 4 de 5 nombran
+  la ACCION** (Cartera `app.js:616`, Cuentas `accounts-panel.js:568`, Personajes
+  `characters.js:1034`, Meta `meta.js:867`, Tienda `wv-shop-ui.js:192`). **La
+  Tienda es la unica que nombra el estado y la unica que persiste**: mi premisa de
+  "asimetria rara" era la excepcion, no el patron.
+
+  - **(a) = rotulo de ACCION, constante, 1 solo sitio.** Y la razon de fondo
+    explica el bug: *si el rotulo es constante se emite una vez; si es estado hay
+    que re-derivarlo en cada render, y por eso se multiplica por modulo*.
+  - **Sin los 3 canales, (a) seria una regresion**: rotulo (accion) +
+    `aria-pressed` (booleano) + `data-tip` (estado legible, porque
+    `aria-pressed` es invisible al mouse). El repo ya tiene sistema de tooltip.
+  - **(b) —persistir Cuentas— RECHAZADO**, con un criterio de informacion que no
+    esperaba: Tienda compara las **mismas** entradas en dos disposiciones;
+    Cuentas muestra **campos distintos**. **La asimetria de persistencia es una
+    consecuencia, no una inconsistencia, y no se arregla.**
+  - **(c) "documentar"** solo es sostenible *despues* de (a): con 4 strings, la
+    documentacion no puede seguir al codigo.
+  - **(d) (hacerlo `<select>`) RECHAZADO**: cambia un ghost por un select en una
+    toolbar densa, y no se mete de yapa.
+
+  **T1-bis: SI va antes, pero por VERIFICABILIDAD, no por dependencia.** Un
+  renombre de 4 literales dont3 estan en codigo muerto no lo cierra ningun test
+  (el test ve 1 de 4). Y el Reviewer **corrige un alcance que yo no medi**:
+  **T1-bis son ~130 lineas, no 5** — es una 2ª implementacion completa del
+  toolbar, incluida la **2ª definicion de `saveView` (`router.js:523`)**, o sea la
+  que escribia la clave que T1 acaba de congelar. Con eso **T1 queda confirmado**
+  como el cierre del unico writer vivo.
+
+  **Test de CENSO, no de ejecucion** (mismo criterio que
+  `idea50-censo-claves.mjs`): tiene que fallar cuando aparezca un 5º sitio, no
+  cuando cambie el string.
+
+  **Las 4 afirmaciones estructurales re-verificadas por mi contra `origin/main`:
+  CONFIRMAN** (los 2 guards `return`, el rotulo escrito en 4 sitios,
+  `root.WVShopUI` sin condicion, `aria-pressed` 3 veces en `js/`).
+
+  **Matiz que el Reviewer no levanta y queda para Pablo:** esa rama no es codigo
+  muerto puro, es un **fallback de fallo de carga**: si `wv-shop-ui.js` no carga,
+  `window.WVShopUI` es `undefined` y el camino alternativo **si corre**. Borrarlo
+  sin mas le quita a la app una degradacion.
+
+- **ALERT-129 (nueva)**: el Reviewer midi sobre el **clon compartido** `gw2-dev`
+  (en `4573f30`, 3 heartbeats atras) y no sobre `origin/main`; el aviso lo dio el
+  mismo. **3a manifestacion de "el clon compartido y la sesion paralela se
+  pisan", y la 1a que afecta al OTRO agente**: un arbol que no existe en ninguna
+  parte. Sus *conclusiones* no cambiaron al reconfirmarlas, pero una conclusion
+  correcta medida sobre el arbol equivocado no es una medicion.
 
 ## Cerrado
 

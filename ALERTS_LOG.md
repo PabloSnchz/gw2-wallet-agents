@@ -2926,3 +2926,51 @@ y la sesion paralela sigue existiendo.
   `MIRROR_MAP`, `router.js:257` ya usa `Storage.set` para la misma clave, y el
   test da **4 FAIL con el bug puesto / 11 pass con el fix**. Recien ahi se
   reaplico. Un WIP de otra sesion es un hypothesis, no un resultado.
+## ALERT-129 — el Reviewer midi sobre el clon COMPARTIDO, y por eso sus numeros de linea no son los de main
+
+El Reviewer aviso de esto solo, al final de su veredicto, y con la honestidad de
+poner la condicion: *"leí `gw2-dev` con las herramientas de archivo (el MCP me
+devolvió `driver_policy_denied`); **`gw2-dev` no tiene T1 aplicado** — los
+numeros de linea que cito son de `gw2-dev`, no de `origin/main`"*.
+
+**Esta es la 3a manifestacion de "el clon compartido y la sesion paralela se
+pisan", y la primera que afecta al OTRO agente.** El clon `gw2-dev` esta en
+`4573f30`, tres heartbeats atras. Todo agente que lea de ahi sin hacer `git
+fetch` esta leyendo un arbol que **no existe en ninguna parte**: no es ni
+`origin/main` ni el worktree de la sesion que escribio el fix.
+
+**Regla: cuando un veredicto venga con numeros de linea, se reconfirma contra
+`origin/main` antes de aceptarlo, y se dice en el commit si hubo desajuste.**
+Aca hubo un desajuste real (leeria `wv-shop-ui.js:222` con el bug puesto) y las
+*conclusiones* no cambiaron, pero una conclusion correcta medida sobre el arbol
+equivocado no es una medicion: la proxima vez el arbol equivocado puede invertir
+el veredicto.
+
+Medicion de control: los 4 greps del Reviewer **confirman** sus afirmaciones
+estructurales sobre `origin/main`:
+- **5 controles, no 2**: Cartera `app.js:616` (accion, `aria-pressed` en `:615`),
+  Cuentas `accounts-panel.js:568`, Personajes `characters.js:1034`, Meta
+  `meta.js:867`, Tienda `wv-shop-ui.js:192`. **4 de 5 nombran la accion; solo la
+  Tienda nombra el estado.** `aria-pressed` existe en `js/` exactamente 3 veces.
+- **El rotulo esta escrito en 4 sitios**: `router.js:484` (definicion),
+  `router.js:498` (pinta), `wv-shop-ui.js:192` (pinta),
+  `wv-shop-ui.js:338` (`syncShopToggleLabel`, vivo via `:408`).
+- **Codigo muerto, confirmado por lectura de los dos guards**: `router.js:775`
+  `if (window.WVShopUI) { ...; return; }` corta antes de `:784`, y
+  `router.js:1174-1178` corta antes de `:1182`. `wv-shop-ui.js` asigna
+  `root.WVShopUI` sin condicion (`tail`: `var WVShopUI = {...}; root.WVShopUI =
+  WVShopUI;`).
+
+**El matiz que el Reviewer NO levanta y queda anotado:** esa rama no es codigo
+muerto puro, es un **fallback de fallo de carga**: si `wv-shop-ui.js` no se
+carga (error de red, 404 en un despliegue viejo), `window.WVShopUI` es
+`undefined` y el camino alternativo **si corre**. Borrarlo sin mas es quitarle a
+la app una degradacion. **No es motivo para no borrarlo — el criterio de
+duplicacion manda igual — pero si es motivo para que la decision sea de Pablo y
+no un side effect de "limpiar codario muerto".**
+
+**Consecuencia aceptada:** el fix de T1 quedo validado dos veces. La primera por
+el control negativo/positivo del test (`4 FAIL` con el bug, `11 pass` sin el).
+La segunda porque el Reviewer, leyendo un arbol **sin** T1, **describio el
+comportamiento del bug** ("`wv-shop-ui.js:222` todavia tiene el
+`localStorage.setItem` a pelo") sin que se lo dijera nadie.

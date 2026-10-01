@@ -2786,3 +2786,21 @@ detener una de las dos instancias.**
   Pablo; borrar el worktree de otra sesion mientras corre seria peor que dejarlo.
 - **La sesion paralela sigue activa** y produce trabajo real (esta vez en disco, sin
   commitear). Detener UNA de las dos instances sigue siendo lo que mas rinde.
+## Cierre: el veredicto de T11 (anadido tras el push inicial)
+
+`task-bbf65a6542fe` -> **APROBADO CON CAMBIOS**. El censo lo dio vuelta a la
+pregunta: **5 controles, 4 de 5 nombran la ACCION**. La Tienda era la excepcion,
+no el patron. Se acepta (a) —rotulo de accion, constante, 1 sitio— **con 3
+canales obligatorios** (rotulo + `aria-pressed` + `data-tip`), porque sin el
+`data-tip` se le saca al control lo unico que decia en que vista estas.
+**(b) rechazado** con un criterio de informacion que no esperaba: Cuentas muestra
+campos distintos, no la misma inform en otra disposicion.
+
+**T1-bis (~130 lineas, no 5) va antes de T11 por verificabilidad**, y su test
+tiene que ser de **censo**, no de ejecucion. Con el, T1 queda confirmado como el
+cierre del unico writer vivo.
+
+**ALERT-129**: el Reviewer midi sobre el clon compartido `gw2-dev`, no sobre
+`origin/main`. El aviso lo dio el. Sus conclusiones no cambiaron al
+reconfirmarlas, pero un arbol que no existe en ninguna parte no es una medicion
+— es la 3a manifestacion de ALERT-119, y la 1a que afecta al OTRO agente.
