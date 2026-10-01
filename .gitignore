@@ -1,3 +1,26 @@
 node_modules/
 .DS_Store
 *.log
+
+# Snapshot crudo del catalogo de legendarias. NO se versiona a proposito:
+# lo regenera js/_fetch_legendary_items.py desde la API publica. Si se versiona,
+# dentro de 6 meses el build "funciona" y produce el catalogo viejo, que es
+# peor que no tener proceso: un proceso que funciona mintiendo.
+# La razon completa esta en el docstring del fetcher y la verifica
+# tests/idea84-leyenda-pipeline.test.js (seccion [f]) -- si esta regla y el
+# docstring se contradicen, el que cede es el docstring.
+js/_legendary_items_full.json
+js/_legendary_raw_cache/
+
+# Artefactos temporales de idea84. Los usa el test para regenerar el catalogo
+# sin pisar el versionado, y los tiene que borrar en el `finally`.
+js/_legendary_items_test.json
+js/_legendary_catalog_test.js
+js/_legendary_catalog_check.js
+js/_legendary_items_roto.json
+js/_legendary_raw_cache_test/
+js/_legendary_raw_cache_roto/
+
+# Backup de probe (probe84.py). Vive al lado del .py que muta.
+js/_fetch_legendary_items.py.probe-bak
+__pycache__/
