@@ -645,10 +645,46 @@
   }
 
   /* ==================== KeyManager ================== */
+  // Permisos que la app USA, derivados de los endpoints que llama y del scope
+  // que la wiki DECLARA para cada uno (tools/hb75-scopes.js re-deriva del
+  // wikitext crudo, no de memoria). La puerta de addOrUpdate exige estos 7.
+  // 'para' dice que modulo los usa, para que el mensaje de error sea util.
+  //
+  // endpoint con scope          ->  scope exigido
+  // /v2/account/wallet            ->  account, wallet
+  // /v2/account/achievements      ->  account, progression
+  // /v2/account/luck              ->  account, progression, unlocks
+  // /v2/account/raids             ->  account, progression
+  // /v2/account/legendaryarmory   ->  account, unlocks, inventories
+  // /v2/account/home/nodes        ->  account, progression, unlocks
+  // /v2/account/bank              ->  account, inventories
+  // /v2/account/materials         ->  account, inventories
+  // /v2/commerce/delivery         ->  account, tradingpost
+  // /v2/characters                ->  account, characters
+  // /v2/characters/:id/inventory  ->  account, characters, inventories
+  // La lista va DENTRO del literal, y no como const suelta arriba, por una razon
+  // que costo un test: tests/idea64-dos-pestanas.test.js monta el KeyManager
+  // en un sandbox vm extrayendo SOLO este literal del objeto, por equilibrio de
+  // llaves. Una const declarada fuera del rango no existe en el sandbox y el
+  // test moria con ReferenceError sin llegar a contar. El slice tiene que ser
+  // autocontenido: no puede referenciar bindings de module scope.
+  // OJO con este comentario, por el mismo extractor: no puede contain the needle
+  // que el extractor busca (la declaracion de este literal), ni comillas
+  // invertidas, ni llaves desbalanceadas. Todo lo que escriba aca se corta y se
+  // pega dentro del sandbox, asi que se parsea como codigo.
   const KeyManager = {
     list: [],
     selected: null,
     _programmaticChange: false, // << NUEVO: evita bucles en change
+    REQUIRED_PERMISSIONS: [
+      { scope: 'account',    para: 'obligatorio para toda key' },
+      { scope: 'wallet',     para: 'Cartera' },
+      { scope: 'progression', para: 'Logros, Suerte, Raids, Actividad diaria' },
+      { scope: 'unlocks',    para: 'Legendaria Imbuida, nodo de home, glifos' },
+      { scope: 'inventories', para: 'Banco, materiales, Inventario' },
+      { scope: 'tradingpost', para: 'delivery / Conversor' },
+      { scope: 'characters', para: 'Personajes e Inventario' },
+    ],
 
     load() {
       // Carga listado de keys
@@ -780,7 +816,21 @@
       setStatus('Validando API key…');
       const info = await API.tokenInfo(value, signal);
       const perms = new Set(info.permissions || []);
-      if (!perms.has('account') || !perms.has('wallet')) throw new Error('La API key necesita permisos: account + wallet');
+      // La puerta exige los permisos que la app USA, no los que se Declaraban
+      // que eran los que se verificaban. Medido contra el scope que la wiki
+      // declara para cada endpoint que la app llama (tools/hb75-scopes.js):
+      // account+wallet alcanza para 1 de 9 endpoints con scope; los otros 8
+      // piden progression, unlocks, inventories, tradingpost o characters.
+      // Con solo estos 2, la API responde 403 y la capa degrada a []/0, o sea
+      // indistinguible de una cuenta vacia (Idea 47/57). La lista se deriva
+      // de ahi, no de memoria, y nombra el modulo que pide cada permiso.
+      const FALTAN = KeyManager.REQUIRED_PERMISSIONS.filter(p => !perms.has(p.scope));
+      if (FALTAN.length) {
+        throw new Error('La API key necesita permisos: ' +
+          FALTAN.map(p => p.scope + ' (' + p.para + ')').join(', ') +
+          '. La app usa ' + KeyManager.REQUIRED_PERMISSIONS.length +
+          ' permisos en total; hay que declararlos TODOS al crear la key en account.arena.net/applications.');
+      }
 
       const idx = this.list.findIndex(k => k.value === value);
 
@@ -1021,8 +1071,16 @@
   }
 
   // === Propuesta 3: Validación local de formato (antes de enviar a la API) ===
+  // El formato de una API key de GW2 son uno o dos bloques GUID en hex separadas
+  // por guiones (8-4-4-4-12). Derivado de la documentación, NO de memoria: la
+  // wiki de /v2/tokeninfo dice que su campo `id` es "the first HALF of the API
+  // key" y su ejemplo oficial son 36 chars, o sea 36 + 1 + 36 = 73. Por eso el
+  // bloque 2 es opcional y el 1 obligatorio: /v2/tokeninfo devuelve la mitad.
+  // El regex laxo anterior (20+ alfanumericos) aceptaba desde basura alfanumerica
+  // hasta una key sin guiones; la API responde 401 a todo por igual, o sea que
+  // la guarda local es la unica que puede avisar antes de gastar la llamada.
   function isValidKeyFormat(v) {
-    return /^[A-Za-z0-9_-]{20,}$/.test(v);
+    return /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?:-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})*$/.test(v);
   }
 
   // === Propuesta 4: mensaje hermano (creado una vez, reutilizado) ===
@@ -1050,8 +1108,8 @@
       if (!isValidKeyFormat(value)) {
         el.kfValue?.classList.remove('field--ok', 'field--bad');
         el.kfValue?.classList.add('field--bad');
-        if (_fieldMsg) _fieldMsg.textContent = 'El formato no es válido (mín. 20 caracteres alfanuméricos).';
-        setStatus('El formato de la API key no es válido. Debe tener al menos 20 caracteres alfanuméricos.', 'error');
+        if (_fieldMsg) _fieldMsg.textContent = 'El formato no es válido. Se espera un GUID 8-4-4-4-12 en hexadecimal, guion por guion.';
+        setStatus('El formato de la API key no es válido. Debe ser un GUID de 8-4-4-4-12 (opcionalmente seguido de otro igual).', 'error');
         window.toast?.('error','Formato de API key inválido', { ttl: 2500 });
         return;
       }
