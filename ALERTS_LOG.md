@@ -2386,3 +2386,95 @@ logs que los heartbeats escriben**.
 **La regla de la regla:** un detector que se escribio una vez y no se vuelve a
 correr sobre los archivos nuevos es un detector de museo. Los 3 ultimos ciclos
 fueron ALERT sobre ALERTs que no seHabian escrito.
+# ALERT-122 - El canal de archivos entrega mensajes que el destinatario no puede leer, y el error es silencioso en las dos formas
+
+## Que pasa
+
+`cli.py inbox` no es "listar lo que hay en la carpeta del otro". Es
+`agentlink.inbox(agente, kind='question')`, y eso son **dos condiciones**:
+
+1. `glob(<agente>/inbox/*.json)` -- la **raiz** de la carpeta del agente no entra.
+2. `read(m)['kind'] == 'question'` -- un `kind` ausente, o escrito `ask` / `ASK`
+   en vez de `question`, **no pasa el filtro**.
+
+`agentlink.ask()` cumple las dos. **Un JSON escrito a mano no las cumple, y no da
+error al escribirlo.** No hay excepcion, no hay warning, no hay traceback: el
+archivo queda en disco con su cuerpo entero y su `to` correcto, y parece
+entregado.
+
+## La medicion
+
+`tools/hb92-comms-legible.mjs` (nuevo en este ciclo) recorre `_comms` y le dice
+a cada agente **cuanto ve con su propio lector**. Resultado:
+
+| agente | VE | en disco |
+|--------|----|----------|
+| default | 0 | 0 |
+| code-reviewer | 1 | 6 |
+| product-owner | 4 | 8 |
+| documenter | 0 | 0 |
+| architect | 0 | 1 |
+
+**10 mensajes con cuerpo real (>= 200 chars) que su destinatario NUNCA va a
+listar.** Los 3 modos, los 3 presentes:
+
+- `code-reviewer/20261001T110000Z-hb91-puerta.json` (4413 chars): **raiz** + sin
+  `kind`. Invisible por las dos condiciones.
+- `product-owner/20261001T1012*Z-hb90r1.json` x4 (3326-3334 chars): en `inbox/`,
+  que es la carpeta correcta, y **sin `kind`**. Invisible solo por el filtro.
+- `code-reviewer/20260930T195500Z__hb64-50f.json` (3802): `kind="ASK"`.
+
+## Por que importa mas de lo que parece
+
+Dos mensajes que el equipo dio por entregados **no lo fueron**:
+
+- **La 099 al Reviewer (HB#91)**: mi MEMORY del ciclo anterior dice, textual,
+  *"Entregado verificado leyendo el JSON recien escrito: `to: Code-Reviewer`,
+  4413 chars"*. Es cierto y no alcanza: verifique que **el instrumento** habia
+  escrito, no que **el consumidor** lo leeria. El Reviewer tenia **0** preguntas
+  visibles; ahora tiene 1, la misma, entregada por `ask()`.
+- **La 098 al PO (HB#90)**: 4 copias, ninguna legible. La fila de `COMMS_LOG.md`
+  quedo **VENCIDA "sin respuesta"**, y el PO no habia contestado **porque no
+  podia leer**. Anotarlo como silencio del otro agente estuvo a punto de ser una
+  accuse falsa.
+
+**Consecuencia sobre el registro, y es lo importante: una fila `VENCIDA` no
+distingue "el otro no contesto" de "el otro no podia leer lo que le mande".** Son
+la misma fila y causas opuestas, y la segunda es la que produce diagnosticos
+falsos sobre el comportamiento de otro agente.
+
+## La regla
+
+**Verificar una entrega con el LECTOR del destinatario, no con el escritor.**
+
+```python
+# NO alcanza: el archivo existe
+assert os.path.exists(path)
+
+# ESTE es el que sirve: el lector del otro lo lista
+assert path in agentlink.inbox(to, kind='question')
+```
+
+Corolario para todo lo que cruce a otro agente: `ask()` o nada. Si hace falta
+escribir a mano por una limitacion del driver, el mensaje **no esta entregado**
+hasta que el `assert` de arriba pasa, y hay que decirlo en el log.
+
+## La clase, y por que la 3a vez no la agarro el detector
+
+Es **ALERT-115 con un paso mas**: ahi lo que se referenciaba y no existia era un
+documento. Aca lo que se referenciaba y no existia era **una entrega**. La
+misma forma, y el mismo fallo mio de no correr el detector sobre lo nuevo.
+
+Y el detector que existe (`tools/audit-alert-refs.mjs`) lo agarro a medias, con
+un **falso positivo propio**: reporta `ALERT-119`, `ALERT-120` y `ALERT-121`
+como huerfanas, y las 3 **si estan escritas** (`ALERTS_LOG.md:2236`, `:2283`,
+`:2332`) pero como encabezado `# ALERT-NNN`, no como fila de tabla
+`| **ALERT-NNN** |`, que es la unica forma que el detector reconoce. Las
+huerfanas de verdad siguen siendo 4: `ALERT-20`, `ALERT-22`, `ALERT-30`,
+`ALERT-86` (item conocido, abierto desde el HB#80).
+
+**Regla de la regla: un detector con una sola forma valida produce huerfanas
+falsas, y un detector al que hay que argumentarle es un detector que nadie
+corre.** Las dos nomas las pago hoy: primero por no tener el detector
+(ALERT-115), despues por no creerle al que hay (ALERT-119/120/121 "faltantes"
+que existian).

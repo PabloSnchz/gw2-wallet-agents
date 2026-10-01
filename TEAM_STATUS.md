@@ -2830,3 +2830,89 @@ tercera rama sin necesidad.** Entregado verificado: `to: Code-Reviewer`, 4413 ch
 - **No se borro ninguno de los 11 worktrees** ni las 9 ramas remotas ya mergeadas:
   son decision de Pablo, y borrar `rm` esta denegado por el driver de todas formas.
 - **No se propuso promover a `origin`.** `PROMOTIONS.md` no se toco.
+## 2026-10-01 - Heartbeat #92 - la 099 al Reviewer y la 098 al PO NUNCA LLEGARON, y el error no daba ninguno
+
+**El hallazgo del ciclo, y no es de codigo: es de entrega.** El canal de archivos
+acepta mensajes que su destinatario **no puede leer**, y el fallo es silencioso
+en las dos formas. Detalle y evidencia: **ALERT-122**.
+
+### Que se rompio, exactamente
+
+`cli.py inbox` no es "listar la carpeta del otro". Es
+`agentlink.inbox(agente, kind='question')` = glob de `inbox/*.json` **Y** filtro
+por `kind == 'question'`. Son dos condiciones. `ask()` cumple las dos; un JSON
+escrito a mano no, y no tira error al escribirse.
+
+Medido con `tools/hb92-comms-legible.mjs` (nuevo, corre el lector de cada agente):
+
+| agente | VE | en disco |
+|--------|----|----------|
+| default | 0 | 0 |
+| code-reviewer | 1 | 6 |
+| product-owner | 4 | 8 |
+| documenter | 0 | 0 |
+| architect | 0 | 1 |
+
+**10 mensajes con cuerpo real que su destinatario nunca va a listar**, en los 3
+modos: en la **raiz** de la carpeta (la 099: 4413 chars, raiz + sin `kind`), en
+`inbox/` pero **sin `kind`** (las 4 copias de la 098 al PO), y con `kind` mal
+escrito (`"ASK"`, `"ask"`).
+
+### Los dos mensajes que el equipo dio por entregados y no lo estaban
+
+- **La 099 al Reviewer.** Mi MEMORY del HB#91 decia, textual: *"Entregado
+  verificado leyendo el JSON recien escrito: `to: Code-Reviewer`, 4413 chars"*.
+  Cierto, y no alcanza: verifique que **el instrumento** habia escrito, no que
+  **el consumidor** lo leeria. El Reviewer tenia **0** preguntas visibles.
+- **La 098 al PO.** 4 copias, ninguna legible. La fila quedo **VENCIDA "sin
+  respuesta"** y el PO no habia contestado **porque no podia leer**. Anotarlo
+  como silencio del otro agente es una accuse falsa.
+
+**De ahi sale la regla que mas rinde: una fila `VENCIDA` no distingue "el otro
+no contesto" de "el otro no podia leer lo que le mande". Misma fila, causas
+opuestas, y la segunda produce diagnosticos falsos sobre otro agente.**
+
+### Corregido en este ciclo, y verificado por el LECTOR del otro
+
+- **La 099 reentregada** por `agentlink.ask()`. Verificado: `inbox('Code-Reviewer',
+  kind='question')` paso de **0 a 1**, y el cuerpo releido son los 4413 chars
+  originales. No es la misma "entrega verificada" de antes: esa miraba el
+  escritor.
+- **Ronda 29 al PO** entregada por la via canonica y verificada asi. Le digo lo
+  de la 098, que use `ask()` y por que escribir a mano no es equivalente, y que
+  "no hay tercera instancia" es una respuesta util.
+
+### Dos errores mios, y los dos los agarro un detector o una medida
+
+- **El detector nuevo 보고 13 invisibles cuando hay 10.** Conte `kind:'reply'`
+  como invisible, pero `cli.py replies` **si** los ve: hay **dos** lectores, no
+  uno (`kind='question'` y `kind='reply'`), y solo mire el primero. Ademas se
+  colaba un `.json.bak`. Un detector con un falso positivo hay que argumentarlo
+  antes de correrlo, y ese es el modo de que nadie lo corra.
+- **Casi reporto un ALERT-115 que no existia.** `Select-String` ordenado
+  lexicamente me dio `ALERT-99` como maximo y concludes que 118-121 faltaban.
+  Falso: el maximo real es **121** y las 3 estan escritas. Me lo corrigio
+  `tools/audit-alert-refs.mjs`... que a su vez las reporta como huerfanas, porque
+  solo reconoce la forma de tabla y ellas son encabezado `# ALERT-NNN`. Las
+  huerfanas de verdad son 4 y son conocidas: `ALERT-20`, `22`, `30`, `86`.
+
+### Estado al cierre
+
+- **Reviewer:** 1 pregunta en vuelo, la 099 de diseno sobre la puerta de
+  permisos, **ahora si legible por el**. Sin recoger.
+- **PO:** 4 preguntas visibles (2 viejas vencidas + ronda 28 + ronda 29), 0
+  respondidas. `PRE_BACKLOG.md` sin cambios desde `07:08:24Z` (4 h).
+- **Documentador:** sin tarea (no-fallback vigente).
+- **Suite:** `1175/0`, **44 de 44** archivos, alcance completo.
+- **Nada mergeado a `origin` (produccion) ni propuesto.** `PROMOTIONS.md` intacto.
+
+### Lo que NO se hizo, y por que
+
+- **No se reenviaron los 8 invisibles viejos** (la 50F, hb70, r17-t34,
+  `ask-hb70-stale`, la del PO del hb70). Varios son de rondas que ya se cerraron
+  por otro canal, y reenviar un mensaje viejo **contamina** al que lo recibe. Se
+  anotan y se decide con quien corresponda; el detector los deja visibles para
+  que la decision sea de Pablo, no un efecto colateral de este ciclo.
+- **No se borro el huerfano de la raiz** ni los 2 archivos basura de ALERT-120:
+  el driver deniega `rm` (5to caso) y **no se rodea una denegacion**.
+- **No se borro ninguno de los 11 worktrees** ni las ramas remotas ya mergeadas.

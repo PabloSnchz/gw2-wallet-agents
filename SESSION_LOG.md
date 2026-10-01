@@ -2338,3 +2338,73 @@ texto**, que es donde está el error antes de que llegue al `.md`. Contra HEAD, 
 **Estado.** Rama `alert89-direccion-inversa-raids`, commit `1176be6`. Suite **823/0 en 30 de 30**
 (+1, la guarda nueva). `camp` declarado, no inventado. Ronda 17 reflejada en
 `DASHBOARD_PO_IDEAS.md` con las dos correcciones al lado, sin editar la propuesta del PO.
+# 2026-10-01 - Heartbeat #92 (Principal) - el canal de archivos entrega mensajes que nadie lee
+
+## Que se hizo
+
+1. **PASO 0 (canal)**: `inbox` vacio, `replies` vacio, 2 filas VENCIDAS. Rutas de
+   lectura: el PO tiene 3 preguntas visibles, el Reviewer **0**.
+2. **`git fetch` primero**: `origin/main` estaba en `4dc4d3d`. Traje el worktree
+   desde `origin/main` directo, no desde el clon.
+3. **PASO 1 (recogida)**: nada en vuelo con `task_id`. La 099 del HB#91 esta
+   enviada por el canal de archivos y **no tiene `task_id`** -- no hay nada que
+   recoger con `check_agent_task`. Ahi empezo el problema.
+4. **Diagnostico del canal**: 10 mensajes con cuerpo real invisibles para su
+   destinatario. **ALERT-122**.
+5. **La 099 reentregada** por `agentlink.ask()`, verificada con el lector del
+   Reviewer (0 -> 1 preguntas visibles).
+6. **Ronda 29 al PO** entregada por la via canonica, verificada (3 -> 4 visibles).
+7. **Detector nuevo** `tools/hb92-comms-legible.mjs`, con salida 1 para poder
+   ir a un cron.
+8. **Suite**: `1175/0`, 44 de 44 archivos, alcance completo.
+
+## Que se rompio (y no es codigo del repo)
+
+**La entrega entre agentes.** Dos mensajes que el equipo dio por entregados no
+lo estaban: la 099 al Reviewer (raiz de la carpeta, sin `kind`) y la 098 al PO
+(4 copias en `inbox/`, sin `kind`).
+
+El detalle que no se va a olvidar: la 098 quedo anotada **VENCIDA "sin
+respuesta"**, y el PO no habia respondido **porque no podia leer lo que le
+mande**. Una fila vencida no distingue las dos causas, y la segunda hace que se
+diagnostique mal a otro agente.
+
+## Dos errores mios, y como los agarro
+
+- **El detector nuevo|reporto 13 invisibles cuando hay 10.** Contei
+  `kind:'reply'` como invisible, pero `cli.py replies` si los ve: hay dos
+  lectores, no uno. Ademas se colaba un `.json.bak`. **Un detector con un falso
+  positivo hay que argumentarlo antes de correrlo, y ese es el modo exacto de
+  que nadie lo corra.**
+- **Casi reporte un ALERT-115 inexistente.** Un `Select-String` ordenado
+  lexicograficamente dio `ALERT-99` como maximo y me hizo concluir que 118-121
+  faltaban. Falso: el maximo real es 121 y estan las 3. Me lo corrigio
+  `audit-alert-refs.mjs`, que a su vez las da por huerfanas porque solo reconoce
+  la forma de tabla y ellas son encabezado.
+
+## Que quedo pendiente
+
+- **8 invisibles viejos** sin reenviar (la 50F, hb70, r17-t34,
+  `ask-hb70-stale`, la del PO del hb70, y 4 duplicados de la 098). Varios son de
+  rondas ya cerradas por otro canal: reenviarlos **contaminaria** al que los
+  recibe. Anotados para Pablo.
+- **El huerfano de la raiz** (`code-reviewer/20261001T110000Z-hb91-puerta.json`)
+  sigue en disco. Es inerte: nadie lo lee. Borrarlo requiere autorizacion del
+  driver.
+- **Veredicto de la 099**, ahora que el Reviewer la puede leer.
+- **Ronda 29**: 2 SI/NO sobre `PRE_BACKLOG` y su heartbeat.
+- Sin tocar: produccion, `PROMOTIONS.md`, los 11 worktrees, las ramas remotas
+  ya mergeadas, y la regla de no-fallback del Documentador.
+
+## Reglas que salen de este ciclo
+
+1. **Verificar una entrega con el LECTOR del destinatario, no con el escritor.**
+   `os.path.exists(path)` no prueba nada; lo que prueba es que la ruta aparezca
+   en `agentlink.inbox(to, kind='question')`.
+2. **`ask()` o nada.** Un JSON escrito a mano falla en silencio, y las 2
+   condiciones (carpeta `inbox/` + `kind == 'question'`) hay que cumplirlas las
+   dos.
+3. **Una fila VENCIDA tiene 2 causas opuestas** ("no contesto" / "no pudo leer").
+   Antes de anotar silencio de otro, correr `tools/hb92-comms-legible.mjs`.
+4. **Un detector con una sola forma valida produce huerfanas falsas.** Y uno al
+   que hay que argumentarle, no se corre.
