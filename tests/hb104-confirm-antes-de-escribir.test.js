@@ -187,31 +187,21 @@ function correrImportAll(montaje) {
 section('1. CONTROL NEGATIVO: el arnes tiene que ver el defecto en el codigo VIEJO');
 // Si esto pasa sin fallar, el arnes no sabe mirar y todo lo de mas vale nada.
 {
-  // Reconstruyo el bloque viejo desde el archivo sano: replaces el fix por la
-  // version original. Si un dia el fix cambia de forma, esto hay que verlo.
-  const viejo = srcReal
-    // (a) el llamador vuelve a leer-Y-aplicar, y el apply saca del confirm
-    .replace('var importData = await readImportFile(file);', 'var importData = await importFromFile(file);')
-    .replace(/ {12}applyImportData\(importData\);\n/, '')
-    // (b) y el fix estructural de las 3 funciones vuelve al original
-    .replace(/ {2}function applyImportData\(importData\) \{[\s\S]*?\n {2}\}\n\n/, '')
-    .replace(/ {2}function readImportFile\(file\) \{[\s\S]*?\n {2}\}\n/, '')
-    .replace(/ {2}function importFromFile\(file\) \{\n {4}return readImportFile\(file\)\.then\(function\(importData\) \{\n {6}applyImportData\(importData\);\n {6}return importData;\n {4}\}\);\n {2}\}/,
-      'PLACEHOLDER_IMPORTFROMFILE_QUE_NO_EXISTE');
-
-  const cambio = viejo !== srcReal;
-  ok(cambio, 'el control negativo parte de una version distinta del archivo (el fix esta presente)');
-
-  // Con el control "arreglado a mano" el archivo no parsea: eso NO es una
-  // midicion, es un error de construction. Se hace el control de otra forma:
-  // se deja el archivo SANO pero se le inyecta el bug con el minimo cambio que
-  // lo reproduce, sobre el codigo real.
-  ok(/PLACEHOLDER/.test(viejo),
-    'el replaces (b) no encuentra el bloque del fix (esperado: el fix esta presente)');
-
-  // CONTROL真正的: el bug se inyecta en el archivo REAL con el cambio minimo.
-  // Solo dos lineas: el llamador lee-Y-aplica, y el apply se queda donde estaba
-  // (adentro del confirm). Es exactamente el defecto original.
+  // NO se reconstruye la version vieja del archivo "a mano". Se intento y es
+  // un error de construccion, no una medicion (ver el comentario de mas
+  // abajo). Ademas resulto ser IMPOSIBLE que esos replacesVERSEan algo, y
+  // no por la indentacion: `js/settings-manager.js` es CRLF y los tres
+  // patrones terminaban en `\n`, asi que los 3 eran no-op silenciosos. Medido
+  // (HB#105): (a2) con 12 espacios NO matchea, con 10 tampoco; (b1), (b2) y
+  // (b3) NO matchean; el unico que matchea es el replace de cadena literal
+  // (a1). O sea que este bloque no producia una version vieja: producia el
+  // MISMO archivo. Un mutador que no matchea no mide nada, y encima exige
+  // una asercion que no puede pasar.
+  //
+  // CONTROL real: el bug se inyecta en el archivo REAL con el cambio minimo
+  // que lo reproduce. Solo UNA linea: el llamador vuelve a leer-Y-aplicar, y
+  // el apply se queda adentro del confirm. Es exactamente el defecto
+  // original, y el fix sigue presente en el resto del archivo.
   const conBug = srcReal
     .replace('var importData = await readImportFile(file);', 'var importData = await importFromFile(file);');
   ok(conBug !== srcReal, 'el bug se puede inyectar con un cambio minimo (readImportFile -> importFromFile)');

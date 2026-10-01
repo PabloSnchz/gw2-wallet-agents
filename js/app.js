@@ -882,10 +882,19 @@
       // T1: agregar/actualizar se resuelve sobre la lista FRESCA de disco, para
       // no pisar las cuentas que otra pestaña agregado. `idx` es de la copia en
       // memoria y solo se usa para el mensaje de abajo, no para el merge.
+
+      // La puerta vive en UN punto, que es esta: aca es donde ya se sabe que
+      // `perms` cumple la lista completa. Se persisten los permisos REALES que
+      // devolvio /v2/tokeninfo (no el recorte contra REQUIRED_PERMISSIONS),
+      // porque la idea es que el set persistido sea el que la key TIENE, y
+      // asi la comprobacion de un backup restaurado no depende de la red.
+      // Es aditivo: una key sin `perms` (las ya guardadas, los backups viejos)
+      // sigue siendo valida y se trata como "desconocido", no como "malo".
+      const permsReales = Array.isArray(info.permissions) ? info.permissions.slice() : [];
       this.save(fresh => {
         const i = fresh.findIndex(k => k.value === value);
-        if (i >= 0) fresh[i].label = label || fresh[i].label || '';
-        else fresh.push({ label, value });
+        if (i >= 0) { fresh[i].label = label || fresh[i].label || ''; fresh[i].perms = permsReales; }
+        else fresh.push({ label, value, perms: permsReales });
       });
       this.refreshSelects();
       // Selecciona y notifica (router capturará el 'change' programático)
