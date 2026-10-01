@@ -1,3 +1,122 @@
+# Heartbeat Principal #76 - 2026-10-01 UTC
+
+> **Ciclo de recuperacion: un WIP de 46 asserts estaba stranded en un worktree y
+> una red de tests se apago sin que nadie lo viera.** Las dos cosas se
+> encontraron midiendo el estado real, no leyendo el resumen del ciclo anterior.
+
+## Lo que estaba mal y nadie reportaba: un test que murio SIN CONTAR
+
+Al recuperar el WIP se rompio `tests/idea64-dos-pestanas.test.js`, y la suite
+siguio reportando verde:
+
+```
+TOTAL: 980 aserciones / 0 FAIL  (34 de 35 archivos, alcance completo)
+sin resumen: idea64-dos-pestanas.test.js
+```
+
+**"0 FAIL" con un archivo sin contar.** El archivo murio con
+`ReferenceError: REQUIRED_PERMISSIONS is not defined` (su sandbox `vm` extrae
+SOLO el literal `const KeyManager = {` por equilibrio de llaves, y la lista
+vivia como `const` a nivel de modulo, fuera del rango).
+
+| Lo que decia | Lo que pasaba |
+|---|---|
+| `0 FAIL` | el archivo no llego a correr |
+| `34 de 35 archivos` | el denominador delata, pero la linea de arriba no |
+| `alcance completo` | y el alcance **no** era completo |
+
+El `run-suite.js` tiene el contador de archivos por eso; lo que falta es que un
+archivo sin resumen **suba el exit code**. Hoy es una linea de adorno.
+
+**REGLA: `0 FAIL` sin el denominador completo NO es verde. Y un archivo que no
+corre tiene que hacer fallar la suite, no anotarse al margen.**
+
+**Consecuencia del mismo extractor, medida en carne propia:** el comentario que
+explica el arreglo esta DENTRO del rango que se corta y se pega en el sandbox,
+entonces no puede contener el needle que el extractor busca, ni comillas
+invertidas, ni llaves desbalanceadas. Mis dos primeros intentosfallen
+exactamente ahi (`SyntaxError: Unexpected template string`, y
+`Invalid or unexpected token`). **REGLA: si un extractor corta por texto crudo,
+el comentario que describes su comportamiento es codigo que se ejecuta.**
+
+## Lo recuperado
+
+`C:\Mis Archivos\GW2 online\hb75-wt` tenia WIP sin commitear sobre `main`:
+la puerta de permisos de `addOrUpdate` (2 permisos) contra los 7 que la app
+realmente usa, mas el texto del modal, mas un test de 46 asserts. **Tocaba
+mergear y no se podia: WIP sin commitear.**
+
+- Copiado **byte a byte** con `tools/hb76-recuperar-wip.py` (binario, por
+  ALERT-94). Verificado por SHA.
+- El worktree de origen **no se toco**.
+- Rama `feat-hb75-permisos`, commit `ea10e9b`, pusheada.
+
+El problema de fondo: con una key de 2 permisos la API responde 403 y la capa
+degrada a `[]/0`, o sea **la cuenta parece VACIA en vez de mal configurada**
+(Idea 47/57). La app autorizaba una key que no puede usar, y el texto del modal
+era la parte que lo producia.
+
+## Un fantasma que casi se commitia
+
+`git status` mostraba `M js/accounts-panel.js` con `git diff` VACIO. Medido
+contra `git show HEAD:` con `tools/hb76-verificar-fantasma.py`:
+
+```
+js/accounts-panel.js  IDENTICO a HEAD
+   HEAD : 68160 bytes, 0 CRLF
+   disco: 68160 bytes, 0 CRLF, 873 LF sueltos
+```
+
+Es ALERT-94 (LF/CRLF): `git update-index --really-refresh` lo marca
+`needs update` aunque los bytes sean identicos. **Sin el chequeo de bytes, ese
+archivo entraba al commit sin una sola linea de cambio real.**
+
+## Estado de la suite
+
+| | |
+|---|---|
+| Antes del ciclo | 964 aserciones / 0 FAIL, **34 de 35** |
+| Al empezar (con el WIP a medias) | 980 / 0 FAIL, 34 de 35 |
+| Final | **1010 / 0 FAIL, 35 de 35** |
+
+Mutacion del regex nuevo (`tools/hb76-mutacion-regex.py`): M1 lista como const
+suelta -> 9 FAIL; M2 se saca el scope `characters` -> 2 FAIL (el union de scopes
+medido lo detecta, que es lo que el test promete); M3 lista borrada del codigo
+-> 9 FAIL. Restaurado byte a byte y verificado.
+
+## Tareas
+- **Completada**: recuperacion del WIP de permisos + su test (`ea10e9b`).
+- **En curso**: pregunta al Reviewer sobre los raw de `raid-tracker.js`
+  (`task-254bb8f34cca`).
+- **Pendiente**: merge de `feat-hb75-permisos` a `main`. **BLOQUEADO por el WIP
+  sin commitear de `hb75-wt`**, que no se puede limpiar sin permiso: descartar
+  esos archivos es una accion destructiva sobre trabajo ajeno.
+- **Verificado hoy, sin cambios**: `gn:raids:strike:view` y `gn:converter:state`
+  estan en whitelist, `STORAGE_KEYS` y `MIRROR_MAP` **sin un solo lector ni
+  escritor** en todo el repo (grep sobre el repo entero: solo aparecen en
+  `storage.js`).
+
+## Alertas
+- **ALERT-95 (nueva) - un archivo que no corre NO pone la suite en rojo.** Se
+ vio verde con `34 de 35` y `0 FAIL`. El denominador existia y nadie lo leyo.
+- **ALERT-96 (nueva) - `git status` con `M` y `git diff` vacio es ALERT-94, no
+  trabajo perdido.** Verificar con bytes contra `git show HEAD:archivo` ANTES
+  de commitear, porque `git checkout` sobre un archivo con un fix en el indice
+  lo revierte (ALERT de hb72).
+- **Confirmada por 3ra vez**: `overdue` reporta `Idea 50 boton cache` como
+  VENCIDA y es FALSA por estructura (`overdue` lee `sent/`, `close` mueve a
+  `archive/`). Verificado hoy contra git: `950ea64` **esta** en HEAD. No usarlo
+  como senal de trabajo pendiente.
+
+## Estado de propuestas
+- Reviewer: 1 consulta abierta (`task-254bb8f34cca`), 1 sola pregunta.
+- PO: ronda 20 incorporada; T5(d) ya estaba mergeada como Idea 84.
+
+## Verificacion del ciclo
+- `inbox` vacio, sin preguntas esperando a `default`, sin respuestas nuevas.
+- `MEMORY.md` estaba desactualizado: las dos tareas que marcaba como
+  "pendientes de recoger" ya estaban aplicadas en hb73 (`4eaf619`) y hb74
+  (`b1b74bb`). Se recogieron igual, y se confirmo que ya estaban.
 # TEAM STATUS — Bóveda del Gato Negro
 # Heartbeat Principal #73 — 2026-10-01 01:40–02:20 UTC
 
