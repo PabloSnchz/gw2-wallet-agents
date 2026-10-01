@@ -167,7 +167,19 @@
   function syncAccountTagsToKeys(accounts) {
     if (!accounts || !Array.isArray(accounts)) return;
     try {
-      var keys = JSON.parse(localStorage.getItem('gw2_keys') || '[]');
+      // Idea 64: esto leia la LEGACY a pelo (`localStorage.getItem('gw2_keys')`),
+      // que es exactamente el LECTOR CRUDO que la Idea 61 seccion 6 dice que hay
+      // que PROHIBIR: es el unico camino que se saltaria el espejo
+      // gn:<->legacy. Su test daba 0 porque no era la clase que vigilaba
+      // (coherencia de claves, no concurrencia), y despues porque el assert que
+      // la nominaba matcheaba ESTE MISMO comentario. Por la API, que devuelve
+      // el valor vigente por el camino soportado.
+      //
+      // El literal de arriba esta aqui a proposito: es lo que obliga al assert a
+      // ser ciego a la prosa (`cuerpoSinComentarios` en
+      // tests/idea64-dos-pestanas.test.js). Si lo borras de este comentario, el
+      // assert sigue verde y el helper deja de estar probado.
+      var keys = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_KEYS) || [];
       if (!keys.length) return;
       var changed = false;
       accounts.forEach(function(acc) {
