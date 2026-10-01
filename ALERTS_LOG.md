@@ -2661,3 +2661,76 @@ esta medido. Cuando el hallazgo de otro agente y el mio difieren en un conteo, l
 diferencia es el dato: hay que **explicar la diferencia mirando el caso que mi
 instrumento no puede ver**, no descartar el numero mayor. Arreglado: el barrido
 ahora reporta tambien las clases que usan el estado inicial de la CAPA, y da 3.
+﻿
+---
+
+# ALERT-126 — una fila de estado del BACKLOG envejece sola cuando el veredicto ya se cerro, y el detector de esa clase NO es instrumentable
+
+**Descubierto en:** Heartbeat #95 (2026-10-01). **Clase:** estado compartido derivado, sin dependencia.
+**Es la TERCERA vez en dos ciclos** que aparecen filas del BACKLOG que afirman algo
+ya decidido (HB#93 encontro 2 sobre el hook `onClear`; aqui 2 mas). La diferencia con
+aquellas: **estas dos son las que un agente leeria para volver a trabajar algo que ya
+no existe.**
+
+## El hallazgo
+
+Dos filas de `BACKLOG.md` decían "esperando veredicto del Reviewer" cuando el veredicto
+llevaba **30 y 40 heartbeats escrito** en `COMMS_LOG.md`:
+
+| Fila | Idea | Lo que decia | Realidad, medida en `origin/main` |
+|------|------|---------------|-----------------------------------|
+| L114 | 56 | "PROVISIONAL: en rama, NO mergeada... esperando veredicto (`task-b20623f46caa`)" | **APROBADA y MERGEADA en el HB#55.** `git merge-base --is-ancestor 6178a8f origin/main` = **SI**. Follow-ups F1/F2/F3 en `979bfa6`/`23b1565`/`4c95774`/`72cc8af`. |
+| L199 | 49G | "IMPLEMENTADA EN RAMA... esperando veredicto (pedido `20260930T181500Z-49g01`)" | **RECHAZADA en el HB#63, no se mergea** (COMMS_LOG 065, B1: `slice(4)` sobre prefijo de 5 chars -> `parseInt` NaN -> **se pierde el primer logro completado en cada lectura de cache**). `git merge-base --is-ancestor 1a47d5c origin/main` = **NO**, o sea que nunca llego a main y no hay nada que revertir. |
+
+El daño no es cosmetics. La L199 describe una rama que **parece** ser trabajo en curso de
+un capa de datos con ALERT-48 encima: es exactamente el perfil que se re-agenda, se
+re-mide o se cherry-pickea por error. Y su B1 es un bug real de perdida de datos que
+alguien podria "arreglar" — trabajo tirado, porque la implementacion esta rechazada
+(regla de oro "codigo a construir vs a deprecar").
+
+**Por que envejece sola:** el veredicto se escribe en `COMMS_LOG.md` (que crece cada
+heartbeat) y la fila vive en `BACKLOG.md` (que se edita a mano). **Nada los liga.** La
+unica defensa era leer el log entero, y el log tiene >300 lineas.
+
+**Corregido en `BACKLOG.md` @ este ciclo:** las 2 filas ahora llevan el veredicto
+cerrado, la medicion que lo prueba (`merge-base --is-ancestor`), y explicitamente que
+**no hay nada pendiente y nada que revertir**. La L199 deja escrito que arreglar el B1
+NO se hace y que las 4 mediciones de abajo si sobreviven (son datos, no codigo).
+Diff **+2/-2**, 294 lineas antes y despues: se reemplazaron 2 clausulas de estado, no
+se toco historial.
+
+## Lo que NO se hizo, y por que: el detector de esta clase no es instrumentable
+
+Escribi `tools/hb95-rows-falsas.mjs` para que esto no vuelva a pasar sola. **No lo
+commiteo, porque en 6 candidatas dio 1 acierto, 1 falso negativo y 3 falsos positivos.**
+
+- **Acierto:** L114 (Idea 56) — el cruce por `task_id` contra `COMMS_LOG` funciona.
+- **Falso negativo (el importante):** L199, **la fila que si era falsa**, la dio como
+  "pendiente real". Causa **estructural, no un bug del regex**: el id del pedido
+  (`20260930T181500Z-49g01`) esta en la fila 061, que dice `Enviado`; el veredicto esta
+  en la fila **065**, que **no repite el id**. Cruzarlos exige seguir la *cadena* de una
+  conversacion a mano.
+- **3 falsos positivos:** L10, L22 y L279 son **prosa que explica que una espera era
+  falsa** (`...va con veredicto del Reviewer". **Era FALSO...**`). Una linea que *menciona*
+  una espera no es una linea que *afirme* una espera, y el regex no puede distinguirlas.
+
+**Regla que sale, y es la misma del HB#92:** *un detector al que hay que
+argumentarle no se corre, y uno que no se puede discriminar no se commitea, porque el
+proximo lo corre y le cree.* Un detector de museo con 3 falsos positivos es peor que no
+tener detector: produce el "limpio" falso, que es la clase de ALERT-92. **La defensa real de
+esta clase no es un regex sobre el texto: es que la fila de estado lleve el veredicto
+en la misma linea**, que es como quedo ahora.
+
+## Dos errores de metodo mio, de la misma clase, en el mismo ciclo
+
+1. **`hb95-49g.mjs` atribuyo la 49G a "Idea 53".** Saque el identificador de una ventana
+   de 6 lineas alrededor del match, y la ventana se come el identificador de la fila
+   vecina. Es ALERT-125 exactamente (un detector con una sola forma produce falsos
+   negativos y eso se lee como "es un punto"). Corregido: los ids se sacan **de la misma
+   linea**, nunca de una ventana. La version corregida es la que produjo la tabla de arriba
+   — y las 2 filas se confirman **midiendo el repo**, no leyendo la fila.
+2. **`tools/hb95-49g.mjs` empezo a leer `tools/hb92-comms-legible.mjs` desde el clon
+   compartido**, donde ese archivo no existe, y casi reporto "0 entregas invisibles"
+   atribuyendole la salida de otro comando (el archivo no existia y el comando "corria
+   bien"). Es el error de HB#93, repetido: **si un detector no esta donde creo, no le
+   atribuyo su salida: lo corro donde esta.**

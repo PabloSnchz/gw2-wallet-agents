@@ -3054,3 +3054,43 @@ regla.** No se toco codigo de producto.
 - No se aplico CSS sin veredicto, aunque el bug sea de una linea y este sea el
   hallazgo mas grave en 30 rondas del PO. Esa es exactamente la clase de cambio
   que la validacion del Reviewer existe para frenar.
+﻿
+---
+
+## Heartbeat #95 (2026-10-01 12:3x-13:0x UTC) — 2 filas del BACKLOG que mentian sobre veredictos cerrados, y el detector que no era posible
+
+### Tareas en curso
+- **T10 (PO, ronda 30) — YA TOMADO por el HB#94, no lo retomo.** `.raid-wing-card` invisible con `prefers-reduced-motion` (la tarjeta del ala y los encuentros van dentro: el Raid Tracker aparece en blanco) y la vista del WV congelada. Verificado por ejecucion, test en rojo a proposito, **pregunta de diseno al Reviewer en vuelo** (`20261001T123316Z__default__Code-Reviewer__b41551.json`, 6400 B). **El fix NO se aplica hasta ese veredicto** (es CSS, la validacion es obligatoria).
+- **Pregunta de permisos en vuelo** (`20261001T110146Z__default__Code-Reviewer__1d4d69.json`, 4949 B): que tiene que distinguir la UI entre "sin escopos" y "escopos insuficientes".
+- El Reviewer tiene **2 preguntas visibles y 0 respondidas**. El PO tiene **4 mensajes, 0 respondidos** (los 4 entrantes ya cerrados por mi).
+
+### Completado en este ciclo
+- **ALERT-126 + 2 filas del BACKLOG corregidas.** L114 (Idea 56) decia "esperando veredicto" siendo **APROBADA y MERGEADA desde el HB#55**; L199 (Idea 49G) decia lo mismo siendo **RECHAZADA en el HB#63**. Medido con `git merge-base --is-ancestor` contra `origin/main`, no leyendo las filas. `+2/-2`, 294 lineas antes y despues.
+- **Fila 103 cerrada:** el PO **respondio** (4 mensajes, cerrados con `close`). ALERT-123 era un sintoma; la causa es el TTL de 1800 s de `submit_to_agent` y el PO **no estaba caido** — el mismo heartbeat corre y escribe.
+- **4 respuestas del PO recogidas y leidas**, incluida la correccion de que su T9 llego tarde y ya estaba mergeado, y 3 correcciones a mis rounds previos.
+
+### Pendiente
+- **El paso 3 del ciclo (3+ propuestas del PO al Reviewer) sigue sin poder mandarse.** No por falta de ideas: por **ALERT-123, el PO no procesa su inbox de archivos**. Todo su trafico tiene que ir por `submit_to_agent`, con TTL >= 3600 s. Es decision de Pablo.
+- **2 preguntas al Reviewer sin responder.** No hay nada que hacer hasta que responda; nadie en quien esperar.
+- Backlog: sigue abierto el **boton de liberate de cache** (0 callers de `cacheClear`), el **Idea 50 Tramo E**, y el **Idea 53** bloqueado por falta del body crudo de `/v2/raids` que solo Pablo puede pegar.
+
+### Alertas de este ciclo
+- **ALERT-126 (nueva, la del ciclo).** Una fila de estado del BACKLOG envejece sola cuando el veredicto ya se cerro: el veredicto vive en `COMMS_LOG.md` y la fila en `BACKLOG.md`, y **nada los liga**. Es la **tercera vez en dos ciclos** (HB#93 encontro 2 sobre `onClear`).
+- **Y lo que mas rinde de la 126: el detector de esa clase NO es instrumentable, y no lo commitee.** En 6 candidatas dio 1 acierto, **1 falso negativo (justo la fila que si era falsa)** y 3 falsos positivos. El FN es estructural — el id del pedido esta en la fila 061 y el veredicto en la 065, que no lo repite — y los FP son que una linea que *menciona* una espera no es una linea que *afirme* una espera. **La defensa real es que la fila lleve el veredicto en la misma linea**, que es como quedo.
+- **2 errores de metodo mios, misma clase:** (a) mi medidor atribuyo la 49G a "Idea 53" por tomar el id de una **ventana de 6 lineas** en vez de la linea misma (ALERT-125 exacto); (b) casi reporte "0 entregas invisibles" por correr un detector **desde el clon compartido, donde ese archivo no existe** (error de HB#93, repetido).
+- **Una falsa alerta que casi escribo y NO escribi.** El reply `20260930T185533Z__code-reviewer__default__ddc4d4.json` esta en la **carpeta del Reviewer** con `to: code-reviewer`, y pense reportar que "el Reviewer se manda replies a si mismo y no llego" (ALERT-126 en mi cabeza, el numero ya ocupado). **Medido antes de escribir: tiene `replied_by = default, replied_utc = 20260930T190932Z`** — lo consumi en el HB#64 (fila 067 = ALERT-75). No habia mensaje perdido. **Afirmar un mecanismo de entrega con un solo campo del JSON es la misma clase que medir un negativo con una sola forma de grep.**
+
+### Estado de propuestas
+| Quien | Que | Estado |
+|-------|-----|--------|
+| Reviewer | T10 (raid-wing-card + vista WV) | En vuelo, legible, sin veredicto |
+| Reviewer | Diseno de la puerta de permisos | En vuelo, legible, sin veredicto |
+| PO | Ronda 30 (T10) | **Respondida y cerrada**; el T10 lo tiene el HB#94 |
+| Documentador | — | Sin tarea. **Regla de no-fallback vigente**: si falla, se reporta a Pablo, no documento yo |
+|-production- | — | **CONGELADA.** Nada mergeado a `origin`, nada promovido, nada propuesto |
+
+### Para Pablo (decisiones que no son mias)
+1. **El paso 3 del ciclo sigue bloqueado por ALERT-123** (el PO no abre el canal de archivos). O se le exige abrirlo, o todo su trafico migra a `submit_to_agent` con TTL largo. Mientras tanto el PO aporta propuestas y yo las verifico, pero el ciclo no puede cerrarse como estaba previsto.
+2. **Detener UNA de las dos instancias.** ALERT-119 se cumplio otra vez: `origin/main` estaba 9 commits adelante con el HB#94 ya hecho, y perdi el inicio del ciclo hasta hacer `git fetch`. Esta vez no rompi nada porque compare antes de escribir; la anterior casi revierte codigo.
+3. **Borrar los 2 archivos basura de 0 bytes** (ALERT-120) y los **16 worktrees** + las ramas remotas ya mergeadas, entre ellas `feat-idea49g-ach-acc-compacta` y `feat-idea56-forma-raids`, que este ciclo dejo confirmado que **no** se van a mergear.
+4. **La pregunta del PO que necesita a Pablo y no a un grep:** con la preferencia de "movimiento reducido" activa, el Raid Tracker aparece en blanco. El PO **no midi cuantos usuarios la tienen ni si a Pablo le pasa hoy**. Si no le pasa, el hallazgo es real y de alcance acotado; si le pasa, es la pantalla entera.
