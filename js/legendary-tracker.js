@@ -1,7 +1,7 @@
 /*!
  * js/legendary-tracker.js — Armería Legendaria
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 1.0.1 (2026-09-30) — Skeleton Phase 1, estado honesto (ALERT-84)
+ * Versión: 1.1.0 (2026-09-30) — T3+T4 (ALERT-84): contrato de registro + render real
  *
  * Módulo que reemplaza al filtro Legendario dentro de Logros (achievements.js).
  * Proporciona un catálogo completo de armas/armaduras/trinketes legendarios
@@ -23,15 +23,26 @@
   'use strict';
 
   var LOG = '[LegendaryTracker]';
-  // 1.0.1 (ALERT-84 T1): el estado que la app dice de si misma. La funcionalidad
-  // sigue sin implementar — esto NO es la T3 del PO.
-  var VER = '1.0.1';
+  // 1.1.0 (ALERT-84 T3+T4): la puerta de registro existe y el render usa las
+  // funciones registradas. NO es la T3 completa del PO (sigue sin datos de API:
+  // loadLegendaryData() es un stub) — es el CONTRATO y el cableado.
+  var VER = '1.1.0';
 
   // ========================================================================
   // 1. CONFIGURACIÓN / ESTADO
   // ========================================================================
 
   var STORAGE_PREFIX = 'gn:legendary:';
+
+  // Contrato T4 (ALERT-84). Son las 4 claves que `render-catologo.js` entrega en
+  // su `registerRender`, y el orden importa solo para el informe: no se ordena.
+  //
+  // POR QUE ESTA LISTA Y NO "lo que venga": `registerRender` sin lista aceptaria
+  // un objeto con 1 clave y pondria el flag en true. El pipeline creeria que hay
+  // contrato donde hay un hueco, y el hueco se descubre al PINTAR — que es tarde
+  // y en la pantalla del usuario. Un registro parcial tiene que ser
+  // indistinguible de NINGUN registro, y eso se consigue rechazandolo.
+  var REQUIRED_RENDERERS = ['filterBar', 'catalogGrid', 'skeleton', 'progress'];
 
   // Límites de posesión por tipo (según spec)
   var POSSESSION_LIMITS = {
@@ -61,8 +72,22 @@
     characterItems: {},       // items en personajes {itemId: count}
     loading: false,
     error: null,
+    // T4: las funciones de render registradas por `render-catologo.js`. Null
+    // hasta que ese script se carga y registra. Es un punto de observabilidad
+    // DISTINTO del del catálogo (`root.LegendaryCatalog`, que se autoexpone al
+    // cargarse): los dos pueden volverse falsos por separado, y por eso son
+    // dos asserts y no uno.
+    renderers: null,
+    // Lo que le faltó al ÚLTIMO registro rechazado. Sin esto, `missing` tendría
+    // que mentir: después de un intento parcial no hay contrato, y la pregunta
+    // útil es "que le faltaba", no "que le falta a un contrato que nunca existió".
+    _renderMissing: REQUIRED_RENDERERS.slice(),
     _refreshInFlight: null
   };
+
+  // Filtros activos de la vista catálogo (ALERT-84 T3). Los consume
+  // `renderFilterBar(filters, catalog)`; los aplica `applyFilters()`.
+  var filters = { type: null, generation: null, expansion: null };
 
   // ========================================================================
   // 2. UTILIDADES
@@ -145,24 +170,116 @@
 
     state.mode = mode;
 
-    var content = $('#legendaryModeContent');
-    if (!content) return;
-
-    if (mode === MODES.CATALOG) {
-      renderCatalogSkeleton();
-    } else {
-      renderProgressSkeleton();
-    }
-
-    // Toggle active en botones
-    $$('#legendaryModeCatalog, #legendaryModeProgress').forEach(function (b) {
-      b.classList.toggle('btn--active', b.getAttribute('data-mode') === mode);
-    });
-
     // Persistir modo
     sSet('mode', mode);
 
     console.log(LOG, 'mode changed to:', mode);
+
+    renderCurrentMode();
+  }
+
+  // ========================================================================
+  // 3b. RENDER — usa lo que `render-catologo.js` registró (ALERT-84 T3)
+  // ========================================================================
+  //
+  // La cadena anterior era:
+  //
+  //     doRefresh() -> loadLegendaryData()   // stub, resuelve [] en microsegundos
+  //                 -> renderCatalogSkeleton()   // "modulo en construccion"
+  //
+  // El stub resuelve, no rechaza, y no hay timeout ni reintento: el ciclo
+  // termina y lo que queda pintado es un mensaje que nunca se va. Un error se
+  // investiga; un mensaje estatico coopera con el lector y lo hace creer que
+  // hay algo que esperar.
+  //
+  // Ahora: si hay renderers registrados, se pintan ellos. Si NO los hay (el
+  // script no se cargo, o registro a medias y fue rechazado), se vuelve al
+  // mensaje honesto — y `state.renderersRegistered` queda en false, que es lo
+  // que permite distinguir "el modulo todavia no esta" de "el modulo se rompio".
+  function catalogItems() {
+    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    return cat.filter(function (item) {
+      if (!item) return false;
+      if (filters.type && item.type !== filters.type) return false;
+      if (filters.generation && String(item.generation) !== String(filters.generation)) return false;
+      if (filters.expansion && item.expansion !== filters.expansion) return false;
+      return true;
+    });
+  }
+
+  // `owned` es {id: count}. El stub de API no trae nada, asi que hoy es {} y la
+  // vista de progreso pinta su estado vacio honesto ("aun no posees ninguna").
+  function ownedMap() {
+    var m = {};
+    (state.armory || []).forEach(function (it) {
+      var id = typeof it === 'object' ? (it.id || it.item_id) : it;
+      if (id) m[id] = (m[id] || 0) + 1;
+    });
+    return m;
+  }
+
+  function catalogStats(items, owned) {
+    var total = items.length;
+    var n = 0;
+    items.forEach(function (item) { if (owned[item.id] > 0) n++; });
+    return { owned: n, total: total, pct: total ? Math.round((n / total) * 100) : 0 };
+  }
+
+  function renderCurrentMode() {
+    var content = $('#legendaryModeContent');
+    if (!content) return;
+
+    var r = state.renderers;
+
+    // Sin contrato: mensaje honesto. Es el MISMO texto que pintaba el
+    // skeleton, y ahora es verdad en vez de promesa.
+    if (!r) {
+      if (state.mode === MODES.CATALOG) {
+        renderCatalogSkeleton();
+      } else {
+        renderProgressSkeleton();
+      }
+      return;
+    }
+
+    var all = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    var owned = ownedMap();
+
+    if (state.mode === MODES.CATALOG) {
+      var items = catalogItems();
+      content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned);
+      wireFilterBar();
+    } else {
+      content.innerHTML = r.progress({ owned: owned, mode: state.mode }, catalogStats(all, owned));
+    }
+  }
+
+  // Delegación de eventos: los botones de filtro los genera `render-catologo.js`
+  // y no tienen id, solo `data-ftype`/`data-fvalue`. Un listener por cada
+  // re-render seria una fuga; uno por contenedor, no.
+  function wireFilterBar() {
+    var bar = $('#legendaryModeContent .lt-filter-bar');
+    if (!bar || bar.getAttribute('data-wired') === 'true') return;
+    bar.setAttribute('data-wired', 'true');
+    bar.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute) return;
+
+      var ft = t.getAttribute('data-ftype');
+      if (ft) {
+        var v = t.getAttribute('data-fvalue');
+        var cur = filters[ft];
+        filters[ft] = (String(cur) === String(v)) ? null : v;
+        renderCurrentMode();
+        return;
+      }
+      if (t.getAttribute('data-action') === 'clear-filters') {
+        filters.type = null;
+        filters.generation = null;
+        filters.expansion = null;
+        renderCurrentMode();
+      }
+    });
   }
 
   // ALERT-84 (PO, ronda 17). Estas dos funciones se llamaban "skeleton" y decian
@@ -240,12 +357,8 @@
 
     try {
       await loadLegendaryData(nocache);
-      // Re-render según modo actual
-      if (state.mode === MODES.CATALOG) {
-        renderCatalogSkeleton();
-      } else {
-        renderProgressSkeleton();
-      }
+      // T3: re-render con lo registrado. Sin renderers cae al mensaje honesto.
+      renderCurrentMode();
     } catch (e) {
       state.error = e;
       console.warn(LOG, 'doRefresh error:', e);
@@ -329,12 +442,68 @@
   // 6. API PÚBLICA
   // ========================================================================
 
+  // ALERT-84 T4. La puerta que `render-catologo.js` pide en su bloque de
+  // REGISTRO. Acepta SOLO un registro completo: las 4 claves de
+  // REQUIRED_RENDERERS, y ademas cada una tiene que ser `function`.
+  //
+  // Por que se rechaza lo incompleto en vez de aceptarlo "para despues": un
+  // registro a medias deja `registered` en true y el resto del modulo cree que
+  // hay contrato. El error aparece al pintar — sin excepcion, en la pantalla,
+  // como un modulo vacio — que es el modo de fallo mas dificil de leer. Aca se
+  // puede rechazar en el momento en que pasa, nombrando lo que falta.
+  function registerRender(map) {
+    var missing = [];
+    REQUIRED_RENDERERS.forEach(function (key) {
+      if (!map || typeof map[key] !== 'function') missing.push(key);
+    });
+
+    if (missing.length > 0) {
+      state.renderers = null;
+      state._renderMissing = missing;
+      console.warn(LOG, 'registro incompleto, rechazado. Faltan: ' + missing.join(', '));
+      return false;
+    }
+
+    state.renderers = {
+      filterBar: map.filterBar,
+      catalogGrid: map.catalogGrid,
+      skeleton: map.skeleton,
+      progress: map.progress
+    };
+    state._renderMissing = [];
+    console.info(LOG, 'renderers registrados (' + REQUIRED_RENDERERS.length + ')');
+
+    // Si el panel ya esta montado, pintar ahora: el registro puede ocurrir
+    // DESPUES del primer activate() (los <script> van con defer y el orden
+    // solo garantiza tracker -> render-catologo). Sin esto, entrar a la ruta
+    // antes del registro dejaria el mensaje honesto pegado.
+    if (state.active) {
+      try { renderCurrentMode(); } catch (e) { console.warn(LOG, 'render tras registro fallo:', e); }
+    }
+    return true;
+  }
+
+  // Punto de observabilidad del REGISTRO. Distinto del del catálogo
+  // (`root.LegendaryCatalog.items.length`), y esa distincion es el motivo de
+  // existir: los dos pueden fallar por separado y un solo assert no los separa.
+  function getRenderState() {
+    var r = state.renderers;
+    return {
+      registered: !!r,
+      keys: r ? Object.keys(r) : [],
+      missing: r ? [] : state._renderMissing.slice(),
+      catalogItems: ((root.LegendaryCatalog && root.LegendaryCatalog.items) || []).length
+    };
+  }
+
   var LegendaryTracker = {
     initOnce: initOnce,
     activate: activate,
     deactivate: deactivate,
     refresh: refresh,
     prefetch: prefetch,
+    registerRender: registerRender,
+    getRenderState: getRenderState,
     _debug: function () {
       return {
         version: VER,
@@ -345,6 +514,8 @@
         armoryCount: state.armory.length,
         loading: state.loading,
         error: state.error ? String(state.error.message || state.error) : null,
+        render: getRenderState(),
+        filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion },
         dom: {
           panel: !!el('legendaryArmoryPanel'),
           panelVisible: el('legendaryArmoryPanel') ? !el('legendaryArmoryPanel').hasAttribute('hidden') : false,
