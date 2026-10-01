@@ -2974,3 +2974,75 @@ el control negativo/positivo del test (`4 FAIL` con el bug, `11 pass` sin el).
 La segunda porque el Reviewer, leyendo un arbol **sin** T1, **describio el
 comportamiento del bug** ("`wv-shop-ui.js:222` todavia tiene el
 `localStorage.setItem` a pelo") sin que se lo dijera nadie.
+
+---
+
+# ALERT-130 - el "0 FAIL" que reportabamos cada heartbeat era una MEDICION SIN CONTROLAR
+
+**Medido en el HB#100, en las dos direcciones.** No es hipotesis: las dos
+fallaron en la misma tarde, y las dos producen un numero creible.
+
+## Que paso
+
+Escribi `tools/hb100-suite.mjs` para correr los 46 `tests/*.test.js` y
+reportar un total. Primer resultado: **1475 pass / 0 FAIL / 46 archivos**.
+Lo iba a reportar como suite verde.
+
+Antes de reportarlo le hice un control (`tools/hb100-control-suite.mjs`): le
+inyecte 4 archivos con fallos conocidos y le exigi que los marcara a todos.
+
+**El control fallo: los 2 casos peligrosos dieron "limpio".**
+
+| archivo inyectado | que imprime | que dijo el runner |
+|---|---|---|
+| `ctl1` | `3 FAIL: lo que sea` | FAIL=3 (bien) |
+| `ctl2` | `SUITE FAIL` | **0/0 = ok** |
+| `ctl3` | `AssertionError` + `exit 1` | **0/0 = ok** |
+| `ctl4` | `ok 10 pass` | ok (bien, control positivo) |
+
+O sea: el runner solo miraba `/(\d+)\s*FAIL/` con `.match()`, o sea la
+**primera** coincidencia. Un archivo que muere por `AssertionError` sin
+imprimir un numero, y otro que dice "SUITE FAIL" sin numero, son
+**exactamente lo que un test runner devuelve cuando el mundo esta roto**, y
+los dos pasaban como limpios.
+
+## Y la segunda correccion fue peor
+
+Corregi poniendo `/FAIL|fallo|Error:/i` sobre toda la salida. Resultado:
+**43 de 46 archivos en rojo.**
+
+La razon es obvia en retrospectiva y por eso vale la pena: los tests que
+**pasan** imprimen su propia linea de exito con la palabra adentro,
+`TOTAL: 10 aserciones, 0 FAIL`. O sea la palabra `FAIL` esta **en la linea del
+exito**. Mi detector marco 43 archivos porque todos decian "0 FAIL".
+
+## La regla
+
+1. **Un numero agregado que un heartbeat reporta es una MEDICION, y una
+   medicion sin control es un supuesto.** "0 FAIL" venia repitiendose desde
+   hace ciclos con un instrumento que nunca se probo. El primer trabajo de un
+   detector nuevo no es correrlo: es **injectarle un fallo conocido y exigir
+   que lo vea**.
+2. **El conteo se toma del MAXIMO de las cifras que aparecen, no de la
+   primera ni de la mera presencia de la palabra.** "0 FAIL" es exito por
+   construccion, y por eso hay que parsear el numero, no la cadena.
+3. **Un control tiene que incluir el control positivo.** Si el detector marca
+   todo rojo tampoco mide nada; por eso `ctl4` existe en el control y se exige
+   que NO lo marque.
+4. **Los dos falsos importan, no solo el que da "todo bien".** El falso limpio
+   (2 archivos) y el falso rojo (43 archivos) son el mismo defecto mirando en
+   direcciones opuestas, y los dos dan un numero que una persona creeria.
+5. **Corolario de la ALERT-115:** `tools/audit-alert-refs.mjs` es un detector
+   que tampoco esta controlado y que reporto huerfanas falsas. La lista de
+   detectores sin control es mas larga de lo que se cree.
+
+Que queda, en el repo y con control que pasa:
+
+- `tools/hb100-suite.mjs` - cuenta el MAXIMO de `N FAIL`, mas `SUITE FAIL`
+  explicito, mas lineas que empiezan con `not ok` / `FAIL` / `XX`, mas codigo
+  de salida distinto de 0, y **reporta aparte** los archivos sin veredicto
+  reconocible en vez de asumir que estan bien.
+- `tools/hb100-control-suite.mjs` - corre los 4 casos inyectados contra el
+  runner real (no contra una copia) y sale 1 si el runner se deja pasar uno.
+
+Suite con el instrumento ya controlado: **1475 pass / 0 FAIL / 46 archivos**.

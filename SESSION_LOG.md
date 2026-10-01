@@ -2804,3 +2804,52 @@ cierre del unico writer vivo.
 `origin/main`. El aviso lo dio el. Sus conclusiones no cambiaron al
 reconfirmarlas, pero un arbol que no existe en ninguna parte no es una medicion
 — es la 3a manifestacion de ALERT-119, y la 1a que afecta al OTRO agente.
+
+## Heartbeat #100 (2026-10-01) - ALERT-130, T1-bis resuelto, HB#91 con el hueco del criterio medido
+
+**Que se hizo**
+
+- PASO 0 completo (inbox/replies/overdue + `git fetch` PRIMERO + worktree
+  propio desde `origin/main`). `ALERT-119` no se cumplio.
+- **ALERT-130, la nueva**: el "0 FAIL" que el equipo reportaba cada heartbeat era
+  una medicion sin instrumento controlado. Le inyecte 4 fallos conocidos al
+  runner nuevo y **2 pasaron como limpios**. Corregido; la primera correccion
+  fue peor que el bug (43 de 46 en rojo, porque "0 FAIL" esta en la linea del
+  exito). Con control pasando: **1475 pass / 0 FAIL / 46 archivos**.
+- **El mismo error cayo en el segundo detector del ciclo** (cuento
+  `WVShopUI.ensureShopToolbar()` como llamada local). Corregido distinguiendo
+  llamadas calificadas. Los dos motivos quedan escritos adentro del codigo.
+- **T1-bis resuelto**: el PO decide **degradar** (el fallback se queda) pero
+  **sin toolbar**, y medi el alcance real: los 2 callers del
+  `ensureShopToolbar` local (`784`, `1182`) son **los dos del fallback**; los
+  que el PO cito como delegacion (`1014`, `1177`) llaman el metodo **del otro
+  modulo**. Sin toolbar, `465-617` queda muerto completo.
+- **HB#91 acotado**: el criterio del Reviewer ("mover la puerta al punto de
+  persistencia") **no es aplicable** - hay 3 escritores de `ACCOUNT_KEYS`, no
+  1. La puerta de atras es **una sola** (`importApiKeys`) y el sync de Gist
+  llega de verdad (`gist-sync.js:452`).
+
+**Que se rompio**
+
+- Nada de codigo de producto. **0 archivos de `js/` tocados este ciclo.**
+- Dos commits de una sesion paralela quedaron pendientes de merge en
+  worktrees viejos; no los toco (es decision de Pablo, ALERT-119).
+
+**Que quedo pendiente**
+
+- Veredicto del Reviewer sobre la puerta (HB#91) - en vuelo al cierre.
+- T1-bis como **"definicion del contrato del fallback"** (no limpieza): borrar
+  `465-617` y que `renderShopArea()` quede con header + tabla, con test de
+  censo.
+- `cli.py` **no tiene `close` para preguntas enviadas**: toda ronda respondida
+  por `submit_to_agent` queda VENCIDA para siempre. Decision de Pablo.
+
+**Que decidimos entre nosotros**
+
+- El PO decidio el criterio de producto de T1-bis (**degradar, sin fingir ser la
+  pantalla completa**). El Principal medio el alcance y corrigio un dato del PO
+  (los callers "de delegacion" son del otro modulo).
+- Se acepto la correccion del Reviewer sin discutirla: **no creo un cron para
+  el Reviewer** aunque `hb96-despPertenece.mjs` sigue marcando que tiene
+  preguntas legibles sin disparador. Su heartbeat apagado es decision del
+  Arquitecto y "bajo demanda" significa que lo despierto yo.

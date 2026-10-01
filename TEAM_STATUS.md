@@ -3397,3 +3397,113 @@ resultado. ALERT-119 **no se cumplio** este ciclo (HEAD era ancestro de
   sigue dando 10, pero varias son de rondas ya cerradas por otro canal.
 - **No se creo un cron para el Reviewer.**
 - **Nada mergeado a `origin` (produccion) ni propuesto.**
+
+## [2026-10-01 16:1x-16:5x UTC] Heartbeat #100 - el "0 FAIL" que reportabamos era una medicion SIN CONTROLAR, y T1-bis queda RESUELTO por medicion + criterio del PO
+
+**PASO 0 bien, con el tropiezo conocido.** El primer `inbox` fallo con "no se
+puede determinar que agente sos" porque lo corri desde `_comms` en vez del
+workspace: hay que setear `BOVEDA_AGENT=default`. Inbox 0, replies 0.
+**`git fetch` PRIMERO**: `origin/main` en `844d33c`, worktree `hb100-wt` traido
+desde `origin/main` directo. **25 worktrees acumulados**; crear el mio fue lo
+unico que necesite. **ALERT-119 NO se cumplio.**
+
+**LOS 2 "VENCIDO" que tira `cli.py overdue` son FALSOS, y hay una razon de
+sistema.** Las 2 filas (T10 del HB#94 y T10-bis/T1 del HB#97) apuntan a
+preguntas que **ya estan respondidas**: `COMMS_LOG` 108 y 110 estan en
+**Resuelto**, con veredicto del Reviewer anotado. Lo que quedo vivo son las
+**copias en el canal de archivos**, que `overdue` no sabe cerrar: el `cli.py`
+tiene `close` **solo para `replies`**, no para las preguntas que uno envia.
+O sea: **una pregunta respondida por `submit_to_agent` queda VENCIDA para
+siempre.** No hay comando que la cierre. Es la misma clase que la ALERT-127
+(3 condiciones) con un cuartoHighest: **la cuarta es poder cerrar la que ya no
+aporta.**
+
+**ALERT-130, la nueva y la que mas rinde: el "0 FAIL" que este equipo reportaba
+cada heartbeat era una medicion sin instrumento controlado.** Escribi un runner
+de suite, dio **1475 pass / 0 FAIL / 46 archivos**, y lo iba a reportar. Le
+inyecte 4 fallos conocidos y **el control fallo: 2 de los 4 pasaron como
+limpios** (uno que imprime `SUITE FAIL` sin numero, uno que muere por
+`AssertionError`). Causa: el regex tomaba la **primera** coincidencia de `N
+FAIL`. **Y la primera correccion fue peor que el bug**: `/FAIL|fallo|Error:/`
+sobre toda la salida dio **43 de 46 en rojo**, porque los tests que PASAAN
+imprimen `TOTAL: 10 aserciones, 0 FAIL` - la palabra esta **en la linea del
+exito**. Quedo: se cuenta el **MAXIMO** de los conteos numericos, mas `SUITE
+FAIL` explicito, mas lineas `not ok`/`FAIL`/`XX`, mas exit code, y los archivos
+**sin veredicto reconocible se reportan aparte** en vez de asumirse buenos. Con
+el control pasando: **1475 pass / 0 FAIL / 46 archivos**, y ahora el numero es
+defendible. **Regla: un numero agregado que un heartbeat reporta es una
+medicion; el primer trabajo de un detector es inyectarle un fallo y exigir que
+lo vea, no correrlo.**
+
+**Y me CAYO A MI en el mismo ciclo, con el segundo detector.** El de alcance de
+T1-bis conto `WVShopUI.ensureShopToolbar()` como si fuera una llamada local y
+dio **"HAY CALLER FUERA, no se puede borrar"** para los 5 simbolos. **Falso
+rojo**: cada modulo tiene su copia privada (IIFE) y **nada se publica en
+`window.*`** (`grep` de `window.X =` da **0**). Corregido distinguiendo llamadas
+**calificadas**. Es la segunda vez en el ciclo que un detector da un numero
+creible y falso, y por eso los dos quedan con el motivo escrito adentro.
+
+**T1-bis: RESUELTO, y sin gastar una decision de Pablo.** El PO midio que la
+rama `else` de `router.js:775-780` es inalcanzable (`wv-shop-ui.js` va con
+`defer` antes que `router.js`). Medi el otro lado: el comentario de `:772` dice
+literal *"FALLBACK - se usa si WVShopUI no esta disponible"* y el bloque esta
+**COMPLETO**. **Criterio del PO: DEGRADAR. El codigo se queda y T1-bis NO entra
+al BACKLOG** - con una condicion: el fallback **no debe fingir ser la pantalla
+completa**, o sea sin toolbar, sin los listeners, sin el 2º `saveView`. Sus 3
+razones: el escenario (404 o error de sintaxis en un push) es real, la
+degradacion es completa y no un resto, y 130 lineas duplicadas son **coste de
+mantenimiento, no defecto de usuario**.
+
+**Lo que medí para que ese criterio sea ejecutable (y corrige al PO en un
+dato):** el `ensureShopToolbar` local de `router.js` tiene **2 callers, `784` y
+`1182`, y LOS DOS son del fallback**. Los que el PO cito como "delegacion"
+(`:1014`, `:1177`) llaman **`WVShopUI.ensureShopToolbar()`**, o sea el metodo
+DEL OTRO MODULO, no el local. Y `syncShopToggleLabel()` en `:616` esta **dentro
+de** `ensureShopToolbar()` (`486-617`). O sea: **todos** los callers de la
+maquinaria de toolbar de `router.js` estan en el fallback, y sin toolbar el
+bloque `465-617` completo queda muerto. **Eso NO es T1-bis de ~130 lineas como
+estimaba el PO, y si es exactamente la decision que el PO pidio**, solo que
+con el alcance real medido.
+
+**HB#91 (la puerta de permisos) sigue ABIERTA, y medi por que NO se puede
+cerrar todavia.** El criterio del Reviewer del HB#96 era "mover la puerta al
+punto donde la lista se PERSISTE". **Ese punto unico no existe**: hay **3
+escritores** de `ACCOUNT_KEYS` (`app.js:792`, `accounts-panel.js:197`,
+`settings-manager.js:252`), detector `tools/hb100-puerta.mjs`. En memoria SI hay
+punto unico: los 4 caminos que mutan la lista convergen en `app.js`,
+`tools/hb100-cobertura.mjs`. O sea **la puerta de atras es UNA sola**,
+`importApiKeys`. **Y es alcanzable de verdad**: `gist-sync.js:452` ->
+`importFromData` -> `importApiKeys` -> `Storage.set`. Bajar la config del Gist
+**reemplaza la lista entera** y una key de 2 permisos se guarda sin decir nada.
+Pregunta enviada al Reviewer con las 4 opciones y el costo de cada una.
+
+**Correccion de una lectura MIA que era FALSA:** el HB#99 anoto que
+`PRE_BACKLOG.md` del PO estaba "sin cambios desde 11:30Z". **Me equivoque al
+leer el timestamp**: `LastWriteTimeUtc` real = **14:30:13Z**. Su cron de 2 h
+**produce bien** y la conclusion "el PO esta estancado" era mia. Se lo corrijo
+con el dato. El PO lo acepta y aclara algo que mejora el registro: **0 ideas
+nuevas != estancado** - su salida real fueron 0 features y 2 hallazgos de
+codigo (T8 la carrera en `loadAllForToken`, T6 el ttl del toast).
+
+**Estado de agentes al cierre:** Reviewer con **1 pregunta en vuelo**
+(`task-a5676f1482a5`, en curso). PO **respondido** (`task-ba754c113da1`, corto y
+seco, con las 3 respuestas). Documentador sin tarea (no-fallback vigente).
+**Nadie en quien esperar.** **Nada mergeado a `origin` (produccion) ni
+propuesto.** **Ningun cambio en codigo de producto este ciclo.**
+
+**Decisiones que son de Pablo, no mias:** (a) **borrar los 2 archivos basura**
+de ALERT-120 y el huerfano de la raiz; (b) borrar los **25 worktrees** y las
+**~10 ramas remotas ya mergeadas**; (c) **detener UNA de las dos instancias**
+(ALERT-119 se cumplio 2 veces en 2 ciclos); (d) **`cli.py` no tiene forma de
+cerrar una pregunta ya respondida**, y por eso `overdue` va a reportar 2
+falsos positivos por cada ronda que se responda por `submit_to_agent` - o se
+agrega `close` para preguntas, o se acepta el ruido; (e) la colision de writers
+de los docs con el Documentador.
+
+**Pendiente proximo ciclo:** (1) `git fetch` PRIMERO y comparar HEAD vs
+`origin/main` antes de escribir; (2) **`check_agent_task` sobre
+`task-a5676f1482a5`** y aplicar el veredicto de la puerta (HB#91); (3) con el
+criterio del PO ya escrito, **T1-bis entra como "definicion del contrato del
+fallback"**, no como limpieza: es borrar `465-617` del toolbar y que
+`renderShopArea()` quede con header + tabla, con test de CENSO; (4) `cli.py
+replies`.
