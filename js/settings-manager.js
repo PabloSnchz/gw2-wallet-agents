@@ -249,8 +249,89 @@
     
     // Guardar lista de keys
     if (apiKeysData.list !== undefined && Array.isArray(apiKeysData.list)) {
-      Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, apiKeysData.list);
-      console.log(LOG, 'API Keys importadas:', apiKeysData.list.length);
+      // -- Commit 2 de 2 de la puerta de permisos (HB#91, HB#105) ------------
+      // Esta funcion era la PUERTA DE ATRAS: escribia ACCOUNT_KEYS con
+      // Storage.set a pelo, sin pasar por KeyManager, y por lo tanto SIN la
+      // validacion de permisos que vive en addOrUpdate (app.js:872). Un backup
+      // con una key de 2 permisos entraba sin error y sin mensaje, y quedaba
+      // guardada con 5 de menos: ese es el bug original.
+      //
+      // Decision de DISENO del Reviewer (veredicto fila 111, HB#102) que
+      // DESMONTO la premisa de "mover la puerta al punto de persistencia": la
+      // comprobacion NO es un predicado sobre los datos. addOrUpdate hace
+      // `await API.tokenInfo(...)` y consume `info.permissions`, que solo
+      // existe tras una llamada de RED. En el punto de escritura no hay
+      // `perms` que mirar. Por eso aca no se revalida contra la API.
+      //
+      // Lo que se valida es la copia PERSISTIDA (`key.perms`, que el commit 1
+      // de 2 escribio desde /v2/tokeninfo). Es offline y determinista: el mismo
+      // backup da el mismo veredicto sin red. Y `API.json` usa `fetch` CRUDO
+      // (app.js:64, no `jfetch`), sin pool ni dedup: revalidar 27 keys por
+      // import serian 27 requests sin pool, que es el riesgo que la puerta evita.
+      //
+      // Regla de compatibilidad, escrita porque es la que decide el caso comun:
+      // `perms` AUSENTE = DESCONOCIDO, no malo. Las keys ya guardadas y los
+      // backups anteriores al commit 1 no lo tienen; rechazarlas seria decirle a
+      // Pablo que sus cuentas desaparecieron.
+      //
+      // Y NO es la misma lista que hay en disco: el import es REPLACE (trae
+      // `list`, no un delta), asi que `save(() => lista)` descarta `fresh`
+      // A PROPOSITO. Que no merge no es una omision: si una cuenta que no esta
+      // en el backup sobreviviera, el restore no seria un restore. Es la misma
+      // semantica que tenia el `Storage.set` de antes, que tambien sobreescribia
+      // entera.
+      var entrada = apiKeysData.list;
+      // Se resuelve UNA vez y con guarda. Leer `KeyManager.REQUIRED_PERMISSIONS`
+      // sin comprobar que existe tira TypeError y deja la rama de degradacion
+      // como codigo muerto: el camino para el que estaba escrita no se podia
+      // recorrer. Sin esta linea, "KeyManager ausente" no degrada, revienta.
+      var KM = (typeof window !== 'undefined' && window.KeyManager) ? window.KeyManager
+             : (typeof KeyManager !== 'undefined' ? KeyManager : null);
+      var REQ = (KM && Array.isArray(KM.REQUIRED_PERMISSIONS)) ? KM.REQUIRED_PERMISSIONS : null;
+      var sinPerms = 0;
+      var incompletas = [];
+      if (REQ) {
+        for (var i = 0; i < entrada.length; i++) {
+          var k = entrada[i];
+          if (!k || !Array.isArray(k.perms)) { sinPerms++; continue; }
+          var tiene = {};
+          for (var j = 0; j < k.perms.length; j++) tiene[k.perms[j]] = true;
+          var faltan = [];
+          for (var s2 = 0; s2 < REQ.length; s2++) {
+            var req = REQ[s2].scope;
+            if (!tiene[req]) faltan.push(req);
+          }
+          if (faltan.length) incompletas.push((k.label || k.value || 'key') + ' -> ' + faltan.join(', '));
+        }
+      } else {
+        for (var i2 = 0; i2 < entrada.length; i2++) {
+          if (!entrada[i2] || !Array.isArray(entrada[i2].perms)) sinPerms++;
+        }
+      }
+      if (incompletas.length) {
+        // NO se lanza y NO se aborta el import: Pablo ya confirmo, y perder
+        // todo el restore por una key es peor que perder una key. Se importa y
+        // se dice, que es justo lo que faltaba (el dano era silencioso).
+        console.warn(LOG, 'API Keys importadas con permisos INCOMPLETOS (' +
+          incompletas.length + ' de ' + entrada.length + '). La app usa ' +
+          REQ.length +
+          ' permisos; estas keys van a degradar a datos vacios (HTTP 403): ' +
+          incompletas.join(' | '));
+      }
+      if (sinPerms) {
+        console.warn(LOG, sinPerms + ' key(s) importadas sin `perms`: se tratan como' +
+          ' DESCONOCIDAS y NO se rechazan. Suelen ser backups anteriores a v6.6.4.');
+      }
+      if (KM && typeof KM.save === 'function') {
+        KM.save(function() { return entrada; });
+      } else {
+        // KeyManager ausente: se degrada al comportamiento anterior en vez de
+        // perder el restore entero. Es el unico camino que pierde la puerta, y
+        // por eso el censo de escritura lo cuenta (tests/hb111-*.test.js).
+        Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, entrada);
+        console.warn(LOG, 'KeyManager ausente: import SIN pasar por save() (puerta NO aplicada).');
+      }
+      console.log(LOG, 'API Keys importadas:', entrada.length);
     }
     
     // Guardar clave seleccionada
