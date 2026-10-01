@@ -1,3 +1,120 @@
+## ALERT-118 - el mutex de refresh CANCELABA la carga nueva, y habia un contador declarado que media siempre 0
+
+**Fecha:** 2026-10-01 (HB#90)
+**Estado:** CORREGIDO en el ciclo para 2 de los 8 modulos (commit `955a64e`). Los 6
+restantes abiertos (ver "LO QUE QUEDA").
+**Origen:** T9 de la ronda 28 del PO, verificado y re-medido aca antes de tocar codigo.
+
+### EL DEFECTO, Y POR QUE NO LO ARREGLO `47e4819`
+
+`47e4819` (HB#87) arreglo "dos cargas concurrentes y la VIEJA gana al final".
+Ese defecto se produce con un `await` y se arregla con una guarda de generacion.
+
+Los 8 modulos que recargan por cambio de cuenta tienen otra cosa:
+
+    if (_refreshInFlight) return _refreshInFlight;
+
+Eso **no postpone la carga nueva: la descarta antes de pedirla.** Con
+`gn:tokenchange` -> `refresh(true)` sobre una carga en vuelo, la red **no
+recibe ninguna peticion para la cuenta nueva**, no hay reintento cuando la
+vieja termina, y no hay forma de recuperarse. El desplegable dice B y la
+pantalla muestra A.
+
+La diferencia con el defecto de `47e4819` no es de grado, es de clase:
+
+| | `47e4819` | este |
+|---|---|---|
+| la red pide B | si | **no** |
+| se recupera al terminar A | si | **no** |
+| como se arregla | guarda de generacion | reintento encolado |
+
+Por eso el test de `47e4819` (`tests/hb87-carga-gana.test.js`, 216 lineas) no lo
+ve: verifica QUE VALOR quedo en pantalla. "queda mal" y "nunca se pide" pueden
+darse el mismo valor en pantalla, asi que un aserto de pantalla no discrimina.
+
+### MEDIDO, CON UN CONTROL QUE DISCRIMINA
+
+`tests/hb90-t9-mutex.test.js` (nuevo, 266 lineas, 14 aserciones) extrae
+`refresh` y `loadStrikeData`/`loadRaidData` **verbatim** del fuente y los
+evalua en un sandbox con la red inyectada. El aserto central es sobre la
+**red**, no sobre la pantalla:
+
+    LA RED RECIBIO UNA PETICION PARA B
+
+- **SIN el fix:** 6 pass / 6 FAIL. `pedidos=["A"]` -- B nunca se pide.
+- **CON el fix:** 14 pass / 0 FAIL. `pedidos=["A","B"]`.
+
+Tres casos por modulo:
+
+1. **Control** (A termina antes del cambio): 1 peticion, la de A. Da bien con y
+   sin el fix. Si este fallara, el test estaria probando el arnes.
+2. **El defecto** (Pablo cambia con A en vuelo).
+3. **Control del arnes** (dos refresh sin esperarse): las 2 cuentas se piden.
+   Da bien con y sin el fix, y por eso discrimina: es la misma pregunta que el
+   caso 2 sin depender de la forma del codigo bajo prueba.
+
+### EL FIX
+
+Reusa el patron que **ya existia bien** en `wv-purchase-detail.js:2240`
+(`safeRefresh`): el mutex espera, y `_refreshSeq` decide si la carga que espero
+todavia es la ultima pedida. Cuatro lineas netas por modulo.
+
+    var mySeq = ++_refreshSeq;
+    if (_refreshInFlight) {
+      try { await _refreshInFlight; } catch (_) {}
+      if (mySeq !== _refreshSeq) return;
+    }
+
+### LA REGLA: UN CONTADOR DECLARADO Y NUNCA INCREMENTADO ES PEOR QUE UN CONTADOR AUSENTE
+
+`raid-tracker.js:872` y `strike-tracker.js:396` declaraban
+`var _refreshSeq = 0;` y **nadie lo incrementaba en todo el repo**. Se leia y
+se publicaba en el diagnostico (`raid-tracker.js:1942`, `seq: _refreshSeq`).
+O sea: la app **afirmaba medir la generacion de la carga y media siempre 0**.
+
+Un contador ausente te dice "aca no hay defensa". Un contador declarado te dice
+"aca hay defensa y alguien la desconecto" -- y como se publica en el
+diagnostico, la app miente sobre su propia concurrencia. El segundo es peor
+que el primero porque **apaga la detectors**: nadie busca un mutex roto en un
+archivo que dice tener un contador de generacion.
+
+Corolario operativo: `_debug()` que publica un contador tiene un aserto que
+afirme que el contador **se mueve**. Hoy `raid-tracker._debug().refresh.seq`
+era un campo muerto con forma de dato.
+
+### LO QUE QUEDA (6 modulos, mismo mecanismo, SIN tocar)
+
+`homestead-tracker:424`, `wallet-dashboard:1168`, `inventory-dashboard:1245`,
+`wv-shop-ui:708`, `router:975`, `inventory-hub:1429`.
+
+- **`inventory-hub.js:1429` ya tiene `_refreshSeq` Y lo incrementa**
+  (`:1430`), pero el mutex sigue al principio: `if (_refreshInFlight) return
+  _refreshInFlight;` descarta la carga nueva **antes** de llegar al
+  `++_refreshSeq`. O sea, tiene la defensa completa y la deja sin usar. Es el
+  caso que mas engaña de los 6.
+- **`homestead-tracker.js` es CODIGO MUERTO** (ALERT-10: no hay script tag,
+  ni route, ni panel; sus 5 metodos `GW2Api` no existen). **No tocar**: seria
+  escribir un fix para un modulo que no corre. Decimoctavo heartbeat en 0%.
+- Los otros 4 (`wallet-dashboard`, `inventory-dashboard`, `wv-shop-ui`,
+  `router`) son el mismo fix de 4 lineas, pero cada uno tiene su propia forma
+  (los dos primeros tienen un cuerpo async mas largo, `wv-shop-ui` usa
+  `_refreshInFlight` con una forma distinta, `router:975` es `_shopInFlight` y
+  envuelve una promesa de temporada, no una carga de cuenta). Cada uno
+  necesita su propio test antes: el arnes de `hb90` esta armado para la forma
+  `refresh`/`loadX`, y no se transplanta.
+
+### LO QUE ESTE CASO SUMA A LA REGLA DE "MEDIR LA PREMISA"
+
+La premisa del PO (ronda 28, T9) era **correcta y venia medida**: dio el
+numero de los 8 sitios, los numeros de linea, y un caso de control (el 3) que
+separaba el mutex del `await`. Fue la primera vez en 26 rondas que una premisa
+llego con su control. La ronda 27 (T8) tambien, y por ahi salio `47e4819`.
+
+Lo que **no** venia, y hubo que medir aca: los 6 restantes no son todos el
+mismo fix. `inventory-hub` tiene el contador incremented y el mutex delante.
+`homestead-tracker` no corre. Un "arregla los 8" habria producido 3 fixes
+distintos y uno contra codigo muerto.
+
 ## ALERT-100 - un script de andamiaje tomo la RUTA por el CONTENIDO (HB#77)
 
 **Fecha:** 2026-10-01 (HB#77)
