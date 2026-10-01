@@ -3289,3 +3289,193 @@ emular el arranque completo del DOM, no solo lo que el test ejercita**. Un stub
 minimo que alcanza para la funcion bajo prueba puede no alcanzar para el `init()`
 que corre antes. Y `cmd.exe` **no es un shell para escribir codigo**: 3 scripts
 que en bash serian una linea, aca fueron archivos con quoting defensivo.
+
+---
+
+# ALERT-138 — No habia un runner de suite, y por eso un FAIL real pasaba como 0
+
+**Medido en HB#105. El hallazgo mas caro del ciclo, y es mio de un ciclo atras.**
+
+## Que paso
+
+`tests/hb104-confirm-antes-de-escribir.test.js` —el test que escribi en el
+HB#104— **tenia 1 FAIL** desde el dia que lo comitee, y el HB#104 lo reporto
+como "21/0". No fue un fallo de razonamiento: fue un fallo de instrumento.
+
+Cada heartbeat escribia su propio runner con su propio regex de resumen. Los
+tests del repo tienen **5 formatos de veredicto distintos**:
+
+| formato | ejemplo |
+|---|---|
+| `N pass / M FAIL` | `hb75-permisos`, `alert86` |
+| `N pass, M fail` | `idea49.quotavisible` |
+| `N aserciones, M FAIL` | `inventory-dashboard.abort` |
+| `N OK / M FAIL` | `idea48.poolmax`, `idea47-commit1` |
+| `idea84: N pass, M FAIL` | `idea84-leyenda-pipeline` |
+
+Un regex de **un solo** formato conto 18 de 49 archivos. Los otros 31 se
+fueron del conteo **sin avisar**. Y acá esta la parte que importa: eso NO es
+"0 FAIL", es **"el veredicto de ese archivo no lo mira nadie"**. Un archivo
+fuera del conteo es indistinguible de uno que no se ejecuto, y de uno que no
+existe. Por eso el numero "1238/0 en 48 de 48" de los ciclos anteriores era
+confiable solo por casualidad: los 48 contaban, pero los 31 que no contaban
+tampoco desaparecian de la cuenta de "archivos" que yo reportaba.
+
+## Por que el FAIL estaba donde estaba
+
+Los 3 replaces que reconstruian la version vieja del archivo estan escritos
+para LF. `js/settings-manager.js` **es CRLF**. Los 3 NO matcheaban:
+
+```
+(a2) apply con 12 espacios -> NO MATCH   (y con 10 tampoco)
+(b1) borrar applyImportData -> NO MATCH
+(b2) borrar readImportFile -> NO MATCH
+(b3) aplanar importFromFile -> NO MATCH
+(a1) replace de cadena literal -> MATCH    <- el unico que funcionaba
+```
+
+O sea: ese bloque no producia una version vieja del archivo. Producia **el
+mismo archivo**, y despues exigia una asercion (`/PLACEHOLDER/`) que no podia
+pasar. El control que de verdad demuestra que el arnes ve el defecto —inyectar
+el bug con **un** cambio minimo sobre el codigo real— estaba 4 lineas mas abajo
+y funcionaba bien. El bloque roto era, ademas, el enfoque que el propio test
+ya habia descartado por escrito ("eso NO es una medicion, es un error de
+construccion").
+
+**REGLA: un mutador que no matchea no es un control, es decoracion — y hay que
+verificarlo por su numero de FAIL, no por que el control "esté ahi".**
+(ALERT-121 ya lo habia dicho para `^\s*`; aca la causa es la misma familia:
+el mutador no hace lo que su texto dice.)
+
+## La segunda mitad: la carrera de `process.exit()`
+
+`tools/hb105-suite.mjs` cuenta por **lineas de asercion** (el unico rasgo
+comun en 46 de 49; `idea84` usa `"  · "` y cae al resumen declarado). Con eso
+`alert86` seguia dando **0**. No era el regex.
+
+**48 de los 49 tests llaman `process.exit()`.** Con stdout en **pipe** las
+escrituras de `process.stdout` son asincronas, y `process.exit()` **no las
+vacia**. Medido: `alert86` devolvio 0 aserciones bajo el runner, 12 al correrlo
+a mano, y 12 al volver a correr el runner. **Es una carrera, no una
+caracteristica fija** — o sea que el numero de la suite no era reproducible, y
+un truncamiento a medias puede **bajar el conteo de FAIL sin que el resumen
+declarado se entere**.
+
+Dos defensas, ambas en el runner: (a) **cruzar** el conteo de lineas contra el
+resumen declarado y fallar fuerte si no cuadran; (b) **reintentar una vez**
+cuando no hay resumen con que cruzar. La primera Tambien cazo otra cosa:
+`OK — 12 pass, 0 FAIL` empieza con `OK`, asi que contar lineas por prefijo
+sumaba una asercion fantasma a 3 archivos.
+
+**REGLA: un numero de suite que no es reproducible no es un numero. Y un
+veredicto que se cuenta por linea tiene que cruzarse con el que el archivo
+declara, porque los dos cuentan cosas distintas y solo uno mira las mismas
+lineas que el archivo.**
+
+## Estado
+
+- `tools/hb105-suite.mjs` commiteado. **1247 pass / 0 FAIL, 49 de 49, cada
+  archivo con veredicto, estable en 2 corridas.**
+- El FAIL del HB#104 **no era un falso positivo**: la asercion tenia razon,
+  el mutador estaba mal, y el arreglo correcto fue **borrar** el bloque, no
+  hacerlo matchear. Bajar un FAIL a 0 haciendo que el control no mire seria
+  el error opuesto y peor.
+
+---
+
+# ALERT-139 — `close()` no voltea el recibo del emisor, asi que una fila VENCIDA no se cierra nunca
+
+**Segunda mitad de ALERT-137, que el HB#104 dejo a medias.**
+
+## Que paso
+
+Las 2 filas que `cli.py overdue` lista como VENCIDAS al Reviewer (HB#94 T10 y
+HB#97 T1) **estan respondidas y aplicadas** desde el HB#96 y el HB#99. El
+HB#104 las "archivo y explico", y el sintoma **siguio apareciendo** este ciclo,
+identicas.
+
+La causa esta en `agentlink.py`, medida:
+
+| funcion | que escribe |
+|---|---|
+| `answer()` (l.85) | 4 escrituras. La **4ta** es `_w(sent/<name>, m)` y ahi `state` queda `answered`. |
+| `close()` (l.104) | `_w(<to>/archive/<name>, m)` **sin tocar `sent/`**. |
+| `awaited()` (l.113) | lee **`sent/*.json`** filtrando `state == 'waiting'`. |
+| `overdue()` (l.124) | `awaited()` con deadline vencido. |
+
+O sea: **`close()` archiva la copia del receptor y no toca el recibo del
+emisor, y `overdue()` lee justamente el recibo del emisor.** Por eso el HB#104
+"archivo" la fila, la fila seguia VENCIDA, y el sintoma Volvio al ciclo
+siguiente con la misma forma.
+
+Verificado en disco: `code-reviewer\archive\20261001T123316Z__default__Code-
+Reviewer__b41551.json` existe (state `asked`), y `default\sent\` con el mismo
+nombre sigue en `waiting`.
+
+## Lo que NO es (y donde me fui por la rama corta)
+
+Primer intento de explicacion: "nadie llama `answer()`, el canal esta roto".
+**Falso, y medido**: 108 registros con `state`, de los cuales **76 en
+`answered` y los 76 con reply no vacia**. `answer()` corrio de sobra. La
+hipotesis era razonable y la refuto una medicion de 15 segundos — el mismo
+metodo que vengo aplicando a las premisas de otros, y que fallo cuando la
+pregunta era mia.
+
+## Lo que si es
+
+Un veredicto que llega por `submit_to_agent` (que es como responde el Reviewer
+en la practica) **no cierra el registro del canal de archivos**, porque el
+cierre lo hace `answer()` y `answer()` corre en el hilo del que responde. El
+canal tiene 3 condiciones para funcionar (ALERT-122 la ruta, ALERT-127 el
+disparador) y esta es la cuarta: **el CIERRE depende de que el receptor use el
+canal de archivos, y nadie lo usa para responder.**
+
+**REGLA: antes de escalar una VENCIDA, leer el archivo — y leer las DOS copias.**
+La del receptor (`<to>/archive/`) dice si respondio. La del emisor
+(`<from>/sent/`) dice si el canal se cerro. Son 2 hechos y `overdue()` solo
+mira uno. Con las 2, la fila dice "respondida por el canal de agentes, el
+registro del canal de archivos no se cierra solo" — que es informacion. Con
+una, dice "VENCIDO" — que hace que 2 ciclos seguidosuta a un veredicto que ya
+teniamos.
+
+## Que NO hice, a proposito
+
+**No reescribi los JSON a mano ni llame `answer()` en nombre del Reviewer.**
+`answer()` es la unica funcion que voltea `sent/`, asi que technically puedo
+producir el estado correcto — pero el unico campo mio seria `replied_by`, y
+poner el nombre de otro agente en un registro que ese agente no escribio es
+exactamente la clase de cosa que hace que un log deje de ser evidencia. El
+arreglo de fondo es en `agentlink.py` (`close()` que tambien toque `sent/`, o
+`answer()` que acepte un tercero), y ese archivo esta **fuera del repo
+`agents`**: es infraestructura de la plataforma, compartida por los 5 agentes.
+Cambiarla a mitad de ciclo, sin autorizacion, es decision de Pablo.
+
+Anotado en COMMS_LOG.md como filas 110-113 para que no se vuelvan a leer como
+trabajo pendiente.
+
+---
+
+## Correccion a ALERT-137 (medida en HB#105, junto con ALERT-139)
+
+ALERT-137 afirma, sobre las 2 filas del HB#94 y del HB#97: *"Estas dos nunca
+pasaron a `waiting`"*. **Eso es incorrecto.** `ask()` escribe el recibo del
+emisor con `state='waiting'` desde el momento del envio
+(`agentlink.py:82`: `_w(sent/<name>, dict(msg, state='waiting'))`), y medido en
+disco ahora:
+
+```
+code-reviewer\archive\20261001T123316Z__default__Code-Reviewer__b41551.json   state=asked
+default\sent\20261001T123316Z__default__Code-Reviewer__b41551.json           state=waiting
+```
+
+Las 2 filas estan **`waiting`**, que es exactamente por lo que `awaited()` las
+lista. Lo que nunca paso es el paso a **`answered`**.
+
+El error no cambio la conclusion de ALERT-137 (`overdue` no mide silencio del
+otro agente) pero si cambia la causa, y la causa es la que dice que arreglar:
+no es "el estado nunca se escribio", es "**el paso 4 de `answer()` —el unico
+que escribe `sent/` con `state='answered'`— no corrio**". Ver ALERT-139.
+
+Se lo dejo anotado porque un log que se contradice a si mismo es la misma clase
+de problema que un test cuyo control no mira: las dos cosas se leen igual de
+seguras.

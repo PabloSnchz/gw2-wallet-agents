@@ -3672,3 +3672,39 @@ replies`.
 2. Un FAIL de un arnes propio: **comprobar que el arnes mira donde cree** antes de
    culpar al producto. Un numero plausible es el dato mas peligroso.
 3. `vm` + modulo que se auto-inicializa = emular el arranque completo del DOM.
+
+## Heartbeat #105 — 2026-10-01 18:3x-19:5x UTC
+
+**Estado del ciclo:** cerrado. Commit `570336b`, suite **1247/0 en 49 de 49**, `origin/main` sin movimiento durante el ciclo.
+
+### Tareas en curso
+| Quien | Que | Como llego | Estado |
+|---|---|---|---|
+| Code-Reviewer | (A) IDEA 64 T1: alcance de la relectura en `save()`. (C) IDEA 49E: ¿se justifica sola? | fila 117, **archivos + `task-803cefe8e409`** | **En vuelo.** Sin cron: hay que despertarlo a mano (ALERT-127, 3a condicion, reimpresa este ciclo) |
+| product-owner | — | — | Sin tarea. Paso 3 sin materia prima: 3 CUENTA, las mismas del HB#103, 852 lineas sin crecer |
+| documenter | — | — | Sin tarea (no-fallback vigente) |
+
+### Completado
+- **HB#91 / puerta de permisos — commit 1 de 2.** `addOrUpdate` persistia `{label, value}` y el backup no tenia con que validar. Ahora persiste los permisos reales de `/v2/tokeninfo`, tambien al actualizar, y es aditivo (`perms` ausente = desconocido). Queda el commit 2: mover `importApiKeys` a `save()`.
+- **El control negativo del HB#104 era un no-op.** Los 3 replaces escritos para LF contra un archivo CRLF: no matcheaban. Borrado (era el enfoque que el propio test ya habia descartado); el control real —inyectar el bug con 1 cambio minimo— queda y funciona.
+- **`tools/hb105-suite.mjs`:** comando unico de suite, comiteado. Cuenta por lineas de asercion, cae al resumen declarado, excluye la linea de resumen del conteo, cruza ambas señales, reintenta una vez, y falla fuerte si un archivo no reporta veredicto.
+
+### Pendiente
+- **Commit 2 de la puerta**: `importApiKeys` a `save()`, con intencion unica, import REPLACE, y **assert de censo** contra un 4o escritor de `ACCOUNT_KEYS`.
+- **`49G` espera veredicto desde el HB#102** (`feat-idea49g-ach-acc-compacta`, 620 lineas). No mergear por merito (ALERT-48).
+- **HB#91 sigue ABIERTA** por el sync de Gist.
+
+### Alertas nuevas
+- **ALERT-138 — no habia un runner de suite.** 5 formatos de veredicto en 49 tests; un regex de uno solo conto 18 de 49 y reporto 0 FAIL con un FAIL real (el del HB#104, que yo reporte como 21/0). **Un archivo fuera del conteo no es 0 FAIL: es un veredicto que nadie mira.** Y `process.exit()` (48 de 49 tests) no vacia stdout en pipe: la salida se trunca por carrera, asi que el numero de suite no era reproducible.
+- **ALERT-139 — `close()` no voltea el recibo del emisor.** `answer()` es la unica que escribe `sent/` con `answered`; `overdue()` lee `sent/`. Las 2 VENCIDAS estan respondidas desde el HB#96/#99 y nunca se van a cerrar solas. **Corrijo a ALERT-137**: si pasaron a `waiting`, lo que no corrio fue el paso a `answered`.
+
+### Estado de propuestas (paso 3)
+Fuente: `origin/po/hb99-dashboard`, `DASHBOARD_PO_IDEAS.md`, 852 lineas. Conteo con el criterio del PO y control negativo en 0: **3 CUENTA / 0 CERRADAS / 7 secciones con "ronda N"**. Sin materia prima nueva -> **no se abrio ronda**. Las 2 vivas ya estan con el Reviewer (fila 117).
+
+### Lo que quedo escrito para Pablo
+1. **Arreglar `agentlink.py`**: `close()` que tambien toque `sent/`, o `answer()` que acepte un tercero. Es la 4a condicion del canal de archivos y esta fuera del repo `agents`.
+2. **Normalizar los 49 tests a un formato de veredicto** y dejar `tools/hb105-suite.mjs` como comando unico.
+3. **Commit 2 de la puerta** (cambia el alcance del sync de Gist).
+4. **Borrar los 26 worktrees** y las ramas remotas ya mergeadas, incluida `feat-idea49g-ach-acc-compacta`.
+5. **Detener UNA de las dos instancias** — ALERT-119 se cumplio 3 veces en 3 ciclos.
+6. Los **2 archivos basura** (ALERT-120) y los **9 mensajes invisibles** del canal de archivos, que no se reenvian porque varios son de rondas ya cerradas por otro canal.
