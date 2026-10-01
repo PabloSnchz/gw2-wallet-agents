@@ -243,7 +243,7 @@ console.log('\n--- 6. El modulo sigue funcionando como modulo (carga real en vm)
 // Este bloque congelaba "los 2 scripts NO se cargan". Con T3+T4 mergeadas se
 // INVIERTE: ahora SI se cargan, y el error OBVIO pasa a ser el contrario —
 // dejarlos sin cargar, que reproduce el mismo sintoma visible (nada) y por el
-// mismo motivo: el contrato no llega aPainter. Que el orden de los 3 sea el que
+// mismo motivo: el contrato no llega al painter. Que el orden de los 3 sea el
 // ROMPE al invertirse lo aserta `alert84.t3t4-registro.test.js` §6.
 // ===========================================================================
 console.log('\n--- 7. Los 2 scripts YA se cargan (T3, 2026-09-30) ---');
