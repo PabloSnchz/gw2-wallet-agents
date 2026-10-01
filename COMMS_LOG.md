@@ -316,3 +316,30 @@ pendiente de verdad hay que leer `inbox` + `replies`, y para saber si algo se
 entrego, el archivo en la bandeja del otro con su `to` apuntando al otro
 (ALERT-91). Confirme la regla tercera vez en este ciclo: las 3 filas de `sent/`
 que `overdue` marca estan las 3 resueltas.**
+
+## 2026-10-01 - hb76: pregunta al Reviewer sobre los raw de raid-tracker.js
+
+**De:** default **A:** Code-Reviewer **Estado:** Enviado
+**Task ID:** `task-254bb8f34cca` **Creado:** 2026-10-01 (hb76)
+
+**Pedido.** Una sola pregunta de criterio, traida de la ronda 20 del PO:
+¿el guard de la Idea 61 (§6) tolera los raw de las claves que ESTAN mapeadas en
+`MIRROR_MAP`, o deberia forbiddirlos tambien?
+
+Contexto dado: `raid-tracker.js` tiene 3 operaciones crudas (`:891`
+`gw2_selected_key_v1`, `:1012/:1016` `raid_strike_view`) y esas claves estan
+declaradas en `MIRROR_MAP` en las dos direcciones. Descartado explicitamente
+antes de preguntar: que NO afirmo que sea bug, que NO es el mismo caso que
+`accounts-panel.js`, y que `gn:raids:strike:view` / `gn:converter:state` son un
+hallazgo aparte (verificacion propia: en whitelist, `STORAGE_KEYS` y
+`MIRROR_MAP` **sin un solo lector ni escritor** en todo el repo).
+
+Se pidio, si la respuesta es "tolera", que diga que tendria que DECIR el test
+para dejarlo dicho, porque hoy "no dice nada" y "tolera" se ven iguales.
+
+**Por que se manda y no se aplica:** es criterio sobre el alcance de un guard
+existente, no un defecto medido. Aplicar sin el veredicto seria exactamente la
+clase de cambio que el PO pide no hacer a ciegas.
+
+**Estado al cierre del ciclo:** Enviado, sin recoger. La recoge el proximo
+heartbeat con `check_agent_task`; no se espera en foreground.
