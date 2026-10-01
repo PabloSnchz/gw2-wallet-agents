@@ -1,103 +1,73 @@
-# TEAM_STATUS - Heartbeat #115 (2026-10-01 22:3x-22:5x UTC)
+# TEAM_STATUS - Heartbeat #116 (2026-10-01 23:0x-23:4x UTC)
 
-**Corto:** medi C1 y **queda falsificado**. C1 del Reviewer decia "el mutex
-satura en 1"; medi **2**. Y el `1` venia de **mi** mensaje del HB#111, que el
-Reviewer adopto como hallazgo propio con razon. Sin codigo de producto tocado.
+**Corto:** 11 rondas del PO (18, 22-28, 32) llevaban desde el 30/09 en `main`
+sin aparecer nunca, porque **"la rama del PO" no es una rama: son 5**. Mergeado
+por union de las 9 refs remotas. Sin codigo de producto tocado.
 
 ## Tareas en curso
 
 | Quien | Que | Estado |
 |---|---|---|
-| **Reviewer** | C1 + pregunta de ORDEN (C vs B) | **Enviada** por el canal de archivos, `20261001T223349Z-c06d42`. Sin TTL. Es la 5a consulta; las 4 previas estan **vencidas** y las cerro por caducidad. |
-| **PO** | Ronda 36 (T16/T17/T18) | **Leida y verificada.** Sin tarea nueva: sus 3 tramos ya tienen dueño o dependen de Pablo. |
+| **Reviewer** | C1 + pregunta de ORDEN (C vs B) | **Enviada** (`20261001T223349Z-c06d42` + correccion `a17853`). **VENCIDA** a las 23:02, sin respuesta. La ronda 36 (T16/T17/T18) **no se envia**: T17-b es decision de Pablo. |
+| **PO** | Ronda 36 (T16/T17/T18) | **Ahora si esta en `main`** (venia de `po/hb114-dashboard`, sin mergear). Sin tarea nueva. |
 | **Documentador** | - | Sin tarea (regla de no-fallback vigente). |
-| **Pablo** | "que verdad manda: la URL o la pref" | **Espera.** Le llega por `channel_message`. Es la unica decision que bloquea T14/T15/T16/T17/T18. |
+| **Pablo** | "que verdad manda: la URL o la pref" | **Espera.** Le llega por `channel_message`. Es la unica decision que bloquea al equipo. |
 
-## El resultado del ciclo: C1 medida, mi correccion era falsa
+## Completado en este ciclo
 
-En el HB#111 mande al Reviewer, textual:
+- **Union de las 9 refs remotas de `DASHBOARD_PO_IDEAS.md`** (`301cf0e`, 36 secciones,
+  23 rondas). 0 encabezados perdidos contra las 9 fuentes, 0 duplicados, orden
+  no-creciente sin rupturas. Los 8 cuerpos en conflicto se revisaron uno por uno:
+  gana `main` por ser la fuente mas reciente, y ninguno pierde un identificador de item.
+- **14 arneses en `tools/`** (`hb116-*.mjs`), commiteados con `git add -f` porque
+  `tools/` esta gitignored. Sin eso, lo que mide no se puede volver a medir (ALERT del HB#115).
+- Suite completa: **1341 pass / 0 FAIL en 53 archivos** (`node tools/hb105-suite.cjs`).
 
-> "corrijo el titular del PO: no son N requests, el mutex SATURA EN 2
-> (1->1, 2->2, 3->2, 10->2)"
+## Hallazgos del ciclo
 
-Dos cosas mal en esa linea, y las dos importan:
+### ALERT-167 — "la rama del PO" no es una rama
 
-1. Atribui el numero al PO y lo presente como **medido mio**.
-2. El numero que despues le mande al Reviewer era **"satura en 1"**, que no es
-   ni lo que dijo el PO ni lo que da el codigo. **El Reviewer lo adopto como
-   hallazgo propio (C1) porque yo se lo di con esa seguridad.** En retrospectiva
-   el Reviewer parecia el equivocado, y era el mio.
+Las rondas viven repartidas en **5 ramas que nacieron de puntos distintos**
+(`po/hb69`, `po/hb77`, `po/hb87`, `po/hb97`, `po/hb99`, mas `hb104`/`hb110`/`hb114`).
+El paso 3 del heartbeat dice "buscar la rama mas reciente", y con eso las otras 4
+quedan invisibles para siempre. Y el numero hace ver que "falta poco": `main` solo
+tiene 20 secciones y la rama mas nueva 21, o sea **1 de diferencia**.
 
-Medido este ciclo con `tools/hb115-mutex-c1.mjs` (5 pass / 0 FAIL), que corre el
-**cuerpo verbatim** de `refresh()` (`raid-tracker.js:1851`), extraido por llaves
-del archivo real y ejecutado en un `vm`:
+**REGLA: antes de concluir que un archivo esta al dia, mirarlo en TODAS las refs
+remotas sin mergear, no en la mas reciente.** Un archivo que se prepende en cada
+rama no tiene un "estado" hasta que se unen todas.
 
-```
-  n= 1  CON mutex: 1 request(s), max en vuelo=1   |  SIN mutex: 1, max=1
-  n= 2  CON mutex: 2 request(s), max en vuelo=1   |  SIN mutex: 2, max=2
-  n= 3  CON mutex: 2 request(s), max en vuelo=1   |  SIN mutex: 3, max=3
-  n= 5  CON mutex: 2 request(s), max en vuelo=1   |  SIN mutex: 5, max=5
-  n=10  CON mutex: 2 request(s), max en vuelo=1   |  SIN mutex: 10, max=10
-```
+### ALERT-168 — contar secciones por `## ` entre ramas da falsos positivos
 
-**Veredicto medido: satura en 2. C1 (que decia 1) queda FALSIFICADO.**
+El conteo de encabezados difiere por rama (20, 21, 23, 24, 26) porque cada rama
+nacio de un punto distinto: el numero no significa nada entre ramas. Con ese
+criterio, "Top prioridades" de `hb69` (12572ch) parecia mas nueva que la de
+`main` (11281ch) **porque es mas larga, no mas reciente**.
 
-Lo que el mutex hace, separado de lo que no hace:
+**El criterio que si funciona es el identificador de idea** (`IDEA 49`, `T12`,
+`ALERT-84`, `ronda N`): es estable entre ramas y no depende del punto de partida.
 
-- **SI serializa**: max en vuelo = 1 para cualquier `n`. Nunca hay 2 peticiones
-  de red simultaneas. Eso es lo que T9 (HB#90) vino a hacer, y esta firme.
-- **NO descarta trabajo pendiente**: la ultima llamada pendiente **igual carga**.
-  Con `n>=3` la primera se pierde y la ultima corre. Tope = 2.
+## Pendientes
 
-**Por que 2 y no 1** (para no discutirlo otro ciclo): con `n=2` no hay nada que
-descartar. La 1a entra, la 2a espera a que termine, y al terminar
-`mySeq === _refreshSeq`, o sea la 2a **es** la ultima llamada y carga. Las dos
-son llamadas legitimas y distintas. El trabajo de sobra aparece en `n=3`, y ahi
-el mutex recorta de 3 a 2. El tope de 2 es consecuencia de **"la ultima siempre
-carga"**, no un artefacto del arnes.
-
-Control negativo real: sin el mutex, `n=10` dan **10** peticiones con max=10. El
-arnes mide el mutex, no el `for`.
-
-## Lo que NO se hizo, y por que (todo bloqueado en una sola pregunta)
-
-El Reviewer y el POGwiran sobre la misma familia (T14/T15 -> T16/T17/T18), y las
-2 ultimas rondas AJADIERON el encuadre. Nada de eso es codigo mio todavia:
-
-| Tramo | Estado real |
-|---|---|
-| **T17-b** | **Decision de Pablo.** El PO ofrecio "boton Strikes, o borrar la ruta". La 2a mitad **empeora T17**: `#/account/strikes` es hoy la **unica ruta que obedece a la URL** (porque `route()` llama `StrikeTracker.activate()` y `wireViewToggle` vive en `RaidTracker`, asi que ahi nunca corre). Borrarla deja a la pref como unica verdad, y la pref es la que no llega a la URL. |
-| **T17-a** | Real, pero por otra razon: `setActiveView()` no contiene `location` ni `hash`, o sea cambiar de vista con el toggle **no actualiza la URL**. El sintoma que el PO le atribuyo (la URL copiada abre Raids) es **FALSO**: pegada en pestana nueva abre lo que la pref dice. |
-| **T16** | Los 4 botones nacen de `innerHTML` con `btn--accent` contradictorio. **Muerto por construccion** si se hace la opcion (c). No se pide aparte. |
-| **T18-a** | Depende de (c). |
-| **T14-b** | **No se pide todavia.** Un test que afirme "toda `wire*Toggle()` tiene guarda" **pasa hoy** y no ve C2: daria verde falso. Va **despues** de (c), como pidio el Reviewer. |
-
-**La pregunta que destraba todo, y que no es mia:** *que verdad manda, la URL
-o la pref.* Cuando Pablo responda, al Reviewer le toca una sola pregunta de
-**orden** (¿C como commit propio, o arranca por B?), no de diseno.
+1. **Decisiones de Pablo** (bloquean T14-T18): que verdad manda (URL o pref);
+   borrar los worktrees acumulados y las ramas remotas ya mergeadas;
+   `feat-idea49g-ach-acc-compacta` (620 lineas esperando veredicto desde el HB#102).
+2. **8 ramas remotas sin mergear** que ya aportan 0 secciones nuevas
+   (`po/hb69`, `hb77`, `hb87`, `hb97`, `hb99`, `hb104`, `hb110`, `hb114`):
+   se pueden borrar cuando Pablo lo autorice.
+3. **IDEA 62 T1 sigue sin aplicar** (los 5 TTL siguen en 2 min, `api-gw2.js:398/399/402/409/411`).
+   El HB#113 afirmo que estaba aplicada: era FALSO, esas consultas eran otras.
+4. El **paso 3 no abrio ronda** otra vez, y esta vez por una razon distinta y
+   verificada: las 6 secciones de T16/T17/T18 que hay que mandar dependen de
+   una decision de Pablo, y mandarlas al Reviewer sin ella produce un verde falso.
 
 ## Alertas
 
-| # | Que | Estado |
+| # | Que | Efecto |
 |---|---|---|
-| **ALERT-160** | **Un FAIL de mi arnes era el arnes, y lo confirme yendo al codigo** (2o del ciclo, ver ALERT-150). Afirmaba `n=2` tiene que reducir. Falso: con 2 llamadas simultaneas no hay nada que descartar, las dos son legitimas. Corregi el criterio **con el motivo del codigo**, no para que pasara. |
-| **ALERT-161** | **Atribuir un numero a otro y heredarlo como propio.** Escribi al Reviewer en el HB#111 "corrijo el titular del PO" y guarde "satura en 1" como si lo hubiera medido. El Reviewer lo levanto como C1 **con razon**: yo se lo di. Un hallazgo heredado sin medirse se vuelve indistinguible de uno propio, y en retrospectiva el Reviewer parecia el que se habia equivocado. **Medir el numero antes de mandarlo, aunque venga de otro.** |
-| **ALERT-165** | **"Max en vuelo = 1" y "total = 1" no son el mismo numero**, y confundirlos produce un hallazgo entero falso. El mutex serializa (max en vuelo = 1) y descarta trabajo pendiente (total = 2). Mezclar los dos da C1, que es falso. **Todo hallazgo con un `1` tiene que decir cual de los dos es.** |
-| **ALERT-162** | **`TEAM_STATUS.md` estaba 25 ciclos atrasado** (HB#89 vs HB#115). Es el archivo que Pablo mira para saber si el equipo esta vivo, y 25 ciclos de atraso lo hacen parecer colgado. Cualquier lector que compara el numero de heartbeat con el contenido ve el hueco: el archivo miente sobre cuando se escribio. |
-| **ALERT-163** | **42 worktrees acumulados** en el clon de dev, la mayoría de ciclos cerrados (HB#79 a HB#114). No rompen nada, pero `git worktree list` deja de ser util como inventario y el costo de buscar uno real sube. |
-| **ALERT-164** | **2 ramas remotas de PO sin mergear** (`po/hb110`, `po/hb114` sobre `po/hb99`). El paso 3 del HEARTBEAT.md tiene que ir a buscar la rama **mas reciente** a mano: si pinea `po/hb99` (ALERT-153), lee un archivo que envejece solo. |
-
-## Cifras del ciclo
-
-- Suite completa: **1341 pass / 0 FAIL en 53 archivos** (`node tools/hb105-suite.cjs`).
-- Arnes nuevo: `tools/hb115-mutex-c1.mjs`, **5 pass / 0 FAIL**.
-- Main al cierre: `d61e675`.
-- Codigo de producto tocado: **0**.
-- CJK introducidos: **0** (verificado contra los 3 logs con `-Encoding UTF8`).
-
-## Estado al cierre
-
-Reviewer con 1 consulta en vuelo. PO sin tarea. Documentador sin tarea.
-**Nadie en quien esperar dentro del equipo:** la unica bloqueante es Pablo, y la
-pregunta ya esta hecha. 42 worktrees y 2 ramas de PO sin mergear esperando su
-turno.
+| ALERT-167 | La rama del PO son 5, no 1 | 11 rondas invisibles desde el 30/09 |
+| ALERT-168 | Conteo de secciones invalido entre ramas | Falsos positivos de "falta poco" |
+| ALERT-166 | PowerShell y `git show` recodifican | Census por ese canal no son census |
+| — | 5 consultas al Reviewer **vencidas** | La del HB#115 vencio a las 23:02 sin respuesta |
+| — | **51 worktrees** acumulados | Decisión de Pablo (no se borran sin OK) |
+| — | Un `git commit` con heredoc fue **denegado** | Usar `-F archivo` (el mensaje largo no entra por heredoc) |

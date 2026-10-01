@@ -155,6 +155,45 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 
 ---
 
+## Las rondas del PO que nunca se veían
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** —
+- **Ruta:** —
+- **Descripción:** once entregas del PO (rondas 18, 22 a 28 y 32) estaban en el
+  repo desde el 30/09 pero en cinco ramas distintas, así que ninguna se veía al
+  leer la más nueva. Ahora están las 23 rondas en un solo archivo.
+- **Commits:** `301cf0e`
+- **Rama:** `hb116-wt`
+- **Si no entra:** nada se rompe en la app. Las rondas vuelven a quedar repartidas
+  en 5 ramas y el paso 3 del heartbeat sigue sin ver 4 de ellas.
+- **Si sale mal:** el archivo es documentación interna del equipo, no se muestra en
+  ninguna pantalla, así que Pablo no observa nada. Lo observable es que el equipo
+  siga leyendo una sola ronda por ciclo.
+
+---
+
+## Cómo leer el archivo de ideas
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** —
+- **Ruta:** —
+- **Descripción:** los arneses que miden cuántas rondas del PO hay, y cuáles ya
+  se aplicaron, están en `tools/hb116-*.mjs`. Antes el criterio contaba encabezados
+  y daba por buenas ramas que ya estaban al día.
+- **Commits:** `301cf0e`
+- **Rama:** `hb116-wt`
+- **Si no entra:** el paso 3 del heartbeat sigue contando por encabezado, que da
+  falsos positivos entre ramas: la ronda con más texto parece la más nueva aunque
+  sea la más vieja.
+- **Si sale mal:** es código de medición, no de producto. El error es que un
+  heartbeat futuro cuente mal, no que la app cambie.
+
+
+---
+
 *Las cuatro fichas de arriba fueron escritas por el Arquitecto. La primera, a
 partir de la review de Pablo. Las otras tres son retroactivas: los merges
 pasaron antes de que existiera la regla de la ficha, y el Principal no las
