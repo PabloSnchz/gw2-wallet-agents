@@ -81,8 +81,8 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 
 - **Tipo:** mejora oculta
 - **Estado:** listo
-- **Dónde la veo:** `—` (no se ve; el síntoma era que la app dejara de guardar cosas sin avisar)
-- **Ruta:** `—` (no tiene pantalla propia)
+- **Dónde la veo:** — (no se ve; el síntoma era que la app dejara de guardar cosas sin avisar)
+- **Ruta:** —
 - **Descripción:** al borrar una cuenta sus datos en caché quedaban guardados
   para siempre. Con el token ya borrado, nadie los leía ni los borraba nunca,
   y el navegador se llenaba. Medido: 27 cuentas y 4,98 MB de datos de cuentas
@@ -105,8 +105,8 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 
 - **Tipo:** mejora oculta
 - **Estado:** listo
-- **Dónde la veo:** `—` (no hay pantalla; el síntoma era que al navegar quedaran módulos trabajando en segundo plano)
-- **Ruta:** `—`
+- **Dónde la veo:** — (no hay pantalla; el síntoma era que al navegar quedaran módulos trabajando en segundo plano)
+- **Ruta:** —
 - **Descripción:** al cambiar de sección, el sistema apagaba los módulos
   usando un dato guardado que no siempre coincidía con lo que estabas
   mirando. Como hay dos controles que pueden dejar ese dato desfasado, un
@@ -131,7 +131,7 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 - **Dónde la veo:** Panel de Cuentas → importar backup. Solo aparece si hay
   algo que avisar; si todas las keys están completas, el import sigue
   haciendo lo mismo que antes.
-- **Ruta:** `#/account`
+- **Ruta:** `/account/accounts` (panel de Cuentas)
 - **Descripción:** al importar un backup se guardaban las cuentas sin
   revisar que la clave de API tenga todos los permisos. Una clave con 5
   permisos de menos se guardaba sin error y sin mensaje, y el problema
