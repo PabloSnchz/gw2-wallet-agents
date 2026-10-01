@@ -100,6 +100,77 @@ Hasta que no haya dirección del usuario o arreglo de plataforma:
 - Solo notificame si: algo se rompió, hay un desacuerdo entre agentes, o terminaste una feature lista para promoción.
 - Si entrás en bucle 2 veces, PARÁ y reportá.
 
+### PASO 3 del ciclo: la fuente de propuestas del PO
+
+> **HB#114: esta seccion no existia en el repo.** El HB#102 (fila 113 de
+> `COMMS_LOG.md`) corrigio el paso 3 **solo en el `HEARTBEAT.md` del workspace**
+> (`C:\Users\psanc\.qwenpaw\workspaces\default\`), que **no es un repo git**.
+> O sea: la correccion nunca se pusheo, y la version del repo seguia apuntando
+> a `PRE_BACKLOG.md` por el criterio viejo. Alguien que clonee el repo no tiene
+> el paso 3. **REGLA: una correccion a un archivo de instrucciones tiene que
+> ir al REPO del que se clonea, no solo al workspace que el agente esta leyendo.**
+
+**Fuente unica: la rama MAS RECIENTE del PO, y "mas reciente" se resuelve, no se pinea.**
+
+```
+git fetch origin "refs/heads/po/*:refs/remotes/origin/po/*"
+git for-each-ref --sort=-committerdate --format="%(refname:short) %(committerdate:iso)" refs/remotes/origin/po/
+```
+
+La primera de esa lista es la rama viva. **No la nombrees fija**: el PO crea una
+rama por ronda (`po/hb99`, `po/hb104`, `po/hb110`...), asi que un nombre pineado
+envejece en 2-3 rondas y el paso 3 pasa a leer rondas viejas **sin avisar**.
+Medido HB#114: el paso 3 pineado a `po/hb99-dashboard` leia la **ronda 33**,
+cuando la viva es la **35**.
+
+```
+git show origin/po/<rama-viva>:DASHBOARD_PO_IDEAS.md
+```
+
+`DASHBOARD_PO_IDEAS.md` **en la rama del PO**: una seccion `## ACTUALIZACION ...
+ronda N` por ronda, orden inverso, y es lo unico que se puede leer sin pedirle
+nada al PO (append-only por construccion — ver la condicion que el PO mismo
+puso: *"el conteo tiene que salir de un archivo que yo no pueda reescribir
+despues de haber contado"*).
+
+**Criterio de conteo. El que estaba escrito mide PROSA, y por eso esta
+invertido.** Decia: *cuenta si la seccion trae `### Tramos` y ninguna linea
+dice `aplicada`/`cerrada`*. Medido HB#114 contra la rama viva:
+
+| Seccion | Items | El filtro viejo dice | Realidad contra `origin/main` |
+|---|---|---|---|
+| ronda 35 | T14-a, T14-b, T15-a, T15-b | **CERRADA** (la excluye) | **VIVA** — T14/T15 nunca se aplicaron |
+| ronda 34 | T13-a/b/d | cuenta | aplicada en `1e5aedb` |
+| ronda 33 | T12-a/b/c | cuenta | aplicada en `6c3f8e5` |
+| ronda 19 | 64 T1/T2/T3 | cuenta | aplicada en `47a2526` |
+| ronda 16 | 63 T1/T2 | cuenta | aplicadas en `eb69fb3` |
+
+El filtro falla por una palabra: la ronda 35 dice "T13 ya esta APLICADA" en su
+**encabezado narrativo**, asi que `aplicada` matchea y tira la seccion entera.
+Pero cerrar T13 no cierra T14/T15, que son items distintos de la misma ronda.
+**Es el mismo error que un assert que mira la FORMA en vez del VEREDITO, y que
+un regex que no matchea devuelve un 0 indistinguible de una medicion.**
+
+**Criterio corregido, en este orden:**
+1. La seccion mas reciente (`ronda N` maximo), no todas: las viejas ya se consumieron.
+2. Trae `### Tramos`.
+3. **Cada item se verifica por separado** contra `origin/main`, por su propio estado.
+   Una ronda puede tener items vivos y items cerrados a la vez.
+
+**Control obligatorio del conteo:** un criterio de conteo se verifica con un
+control **negativo** (un criterio imposible debe dar 0). Un conteo que nunca
+puede dar menos de 3 no esta midiendo. Medido HB#114 con
+`tools/hb114-cuento-v2.mjs`: los 3 controles dan 0.
+
+**Y despues de contar, verificar CADA item contra `origin/main` antes de
+mandarlo.** El conteo dice *candidatas*; el estado real lo decide el disco. Un
+item aplicado produce una respuesta correcta a una pregunta que ya no importa,
+y el Reviewer tarda 2-15 min.
+
+**El paso 3 no es un ritual.** Si no hay items vivos, no se manda nada y se
+dice por que. Mandar 3+ propuestas ya aplicadas es la forma mas cara de perder
+un ciclo.
+
 ### Watchdog de comunicaciones (T+4h)
 
 Cada heartbeat (cada 30 min), el Principal:

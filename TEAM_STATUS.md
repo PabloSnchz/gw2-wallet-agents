@@ -4189,6 +4189,22 @@ del PO.
 - **ALERT-153** - el paso 3 del `HEARTBEAT.md` apunta a una rama del PO que envejece sola.
   Ver arriba.
 - **ALERT-154** - un control negativo no distingue "no hay" de "el filtro no matchea".
+- **ALERT-155 (HB#114)** - **el criterio de conteo del paso 3 esta INVERTIDO**: excluye la
+  ronda 35 (T14/T15, **vivas**) porque su encabezado narrativo menciona que T13 "ya esta
+  APLICADA", y cuenta las rondas 16/19/33/34, **todas ya aplicadas**. Leida la rama
+  correcta, el paso 3 no tiene materia prima. **Corrige la ultima linea de ALERT-153**, que
+  decia que el criterio "funciona": el control negativo funciona, el criterio no, y un
+  control negativo no puede verlo porque esta fallando **hacia el otro lado** (es
+  demasiado ancho, no demasiado angosto). Detalle en `ALERTS_LOG.md` + ALERT-155.
+
+## HB#114: lo que se corrigio y donde
+
+| Que | Donde | Por que |
+|---|---|---|
+| El paso 3 **no existia en el repo** | `HEARTBEAT.md` del repo, nuevo | El HB#102 lo corrigio **solo en el workspace**, que no es un repo git. El arreglo nunca se pusheo |
+| Rama del PO pineada a `po/hb99` | idem, ahora se descubre con `for-each-ref --sort=-committerdate` | El PO crea una rama por ronda; un nombre fijo envejece en 2-3 rondas **sin avisar** |
+| Criterio de conteo por item | idem | El filtro por prosa excluye lo vivo (ALERT-155) |
+| Detectores | `tools/hb114-cuento.mjs`, `hb114-cuento-v2.mjs`, `hb114-tramos.mjs`, `hb114-verifica.mjs` | Reproducibles, con controles. **El v2 tambien esta mal** y se commitea asi: es ALERT-145, un arnes que no mide lo que dice medir |
 
 ## Lo que decide Pablo (no lo hago yo)
 
@@ -4202,7 +4218,10 @@ del PO.
 
 1. `git fetch` PRIMERO + `git worktree list` + `git ls-remote --heads` antes de concluir
    que algo esta abierto.
-2. Leer la rama del PO **descubriendola**: `git ls-remote --heads origin "refs/heads/po/*"`,
-   quedarse con la de commit mas reciente. No la del paso 3.
+2. Leer la rama del PO con el paso 3 **ya corregido** (descubre la rama por
+   `for-each-ref --sort=-committerdate`). **Ojo:** el paso 3 hoy excluye la ronda 35 por
+   prosa (ALERT-155), asi que el numero que tire hay que contrastarlo **item por item**
+   contra `origin/main` antes de concluding que hay 3+ propuestas. En la rama viva a las
+   22:0xZ el conteo da 0 propuestas nuevas, y eso es lo correcto.
 3. `node tools/hb105-suite.cjs` y leerse el numero entero: **1347/0 en 53 archivos**.
 4. Recoger 62 T1 (`23824f`) y 49E (`14245a`) por el canal de archivos.

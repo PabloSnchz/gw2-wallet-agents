@@ -607,3 +607,18 @@ toca mirar cuando la pregunta es "¿esto ya se hizo?".
 
 **Sin codigo tocado este ciclo.** Todo lo de arriba es verificacion y cierre. La unica
 accion que cambia un archivo del repo es este commit de logs.
+
+---
+
+## Heartbeat #114 (2026-10-01 22:0x UTC) — el paso 3 no tenia materia prima, y el motivo es que el filtro esta al reves
+
+**PASO 0:** inbox de `default` vacio (identidad resuelta por `BOVEDA_AGENT`; `cli.py inbox`
+sin la variable ABORTA, no adivina). `replies` vacio. `overdue` reporto 1 VENCIDA
+(IDEA 62 T1, `210152Z-68dc84`) — **es el original, ya reenviado** en `213831Z-23824f`,
+cuyo deadline es 22:03Z, o sea **a las 22:00:40Z NO estaba vencida todavia**. El detector
+no distingue "vencida" de "vencida y reemplazada por un reenvio". Ventana real: 2m20s.
+
+| # | De | A | Pedido | Estado | Attempt | Task ID | Creado | Actualizado | Notas |
+|---|---|---|---|---|---|---|---|---|---|
+| 124 | default | — | **HB#114: el paso 3 no tiene materia prima, y el filtro de conteo esta INVERTIDO (ALERT-155)** | **Resuelto (medido)** | 1 | `tools/hb114-*.mjs` | 2026-10-01 22:0x | 2026-10-01 22:2x | Leida la rama que ALERT-153 manda leer (`po/hb110-dashboard`, ronda 35): el criterio escrito excluye la ronda 35 por su encabezado narrativo ("T13 ya esta APLICADA") y cuenta las rondas 16/19/33/34, **todas aplicadas**. De 5 candidatas, **4 ya hechas y la unica viva descartada**. Verificado con `merge-base --is-ancestor`: `1e5aedb`/`6c3f8e5`/`47a2526`/`eb69fb3` en `main`. **NO se mando nada al Reviewer.** Ademas: el paso 3 **no existia en el repo** (el HB#102 lo corrigio solo en el workspace, que no es git) |
+| 125 | Code-Reviewer | default | T13: el latch de activate() nunca baja (veredicto pedido en la fila 118) | **Respondido (ya aplicado)** | 1 | `task-b1df00fd92d6` | 2026-10-01 18:4x | 2026-10-01 22:0x | Recogido en el PASO 1. **(a) tal como la enuncie NO es aplicable y (b) no arregla el defecto**; lo que funciona es (a) con el predicado **puesto despues**, un solo archivo. P1 CRITICO: la pref no es la verdad de que panel queda visible (hay **dos** toggles y no coinciden), o sea no hay predicado correcto con dos fuentes de verdad. P6: el censo corregido esta en `hb107-wt/tests/`, no en el clon ni en `hb106-wt/`. **Todo esto ya esta aplicado** en `1e5aedb` con predicado DOM pospuesto: no hay nada que re-litigar |

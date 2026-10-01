@@ -3916,3 +3916,87 @@ Corolario para el mismo motivo que ALERT-149: **preguntar "que ES un escritor" a
 "cuantos hay".** Ahi la respuesta no era "es `localStorage.setItem`": era "es
 `Storage.set`", y el filtro mal escrito era la forma de pedir una pregunta que no tiene
 respuesta en el codigo.
+---
+
+# ALERT-155: el criterio de conteo del paso 3 esta INVERTIDO — excluye lo vivo y cuenta lo aplicado (correccion a ALERT-153)
+
+**Clase:** un criterio que lee PROSA donde tiene que leer ESTADO. Vecina de ALERT-145
+(un FAIL mio que era el arnes), de ALERT-154 (un filtro roto que se disfraza de "no
+hay") y de ALERT-135 (una asercion que mira la forma y no el veredicto).
+
+**Este hallazgo CORRIGE la ultima linea de ALERT-153**, que afirmaba que el criterio de
+conteo "funciona, y su control negativo tambien". Funciona el control. **El criterio
+no**, y el control no lo puede ver — ver "Por que el control no lo detecto".
+
+## Que paso
+
+ALERT-153 (sesion paralela, mismo dia) detecto que el paso 3 de `HEARTBEAT.md` pinea la
+rama `po/hb99-dashboard`, que quedo en la ronda 33 mientras la viva es `po/hb110-dashboard`
+(ronda 35). Diagnostico correcto, y la regla que propone (descubrir la rama por
+`git ls-remote` en vez de nombrarla) es la correcta.
+
+**Lo que ALERT-153 no midio es que, leida la rama CORRECTA, el criterio de conteo da el
+resultado opuesto al que dice.** Yo segui esa indicacion, lei `po/hb110-dashboard`, y:
+
+| Seccion | Items | El filtro dice | Realidad contra `origin/main` |
+|---|---|---|---|
+| ronda 35 | T14-a, T14-b, T15-a, T15-b | **CERRADA → EXCLUIDA** | **VIVA** — T14/T15 nunca se aplicaron |
+| ronda 34 | T13-a/b/d | cuenta | **APLICADA** en `1e5aedb` |
+| ronda 33 | T12-a/b/c | cuenta | **APLICADA** en `6c3f8e5` |
+| ronda 19 | 64 T1/T2/T3 | cuenta | **APLICADA** en `47a2526` |
+| ronda 16 | 63 T1/T2 | cuenta | **APLICADAS** en `eb69fb3` |
+
+Con el criterio escrito, de 5 secciones candidatas **las 4 que cuentan estan aplicadas y
+la unica viva se descarta**. O sea: el paso 3, hoy, no tiene materia prima. Sus 4
+"propuestas" eran trabajo ya hecho, y la verdadera ya estaba en el bolsillo del Reviewer.
+
+**El filtro excluye la ronda 35 por una palabra del ENCABEZADO NARRATIVO:**
+`> Actualizado: ... ronda 35 - T14/T15: T13 ya esta APLICADA (1e5aedb) y la cerro.`
+La regex `aplicada|cerrada` matchea ahi y tira la seccion entera. Pero cerrar T13 **no
+cierra T14/T15**, que son items distintos conviviendo en la misma ronda. La ronda mas
+reciente es justamente la que **menciona** un item cerrado, porque su valor esta en
+contar cual es la siguiente, no en repetir el estado del anterior.
+
+## Por que el control negativo no lo detecto
+
+Porque un control negativo responde *"el filtro no es demasiado ancho"*. Esta falla es
+lo contrario: el filtro es **demasiado ancho**, en la direccion que **excluye**. Un
+control negativo da 0 en los dos casos.
+
+**Consecuencia para HB#103, que es donde se cpio el criterio:** el "3 CUENTA / 0
+CERRADAS" de entonces era un numero que no describia nada. Con el filtro al reves, un
+0 de CERRADAS no es buena senal — es lo que produce una seccion que nombra cualquier
+cosa cerrada en su prosa, que es el caso normal.
+
+## Por que importa mas que "un numero mal"
+
+El paso 3 decide **a quien se le manda trabajo**. Mandar 4 propuestas ya aplicadas
+produce 4 veredictos correctos sobre preguntas que ya no importan, a un agente que tarda
+2-15 min cada uno, y el resultado se ve igual de plausible que 4 veredictos utiles.
+Es el gasto que el propio paso 3 advertia en su texto, ejecutado por el filtro que el
+propio paso 3 declara.
+
+## La regla
+
+**Un item se mide por su estado, no por la prosa de su seccion.** El cierre de un item
+es un hecho del disco; que la seccion lo mencione o no es redaccion.
+
+Corolario operativo, y es el que se lleva el ciclo: **cuando el filtro excluye justo la
+seccion mas reciente, hay que sospechar del filtro antes que del contenido.** La seccion
+mas reciente es la unica que el PO no tiene tiempo de reescribir; si desaparece del
+conteo, el problema esta en como se la busca.
+
+Detector commiteado: `tools/hb114-cuento.mjs` (el criterio viejo, con sus 2 controles
+negativos en 0 — **y sigue dando 4 cuenta, todos ya aplicados**, o sea el numero de la
+tabla es reproducible) y `tools/hb114-cuento-v2.mjs` (criterio por item). Nota honesta:
+**la version v2 tampoco esta bien** — su `aplicada()` busca la palabra en una ventana de
+200 chars del item y marca vivas secciones que ya estan en main. La regla de arriba dice
+que el estado se mide contra `origin/main` (por el sha que la seccion declara), no por
+prosa, y eso es lo que falta implementar como detector. **Se commitean los dos porque el
+v2 fallando es informacion, no ruido: es el patron de ALERT-145, un arnes mio que no
+mide lo que dice medir.**
+
+## Lo que SI estaba bien en ALERT-153
+
+La rama, y el hecho de que `main` no sirva como fuente para un agente que pushea sin
+mergear. Las dos mitades de ese error (rama fija y `main`) se sostienen.
