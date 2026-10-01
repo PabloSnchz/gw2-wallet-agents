@@ -3270,3 +3270,88 @@ anota DESPUES de medir la primera vez; el que se anota antes y no se corrige es 
 que un arnes mal calibrado "suene bien".
 
 Suite completa **1185 pass / 0 FAIL, 45 de 45 archivos**.
+---
+
+# Heartbeat #99 — 2026-10-01 15:3x-15:5x UTC
+
+## Lo que cambia en el estado
+
+**T1 APLICADO Y VERIFICADO** (`8ff95b5`). `gn:wv:shop:view` y
+`gn:wv:shop:legacy_filter` estaban **CONGELADAS**: `wv-shop-ui.js:222/228`
+escribian la legacy a pelo con `localStorage.setItem` y el resto de la app
+escribe por `Storage.set`. Como `storage.js` corre en modo copy, la `gn:` nace
+de la legacy en el arranque 1 y la migracion ya no la toca: **la eleccion se
+perdia al reiniciar**. El alcance real eran **2 claves**, no 1.
+
+Lo interesante del diagnostico: las 2 claves estan en `MIRROR_MAP`
+(`storage.js:160-161`), o sea **escribir la legacy funciona mientras la `gn:`
+este sincronizada y se rompe en cuanto divergen**. Por eso el fix no es "agregar
+la clave al espejo" sino **"dejar de escribir la legacy"**: la app escribe
+siempre la `gn:` y el espejo se deriva solo. `router.js:257` ya lo hacia bien
+para la misma clave — `wv-shop-ui.js` era el que no lo seguia.
+
+**Test de ciclo de vida, no de grep**: ejecuta el `storage.js` real y los
+handlers reales extraidos del archivo, porque un grep daria "OK" con el bug
+puesto. **Con el bug: 7 pass / 4 FAIL. Con el fix: 11 pass / 0 FAIL.** Sin el
+control de la seccion 4, un arnes que dijera "CONGELADA" siempre pasaria igual.
+
+**Suite completa: 1196 aserciones / 0 FAIL, 46 de 46 archivos** (venia de 1185/45;
+los +11 son del test nuevo).
+
+## ALERT-128 (nueva, ver arriba)
+
+19 worktrees acumulados. `hb98-wt` tenia **el fix de T1 completo, sin
+commitear**, y el ciclo estaba por reportar "HB#97 y #98 no dejaron nada".
+**Regla: `git worktree list` es parte del PASO 0.** Desde `origin/main` solo,
+"no hubo commits nuevos" y "hubo un ciclo entero sin commitear" se ven iguales.
+
+El fix se recupero **verificando el diff de la otra sesion contra
+`origin/main`**, no copiandolo a ciegas: un WIP ajeno es un hypothesis, no un
+resultado. ALERT-119 **no se cumplio** este ciclo (HEAD era ancestro de
+`origin/main` al arrancar, y `origin/main` no se movio durante el ciclo).
+
+## En curso
+
+- **`task-bbf65a6542fe` al Code-Reviewer**: T11 del PO, pregunta de **contrato
+  de UI**, no de strings. Dos controles con la misma forma visual significan
+  cosas opuestas: `wvShopToggleView` nombra el ESTADO y persiste;
+  `accountsToggleView` nombra la ACCION y no persiste nada (`state.view` no
+  tiene un solo `Storage.set` en todo `accounts-panel.js`). Las 3 opciones van
+  en el cuerpo; se acepta cualquiera si la justifica.
+- **T1-bis**: la rama `else` de `router.js:775-780` es codigo **MUERTO**
+  (`wv-shop-ui.js` con `defer` en `index.html:1009` antes que `router.js` en
+  `:1020`). Es lo unico que dependia de T1 y no se hizo. Preguntado al Reviewer.
+
+## Cerrado
+
+- **T10** (`f487573`) — ya estaba en `origin/main`.
+- **T1 / T1-bis (la parte de decision)** — la decision era "no agregar al
+  espejo, dejar de escribir la legacy"; el fix la aplica.
+
+## Pendiente
+
+- **Idea 44**: decimoctavo heartbeat en 0% (lo reporta el PO).
+- **HB#91 (la puerta de permisos)**: el Reviewer laMarco *severidad media-alta*
+  y **no se cierra**. La puerta vive solo en `addOrUpdate`
+  (`app.js:872-876`) y `settings-manager.js:247-260` `importApiKeys` escribe
+  `ACCOUNT_KEYS` **sin validacion** — o sea **el sync de Gist entra por la
+  puerta de atras, en silencio**. Criterio de fondo del Reviewer: **mover la
+  puerta al punto donde la lista se PERSISTE**, no agregar ramas.
+- **El PO tiene un techo de 100 iteraciones**: responde pero se le corta. Pedirle
+  **corto**. `PRE_BACKLOG.md` sin cambios desde 11:30Z.
+- **ALERT-127 sigue abierta**: el Reviewer tiene 0 crons y su heartbeat esta
+  apagado por diseno. Se lo sigue despertando a mano con `submit_to_agent`.
+
+## Estado de propuestas al Reviewer
+
+1 item en vuelo (`task-bbf65a6542fe`). Sin nada vencido de mi parte.
+
+## Lo que NO se hizo
+
+- **No se borro ningun worktree** (19) ni las ramas remotas ya mergeadas: son de
+  ciclos viejos, la limpieza es de Pablo, y borrar el worktree de otra sesion
+  mientras corre seria peor que dejarlo.
+- **No se reenviaron las 10 entregas invisibles** viejas: `hb92-comms-legible`
+  sigue dando 10, pero varias son de rondas ya cerradas por otro canal.
+- **No se creo un cron para el Reviewer.**
+- **Nada mergeado a `origin` (produccion) ni propuesto.**

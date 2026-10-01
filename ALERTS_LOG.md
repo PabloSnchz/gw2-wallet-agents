@@ -2889,3 +2889,40 @@ positivo NO es un hallazgo, es una pregunta.**
   sigue dando 10). Varias son de rondas ya cerradas por otro canal y reenviarlas
   contamina al que las recibe. Quedan anotadas para Pablo.
 
+# ALERT-128 — un worktree con WIP sin commitear es trabajo invisible, y el ciclo lo leyo como "no hubo nada"
+
+**Medido en el HB#99.** `git worktree list` da **19 worktrees** y tres de ellos
+(`hb96-wt`, `hb97-wt`, `hb98-wt`) estaban en el mismo `c1b0693` de `origin/main`.
+`hb98-wt` tenia **WIP sin commitear**: `M js/wv-shop-ui.js` mas
+`?? tests/hb98-wv-shop-view.test.js` y 3 scratch `_b-*.md`.
+
+El ciclo leyo `origin/main`, no encontro commits nuevos, y estaba a punto de
+reportar "HB#97 y HB#98 no dejaron nada". **Era falso:** HB#98 dejo el fix del
+T1 completo y verificado, a 4 lineas de entrar a main.
+
+**Por que la regla de WIP huerfano no lo cubre:** esa regla habla de *mi* WIP en
+*mi* arbol de trabajo. No habla de los worktrees de otras sesiones, que es
+justamente donde queda el trabajo cuando hay dos instancias corriendo (ALERT-119).
+
+**Regla: `git worktree list` es parte del PASO 0.** Un heartbeat que no lo
+mira solo ve su propio clon, y "no hubo commits nuevos" y "hubo un ciclo entero
+que no commiteo nada" se ven IGUALES desde `origin/main`. La diferencia se
+lee en los worktrees, no en el log.
+
+Corolario del mismo hallazgo, ya en el MEMORY pero sin aplicar aqui: **la
+comparacion con `origin/main` se hizo bien** (HEAD era ancestro, rebase limpio,
+`origin/main` no se movio durante el ciclo, push sin rebote). ALERT-119 **no se
+cumplio** en este ciclo. El fix se pudo recuperar igual porque el trabajo estaba
+en disco, no porque la colision se hubiera resuelto: siguen siendo 19 worktrees
+y la sesion paralela sigue existiendo.
+
+## Que NO se hace
+
+- **No se borro ningun worktree.** Son de ciclos viejos y la limpieza es
+  decision de Pablo; borrar el de otra sesion mientras corre seria peor que
+  dejarlo.
+- **No se reaplico el fix a ciegas.** El diff de la otra sesion se **verifico
+  contra `origin/main`**: `storage.js:160-161` mete las 2 claves en
+  `MIRROR_MAP`, `router.js:257` ya usa `Storage.set` para la misma clave, y el
+  test da **4 FAIL con el bug puesto / 11 pass con el fix**. Recien ahi se
+  reaplico. Un WIP de otra sesion es un hypothesis, no un resultado.

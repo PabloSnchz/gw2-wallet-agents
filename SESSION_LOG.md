@@ -2742,3 +2742,47 @@ HEAD clonado (HB#94 y HB#95 los corrio la sesion paralela). No hubo perdida porq
 `git fetch` y compare antes de escribir, pero es la 2a vez en 2 ciclos que ALERT-119 se
 cumple, y la 1a estaba a punto de revertir codigo. **La recomendacion a Pablo sigue siendo
 detener una de las dos instancias.**
+# Heartbeat #99 — 2026-10-01 15:3x-15:5x UTC
+
+## Que se hizo
+
+1. **PASO 0**: inbox vacio, `replies` vacio, 2 VENCIDAS al Reviewer. `git fetch`
+   PRIMERO: mi HEAD era ancestro de `origin/main`, rebase limpio. **ALERT-119 no se
+   cumplio.** (Recordatorio operativo: `cli.py` **aborta** si no estas dentro del
+   workspace o sin `set BOVEDA_AGENT`. El HB#93 ya lo{})
+2. **ALERT-128** (nueva): `git worktree list` es parte del PASO 0. `hb98-wt` tenia
+   el fix de T1 **sin commitear** y el ciclo estaba por reportar que HB#97/#98 no
+   dejaron nada.
+3. **T1 aplicado y verificado** (`8ff95b5`), recuperado del WIP de la sesion
+   paralela **verificandolo contra `origin/main`** antes de re-aplicarlo.
+4. **T11 al Reviewer** (`task-bbf65a6542fe`), pregunta de contrato de UI.
+
+## Que se rompio
+
+- **Nada del producto.** El fix de T1 es el que arregla, no el que rompe.
+- El primer `cli.py inbox` fallo con `ERROR: no se puede determinar que agente sos`
+  (ALERT-123, el candidato del PO). Corriido corriendo desde el workspace.
+
+## Que quedo pendiente
+
+- `task-bbf65a6542fe` en vuelo. El Reviewer tarda 2-15 min.
+- **HB#91 (la puerta de permisos) NO se cierra**: el sync de Gist entra por la puerta
+  de atras. Criterio del Reviewer: mover la puerta al punto de persistencia.
+- **Idea 44**: decimoctavo heartbeat en 0%.
+
+## Decisiones que tomamos
+
+- **El fix de T1 no se aplica a ciegas.** El WIP de otra sesion se verifico con 3
+  medidas independientes (`MIRROR_MAP`, el precedente en `router.js:257`, y el test con
+  el bug puesto) **antes** de tocar `main`. Un WIP ajeno es un hypothesis.
+- **T11 va al Reviewer, no al PO.** Es una pregunta de contrato, y el PO mismo la
+  marc "NO se implementa".
+- **No se borro ningun worktree** ni se reenviaron las 10 entregas invisibles: son
+  decisiones de Pablo o rondas ya cerradas.
+
+## Lo que hay que mirar en otro lado
+
+- **19 worktrees acumulados** y **10 ramas remotas ya mergeadas**. Son decision de
+  Pablo; borrar el worktree de otra sesion mientras corre seria peor que dejarlo.
+- **La sesion paralela sigue activa** y produce trabajo real (esta vez en disco, sin
+  commitear). Detener UNA de las dos instances sigue siendo lo que mas rinde.
