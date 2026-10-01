@@ -3708,3 +3708,35 @@ Fuente: `origin/po/hb99-dashboard`, `DASHBOARD_PO_IDEAS.md`, 852 lineas. Conteo 
 4. **Borrar los 26 worktrees** y las ramas remotas ya mergeadas, incluida `feat-idea49g-ach-acc-compacta`.
 5. **Detener UNA de las dos instancias** — ALERT-119 se cumplio 3 veces en 3 ciclos.
 6. Los **2 archivos basura** (ALERT-120) y los **9 mensajes invisibles** del canal de archivos, que no se reenvian porque varios son de rondas ya cerradas por otro canal.
+
+## Heartbeat Principal #107 — 2026-10-01 18:40 UTC
+
+**Ciclo: cerrado sin urgencias. Un tripwire rojo nuevo, una pregunta al Reviewer en vuelo, nada promoted a produccion.**
+
+### Tareas en curso
+- **Code-Reviewer:** 1 pregunta en vuelo (T13, clave del `deactivate()`), entregada por las 2 vias — archivos `b0121c` (verificada con su lector: 1 visible, 3411 chars) y `task-b1df00fd92d6`. Sin cron y sin heartbeat (ALERT-127), asi que hay que despertarlo a mano; por eso las 2 vias.
+- **Product-Owner:** sin tarea en vuelo. Su rama `origin/po/hb104-dashboard` (20866df) tiene la ronda 34.
+
+### Completado en este ciclo
+- **Recuperado el WIP del ciclo HB#106** (`hb106-wt`, 2 tests sin commitear) — ALERT-128 pagada.
+- **Corregido el falso verde del censo de T13** (ALERT-141): daba 11/0 mirando 0 de 5 modulos. Ahora 11/1, y el FAIL nombra a los 5.
+- **Arreglado `tools/hb105-suite.mjs` → `.cjs`**: el runner que HB#105 declaro "comando unico" no arrancaba. Ahora corre y coincide con `run-suite.js`.
+- **Suite: 1280 pass / 1 FAIL en 51 de 51** (venia de 1247/49). El 1 FAIL es el censo de T13 y es INTENCIONAL.
+
+### Pendiente
+- **T13** (latch que nadie apaga: 6 timers de 1s vivos con el panel oculto, 1 refresh por modulo en `gn:tokenchange`). Fix NO aplicado: el de hash apaga el modulo visible porque el toggle de pestana no cambia el hash. Veredicto del Reviewer en vuelo.
+- **HB#91 commit 2**: `importApiKeys` a `save()` con intencion unica + assert de censo.
+- **49G** (`feat-idea49g-ach-acc-compacta`, 620 lineas) esperando veredicto desde HB#102.
+- **IDEA 64 T1** (dos pestanas, la cuenta desaparece) esperando veredicto desde HB#103.
+
+### Alertas
+- **ALERT-141 (nueva):** un `continue` antes de la asercion, en un detector, se come el sujeto y produce un "limpio" falso; y el runner de suite se commiteo sin ejecutarse. Detalle en `ALERTS_LOG.md`.
+- **ALERT-128 (4a vez):** `hb106-wt` tenia trabajo sin commitear de otra sesion.
+- **ALERT-132 (3a vez):** de las 5 propuestas del PO que cuentan, **3 ya estan aplicadas** (T12 `9c93300`, IDEA 63 `eb69fb3`, IDEA 50b `0c12adc`) — verificado con `merge-base --is-ancestor`. Solo T13 e IDEA 64 estan vivas.
+- **ALERT-137/139 (siguen):** las 2 VENCIDAS al Reviewer (T10 de HB#94, T1 de HB#97) ya estan respondidas y aplicadas. `close()` no voltea el recibo en `sent/`, asi que la fila no se cierra sola. Arreglo en `agentlink.py`: decision de Pablo.
+
+### Estado de propuestas
+- Del PO: ronda 34 (T13) y ronda 19 (IDEA 64) vivas; 3 ya aplicadas y descartadas por medicion.
+- Al Reviewer: T13 (nueva, en vuelo). IDEA 64 y 49E esperando desde ciclos previos.
+
+### Nada mergeado a `origin` (produccion) ni propuesto.

@@ -2937,3 +2937,13 @@ Gist ya correcto al lado, o sea con el patron de la casa como respuesta.
 - **Estado al cierre:** Reviewer con **1 pregunta en vuelo por las 2 vias** (archivos + `task-803cefe8e409`), porque no tiene cron y hay que despertarlo a mano (ALERT-127). PO sin tarea. Documentador sin tarea (no-fallback vigente). **Nadie en quien esperar.**
 - **Decisiones que son de Pablo, no mias:** (a) **arreglar `agentlink.py`** para que `close()` tambien toque `sent/` (o `answer()` acepte un tercero) — es la 4a condicion del canal y sin eso las filas no se cierran solas; (b) los **2 commits de la puerta** (este es el 1 de 2; el 2 cambia el alcance del sync de Gist); (c) borrar los **26 worktrees** y las ramas remotas ya mergeadas — **incluida `feat-idea49g-ach-acc-compacta`, que tiene 620 lineas esperando veredicto**; (d) **detener UNA de las dos instancias** (ALERT-119 se cumplio 3 veces en 3 ciclos); (e) **normalizar los tests a UN formato de veredicto** y dejar `tools/hb105-suite.mjs` como el comando unico, en vez de que cada heartbeat escriba el suyo.
 - **Pendiente proximo ciclo:** (1) **`git fetch` PRIMERO** + `git worktree list` (ALERT-128) + `git ls-remote --heads` antes de concluir que algo esta abierto (ALERT-133); (2) **`node tools/hb105-suite.mjs`** y leerse el numero entero, no el FAIL: ahora hay un comando unico y 49 veredictos; (3) `check_agent_task` sobre `task-803cefe8e409` y leer la fila 117; (4) **commit 2 de la puerta**: mover `importApiKeys` a `save()` con intencion unica, import REPLACE, `perms` ausente = desconocido, y **assert de censo** que falle ante un 4o escritor de `ACCOUNT_KEYS`.
+
+### 2026-10-01 18:40 UTC — Heartbeat #107
+
+- **Recuperado el WIP de HB#106** (`hb106-wt`, 2 tests sin commitear). ALERT-128, 4a vez.
+- **ALERT-141: el censo de T13 daba 11/0 mirando 0 de 5 modulos.** El extractor buscaba `window.X =` y los 5 se exponen como `root.X = X`; el `if (!g) continue;` se los comia. Corregido: 11/1, y el FAIL nombra a los 5. Regla: un `continue` antes de la asercion, en un detector, no es una guarda, es un agujero.
+- **El runner `tools/hb105-suite.mjs` no arrancaba** (`require` en `.mjs`). Renombrado a `.cjs` sin tocar una linea. Ahora coincide con `run-suite.js`: 51 archivos, 1280/1.
+- **T13 no se aplico**: el fix por hash apaga el modulo visible, porque `setActiveView` no cambia `location.hash` y Raids/Strikes son la misma pantalla. Pregunta de contrato al Reviewer por las 2 vias (`b0121c` + `task-b1df00fd92d6`).
+- **Suite 1280 pass / 1 FAIL en 51/51.** El FAIL es el tripwire de T13, intencional.
+- **ALERT-132 por 3a vez:** 3 de las 5 propuestas del PO ya estan aplicadas (T12, IDEA 63, IDEA 50b), verificado con `merge-base --is-ancestor`.
+- Sin push a produccion. Sin merge a `gw2-prod`.

@@ -3479,3 +3479,56 @@ que escribe `sent/` con `state='answered'`— no corrio**". Ver ALERT-139.
 Se lo dejo anotado porque un log que se contradice a si mismo es la misma clase
 de problema que un test cuyo control no mira: las dos cosas se leen igual de
 seguras.
+
+## ALERT-141 [2026-10-01 18:40 UTC] el censo de T13 daba "ok" MIRANDO CERO MODULOS, y el runner que HB#105 declaró "comando unico" no arrancaba
+
+**Clase: ALERT-92/96 (un detector que no matchea produce un "limpio" falso) y ALERT-128 (un ciclo muerto entre "escribi el fix" y "commitea"). Las dos en el mismo ciclo.**
+
+### 1. El censo falso (lo mas importante)
+
+`tests/hb106-censo-latch.test.js` lo escribio el ciclo HB#106 y quedo **sin commitear** en `hb106-wt`
+(2 tests + 3 scratch). Recuperado por ALERT-128. Daba **11 pass / 0 FAIL**.
+
+La causa, medida: el extractor de globales buscaba `window\.(\w+)\s*=`, y **los 5 modulos con latch
+se exponen como `root.X = X`** dentro de un IIFE `(typeof window !== 'undefined' ? window : this)`
+(`raid-tracker.js:1993`, y los otros 4 igual). Medido sobre los 5 archivos: `window\.(\w+)\s*=` da
+**0 matches**, `^\s*(?:root|window|globalThis)\s*\.\s*(\w+)\s*=[^=]` da los 5.
+
+O sea: `m.global` era `null` en los 5, y la linea 137 era `if (!g) continue;` — **un `continue` que se
+come el sujeto del censo**. `sinRutaDeSalida` quedaba vacio, la seccion 2 daba `ok`, y el test
+**media 0 de 5 modulos**. El propio encabezado del archivo advertia: "Sin esto, un extractor que no
+matchea devuelve 0 y '0 modulos con latch' se lee igual que 'el repo esta limpio'". El autor lo escribio
+y despues lo hizo, sin darse cuenta, en la linea 137.
+
+Corregido en las 2 partes: el extractor acepta las 3 formas, y **"no le encontre el global" paso de
+`continue` a un `check()` que FALLA**, porque un modulo que el censo no mira es un fallo del
+instrumento, no una exencion del sujeto. Con el arreglo: **11 pass / 1 FAIL**, y el FAIL nombra a los 5
+por nombre de global y de archivo.
+
+**REGLA: un `continue` antes de la asercion, en un detector, no es una guarda, es un agujero.** Convierte
+"no lo medi" en "no hay problema", que es el modo de falla que el archivo mismo declara evitar. Y: un
+detector que saltea silenciosamente tiene que REPORTAR que salteo, aunque el resultado sea 0.
+
+### 2. El runner de suite no arrancaba
+
+`tools/hb105-suite.mjs` (97 lineas, commiteado en `570336b`) **no corre**: `require` en un `.mjs` es
+`ReferenceError: require is not defined in ES module scope`, y no hay `package.json` en la raiz.
+La logica del runner era correcta; solo la extension. Renombrado a `.cjs` (`git mv`, sin tocar una
+linea de codigo). Ahora corre y **coincide con `tools/run-suite.js`**: 51 archivos, 1280 pass, 1 FAIL.
+
+**REGLA: el runner de la suite se prueba ejecutandolo, no commiteandolo.** HB#105 lo escribio, lo
+commiteo, y reporto "1247 pass / 0 FAIL en 49 de 49" — un numero que solo puede haber salido del otro
+runner (`run-suite.js`), no del que el commit.Functiona. Un runner que no arranca no es 0 FAIL: es
+"el veredicto de la suite no lo mira nadie", o sea ALERT-138 reincidente en el propio instrumento de
+ALERT-138.
+
+### 3. Lo que NO se hizo, y por que (T13)
+
+El defecto es real y esta medido (arriba). **No se aplico el fix** porque el fix obvio es incorrecto y
+esta medido que lo es: `raid-tracker.js:1111-1112` -> los botones de pestana llaman
+`setActiveView('raids')`/`setActiveView('strikes')` y `setActiveView` **no cambia `location.hash`**.
+Raids y Strikes son la MISMA pantalla. Un `deactivate()` con clave de hash apaga el modulo que Pablo
+esta mirando. Pregunta de contrato enviada al Reviewer (archivos `b0121c` + `task-b1df00fd92d6`).
+
+**El 1 FAIL de la suite es INTENCIONAL y es el tripwire.** Es la primera vez que la suite queda en
+rojo, y queda en rojo porque el defecto existe.

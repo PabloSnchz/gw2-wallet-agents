@@ -291,3 +291,26 @@ Medido con `git worktree list` + `git branch --contains`, no de memoria.
 worktree"*, no pelees con git ni asumas que estas en el estado que creias. El
 worktree ajeno es informacion: puede tener trabajo sin commitear, y ese trabajo es
 de otro ciclo. Se documenta y se sigue en el worktree propio.
+
+- [ ] **T13: el latch de `state.active` no baja nunca** (propuesta del PO, ronda 34).
+      **5 modulos** tienen `if (state.active) return;` al principio de `activate()` y los 5
+      exportan `deactivate()`: `homestead-tracker.js`, `inventory-hub.js`,
+      `legendary-tracker.js`, `raid-tracker.js`, `strike-tracker.js`. El router solo
+      desactiva a WV (`router.js:1490`) y a Activities (`:1494`) — ninguno de los dos es de
+      esta lista. **Medido** (`tests/hb106-t13-invariante.test.js`, 22/0, ciclo de vida
+      evaluado con controles): abrir Raids deja 3 timers de 1s; stepping por Strikes deja 6;
+      **irse a Meta deja los 6 vivos con 1 solo panel visible y los 2 modulos `active`**; y
+      cada `gn:tokenchange` dispara 1 `refresh(true)` por modulo con el panel oculto.
+      Volver a Raids NO reinicia los timers (el guard corta antes de `startTimers`).
+      **BLOQUEADO en veredicto de diseño (HB#107).** El fix obvio —`deactivate()` por hash
+      en `route()`— es **incorrecto y se midio por que**: `raid-tracker.js:1111-1112` -> los
+      botones de pestana llaman `setActiveView()` y `setActiveView` **no cambia
+      `location.hash`**; Raids y Strikes son la MISMA pantalla. Con la vista guardada en
+      "strikes" y el hash en `#/account/raids`, un deactivate por hash **apaga el modulo que
+      Pablo esta mirando**. La clave tiene que ser el panel VISIBLE, no el hash. Pregunta
+      (a) vs (b) enviada al Reviewer: `b0121c` + `task-b1df00fd92d6`.
+      **Tripwire: `tests/hb106-censo-latch.test.js` esta en `origin/main` y da 11 pass /
+      1 FAIL a proposito.** Es el unico FAIL de la suite (1280 pass / 51 de 51) y se va
+      solo cuando el fix este aplicado. Si alguien lo ve rojo: es el defecto, no un test roto.
+      Nota: el archivo lo escribio el ciclo HB#106 y quedo sin commitear; lo recupero y
+      corrijo su falso verde (ALERT-141).
