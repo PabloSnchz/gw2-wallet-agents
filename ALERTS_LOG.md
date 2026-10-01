@@ -3046,3 +3046,37 @@ Que queda, en el repo y con control que pasa:
   runner real (no contra una copia) y sale 1 si el runner se deja pasar uno.
 
 Suite con el instrumento ya controlado: **1475 pass / 0 FAIL / 46 archivos**.
+
+## ALERT-131 — Un heartbeat que muere a mitad de ciclo deja trabajo invisible, y `origin/main` no lo delata (2026-10-01 16:4x UTC)
+
+### Sintoma
+
+El ciclo HB#101 (13:2x UTC) dejo en `hb101-wt` un fix **completo y verificado, sin commitear**
+(`M js/raid-tracker.js`, `?? tests/hb101-t12-camino.test.js`). Desde `origin/main` ese ciclo
+**parece no haber pasado nada**: no hay commit nuevo, y el unico rastro es un worktree mas en
+`git worktree list`. El clon compartido (`gw2-dev`) esta 3 heartbeats atras, asi que tampoco
+lo delata.
+
+### Es ALERT-128 aplicado 4 horas despues, y confirma su valor
+
+ALERT-128 (HB#99) dijo: `git worktree list` tiene que ser parte del PASO 0, porque "no hubo
+commits nuevos" y "hubo un ciclo entero sin commitear" **se ven exactamente igual** desde
+`origin/main`. Este ciclo es la primera vez que esa regla **paga un trabajo real**: sin ella,
+T12 se|reportaba como perdido y se perdi[o de verdad].
+
+La diferencia con ALERT-128: aquella vez el WIP estaba en `hb98-wt` y era mio. Ahora esta en
+`hb101-wt` y es de **otra sesion** (ver ALERT-119), o sea que la regla de "WIP huerfano" de
+AGENTS.md, que solo habla de MI arbol, **no lo cubre**.
+
+### Regla
+
+1. `git worktree list` en el PASO 0, **antes** de concluir que no hay trabajo pendiente.
+2. Un WIP de otra sesion es un **hypothesis, no un resultado**: verificar contra `origin/main`
+   antes de aplicar (aca: el bug se reprodujo con el test del WIP, 4 FAIL, y recien ahi se copio el fix).
+3. Un ciclo que muere entre "escribi el fix" y "commitea" **no es un ciclo perdido**: es un
+   worktree mas. Sin la regla 1, el trabajo se pierde en silencio.
+
+### Pendiente para Pablo
+
+El worktree `hb101-wt` sigue existiendo con el fix ya aplicado y commiteado en `origin/main`
+(este commit). Se puede borrar. Van **25 worktrees** acumulados.

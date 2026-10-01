@@ -1031,14 +1031,21 @@
     if (liAvailableEl) liAvailableEl.textContent = state.liAvailable.toLocaleString();
   }
 
+  // T12 (HB#101). El flag de "ya cableado" va EN EL BOTON, no en el scope del
+  // modulo, a proposito: ensurePanelContent() puede re-inyectar el panel y
+  // crear botones NUEVOS. Con un flag de modulo, esos botones nuevos heredarian
+  // un "ya cableado" falso y quedarian MUERTOS: el bug volveria, y solo en el
+  // caso de reconstruir el panel, que es el mas dificil de ver. El elemento que
+  // se cablea es el que lleva la marca, asi que el estado sigue siendo cierto
+  // aunque el DOM se rehaga. Mismo patron que el `btn.__wired` de mas abajo.
   function wireViewToggle() {
     var raidsBtn = document.getElementById('viewRaidsBtn');
     var strikesBtn = document.getElementById('viewStrikesBtn');
     var raidsPanel = document.getElementById('raidTrackerPanel');
     var strikesPanel = document.getElementById('strikeTrackerPanel');
-    
+
     if (!raidsBtn || !strikesBtn || !raidsPanel || !strikesPanel) return;
-    
+
     // La preferencia vive en la gn: (STORAGE_KEYS.RAIDS_STRIKE_VIEW), que es la
     // que storage.js nombra y migra. La legacy queda como FALLBACK, asi que una
     // instalacion vieja sigue leyendo su pestana. NO esta en MIRROR_MAP (medido),
@@ -1081,6 +1088,26 @@
       }
     }
     
+    // Solo el resaltado, sin disparar refresh()/activate().
+    function pintarSolo() {
+      if (activeView === 'raids') {
+        raidsBtn.classList.add('btn--accent'); raidsBtn.classList.remove('btn--ghost');
+        strikesBtn.classList.add('btn--ghost'); strikesBtn.classList.remove('btn--accent');
+      } else {
+        strikesBtn.classList.add('btn--accent'); strikesBtn.classList.remove('btn--ghost');
+        raidsBtn.classList.add('btn--ghost'); raidsBtn.classList.remove('btn--accent');
+      }
+    }
+
+    // Ya cableado: re-sincroniza el resaltado y NO vuelve a disparar
+    // refresh()/activate(). Ese no-disparo es lo que corta el ciclo
+    // ensurePanelContent() -> wireViewToggle() -> setActiveView() -> refresh()
+    // -> loadRaidData() -> ensurePanelContent(), que si no cierra aqui (medido
+    // con tools/hb101-t12a-recursion.mjs). Sin esto, cada recarga pegaria un par
+    // de listeners sobre el mismo boton y un click dispararia N veces.
+    if (raidsBtn.__viewToggleWired) { pintarSolo(); return; }
+    raidsBtn.__viewToggleWired = true;
+
     raidsBtn.addEventListener('click', function() { setActiveView('raids'); });
     strikesBtn.addEventListener('click', function() { setActiveView('strikes'); });
     
@@ -1232,6 +1259,18 @@
       `;
       console.log(LOG, 'Estructura del panel creada');
     }
+
+    // T12 (HB#101): los botones #viewRaidsBtn / #viewStrikesBtn se cablean ACA,
+    // en el mismo lugar donde nacen, y no solo desde activate(). Motivo medido:
+    // el camino Strikes -> Raids entra por refresh() -> loadRaidData() -> esta
+    // funcion, y ahi se llegaba al panel con los dos botones sin listener
+    // (tests/hb101-t12-camino.test.js, seccion "CASO REAL"). Va despues del
+    // `if (!body.querySelector('#raidUtcTime'))` a proposito: corre tambien
+    // cuando el panel ya existia, que es justo el caso roto. Idempotente por
+    // `raidsBtn.__viewToggleWired`, asi que la segunda y siguientes solo
+    // re-sincronizan el resaltado.
+    wireViewToggle();
+
     return true;
   }
 

@@ -3507,3 +3507,39 @@ criterio del PO ya escrito, **T1-bis entra como "definicion del contrato del
 fallback"**, no como limpieza: es borrar `465-617` del toolbar y que
 `renderShopArea()` quede con header + tabla, con test de CENSO; (4) `cli.py
 replies`.
+
+## Heartbeat #102 — 2026-10-01 16:3x-16:5x UTC
+
+**Estado del equipo**
+
+| Agente | Estado | Que hay |
+|---|---|---|
+| **default (Principal)** | ACTIVO | Cron 30 min. Sin nadie a quien esperar al cierre. |
+| **Code-Reviewer** | OPERATIVO, sin disparador | Respondio 1/1 esta ronda (fila 111, ~4.5k chars). Sin crons y con heartbeat apagado por diseno (ALERT-127): lo despierto yo cuando hay pregunta. |
+| **product-owner** | OPERATIVO | Respondio 3/3 (fila 112, corto y seco). Tope de 100 iteraciones en tareas largas: hay que pedirle corto. |
+| **documentador** | Sin tarea | No-fallback vigente. |
+
+**Completado este ciclo**
+
+- **T12 (ronda 33 del PO) — APLICADO Y VERIFICADO.** El toggle "Raids | Strikes" de `raid-tracker.js` quedaba **muerto** al entrar por Strikes: `ensurePanelContent()` inyectaba los botones y `wireViewToggle()` solo corria desde `activate()`. Medido sobre `origin/main` sano: **4 FAIL / 21**; con el fix **21/21**; suite completa **47/47 archivos**. El flag `__viewToggleWired` va en el **elemento**, no en el modulo, para que un panel re-inyectado cablee los botones nuevos.
+- **Fix recuperado de `hb101-wt`** (fix completo sin commitear del ciclo HB#101). ALERT-128 aplicada 4 h despues: `git worktree list` en el PASO 0 evito perder el trabajo.
+- **T1-bis: CERRADO por el PO — "degradar".** El codigo se queda y no entra al BACKLOG, pero **tiene que ser fallback de verdad**: sin toolbar, sin los 5 listeners, sin el 2º `saveView`.
+
+**Veredictos del Reviewer (fila 111) — HB#91 sigue ABIERTA**
+
+- **Mi premisa del HB#96 era incorrecta.** La puerta de permisos **no es un predicado sobre los datos**: depende de `info.permissions`, que solo existe tras `await API.tokenInfo(...)` (`app.js:862`). En el punto de escritura no hay `perms` que mirar, asi que "mover la puerta" no es una mudanza de codigo.
+- **Rechaza (a) y (b).** (a) mete 27 requests sin pool (`API.json` usa `fetch` crudo, no `jfetch`) y convierte un restore en una operacion que puede fallar por falta de red. (b) **pierde keys en silencio**: el import es REPLACE.
+- **Aprueba (d) = (c) + persistir `perms`**, en 2 commits separados, para que la comprobacion en import sea offline y determinista. Regla: **`perms` ausente = desconocido, no malo**.
+- **Gravedad corregida: media, no media-alta.** El dano es silencioso, y lo que silencia es la falta de aviso.
+
+**Hallazgo nuevo (del Reviewer, verificado) — integridad de datos**
+
+- `settings-manager.js:463` importa el archivo —que ya escribio los 7 `Storage.set` en `:393-399`— y el `confirm` esta en **`:477`**. **Si el usuario cancela, los datos ya estan escritos.** El camino del Gist lo tiene bien; solo el de archivo esta invertido. Severidad media-alta.
+
+**Pendiente / bloqueos**
+
+- **HB#91 (puerta de permisos): ABIERTA**, con los 2 commits ya especificados por el Reviewer. No se implementa este ciclo.
+- **Confirm antes de escrituras en import de archivo**: fix aparte, urgente, no implementado.
+- **Paso 3 del ciclo SIN MATERIA PRIMA: van 28 rondas.** El PO tiene 1 sola cosa abierta (T2-chips), no 3+. Rondo 34 mandada para decidir si `PRE_BACKLOG.md` es fuente real o si el paso 3 debe cambiar de fuente.
+- **ALERT-131 (nueva):** un ciclo que muere entre "escribi el fix" y "commitea" deja trabajo invisible desde `origin/main`. Regla: `git worktree list` en el PASO 0.
+- **Decisiones de Pablo pendientes:** los 2 commits de la puerta; el confirm del import; borrar **25 worktrees** y las ramas remotas ya mergeadas; **detener UNA de las dos instancias** (ALERT-119 se cumplio 3 veces en 3 ciclos).
