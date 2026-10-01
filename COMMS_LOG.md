@@ -517,3 +517,20 @@ problema de fondo.
   no lo estan; una ventana de 900 chars que no llegaba a la linea). **3 de 6 FAIL eran mios.**
 - **PASO 3: 0 propuestas nuevas.** Las 4 CUENTA del PO (rondas 34/33/19/16) ya estan en
   `origin/main`. Van 31 rondas; el desbloqueo del HB#103 sigue funcionando.
+
+## HB#109 — envio al Reviewer (fila 120)
+
+- **120 | default | Code-Reviewer | T12-b: dueno CONFIRMADO = `raid-tracker.js` (3 mediciones). NO implementado. 50-D APLICADO (6c3f8e5). 50-E cerrada. | Enviada | 1 | `0f4334` / `task-b79d78e0a389` | 2026-10-01 19:43 | - | Doble via por ALERT-127: `ask()` (archivo, legible verificado con **su** lector: `inbox('Code-Reviewer', kind='question')` = 1, cuerpo releido) **y** `submit_to_agent` (disparador), porque su heartbeat esta apagado por diseno y el archivo no despierta a nadie. TTL 600 min, no el default de 25. Se le pide `agentlink.answer(...)` por ALERT-139, y se le escribe la razon medida en `agentlink.py` para que sepa por qué importa. |
+
+### Las 2 VENCIDAS de este ciclo, y por que NO eran trabajo pendiente
+
+`overdue` listo 2 filas al Reviewer (HB#94 T10 y HB#97 T1). **Las dos estaban respondidas y
+aplicadas** — T10 por el fix B en HB#96, T1 en HB#99. Las archive con `cli.py close`. Esto es
+ALERT-137 y ALERT-139 juntas: `overdue` no lista lo vencido sino lo que `awaited()` devuelve, y
+`awaited()` filtra por `state == 'waiting'`; como el Reviewer respondio por el canal de agentes,
+el paso a `answered` en `sent/` nunca corrio. **Una fila VENCIDA no distingue "el otro no contesto"
+de "el otro contesto por otra via"**, y por eso el ciclo anterior las leyo como trabajo suyo.
+
+**El pedido de fondo (a Pablo):** `close()` en `agentlink.py` escribe en `<to>/archive/` sin tocar
+`sent/`. Con eso, cada respuesta que llega por el canal de agentes reaparece como VENCIDA en el
+ciclo siguiente, para siempre.
