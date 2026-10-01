@@ -451,8 +451,10 @@ select:focus, input:focus{
 .fade-in{ animation:fadeIn .18s ease-out }
 @keyframes fadeIn{ from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:translateY(0) } }
 
-/* Toasts */
-.toasts{ position:fixed; right:16px; bottom:16px; display:grid; gap:8px; z-index:9999 }
+/* Toasts. z-index 10001: tiene que quedar POR ENCIMA de `.modal` (10000), que
+   es donde se disparan los toasts de error (el submit de #keysModal vive
+   adentro del modal). Con 9999 el toast salia debajo del backdrop. */
+.toasts{ position:fixed; right:16px; bottom:16px; display:grid; gap:8px; z-index:10001 }
 .toast{
   background:var(--bg-1); color:var(--text);
   border:1px solid var(--bd-1); border-radius:8px;
@@ -663,7 +665,7 @@ select option:disabled{ color:var(--tx-3) }
 .overlay-tabs{ display:none!important }
 
 /* Toasts compat */
-.toasts{ position:fixed; right:14px; bottom:14px; display:grid; gap:8px; z-index:9999 }
+.toasts{ position:fixed; right:14px; bottom:14px; display:grid; gap:8px; z-index:10001 }
 .toast{
   display:flex; align-items:center; gap:10px; padding:10px 12px;
   border-radius:10px; background:var(--bg-1);

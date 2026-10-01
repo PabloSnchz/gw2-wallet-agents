@@ -130,7 +130,12 @@ select:disabled { opacity:.55; cursor:not-allowed; }
 #sideAccountPanel .icon-img { width:40px; height:40px }
 
 /* =========================== TOOLTIPS / TOASTS =========================== */
-.toasts { display:grid; gap:10px; position:fixed; right:14px; bottom:16px; z-index:60; }
+/* z-index NO va aca: es propiedad estructural y es de la capa 1 (main.css).
+   Antes esta linea declaraba `z-index:60` y, como theme-polish.css carga
+   DESPUES de main.css con la misma especificidad, ganaba por orden de carga:
+   el host de los toasts quedaba en 60, debajo de `.modal` (10000), y los
+   toasts se dibujaban DETRAS del backdrop del modal. En main.css esta en 10001. */
+.toasts { display:grid; gap:10px; position:fixed; right:14px; bottom:16px; }
 .toast {
   border-radius: var(--radius-md);
   border:1px solid var(--bd-1);
