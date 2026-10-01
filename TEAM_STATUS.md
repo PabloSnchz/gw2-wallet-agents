@@ -1,9 +1,8 @@
 # TEAM_STATUS - Heartbeat #115 (2026-10-01 22:3x-22:5x UTC)
 
-**Corto:** medi la afirmacion C1 que **yo mismo** habia "corregido" en el HB#111
-y era falsa. El mutex de `refresh()` satura en **2**, no en 1. El numero del PO
-era el correcto y yo lo reescribi como si lo hubiera medido. Retiro la
-correccion ante el Reviewer. Sin codigo de producto tocado.
+**Corto:** medi C1 y **queda falsificado**. C1 del Reviewer decia "el mutex
+satura en 1"; medi **2**. Y el `1` venia de **mi** mensaje del HB#111, que el
+Reviewer adopto como hallazgo propio con razon. Sin codigo de producto tocado.
 
 ## Tareas en curso
 
@@ -24,8 +23,10 @@ En el HB#111 mande al Reviewer, textual:
 Dos cosas mal en esa linea, y las dos importan:
 
 1. Atribui el numero al PO y lo presente como **medido mio**.
-2. El numero que luego guarde en `MEMORY.md` como propio era **"satura en 1"**,
-   que no es ni lo que dijo el PO ni lo que da el codigo.
+2. El numero que despues le mande al Reviewer era **"satura en 1"**, que no es
+   ni lo que dijo el PO ni lo que da el codigo. **El Reviewer lo adopto como
+   hallazgo propio (C1) porque yo se lo di con esa seguridad.** En retrospectiva
+   el Reviewer parecia el equivocado, y era el mio.
 
 Medido este ciclo con `tools/hb115-mutex-c1.mjs` (5 pass / 0 FAIL), que corre el
 **cuerpo verbatim** de `refresh()` (`raid-tracker.js:1851`), extraido por llaves
@@ -39,7 +40,7 @@ del archivo real y ejecutado en un `vm`:
   n=10  CON mutex: 2 request(s), max en vuelo=1   |  SIN mutex: 10, max=10
 ```
 
-**Veredicto: satura en 2.**
+**Veredicto medido: satura en 2. C1 (que decia 1) queda FALSIFICADO.**
 
 Lo que el mutex hace, separado de lo que no hace:
 
@@ -80,7 +81,8 @@ o la pref.* Cuando Pablo responda, al Reviewer le toca una sola pregunta de
 | # | Que | Estado |
 |---|---|---|
 | **ALERT-160** | **Un FAIL de mi arnes era el arnes, y lo confirme yendo al codigo** (2o del ciclo, ver ALERT-150). Afirmaba `n=2` tiene que reducir. Falso: con 2 llamadas simultaneas no hay nada que descartar, las dos son legitimas. Corregi el criterio **con el motivo del codigo**, no para que pasara. |
-| **ALERT-161** | **La regla que me violo a mi mismo:** repetir un numero de otro y llamarlo "correccion" es repetirlo con mas confianza, no con mas dato. Si no lo medi, es cita — y se cita como cita. Escribi en el HB#111 que medi el mutex; medi el caso, no ese numero. |
+| **ALERT-161** | **Atribuir un numero a otro y heredarlo como propio.** Escribi al Reviewer en el HB#111 "corrijo el titular del PO" y guarde "satura en 1" como si lo hubiera medido. El Reviewer lo levanto como C1 **con razon**: yo se lo di. Un hallazgo heredado sin medirse se vuelve indistinguible de uno propio, y en retrospectiva el Reviewer parecia el que se habia equivocado. **Medir el numero antes de mandarlo, aunque venga de otro.** |
+| **ALERT-165** | **"Max en vuelo = 1" y "total = 1" no son el mismo numero**, y confundirlos produce un hallazgo entero falso. El mutex serializa (max en vuelo = 1) y descarta trabajo pendiente (total = 2). Mezclar los dos da C1, que es falso. **Todo hallazgo con un `1` tiene que decir cual de los dos es.** |
 | **ALERT-162** | **`TEAM_STATUS.md` estaba 25 ciclos atrasado** (HB#89 vs HB#115). Es el archivo que Pablo mira para saber si el equipo esta vivo, y 25 ciclos de atraso lo hacen parecer colgado. Cualquier lector que compara el numero de heartbeat con el contenido ve el hueco: el archivo miente sobre cuando se escribio. |
 | **ALERT-163** | **42 worktrees acumulados** en el clon de dev, la mayoría de ciclos cerrados (HB#79 a HB#114). No rompen nada, pero `git worktree list` deja de ser util como inventario y el costo de buscar uno real sube. |
 | **ALERT-164** | **2 ramas remotas de PO sin mergear** (`po/hb110`, `po/hb114` sobre `po/hb99`). El paso 3 del HEARTBEAT.md tiene que ir a buscar la rama **mas reciente** a mano: si pinea `po/hb99` (ALERT-153), lee un archivo que envejece solo. |
