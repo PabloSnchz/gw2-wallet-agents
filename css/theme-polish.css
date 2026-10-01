@@ -156,9 +156,34 @@ select:disabled { opacity:.55; cursor:not-allowed; }
 .empty { color:var(--tx-3); display:flex; align-items:center; gap:10px; }
 
 /* ========================== MOTION RESPONSABLE =========================== */
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
-}
+/* T10 (HB#96, veredicto del Reviewer): esta politica se BORRA, no se corrige.
+ *
+ * Habia DOS politicas distintas de movimiento reducido y una ganaba por orden de
+ * carga: esta ponia `animation: none`, que no frena la animacion, la CANCELA; sin
+ * ella no hay `forwards` y gana el estado inicial de la regla. Para .raid-wing-card
+ * ese estado inicial es `opacity: 0` (theme-polish.css:824-828), o sea la tarjeta
+ * se queda invisible y con ella se pierden los encuentros que se renderizan
+ * DENTRO. Con "Efectos de animacion" apagado en Accesibilidad, el Raid Tracker
+ * aparecia EN BLANCO. Medido por el PO contando pixeles de un PNG con el CSS real
+ * (control 82.5% de pixeles no-fondo, caso real 0.0% de 68.640).
+ *
+ * El criterio sano ya estaba escrito y EN ESTE MISMO REPO: main.css:686-688 usa
+ * `animation-duration:.001ms` + `animation-iteration-count:1`, que deja la
+ * animacion CORRER a duracion ~0 y por lo tanto terminar en su estado final
+ * (visible). Ademas cubre `transition-duration` y `scroll-behavior`.
+ *
+ * Por que se borra esta y no se arregla .raid-wing-card: el inline de
+ * raid-tracker.js:1437 repite el mismo par "ocultar + animar", asi que un arreglo a
+ * nivel de clase sin `!important` arregla strike-tracker.js:699 y deja el Raid
+ * Tracker en blanco. Medido por el Reviewer en Chrome real con los 3 estilosheets
+ * del repo. Esta regla es la unica que cubre los dos call sites.
+ *
+ * Por que NO se corrige la tarjeta: `animation:none` en la capa 2 ya era una
+ * inversion de capa, y `opacity:0` como estado base es el unico de todo css/ que
+ * depende de una animacion para su estado final (el resto son `from{opacity:0}`
+ * DENTRO de un keyframe, que es seguro). El criterio de fondo ("ninguna regla
+ * depende de una animacion para su estado final") es un paso aparte que toca JS.
+ */
 
 /* ============================ MICRO-PERFORMANCE ========================== */
 #metaList, #walletCards {

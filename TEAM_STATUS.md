@@ -3218,3 +3218,55 @@ cierra hasta tener veredicto, porque la pregunta de diseño sigue abierta.
    preguntas legibles, la 3ra condicion sigue abierta y hay que seguir despertandolo a mano.
 4. Si el Reviewer contesta P1, el fix de la puerta se aplica recien ahi — es codigo de UI y
    necesita su veredicto antes.
+
+### Actualizacion de las 14:0x UTC (mismo ciclo): LLEGO EL VEREDICTO y se aplico el fix
+
+El Reviewer respondio `task-d0bc61b5e63b` con veredictos sustanciales sobre las 2
+preguntas, y **desmiente 2 de mis 3 premisas**. Verificados por mi contra
+`origin/main` antes de aceptar ninguno:
+
+- **P1 (la puerta de permisos): veredicto (ii)**, y el discriminador es `idx`, que ya
+  existe en scope y se calcula DESPUES del `throw` (`app.js`, offsets 40844 y 41196). No
+  hace falta una rama nueva: hace falta **mover un `findIndex` que ya esta ahi** y elegir
+  entre dos textos.
+- **P1, y aqui me equivoque yo: (b) NO es inalcanzable.** Dije que "vuelve a ser alcanzable
+  cuando haya una segunda puerta". **La segunda puerta YA EXISTE y esta en produccion hoy:**
+  `settings-manager.js:247-260` `importApiKeys` escribe la lista de keys con `Storage.set`
+  (linea 252) **sin pasar por ninguna validacion** — verificado que su cuerpo no menciona
+  `REQUIRED_PERMISSIONS` ni ninguna forma de `permission|scope|perms` — y lo llama el import
+  normal (`:393`) y `importFromData` (`:429`), que es el **camino del sync de Gist**. La puerta
+  vive **solo** en `addOrUpdate` (`app.js:872-876`). Importar un backup con una key de 2
+  permisos la guarda **sin error y sin mensaje**, y los modulos que piden `progression`
+  degradan a `[]`. Eso es el bug original entrando por la puerta de atras.
+  **El Reviewer lo mas: el criterio de fondo es mover la puerta al punto donde la lista se
+  PERSISTE**, no agregar ramas. Hoy hay 1 escritor con puerta y 1 sin puerta; `accounts-panel.js:197`
+  solo reetiqueta claves existentes y es benigno. **HB#91 NO se cierra con esto.**
+- **P2 (T10): veredicto fix B**, y se APLICA en este ciclo (abajo).
+- **Alcance corregido:** el PO reporto 1 pantalla y son **2** (`strike-tracker.js:699` usa la
+  clase sin animacion inline y queda en blanco igual). Y `theme-polish.css:826` es el **unico**
+  `opacity:0` como estado base en todo `css/`: el resto son `from{opacity:0}` dentro de un
+  keyframe, que es seguro. El censo es de tamano 1 y se cierra con un assert.
+
+### Que se aplico: el fix B de T10, y el test que lo prueba
+
+`css/theme-polish.css`: se **BORRA** el bloque `@media (prefers-reduced-motion: reduce) { * {
+animation: none !important; ... } }` (159-161), con el motivo escrito en el archivo. Gana
+`main.css:686-688`, que ya tenia el criterio sano. No se toca `!important` en la capa 2
+(prohibido) ni se anade ninguna regla: es el diff mas chico de los dos candidatos.
+
+**El arnes del test estaba ROTO y decia que el fix no funcionaba.** Modelaba la cascada como
+"gana la capa que carga ultimo" y leia solo esa; con el fix, `theme-polish` ya no declara
+nada y el arnes devolvia 0, o sea **decia invisible con el CSS arreglado**, cuando el
+Reviewer lo midio en Chrome real. El CSS real es **por propiedad**, y `animation-duration:
+.001ms !important` sobre `*` le gana a `animation: ... forwards` sin `important` de
+`.raid-wing-card`. Corregido. **2a vez en este archivo que el arnes es el que falla** (la 1a,
+ALERT-124).
+
+**Control negativo, que es lo que prueba que la correccion del arnes es real**
+(`tools/hb96-fixb-control.mjs`): **sin el bug 0 FAIL, con el bug de vuelta 2 FAIL,
+restaurado 0**. Y un error propio en el camino: **anote "1 FAIL" antes de mutar y son 2**
+(uno por la regla prohibida, otro por el comportamiento). El numero de FAIL esperado se
+anota DESPUES de medir la primera vez; el que se anota antes y no se corrige es el que hace
+que un arnes mal calibrado "suene bien".
+
+Suite completa **1185 pass / 0 FAIL, 45 de 45 archivos**.

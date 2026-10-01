@@ -35,7 +35,7 @@ let pass = 0, fail = 0;
 // PENDIENTE: se apaga SOLO el aserto de comportamiento de la seccion [3], que
 // es el que depende del fix. Se sigue ejecutando y se sigue imprimiendo. Todo
 // lo demas cuenta normal. Quitar cuando el CSS este aplicado.
-let PENDIENTE_COMPORTAMIENTO = true;
+let PENDIENTE_COMPORTAMIENTO = false;
 
 const t = (nombre, cond, detalle) => {
   if (cond) { pass++; console.log('  ok   ' + nombre); }
@@ -122,26 +122,45 @@ console.log('\n[3] CASCADE REAL: la tarjeta tiene que quedar VISIBLE con la pref
  * por especificidad y orden de carga, que es lo que determina el resultado.
  */
 function opacityFinal() {
-  // Quien GANA es el que carga despues (index.html: main.css en la 19,
-  // theme-polish.css en la 20), con la misma especificidad (*). Se DERIVA del
-  // orden real de carga en vez de fijarlo: si el fix saca la regla de
-  // theme-polish, esta funcion tiene que seguir diciendo la verdad sola, y no
-  // seguirPortsando la premisa "theme-polish siempre gana".
+  // CASCADA POR PROPIEDAD, no por capa. El\arnés anterior hacia
+  // `gana = la capa que carga ultimo` y leia SOLO esa: con el fix, theme-polish
+  // ya no declara nada y el arnes devolvia 0, o sea **decia que el fix no
+  // funciona** cuando el Reviewer lo midio en Chrome real. Es la 2a vez en este
+  // archivo que el arnes es el que falla (la 1a, ALERT-124: sin control negativo
+  // aprobo el bug que vino a encontrar).
+  //
+  // Lo que dice el CSS real: `main.css:687` pone `animation-duration:.001ms
+  // !important` sobre `*`, y `.raid-wing-card` pone `animation: ... forwards`
+  // SIN important. Entre dos declaraciones, gana la important sin importar la
+  // especificidad ni el orden. O sea que la animacion no se cancela: corre a
+  // duracion ~0 y, con `forwards`, termina en `to{opacity:1}` => visible.
+  //
+  // Y lo que hacia theme-polish: `animation: none !important` sobre `*`, que es
+  // una CANCELACION (animation-name:none). Sin animacion no hay `forwards` y
+  // gana el estado inicial de la regla, `opacity: 0`. Las dos son important; si
+  // las dos estuvieran presentes, ganaria la que carga ultimo, que es la de
+  // theme-polish (index.html: main.css en la 19, theme-polish en la 20).
+  //
+  // El orden de carga se DERIVA de index.html, no esta fijado: si alguien
+  // intercambia las lineas, el resultado tiene que cambiar solo.
   const orden = leer('index.html');
   const iMain = orden.indexOf('css/main.css');
   const iPol = orden.indexOf('css/theme-polish.css');
-  const ganaPol = iPol > iMain;
+  const capas = [
+    { nombre: 'main', txt: leer('css/main.css'), pos: iMain },
+    { nombre: 'pol', txt: leer('css/theme-polish.css'), pos: iPol },
+  ].sort((a, b) => a.pos - b.pos); // orden real de carga
 
-  const main = leer('css/main.css');
-  const pol = leer('css/theme-polish.css');
-  // En la capa que gana: animacion ANULADA (animation:none) => sin `forwards` =>
-  // gana el estado inicial (0). Animacion solo ACELERADA (duration .001ms) =>
-  // corre y termina en to{opacity:1} => visible (1).
-  const gana = ganaPol ? pol : main;
-  const anula = /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]{0,300}animation:\s*none\s*!important/.test(gana);
-  if (anula) return 0;
-  const acelera = /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]{0,300}animation-duration:\s*\.001ms\s*!important/.test(gana);
-  return acelera ? 1 : 0;
+  // Ultima declaracion importante que toque la animacion, en orden de carga.
+  let cancela = false;
+  for (const c of capas) {
+    for (const m of c.txt.matchAll(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]{0,400}?)\n\}/g)) {
+      const bloque = m[1];
+      if (/animation\s*:\s*none\s*!important/.test(bloque)) cancela = true;
+      if (/animation-duration\s*:\s*\.001ms\s*!important/.test(bloque)) cancela = false;
+    }
+  }
+  return cancela ? 0 : 1;
 }
 
 // CONTROL: la misma tarjeta bajo la politica sana de main.css debe verse.
