@@ -3933,3 +3933,157 @@ un solo escritor de la verdad.
 5. **La puerta de permisos cambio el alcance del sync de Gist**: un backup con
    permisos incompletos ahora se importa Y AVISA (antes: importaba en silencio).
    Revisar si el aviso alcanza a Pablo o queda en la consola.
+
+## Heartbeat #112 — 2026-10-01 ~20:5x-21:3x UTC — el Reviewer RESPONDIÓ T14/T15 y no recommends lo que yo esperaba
+
+**Corto:** el veredicto de la ronda 34 llegó al cierre del ciclo anterior. Recogido,
+leído y archivado. **Recomendación C: una sola pareja de botones en `index.html`.**
+No 2 flags. Mi pregunta "¿2 flags o 1?" apuntaba al eje equivocado, y la razon esta
+escrita: **con dos escritores, la invariante "la pref es la verdad" no existe,
+porque hay dos caminos y solo uno la actualiza. Un flag no arregla eso; borrar el
+segundo escritor si.**
+
+### Lo que el Reviewer CONFIRMA (sin discount)
+
+Todo lo mio: T14 (1 activate -> 1 listener, 2 -> 2, 3 -> 3; con guarda 5 -> 1),
+T15 (el click refresca, la pref SIGUE en `raids`, el F5 abre Raids), y que el F5
+HONRA la pref en las dos direcciones. Sus controles van en los dos sentidos.
+
+### 4 hallazgos que no eran parte del pedido
+
+- **C1 [media] — el mutex satura en 1, no en 2. Y el numero era MIO.**
+  Medido con 4 formas de rafaga: carga simultanea maxima = **1** en las 4. El
+  perdedor sale por `if (mySeq !== _refreshSeq) return;` ANTES del try, o sea nunca
+  entra al `finally`, y el ganador solo limpia `_inflight` en su propio `finally`.
+  No hay forma de que dos cargas queden vivas a la vez.
+  **Esto corrige una linea que YO escribi en el TEAM_STATUS #111** ("satura en 2
+  cargas"), que a su vez yo habia corregido del titular del PO. Dos correcciones
+  encadenadas y las dos quedaron equivocadas: la segunda se apoyaba en una que
+  nunca medi.
+- **C2 [ALTA] — T15 no necesita F5. El sintoma es un desync de RESALTADO.**
+  Con `pref=strikes`, Pablo hace clic en "Raids" del strip de Strikes: queda visible
+  el panel de Raids, la pref sigue en `strikes`, y **los botones que Pablo tiene
+  delante dicen "Strikes"**. Y `pintarSolo()` (`raid-tracker.js:1093-1101`) vuelve a
+  pintar desde la pref, o sea **CONSOLIDA el error en vez de corregirlo**.
+  **Consecuencia directa: un fix que escriba la pref sin repintar los 4 botones NO
+  cierra T15.** Eso no estaba en (3a), que era solo "que escriba la pref".
+- **C3 [ALTA] — por que pega mas de lo que dice el titulo.**
+  `git grep "account/strikes" -- index.html` -> **0 matches**. La unica forma de
+  ENTRAR a Strikes es el toggle de Raids; la unica de SALIR sin tocar el side-nav es
+  el toggle de Strikes. **El toggle roto es el unico camino de Pablo.**
+  Y `router.js:1492-1500` ya lo dice textual: el `barridoLatch` esta keyed en el DOM
+  y no en la pref "porque hay DOS toggles y no coinciden". **O sea: el work-around
+  del router EXISTE POR T15.** Cuando T15 se arregla, ese comentario queda viejo.
+- **C4 [media] — COMPLETA la premisa de T14, y cambia el motivo del flag.**
+  `router.js` **NO tiene `unmount`**: 0 matches. Lo que reinicia el latch es
+  `barridoLatch()` (`:1517-1526`), que llama `StrikeTracker.deactivate()` cuando su
+  panel quedo oculto. Camino normal: Strikes visible -> vas a Meta -> barrido apaga
+  -> volves a Raids -> `activate()` -> **`wireStrikeViewToggle()` corre OTRA VEZ**.
+  Los listeners se apilan sobre los MISMOS elementos sin escapatoria.
+  **El flag en el ELEMENTO es lo correcto, pero por el motivo OPUESTO al de T12-b:**
+  en raid-tracker los botones se pueden re-inyectar; en strike-tracker **no** (el
+  `innerHTML` esta detrás de un `if` en `strike-tracker.js:556`).
+  **Copiar el codigo, no el comentario.**
+
+### Las 2 decisiones que se Carry
+
+**C (lo que haria el Reviewer): una sola pareja de botones, en `index.html`.**
+Mover la fila fuera de los dos `.panel__body` a un contenedor compartido junto a los
+dos `<section>` (`index.html:426` y `:442`), y borrar los dos bloques de los
+templates. Resultado: 1 pareja, 1 call site, 1 flag, 0 duplicacion.
+**T14 y T15 desaparecen POR CONSTRUCCION.** T14-b pasa a ser el test de unicidad.
+
+Por que NO lo meto solo: mueve markup y **cambia la posicion visual del toggle**
+(sale del body del panel). Es un cambio de UI sobre una fila maquetada, con CSS de 3
+capas. Eso es decision de Pablo.
+
+**B (fallback), si C no entra: juntos, 2 flags, 1 escritor unico** — con **3
+condiciones que (3a) no decia** y sin las cuales el fix NO cierra:
+- **b1** el escritor repinta **LOS 4 BOTONES**, no solo la pareja desde la que se lo
+  llamo. Si repinta 2, **C2 sigue vivo**.
+- **b2** **escribir y despues aplicar, NUNCA leer y despues aplicar.** `wireViewToggle`
+  lee la pref al entrar (`raid-tracker.js:1061`); el click se pisaria con la pref vieja.
+- **b3** decidir explicitamente que pasa con el boton "Strikes" del lado strike. Hoy
+  recarga; con escritor unico pasaria por `StrikeTracker.activate()`, que hace
+  early-return si ya esta activo (`:1157`), o sea **desaparece la recarga manual**.
+  Preservala a mano o decidilo, pero **dejalo escrito en el commit**.
+
+**Donde vive el escritor: NO como `RaidTracker.setView()` nuevo.** Seria metodo
+publico nuevo + arista bidireccional = empeorar transversal #3 para arreglar un bug
+de estado. Con B, el escritor tiene que ser alcanzable SIN API publica nueva, y con
+un fallback OBLIGATORIO para `#/account/strikes` escrito a mano (ahi el body del
+panel de raids no existe, `wireViewToggle` retorna temprano en `raid-tracker.js:1046`
+y la delegacion seria un no-op silencioso). **Esa rama no se ejercita en uso normal y
+se va a pudrir. Ese es el costo honesto de no hacer C.**
+
+**T14-b: NO se pide todavia.** Con C el test correcto es "existe exactamente una
+pareja de botones de vista en todo el DOM" + "un solo call site hace
+addEventListener". Un test que afirme "toda `wire*Toggle()` tiene guarda" **pasa hoy
+y no ve C2**.
+
+## PASO 3: conteo del PO, y por que NO se abrio ronda
+
+Fuente unica: `origin/po/hb99-dashboard:DASHBOARD_PO_IDEAS.md`. 4 secciones con
+`### Tramos`. **Las 4 verificadas una por una contra `origin/main` @ `1fd98dc`:**
+
+| Seccion | Estado en `origin/main` |
+|---|---|
+| T12 (ronda 33) | T12-a aplicada (el guard). **T12-b NO**: `wireStrikeViewToggle` viva en `strike-tracker.js:1202`, `strikeViewRaidsBtn` en `:563` |
+| IDEA 64 (ronda 19) | **APLICADA**: `save(mutate)` + `_fresh()` (`js/app.js:786`), `_watchOtherTabs()` (`:804`), test `tests/idea64-dos-pestanas.test.js` |
+| IDEA 63 (ronda 16) | **APLICADA**: T1 en `characters.js:1517` y `app.js:1337`; T2 estado vacio en `characters.js:1163` |
+| IDEA 61 / IDEA 56 | Aplicadas |
+
+**Contar = 1 propuesta realmente nueva y sin aplicar (IDEA 62 T1).** Menos de 3, asi
+que **no se fuerza la ronda**. Mandarle al Reviewer stuff ya aplicado es la forma mas
+cara de perder un ciclo, y 3 de las 4 lo estaban.
+
+**IDEA 62 T1 [medida, NO aplicada]:** `api-gw2.js:398` `BANK` y `:411` `ACH_ACC`
+siguen en `2 * 60 * 1000`. El comentario *"inventario cambia poco"* esta **en el mismo
+renglon** que un TTL de 2 min. Subirlos a 30 min son 2 lineas.
+
+## ALERT-152: el driver denego la PREGUNTA al Reviewer, no el comando
+
+Intento mandar la consulta de IDEA 62 T1 por el canal de archivos. **Denegada por el
+driver** ("contains 'rm'"), 7mo caso de ALERT-39. Causa: la palabra **"confirmame"**
+contiene el substring `rm` (`fi-**rm**-ame`). Es la 3a vez que el disparador es una
+palabra **comun** y no `rm` literal.
+
+**REGLA (refuerza HB#102, ahora con un caso nuevo):** el falso positivo no esta
+solo en el comando, esta en **el texto de la pregunta**. Cuando la pregunta es larga
+y en Castellano, hay que escribirla a archivo primero y despues leerla — el
+denial se evalua sobre la cadena del comando, no sobre lo que el comando hace.
+**Este ciclo NO lo reintente**: el sistema marca el denial como final.
+
+## Overdue: 2 preguntas al Reviewer VENCIDAS sin respuesta
+
+`HB#94 T10` (`.raid-wing-card` invisible con `prefers-reduced-motion`) y
+`HB#97 T10-bis T1` (`gn:wv:shop:view` congelada). Las 2 son de DISENO, no de codigo.
+Anotadas para reintento. **No las marco como "el Reviewer esta caido":** las 2 que
+si tienen respuesta (T14/T15, 49E) llegaron en este mismo ciclo.
+
+## Estado al cierre
+
+| Quien | Que | Estado |
+|---|---|---|
+| **Reviewer** | Veredicto T14/T15 | **Respondido y archivado.** 3 preguntas abiertas que son mias: C entra como commit propio o arranca por B; b3 que se hace con el boton de recarga manual; y si con C el `Route` de StrikeTracker puede morir (el dice que si, y que es lo que hace que la unica salida de Strikes sea el toggle roto). **No pondria el `Route` ahora.** |
+| **PO** | Ronda 36 | **No abierta** (conteo = 1). |
+| **Documentador** | — | Sin tarea (regla de no-fallback vigente). |
+
+## Verificaciones
+
+- `git fetch` primero; `origin/main` @ `1fd98dc`, clon local en `f6c9876`
+  (`docs-features-md`, atrasado — hay que mergear esa rama o abandonarla).
+- Worktrees: **37 acumulados**, 15 ramas remotas ya mergeadas. Sin cambios en los
+  worktrees de este ciclo (`hb111-wt` limpio, solo `_m.txt`).
+- `strikeViewRaidsBtn` y `wireStrikeViewToggle`: 2 y 3 ocurrencias respectively,
+  todas en `origin/main`. T12-b sigue abierto.
+
+## Para Pablo (decisiones que NO son mias)
+
+1. **C o B** para T14/T15. C deja 1 pareja de botones pero **mueve la fila del toggle**
+   fuera del body del panel (UI + CSS de 3 capas). B no mueve nada pero deja un
+   fallback que se pudre. El Reviewer recomienda C y explica por que.
+2. **ALERT-119, 6 de 6 ciclos**: dos instancias escribiendo `origin/main`.
+3. **37 worktrees** y **15 ramas remotas** ya mergeadas.
+4. `feat-idea49g-ach-acc-compacta`: 620 lineas esperando veredicto desde el HB#102.
+   No mergear por merito (ALERT-48).

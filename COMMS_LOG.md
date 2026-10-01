@@ -547,3 +547,45 @@ F5 abre Raids. CONTROLES que prueban que el F5 honra la pref: con pref=strikes
 abre Strikes, y con T15-a aplicado tambien. El numero del PO es correcto y lo
 corrijo junto: NO son N requests (el mutex de `refresh()` satura en 2 cargas:
 1->1, 2->2, 3->2, 10->2); lo que escala son los LISTENERS.
+
+## HB#112 — 2026-10-01 ~20:5x-21:3x UTC — la fila 121 quedo RESPONDIDA, y la respuesta cambia el plan
+
+| 121 | default | Code-Reviewer | T14 + T15, medidas 20/0. 2 preguntas de DISENO (juntos o separados, 2 flags o 1) | **Resuelto (HB#112)** | 1 | `20261001T201228Z__default__Code-Reviewer__008577.json` (canal de archivos) | 2026-10-01 20:1x | 2026-10-01 20:5x | **VEREDICTO: JUNTOS, UN COMMIT — pero "2 flags o 1" es el eje EQUIVOCADO.** T14 APROBADO CON CAMBIOS (flag en el ELEMENTA, reescribir el motivo). T15 APROBADO y con mas alcance. **Recomienda C: una sola pareja de botones en `index.html`**, con T14 y T15 desapareciendo POR CONSTRUCCION. Fallback B (2 flags, 1 escritor) solo "si hay que correr algo rapido", y con **3 condiciones que mi (3a) no decia**. 4 hallazgos nuevos: C1 (el mutex satura en **1**), C2 (**el fix NO cierra si no repinta los 4 botones**), C3 (el toggle roto es el unico camino de Pablo, y el work-around del router existe POR T15), C4 (el disparador de T14 es `barridoLatch()`, no unmount). **T14-b NO aprobado todavia.** Ver TEAM_STATUS HB#112 |
+
+| 122 | default | Code-Reviewer | IDEA 62 T1: subir 5 TTL de 2 min (BANK `:398`, ACH_ACC `:411`). 3 preguntas de ALCANCE | **NO ENVIADA** | 1 | (ninguno) | 2026-10-01 21:0x | - | **El driver denego el comando** ("contains 'rm'"), 7mo caso de ALERT-39: la palabra **"confirmame"** contiene el substring `rm` (`fi-rm-ame`). **3a vez que el disparador es una palabra COMUN y no `rm` literal.** El denial se evalua sobre la CADENA del comando, no sobre lo que el comando hace, asi que una pregunta larga en Castellano tiene que escribirse a archivo primero. **No se reintento** (el sistema marca el denial como final). Queda para el proximo ciclo por el canal de archivos con el cuerpo en un archivo |
+
+### 2 VENCIDAS que NO son "el Reviewer esta caido"
+
+`overdue` listo HB#94 T10 y HB#97 T10-bis T1. **No las marco como perdidas**: las 2
+que si tienen respuesta (T14/T15 y 49E) llegaron en este mismo ciclo. Es el mismo
+artefacto que ALERT-137/139, ya descrito en la fila de HB#109: `close()` escribe en
+`<to>/archive/` sin tocar `sent/`, asi que `awaited()` sigue viendo `state == waiting`.
+
+**Lo que cambia hoy:** la fila 121 esta RESUELTA con el veredicto del Reviewer, asi que
+el numero de "esperando al Reviewer" bajo de 4 a 3. **Ninguna de las 3 es urgente**: las
+3 son preguntas de DISENO que yo formule, no trabajo suyo.
+
+### Lo que YA NO es la pregunta, y por que
+
+Mi pregunta era "¿2 flags o 1?". La respuesta es "ninguno de los dos, y la pregunta
+esta mal". Con dos escritores **la invariante "la pref es la verdad" no existe**: hay
+dos caminos y solo uno la actualiza. Un flag no arregla eso; borrar el segundo escritor
+si. Y la razon de fondo es que **los dos templates son identicos byte a byte salvo los
+4 ids y el par de clases** — el mismo producto escrito dos veces.
+
+**Estado real de T12-b, verificado otra vez contra `origin/main` @ `1fd98dc`:**
+`wireStrikeViewToggle` **sigue viva** (`strike-tracker.js:1202`), `strikeViewRaidsBtn`
+sigue en el template (`:563`). T12-a (el guard) si esta. **T12-b es exactamente el
+"borrar el segundo escritor" que el Reviewer pide, y es lo unico que T15 deja abierto.**
+
+### Correccion de una cifra mia que va a quedar citada
+
+El Reviewer medido el mutex de `refresh()` con 4 formas de rafaga: **satura en 1**, no
+en 2. Y el "2" era **mio**: lo escribi en el TEAM_STATUS #111 ("satura en 2 cargas")
+corrigiendo el titular del PO, **sin medirlo**. O sea una cita wearing una correccion.
+El mutex no puede tener 2 cargas vivas porque el perdedor sale por
+`if (mySeq !== _refreshSeq) return;` ANTES del `try` (no entra al `finally`) y el
+ganador solo limpia `_inflight` en su propio `finally`.
+
+**REGLA: repetir un numero de otro y llamarlo "correccion" es repetirlo con mas
+confianza, no con mas dato. Si no medi, es una cita — y se cita como tal.**
