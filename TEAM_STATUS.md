@@ -1,5 +1,86 @@
 
-# TEAM_STATUS — Heartbeat #88 (2026-10-01 08:31-09:0x UTC)
+# TEAM_STATUS - Heartbeat #89 (2026-10-01 09:0x-09:4x UTC)
+
+**Corto:** el item de la fila 079 estaba "pendiente" desde el HB#75 porque un
+veredicto del Reviewer decia que un raw "rompe en escenario Gist-nuevo". **Medido
+antes de tocar: la premisa es FALSA.** El codigo NO se toco. **ALERT-118** +
+`tests/hb89-premisa-raw-selected.test.js` (18/0). Ronda 28 reenviada al PO por el
+canal de archivos, que es el unico que no tiene TTL.
+
+## Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **PO** | Ronda 28 (`20261001T090227Z-a1ae0d`, 3 preguntas) | Enviada por el **canal de archivos**. 1er envio (`task-dafa909f1450`) **FALLO por TTL de 1800 s**. Sin plazo: si vuelve a vencer se anota como 2a falla. |
+| **Reviewer** | — | **Sin nada en vuelo.** Sus 2 ultimos veredictos (081, 088) se recogieron en el HB#88 y ya estan aplicados. |
+| **Documentador** | — | Sin tarea (regla de no-fallback vigente). |
+
+## Lo que se cerro SIN tocar codigo (el resultado del ciclo)
+
+La fila 079 decia, textual:
+
+> `raid-tracker.js:891` (raw de `gw2_selected_key_v1`, **rompe en escenario
+> Gist-nuevo**)
+
+Para que ese raw difiera de `Storage.getRaw` hace falta un estado: la `gn:`
+poblada y la legacy ausente. Y ese estado **no lo produce el codigo**, por 3
+razones medidas, no supuestas:
+
+1. `Storage.set` escribe la `gn:` **y** la legacy.
+2. `Storage.remove` borra la `gn:` **y** la legacy.
+3. **`MIGRATION_MODE = 'copy'`** (`storage.js:34`): el unico `removeItem(oldKey)`
+   de la migracion esta condicionado a `'move'` (`storage.js:457`), o sea hoy es
+   codigo muerto.
+
+Y el escenario que la fila nombra no separa el par: el import real
+(`settings-manager.js:258`) entra por `Storage.set`. Barrido de los 43 `.js` de
+`js/`: **0** escritores crudos de una `gn:`, **0** borradores crudos de la
+legacy.
+
+Lo que si existe es el estado peligroso, y **sobrevive a `_resyncMirrors` por
+diseno** (motivo escrito en `storage.js:434`), pero hay que sembrarlo a mano.
+El fix habria sido codigo a favor de un escenario que no ocurre, y habria hecho
+falta tocar una allowlist que es decorativa a proposito.
+
+**Entregado:** el test, que si tiene valor — afirma las 3 condiciones de ruptura
+y falla si alguna se cumple. Si alguien sube `MIGRATION_MODE` a `move`, avisa
+antes de que un modulo pierda la sesion.
+
+## La regla que deja el ciclo
+
+**Una fila que dice "rompe en escenario X" es una HIPOTESIS hasta que algo la
+mide**, y esta venia de un **veredicto del Reviewer**: tenia la apariencia de
+estar validada. No lo estaba; el Reviewer dedujo el caso y el verbo (`rompe`)
+ocultó que era una deducción.
+
+Es la tercera vez que una premisa así se sostiene en un fix real (ronda 24 del PO:
+`max-width`; ronda 26/T7: el fix chocaba con un assert que defendia el
+defecto). Lo que las 3 comparten: **el sintoma era real, la premisa no estaba
+medida**, y esa confusion es la que hace que el item parezca urgente.
+Y `git grep` no alcanza: las 3 razones estan en el **contrato** de `storage.js`.
+La senal esta en la prosa del contrato, como en la ALERT-117.
+
+## Estado de propuestas (paso 3 del ciclo)
+
+**No hay nada que mandar al Reviewer.** Sin novedades del PO (rondas 22-27: 6 de
+6 sin feature nueva) y sin item de codigo que enviar: el unico item que
+desbloqueaba el HB#88 resulto no ser un bug. El paso 3 se cumple por vacuidad, no
+por omision.
+
+## Alertas
+
+- **ALERT-118** (nueva): la fila 079 era un bug escrito como veredicto de
+  Reviewer. Refutada por medicion. Ver ALERTS_LOG.md.
+- **ALERT-117** (HB#88): el canario CJK dio "limpio" sobre un archivo corrupto.
+  La clase no es instrumentable; el detector es leer la frase.
+- **TTL de 1800 s** (2do registro): `task-dafa909f1450` murio. Es el 4to motivo de
+  "timeout" y el primero que se distingue del stream idle y del provider caido.
+  **El canal de archivos no tiene TTL** — es la via para lo que no se puede
+  perder.
+- **6to ciclo del clon compartido atrasado:** `gw2-dev`.main esta en `11285a0`
+  sobre su propia rama (`fix-hb77-puerta-llega`) mientras `origin/main` va en
+  `6ca0858`. Se trabajo en un worktree sobre `origin/main`. **13 worktrees** y
+  **2 ramas remotas ya mergeadas** siguen sin borrar: es decision de Pablo.
 
 **Corto:** el canario CJK del HB#86 dio "limpio" sobre un archivo que estaba
 corrupto. Tres instrumentos despues, la clase resulta no detectable por

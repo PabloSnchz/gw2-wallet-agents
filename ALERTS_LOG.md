@@ -1996,3 +1996,122 @@ que se intento.
 4. **Un defecto que exige adivinar el texto correcto no se repara solo.** Se
    deja visible. Esto es lo inverso de la regla 3 y no la contradice: primero
    se cierra lo que se sabe, despues lo que se supone.
+
+# ALERT-118 - La fila 079 del COMMS_LOG era un bug VIVO escrito como "pendiente", y nadie lo habia medido
+
+**Estado:** medida y REFUTADA. El codigo NO se toca.
+**Origen:** fila 079 de `COMMS_LOG.md`, abierta por el veredicto del Code-Reviewer
+en el HB#75 y arrastrada hasta el HB#89.
+**Ciclo:** HB#89 (2026-10-01 09:0x-09:3x UTC)
+**Medicion:** `tests/hb89-premisa-raw-selected.test.js`, 18 aserciones, 0 FAIL.
+
+## Que decia
+
+La fila 079, en la parte que el Reviewer corrigio, deja esto pendiente:
+
+> `raid-tracker.js:891` (raw de `gw2_selected_key_v1`, **rompe en escenario
+> Gist-nuevo**) y 7 pares `gn:` con dual-write sin lector
+
+O sea: 3 modulos (`inventory-hub.js:163`, `strike-tracker.js:415`,
+`wv-purchase-detail.js:1842`) leen la legacy a pelo en vez de pasar por
+`Storage.getRaw`, y por eso "en un navegador nuevo" devolverian `null` con una
+cuenta seleccionada y la app arrancaria sin sesion.
+
+Ese item quedo abierto cuatro heartbeats. Lo retomo en el HB#89 porque el
+veredicto de `viewPref()` (fila 081, recogido en el HB#88) lo desbloquea.
+
+## Por que la premisa es FALSA
+
+Para que el raw difiera de `Storage.getRaw` hace falta UN estado:
+
+    gn:account:selected   POBLADA
+    gw2_selected_key_v1   AUSENTE
+
+porque `getRaw` (`storage.js:274`) lee el espejo primero y, si no esta, cae a
+la gn:. Y ese estado no lo produce el codigo, por tres razones medidas:
+
+1. **`Storage.set` escribe las dos** (`storage.js:290`): el par no se separa al
+   escribir.
+2. **`Storage.remove` borra las dos** (`storage.js:295`): no se separa al borrar.
+3. **`MIGRATION_MODE = 'copy'`** (`storage.js:34`): `_migrateOne` NO borra la
+   legacy al migrar. El unico `removeItem(oldKey)` de la migracion esta
+   condicionado a `'move'` (`storage.js:457`), o sea hoy es codigo muerto.
+
+Y el escenario que la fila nombra **no separa el par**: el import real
+(`settings-manager.js:258`) entra por `Storage.set`, que escribe la gn: **y** la
+legacy. El test siembra un almacen vacio, importa, y las dos quedan puestas.
+
+Un barrido de los 43 `.js` de `js/` no encuentra ni un escritor crudo de una
+`gn:` (`localStorage.setItem('gn:...`) ni un borrador crudo de la legacy. No hay
+codigo que separe el par.
+
+## El estado peligroso SI existe, y por que no lo arreglo
+
+Una `gn:` sola **sobrevive** a `_resyncMirrors`, y eso es **por diseno**, con el
+motivo escrito en el propio `storage.js:434`:
+
+> "Una gn: sola puede ser legitima (navegador nuevo, la legacy todavia no se
+> creo) y borrarla seria perder el dato."
+
+Ahi el raw devuelve `null` y la capa devuelve el valor: divergen de verdad. Pero
+para llegar hay que sembrar el almacen a mano. **No es un bug, es un
+riesgo latente con una condicion de ruptura conocida y vigilada.**
+
+## Decision
+
+**No toco los 3 modulos.** El fix seria codigo a favor de un escenario que no
+ocurre, y pagaria con:
+
+- 3 call sites que pasan a depender de la capa en un modulo que hoy no la carga
+  (`raid-tracker.js` ya la usa, `inventory-hub.js` y `strike-tracker.js` hay que
+  verificarlo), o sea una dependencia nueva por un beneficio nulo.
+- La fila de la allowlist `LECTORES_LEGACY_ESPERADOS`
+  (`tests/idea61-claves-congeladas.test.js:425`) tiene que cambiar de 3 entradas,
+  y esa allowlist **es decorativa a proposito**: el propio test dice que un numero
+  pelado no se puede distinguir de "un modulo nuevo y deliberado". Tocarla para
+  accommodate un fix que no arregla nada es empeorarla.
+
+Lo que dejo en su lugar es el test, que es la parte que si tiene valor: afirma
+las 3 condiciones de ruptura (`MIGRATION_MODE`, escritor crudo, borrador crudo)
+y falla si alguna se cumple. Si alguien sube el modo a `move`, el test lo dice
+antes de que un modulo pierda la sesion.
+
+## La regla
+
+**Una fila de COMMS_LOG que dice "rompe en escenario X" es una HIPOTESIS hasta
+que algo la mide, y este equipo las escribia con el verbo del veredicto.**
+
+`rompe`, `esta roto`, `falla` son afirmaciones; en la fila 079 las tres estan
+escritas como hechos y ninguna se midio. Peor: venia de un **veredicto del
+Reviewer**, o sea que tenia la apariencia de estar validada. No lo estaba: el
+Reviewer no midio este caso, lo dedujo, y el verbo ocultó que era una deducción.
+
+Esto ya paso dos veces y por dos caminos distintos:
+
+- **La fila 084 / ronda 24 del PO:** `.toasts` "carece de `max-width`" — falso,
+  `main.css:461` lo tiene. Ahi la medicion la hice yo antes de aplicar, y el
+  fix salio igual por otra via.
+- **La ronda 26 (T7):** el PO propuso `ttl: null` como persistente y su fix
+  chocaba con un assert de `hb80` que **defendia el defecto**. Dos casos
+  del mismo tipo: el sintoma es real, el diagnostico no esta medido.
+
+Lo que las 3 tienen en comun es que el sintoma era REAL. Por eso la tentacion
+de arreglar sin medir es fuerte: el bug existe, entonces el item existe. **La
+premisa y el sintoma son dos afirmaciones separadas y hay que medirlas las dos.**
+
+Corolario pratico: cuando una fila diga "rompe en escenario X" y no traiga la
+medicion, el item no esta *verificado*, esta *reportado*. Tratarlo como
+verificado es lo que hizo que 4 heartbeats lo arrastraran.
+
+Corolario mas chico y el que mas me sirve: **`git grep` no alcanza.** Las 3
+razones de arriba estan en el codigo de `storage.js`, y un grep por
+`gw2_selected_key_v1` no las ve: hay que leer el contrato de la capa, que es lo
+que dice cuando se separa el par. Lo mismo que la ALERT-117: la senal esta en la
+prosa del contrato, no en los caracteres.
+
+## Nota de instrumentacion
+
+`MIGRATION_MODE` se midio con regex **y** por comportamiento (sembrando la
+legacy, corriendo `migrate()` y comprobando que la legacy sigue). La regex
+alcanza para decir que el codigo esta escrito asi; la segunda es la que demuestra
+que hoy no borra. Con una sola de las dos, el aserto habria sido una forma.

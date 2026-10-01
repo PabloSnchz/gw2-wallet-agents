@@ -15,6 +15,15 @@
       (tiene `__mem`/`__inflight` propios en `:40-41`) y llamarlo desde
       `api-gw2.js:cacheClear` en la rama `!dryRun`. **No empezado: es capa de datos y
       por ALERT-48 va con veredicto del Reviewer.**
+- [x] **Raw de `gw2_selected_key_v1` en 3 modulos** ("rompe en escenario
+      Gist-nuevo", fila 079) — **CERRADO SIN TOCAR CODIGO (HB#89), la premisa
+      era FALSA.** La gn: sola con la legacy ausente no la produce nadie:
+      `set`/`remove` escriben y borran el par, y `MIGRATION_MODE = 'copy'` no
+      borra la legacy al migrar. El import real entra por `Storage.set`. El
+      estado peligroso **si** sobrevive al resync, por diseno, pero hay que
+      sembrarlo a mano. Queda la guardia: `tests/hb89-premisa-raw-selected.test.js`
+      (18/0) afirma las 3 condiciones de ruptura. **ALERT-118.**
+
 - [x] **Idea 50, boton de liberar la cache de la API** — H1 y H2 del Reviewer
       aplicados en `46b2d7f` (alcance restaurado al `title` de forma aditiva;
       `keptBytes` en vez de enumerar categorias, que era el remedio del PO).
