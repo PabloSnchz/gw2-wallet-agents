@@ -136,6 +136,28 @@ function cuerpoDeMetodo(bloque, ini) {
 }
 
 /**
+ * Quita comentarios de linea y de bloque de un TROZO DE CODIGO.
+ *
+ * Por que existe: un assert que busca un patron de codigo matchea tambien la
+ * FRASE que nombra ese patron. El caso que lo motiva esta medido en la
+ * seccion 6: el comentario que documenta el fix de `syncAccountTagsToKeys`
+ * esta DENTRO de la funcion y contiene literalmente
+ * `localStorage.getItem('gw2_keys')`, o sea el patron prohibido. Acotar el
+ * assert al cuerpo de la funcion - que es lo que arregla el caso de `save()`
+ * - no alcanza: con el fix puesto, el assert seguia dando FAIL.
+ *
+ * Por que no es un parser: no hace falta. Es un stripper, y su unica
+ * Limitacion (cadenas multilinea con `//` adentro) esta medida y declarada en
+ * la seccion 6. Un parser de verdad seria mas correcto y mas caro, y el
+ * analisis de que el archivo no tiene ese caso es de una linea.
+ */
+function cuerpoSinComentarios(codigo) {
+  return codigo
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // bloque
+    .replace(/\/\/[^\n]*/g, ' ');        // linea
+}
+
+/**
  * Monta UNA pestana: el KeyManager real de app.js, contra el store compartido.
  * El `document` es minimo: `refreshSelects` necesita `el.keySelectGlobal`.
  */
@@ -408,11 +430,62 @@ section('6. cuantos escritores tiene la clave de la lista de cuentas');
        'ya no escribe: el alcance de esta idea cambio, hay que volver a medirlo');
   }
 
-  // El que el PO NO vio, porque su sandbox era el bloque KeyManager literal.
+  /* --- el LECTOR CRUDO, acotado al CUERPO de la funcion que lo hace ---
+   *
+   * ALERT-91. Este assert estaba escrito al reves, y de dos formas a la vez:
+   *
+   * (1) AFIRMABA el bug en vez de forbiddinglo. Decia "es el LECTOR CRUDO" y
+   *     por eso solo podia pasar mientras el bug existiera. Un assert que
+   *     describe un defecto es una foto, no una red: el dia que se arregla, la
+   *     red se apaga. Ahora afirma el INVARIANTE ("no hay lector crudo"), que
+   *     es lo que tiene que seguir siendo cierto manana.
+   *
+   * (2) NO ESTABA ACOTADO AL CUERPO, y por eso matcheaba la PROSA. El unico
+   *     match de `/localStorage.getItem\(\s*'gw2_keys'/` en el archivo es la
+   *     linea 170, que es el COMENTARIO que describe el fix
+   *     (`esto leia la LEGACY a pelo (localStorage.getItem('gw2_keys'))`).
+   *     Medido con tools/hb72-probe.js. O sea que el assert paso con el fix
+   *     PUESTO, por el texto que anuncia el fix: la forma exacta del fallo que
+   *     el propio test ya corrigio en app.js ("los asserts estan acotados al
+   *     CUERPO del metodo, no al archivo") y que no aplico 20 lineas mas abajo.
+   *
+   * La regla que sale es mas general que este caso: un regex que nombra un
+   * patron de codigo matchea tambien la FRASE que nombra ese patron. Si el
+   * patron esta escrito en el archivo, el assert tiene que acotarse a donde el
+   * codigo vive, o va a pasar por construccion.
+   *
+   * Y acotarse al CUERPO NO ALCANZA, que es lo que se midio. El comentario que
+   * documenta el fix esta DENTRO de la funcion (linea 170, tres lineas despues
+   * del `try {`), asi que un assert acotado al cuerpo sigue matcheandolo: con
+   * el fix PUESTO daba 1 FAIL. Por eso los asserts de esta seccion corren
+   * sobre `cuerpoSinComentarios()`: la prosa que nombra un patron no es el
+   * patron, y un assert de CODIGO tiene que ser ciego a ella.
+   *
+   * Nota sobre el helper: es un stripper de comentarios de linea y de bloque,
+   * NO un parser de JavaScript. No contempla cadenas multilinea con `//`
+   * adentro. MEDIDO en `accounts-panel.js` antes de escribirlo: 71 lineas con
+   * `//`, 10 backticks, y **0 backticks pegadas a `//`** (las 10 estan en
+   * comentarios o en plantillas `innerHTML` que no contienen `//`). O sea que
+   * hoy el caso limite no se da, y es unaLimitacion DECLARADA, no una
+   * garantia: si el archivo crece hasta ese caso, este helper es lo primero
+   * que hay que revisar.
+   */
   const ap = fs.readFileSync(path.join(ROOT, 'js/accounts-panel.js'), 'utf8');
-  ok(/localStorage\.getItem\(\s*CONFIG\.STORAGE_KEYS_KEYS|localStorage\.getItem\(\s*'gw2_keys'/.test(ap),
-     'accounts-panel.js LEE la legacy a pelo (no por Storage): es el LECTOR CRUDO',
-     'ya lee por Storage: el alcance de esta idea cambio');
+  const iSync = ap.indexOf('function syncAccountTagsToKeys');
+  const cuerpoSync = iSync >= 0 ? cuerpoSinComentarios(cuerpoDeMetodo(ap, iSync)) : '';
+  ok(cuerpoSync.length > 0,
+     'se encontro el cuerpo de syncAccountTagsToKeys() para poder acotar el assert',
+     'el helper no devolvio nada: el assert de abajo no estaria probando nada');
+  ok(!/localStorage\.getItem\(\s*CONFIG\.STORAGE_KEYS_KEYS|localStorage\.getItem\(\s*'gw2_keys'/.test(cuerpoSync),
+     'syncAccountTagsToKeys() NO lee la legacy a pelo: el LECTOR CRUDO esta prohibido (Idea 61 §6)',
+     'vuelve a leer la legacy por localStorage: es el LECTOR CRUDO, el unico que se saltaria el espejo');
+
+  // Y la mitad de la Idea 64 que el fix habilita: escribe por la API, que
+  // escribe la gn: Y su legacy. Sin esto, el "arreglo" del LECTOR CRUDO
+  // dejaria la gn: con la foto del primer arranque, que es el bug de la 61.
+  ok(/Storage\.set\(\s*Storage\.STORAGE_KEYS\.ACCOUNT_KEYS/.test(cuerpoSync),
+     'syncAccountTagsToKeys() ESCRIBE por Storage (que espeja gn: <- legacy)',
+     'escribe por localStorage: la gn: se queda con la foto del primer arranque (Idea 61)');
 }
 
 console.log('\n' + pass + ' pass / ' + fail + ' FAIL');
