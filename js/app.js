@@ -680,7 +680,7 @@
       { scope: 'account',    para: 'obligatorio para toda key' },
       { scope: 'wallet',     para: 'Cartera' },
       { scope: 'progression', para: 'Logros, Suerte, Raids, Actividad diaria' },
-      { scope: 'unlocks',    para: 'Legendaria Imbuida, nodo de home, glifos' },
+      { scope: 'unlocks',    para: 'Legendaria Imbuida, nodo de home' },
       { scope: 'inventories', para: 'Banco, materiales, Inventario' },
       { scope: 'tradingpost', para: 'delivery / Conversor' },
       { scope: 'characters', para: 'Personajes e Inventario' },
@@ -1062,7 +1062,16 @@
   // === Propuesta 8: parsear errores de la API en mensajes diferenciados ===
   function parseKeyError(err) {
     const m = (err?.message || '');
-    if (/permisos/i.test(m)) return { msg: 'Faltan permisos: account + wallet', kind: 'perms' };
+    // Un error que ya viene clasificado (con `kind`) trae su propio mensaje, y
+    // ese mensaje es el bueno: se respeta en vez de reescribirlo.
+    if (err?.kind) return { msg: m || 'Error desconocido', kind: err.kind };
+    // El mensaje de la puerta de permisos (app.js, REQUIRED_PERMISSIONS) ya
+    // nombra los 7 que exige y el motivo de cada uno. Antes esta linea
+    // devolvia "Faltan permisos: account + wallet" — los 2 permisos de antes de
+    // que la puerta exigiera 7 — y ese texto pisaba el detalle, que se
+    // construia bien y no se mostraba nunca. Un error de la API con la palabra
+    // "permisos" conserva ahora su propio texto en vez de perderlo.
+    if (/permisos/i.test(m)) return { msg: m, kind: 'perms' };
     if (/HTTP 401/i.test(m)) return { msg: 'Key inválida (HTTP 401)', kind: 'invalid' };
     if (/HTTP 403/i.test(m)) return { msg: 'Key prohibida (HTTP 403)', kind: 'forbidden' };
     if (/HTTP 429/i.test(m)) return { msg: 'Demasiadas peticiones (HTTP 429)', kind: 'rate' };
