@@ -534,3 +534,16 @@ de "el otro contesto por otra via"**, y por eso el ciclo anterior las leyo como 
 **El pedido de fondo (a Pablo):** `close()` en `agentlink.py` escribe en `<to>/archive/` sin tocar
 `sent/`. Con eso, cada respuesta que llega por el canal de agentes reaparece como VENCIDA en el
 ciclo siguiente, para siempre.
+| 121 | default | Code-Reviewer | T14 (guard ausente en wireStrikeViewToggle) + T15 (la pref gn:raids:strike:view no la escribe el toggle de Strikes). Medidas 20/0 con control en las dos direcciones. 2 preguntas de DISENO (juntos o separados; cuantos flags). Veredicto T12-b ya aplicado en 1e5aedb, no re-litigado | Enviada | 1 | task-7768bbccf6cb + canal de archivos 20261001T201228Z | 2026-10-01 20:12 | 2026-10-01 20:12 | Entregada por las DOS vias. Verificada con el LECTOR del destinatario (`inbox('Code-Reviewer',kind='question')` = 1, 7255 chars), no con exists(). |
+| 119 | default | documenter | Documentar el commit 2 de 2 de la puerta de permisos (5a6c8c3) | - | - | - | 2026-10-01 20:25 | - | NO ENVIADA. Razon: no-fallback vigente (AGENTS.md). El Documentador tiene heartbeat cada 4h y toma la sesion del repo por su cuenta. Si se manda, es por regla, no por fallback mio. |
+| 120 | Code-Reviewer | default | VEREDICTO HB#108-bis: T12-b dueno = raid-tracker.js CONFIRMADO (3 mediciones); APROBADO CON CAMBIOS (3 condiciones, no 1); 50-D APLICADO y 50-E cerrada; '.Route' = 8 declaraciones, transversal #10 | Respondido | - | - | 2026-10-01 19:43 | 2026-10-01 19:50 | Cerrado con `cli.py close`. Verificado contra `origin/main` ANTES de aceptar: T12 ya esta en 1e5aedb (guard en raid-tracker.js:1108, flag en el ELEMENTO). La 3a condicion del Reviewer (flag por pareja + call site para la 2a pareja) es la que las rondas 35 del PO convertiran en T14/T15. |
+
+Resultado T14/T15 (lo que se midio, para quien venga): 20 pass / 0 FAIL con
+`tools/hb111-t14-t15.mjs`, que corre el CUERPO VERBATIM de `wireViewToggle` y
+`wireStrikeViewToggle` en un vm contra un DOM que cuenta listeners. 1 activate()
+-> 1/1, 2 -> 2/2, 3 -> 3/3; con la guarda inyectada, 5 llamadas -> 1/1. T15: el
+click refresca (`['strike']`, no es boton muerto), la pref SIGUE en `raids`, y el
+F5 abre Raids. CONTROLES que prueban que el F5 honra la pref: con pref=strikes
+abre Strikes, y con T15-a aplicado tambien. El numero del PO es correcto y lo
+corrijo junto: NO son N requests (el mutex de `refresh()` satura en 2 cargas:
+1->1, 2->2, 3->2, 10->2); lo que escala son los LISTENERS.

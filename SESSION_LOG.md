@@ -2990,3 +2990,70 @@ en UTF-8 con una herramienta que no los muestra. La deteccion es un script que c
 `0x2E80..0xFFFD` sobre el archivo — y hay que correrlo **ANTES** del append, porque despues el
 caracter ya esta en el log y "arreglarlo" significa growing el archivo otra vez. `tools/probe-cjk.mjs`
 ya existe para esto; hoy lo hice con un one-liner y con el otro me acordaba al ver la salida.
+# HB#111 - 2026-10-01, ~20:00-20:40 UTC
+
+## Que se hizo
+
+1. **Veredicto del Reviewer (T12-b) aplicado**: cerrado con `cli.py close`. Verificado
+   contra `origin/main` ANTES de aceptar nada: T12 ya esta mergeado en `1e5aedb`
+   (guard en `raid-tracker.js:1108`, flag en el ELEMENTO, `pintarSolo()` hace el
+   no-disparo). La 3ra condicion del Reviewer (flag por pareja + call site para la
+   2da pareja) es exactamente lo que el PO rockeó como T14/T15 en la ronda 35.
+
+2. **T14 y T15 medidas, no creidas**: el PO mando 2 hallazgos. Verifique sus 4
+   premisas una por una contra `origin/main` (RAIDS_STRIKE_VIEW = 4 hits; prefGet/
+   prefSet/STORAGE_KEYS en strike-tracker.js = 0; `__viewToggleWired` = 2 hits,
+   ambos en raid-tracker.js; los 4 botones = 0 hits en index.html). Todas
+   ciertas. Después medí la consecuencia con `tools/hb111-t14-t15.mjs`: 20 pass /
+   0 FAIL, con control en las dos direcciones.
+
+3. **Commit 2 de 2 de la puerta de permisos** (`5a6c8c3`, +591/-2). Cierra HB#91,
+   abierto desde el HB#90. `importApiKeys` pasa por `KeyManager.save()` con
+   validacion OFFLINE de la copia persistida (`key.perms`).
+
+## Que se rompio
+
+Nada en el producto. Suite completa **1341 pass / 0 FAIL en 53 archivos** (venia
+de 1282 en 49). Sin regresiones.
+
+Si se rompieron cosas mias:
+
+- **La rama de degradacion que escribi era codigo muerto** (ALERT-143). La
+  validacion leia `KeyManager.REQUIRED_PERMISSIONS` sin guarda y reventaba antes
+  de llegar al `if (KM)`. Lo encontro la seccion 7 del test, no la lectura del
+  diff.
+- **El censo que pidio el Reviewer daba un numero circular** (ALERT-144): contaba
+  mi propia rama de emergencia como el "4o escritor" que el assert deberia
+  detectar, o sea que el assert rechazaba el fix.
+- **Un FAIL mio del arnes** (ALERT-145): busque `function save(` donde la firma
+  real es `save(mutate)`. El producto estaba bien.
+- **140 y 141 ya estaban escritas** por la sesion paralela y mi numeracion las
+  habria pisado (ALERT-146). Renumeradas a 142-146 contra el archivo.
+- **Un tipograma con caracteres CJK** en el primer bloque de alertas, corregido
+  antes de anexar. No llego al archivo.
+
+## Que quedo pendiente
+
+- **Reviewer: 1 pregunta en vuelo** (T14/T15, 2 decisiones de diseno), por las dos
+  vias: `task-7768bbccf6cb` + canal de archivos `20261001T201228Z`. La que decide
+  el alcance es si T14-a y T15-a van juntos o por separado, y cuantos flags.
+- **`feat-idea49g-ach-acc-compacta`**: 620 lineas esperando veredicto desde el
+  HB#102. NO mergear por merito (ALERT-48).
+- **HB#109/HB#110**: la sesion paralela sigue moviendo `origin/main` (ALERT-119,
+  cumplida 5 veces en 5 ciclos).
+
+## Decisiones entre el equipo
+
+- **Del Reviewer (fila 111)**: la comprobacion de permisos NO es un predicado
+  sobre los datos — `addOrUpdate` hace `await API.tokenInfo(...)` y consume
+  `info.permissions`, que solo existe tras una llamada de red. Asi que "mover la
+  puerta al punto de persistencia" no es una mudanza: es cambiar la naturaleza de
+  la comprobacion. Aprobado (d) = validar la copia PERSISTIDA, offline. Rechazado
+  revalidar contra la API: `API.json` usa `fetch` CRUDO (`app.js:64`), sin pool, y
+  un restore sin conexion rechazaria las 27 keys.
+- **Mia, y la dejo escrita**: `perms` ausente = DESCONOCIDO, no malo. El import
+  sigue siendo REPLACE (`save(() => lista)` descarta `fresh` A PROPOSITO).
+- **Del PO (ronda 35)**: T13 la excluyo de MODULOS_CON_LATCH con razon medida, asi
+  que el codigo muerto quedo documentado por el fix y no por una exception
+  silenciosa. T15 sale del PENDIENTE que escribio el propio commit de T13, no de
+  una idea nueva.

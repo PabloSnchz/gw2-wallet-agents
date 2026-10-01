@@ -3605,3 +3605,115 @@ saber si el codigo rompio o el test miento.
 (`removeItem` en vivo), dos eran premisas del arnes, y tres de ellos los produje yo al contar
 aserciones a mano. **3 de 6 FAIL eran errores mios, y el que mas tiempo costo fue el que mas
 confianza me daba** (el comentario, que estaba en mi propio archivo y en la funcion hermana).
+# ALERT-142: un archivo tiene DOS formas en el mismo clon, y un parche escrito contra una no toca la otra
+
+Medido en `js/settings-manager.js` al abrir el parche del commit 2 de la puerta
+(HB#111). El replace no matcheaba y el script salia con "NO MATCHEO" — que es el
+comportamiento correcto: el fallo NO fue un fix silencioso, fue un alto.
+
+  blob (origin/main):   CRLF 0,  LF 713
+  working tree:         CRLF 713, LF 713
+  core.autocrlf:        true
+
+Son el mismo archivo y las dos formas existen a la vez. Un replace escrito en LF
+no matchea el working tree; uno escrito en CRLF no matchea el blob, y el commit
+sale con EOL mixtos.
+
+Es el mecanismo de ALERT-138 al reves. Ahi los replaces en LF no matcheaban un
+archivo CRLF y el bloque que "reconstruia la version vieja" devolvia el archivo
+entero, produciendo un FAIL que mi propio test reportaba como "21/0". Aca es el
+mismo choque del otro lado: el parche no aplica.
+
+**REGLA: antes de un parche por replace, medir el EOL del archivo que se ABRE
+(`readFileSync`), no el del blob que se mira con `git show`. Son distintos, y en
+un clon con `autocrlf=true` lo son SIEMPRE.**
+
+La segunda mitad, que es la que mas cuesta: el fix se normaliza a LF, aplica, y se
+deja que autocrlf convierta al escribir. El aviso `LF will be replaced by CRLF` de
+git es normalizacion, NO mezcla — pero solo se puede decir eso porque se midio el
+numero antes y despues (`node -e` contando, no PowerShell: los backticks de escape
+en PowerShell-a-traves-de-cmd dan `crlf=0 lf=16`, que es mentira).
+
+---
+
+# ALERT-143: mi rama de degradacion era CODIGO MUERTO, y lo cree yo
+
+La escrebi con una guarda `if (window.KeyManager && ...)` que parecia correcta, y
+escribi la validacion ARRIBA usando `KeyManager.REQUIRED_PERMISSIONS` sin
+comprobar que existiera. O sea: la validacion revienta con `TypeError` ANTES de
+llegar a la guarda, y el unico camino para el que la rama existia no se podia
+recorrer.
+
+No lo vi leyendo el diff. Lo vio la seccion 7 del test
+(`tests/hb111-puerta-import.test.js`), que corre `importApiKeys` con `KeyManager`
+ausente — justamente el escenario para el que escribi la rama.
+
+**REGLA: una rama de degradacion se prueba con el escenario que la degrada. Un
+test que solo recorre el camino principal no puede encontrarla, porque la rama no
+existe en ese camino.** Y el sintoma (`TypeError` en vez de "degrada") es
+indistinguible de "la degradacion no funciona": los dos dicen lo mismo y solo uno
+es cierto.
+
+---
+
+# ALERT-144: el CENSO que pidio el Reviewer daba un numero que no significaba nada
+
+El Reviewer pidio (fila 111): "hace falta un assert de censo que falle ante un 4o
+escritor de `ACCOUNT_KEYS`". Lo escribi contando los archivos que contienen
+`Storage.set(...ACCOUNT_KEYS`, y dio 3 con el fix puesto — porque mi propia rama
+de degradacion contiene ese literal.
+
+Con el fix, el archivo nuevo cuenta como el "4o escritor" que el assert debe
+detectar. El numero era circular: el assert rechazaba el fix.
+
+El criterio correcto no es "cuantos escriben el literal" sino "alguno NUEVO
+escribe la lista por una puerta que no es KeyManager". Y para el que queda, la
+asercion util es de ALCANCE: la escritura a pelo tiene que estar DESPUES de la
+comprobacion de `KM` y DENTRO de su `else`.
+
+**REGLA: un censo que el propio fix puede hacer crecer no mide el fix, mide el
+metodo de conteo. Preguntar "que ES un escritor" antes de "cuantos hay", y si la
+respuesta tiene una clausula de emergencia, esa clausula va dentro del criterio y
+no afuera.**
+
+---
+
+# ALERT-145: un FAIL de mi propio arnes puede ser el arnes (2o del ciclo)
+
+`FAIL app.js escribe a TRAVES de KeyManager.save`. El codigo estaba bien: la firma
+real es `save(mutate)`, no `function save(` (es un metodo de objeto literal, no una
+declaracion). Mi criterio buscaba una forma que el archivo nunca tuvo.
+
+Lo confirme yendo al archivo, no "corrigiendo el criterio hasta que pase":
+`git show origin/main:js/app.js` + contar `/save\(mutate\)/` (1) y `/this\.save\(/`
+(4). El criterio era falso; el producto no.
+
+**REGLA: un FAIL se corrige mirando el CODIGO, no mirando lo que quiero que diga
+el archivo.** Y si el criterio dice "no existe", el primer movimiento es `git show`
+del archivo real (ALERT-133: buscar el simbolo en el arbol actual, no en el diff).
+
+Es la misma clase que ALERT-135, y la 2a vez en el mismo ciclo que el arnes — no
+el producto — falla. El control negativo PRIMERO es lo que lo hace barato: sin el,
+`26 pass / 0 FAIL` habria sido la respuesta a un arnes que no midia nada.
+
+---
+
+# ALERT-146: 140 y 141 ya estaban escritas por la sesion paralela, y mi numeracion las habria pisado
+
+Anotar ALERT-140..143 en `ALERTS_LOG.md` cuando el maximo real era 141. Lo
+detecto porque el numerador (ordenar por texto, o "el ultimo que conozco") dio un
+hueco donde creia que habia uno.
+
+Es la 2a vez en 3 ciclos que el numero de una alerta se fija por costumbre y no
+por medicion (la 1a, HB#93: `Sort-Object -Descending` dio `ALERT-99` como maximo
+cuando el real era 121).
+
+**REGLA: el numero de una alerta se mide contra el archivo, no contra lo que uno
+recuerda del ciclo anterior.** El costo de numerar por costumbre es pisar la
+evidencia de otro ciclo — y `ALERTS_LOG.md` es un log de evidencia: dos agentes
+con el mismo `ALERT-140` no son dos hallazgos, son UN hallazgo y una contradiccion.
+
+**Detalle del incidente:** las 4 alertas de este ciclo quedaron en 142-145 porque
+las 2 primeras que escribi (EOL y rama de degradacion) se renumeraron al medir.
+La de "arregle el EOL" es ALERT-142 y el nombre del bloque original ("140") no
+llego al archivo: la renumeracion es lo que evita el pisado.

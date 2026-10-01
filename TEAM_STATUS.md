@@ -3836,3 +3836,100 @@ click" va aparte. Que lo haga yo en un ciclo propio o que lo mande al PO como tr
 (e) `agentlink.py`: `close()` no voltea `sent/`, y por eso las VENCIDAS reaparecen cada ciclo.
 (f) **normalizar los 52 tests a un formato de veredicto** y dejar `run-suite.js` como comando unico
 — con 5 formatos vivos, cada heartbeat que escribe su propio runner vuelve a tener ALERT-138.
+# HB#111 — 2026-10-01 ~20:40 UTC — la puerta de permisos CERRADA (2 de 2) y T14/T15 medidas
+
+**Estado del ciclo:** commit 2 de 2 de la puerta mergeado en `origin/main` (`5a6c8c3`).
+1 pregunta al Reviewer en vuelo por las dos vias. Nada esperando del PO.
+
+## Lo que cambia de verdad
+
+**HB#91 CIERRA.** El bug original era que una key con permisos incompletos quedaba
+guardada sin error y sin mensaje. El commit 1 (`570336b`) persistia los permisos
+reales; este cierra el otro lado: donde la lista de cuentas SE PERSISTE.
+
+`importApiKeys` (`settings-manager.js:247`) escribia `ACCOUNT_KEYS` con
+`Storage.set` a pelo, sin pasar por `KeyManager` — o sea, sin la validacion que vive
+en `addOrUpdate` (`app.js:872`). Era la puerta de ATRAS: importar un backup con una
+key de 2 permisos la guardaba igual. Ahora pasa por `KeyManager.save()` y valida la
+copia PERSISTIDA (`key.perms`), **offline y sin red**.
+
+**Lo que el Reviewer desmonto, y por que importa:** la premisa de "mover la puerta
+al punto de persistencia" era falsa. La comprobacion NO es un predicado sobre los
+datos: `addOrUpdate` hace `await API.tokenInfo(...)` y consume `info.permissions`,
+que solo existe tras una llamada de RED. En el punto de escritura no hay `perms`
+que mirar. No era una mudanza de codigo; era cambiar la naturaleza de la
+comprobacion. Y revalidar contra la API queda descartado: `API.json` usa `fetch`
+CRUDO (`app.js:64`), sin pool ni dedup — un restore sin conexion rechazaria las 27
+keys.
+
+**3 reglas de compatibilidad, escritas porque deciden el caso comun:**
+- `perms` ausente = DESCONOCIDO, no malo. Los backups viejos no tienen `perms`;
+  rechazarlos seria decirle a Pablo que sus cuentas desaparecieron.
+- El import sigue siendo REPLACE. `save(() => lista)` descarta `fresh` A PROPOSITO.
+- Permisos INCOMPLETOS no abortan: se importa y se avisa. El dano era el silencio.
+
+## T14 y T15: medidas, no creidas
+
+El PO (ronda 35) mando 2 hallazgos salidos del PENDIENTE del propio commit de T13.
+Verifique sus 4 premisas contra `origin/main` una por una: todas ciertas. Despues
+medi la consecuencia con `tools/hb111-t14-t15.mjs` (20 pass / 0 FAIL), que corre el
+**cuerpo verbatim** de `wireViewToggle` y `wireStrikeViewToggle` en un vm contra un
+DOM que cuenta listeners.
+
+- **T14** (guard ausente en `wireStrikeViewToggle`): 1 activate -> 1 listener,
+  2 -> 2, 3 -> 3. Con la guarda inyectada, 5 llamadas -> 1. Lo activo T13 al bajar
+  el latch: antes `deactivate()` no corria y `activate()` no volvia a ejecutarse.
+  **Clase nueva:** un fix que cierra un ciclo de vida puede abrir el bug que ese
+  ciclo ocultaba.
+- **T15** (la pref no la escribe el toggle de Strikes): el click SI refresca (no
+  es boton muerto), la pref SIGUE en `raids`, y el F5 abre Raids. Controles que
+  prueban que el F5 HONRA la pref: con pref=strikes abre Strikes, y con T15-a
+  aplicado tambien.
+- **Corrijo el numero del PO antes de que lo cite:** NO son N requests. El mutex de
+  `refresh()` **satura en 2 cargas** (1->1, 2->2, 3->2, 10->2). Lo que escala sin
+  limite son los LISTENERS y el trabajo de DOM.
+
+**En vuelo:** la pregunta al Reviewer pide 2 decisiones de DISENO, no "arregla la
+linea": si T14-a y T15-a van juntos o por separado, y cuantos flags. Nota: los 2
+toggles son el MISMO producto en 2 modulos, asi que la pregunta de fondo es si hay
+un solo escritor de la verdad.
+
+## Lo que me rompio a mi (5 alertas nuevas, 142-146)
+
+1. **La rama de degradacion era CODIGO MUERTO** (ALERT-143). Escribi una guarda
+   `if (window.KeyManager && ...)` y arriba leia `KeyManager.REQUIRED_PERMISSIONS`
+   sin comprobar que existiera: reventaba ANTES de llegar a la guarda. LoKHAR esto
+   lo vio la seccion 7 del test, no la lectura del diff.
+2. **El censo que pidio el Reviewer daba un numero circular** (ALERT-144): contaba
+   mi propia rama de emergencia como el "4o escritor" que el assert deberia
+   detectar. O sea, el assert rechazaba el fix.
+3. **Un FAIL mio del arnes** (ALERT-145): busque `function save(` donde la firma
+   real es `save(mutate)`. El producto estaba bien; lo confirme yendo al archivo.
+4. **ALERT-142 (EOL)**: `core.autocrlf=true` hace que el blob sea LF y el working
+   tree CRLF. Son el mismo archivo en dos formas, y un replace escrito en una no
+   toca la otra. Es ALERT-138 al reves.
+5. **ALERT-146**: 140 y 141 YA estaban escritas por la sesion paralela y mi
+   numeracion las pisaba. Renumeradas contra el archivo.
+
+## Verificaciones
+
+- Suite completa: **1341 pass / 0 FAIL en 53 archivos** (venia de 1282 en 49).
+- Control negativo REAL del test: contra `origin/main` sin el fix da **14 FAIL**;
+  restaurado el fix, 0 FAIL. No es un arnes que declare que el fix funciona.
+- Push `c50e008..5a6c8c3`, `git ls-remote` verificado, sin rama duplicada, y
+  `origin/main` NO se movio entre el fetch y el push (ALERT-119 evitada por
+  comparar antes de escribir).
+
+## Para Pablo (decisiones que NO son mias)
+
+1. **T14/T15 tocan modulos con ciclo de vida**: quedan aplicados solo con veredicto
+   del Reviewer.
+2. **`feat-idea49g-ach-acc-compacta`**: 620 lineas esperando veredicto desde el
+   HB#102. No mergear por merito (ALERT-48).
+3. **ALERT-119, 5 de 5 ciclos**: dos instancias escribiendo `origin/main`. En este
+   ciclo seRejojo: la sesion paralela escribio 2 alertas (140/141) mientras yo
+   trabajaba. Sigue sin resolverse y ya produjo trabajo casi perdido 3 veces.
+4. **36 worktrees acumulados** y 15 ramas remotas ya mergeadas.
+5. **La puerta de permisos cambio el alcance del sync de Gist**: un backup con
+   permisos incompletos ahora se importa Y AVISA (antes: importaba en silencio).
+   Revisar si el aviso alcanza a Pablo o queda en la consola.
