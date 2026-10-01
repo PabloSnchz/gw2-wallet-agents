@@ -384,6 +384,7 @@ section('6. el espejo, en comportamiento, para los 4 pares de MIRROR_MAP');
   const salida = (r.stdout || '') + (r.stderr || '');
   const mEsc = salida.match(/ESCRITORES CRUDOS \(legacy espejo\):\s*(\d+)/);
   const mGNR = salida.match(/LECTORES CRUDOS \(gn: espejo\):\s*(\d+)/);
+  const mGNW = salida.match(/ESCRITORES CRUDOS \(gn: espejo\):\s*(\d+)/);
   ok(!!mEsc && !!mGNR,
      'el audit imprime el agregado de los pares espejo',
      'salida: ' + salida.slice(-300));
@@ -393,6 +394,74 @@ section('6. el espejo, en comportamiento, para los 4 pares de MIRROR_MAP');
   ok(mGNR && parseInt(mGNR[1], 10) === 0,
      'nadie LEE a pelo la gn: de un par espejo (el que se saltaria el espejo)',
      'el audit encuentra ' + (mGNR && mGNR[1]));
+
+  /* El ESCRITOR CRUDO de la gn:. Es el unico movimiento que rompe el espejo de
+   * VERDAD: `Storage.get` lee la legacy primero (storage.js:250-258), asi que
+   * alguien que escriba la `gn:` a pelo deja al resto de la app viendo el valor
+   * viejo para siempre. Y ningun re-sincronizador lo arregla, porque
+   * `_resyncMirrors` copia legacy -> gn:, no al reves. El audit no lo contaba
+   * y el test no lo exigia: era el cuarto numero que faltaba.
+   */
+  ok(mGNW && parseInt(mGNW[1], 10) === 0,
+     'nadie ESCRIBE a pelo la gn: de un par espejo (el que rompe el espejo de verdad)',
+     'el audit encuentra ' + (mGNW && mGNW[1]) +
+     '; si es >0, el modulo esta en: ' + (salida.match(/ESCRITORES CRUDOS \(gn: espejo\) POR MODULO: (.*)/) || [, '?'])[1]);
+
+  /* El LECTOR CRUDO de la legacy espejo: TOLERADO POR DISENO, pero con nombre.
+   *
+   * Es el unico numero del guard que puede ir de 0 a 40 sin un solo FAIL, o sea
+   * decoracion si queda pelado. Peor: un numero pelado es la misma debilidad
+   * que el regex de MIRROR_MAP que este guard vino a matar — una red que no
+   * puede romperse porque no mira comportamiento. Si sube a 12 nadie puede
+   * distinguir "un modulo nuevo y deliberado" de "un modulo que empezo a saltarse
+   * la capa".
+   *
+   * Por eso se gatea POR PAR (archivo, legacy), que es lo que produce
+   * `usaCrudo(c, metodo, key)` y lo que el audit ahora imprime. Una allowlist
+   * por MODULO no alcanzaria: `wv-purchase-detail.js` lee dos legacy distintas
+   * (:858 `gw2_keys` y :1842 `gw2_selected_key_v1`), y una lista de modulos no
+   * puede expresar que las dos son conocidas por separado.
+   */
+  const LECTORES_LEGACY_ESPERADOS = new Set([
+    'activities-theme.js[gn_home_nodes_marked]',
+    'activities.js[gn_activities_toggles]',
+    'inventory-dashboard.js[gw2_keys]',
+    'inventory-hub.js[gw2_selected_key_v1]',
+    'raid-tracker.js[gw2_selected_key_v1]',
+    'strike-tracker.js[gw2_selected_key_v1]',
+    'wv-objectives-dashboard.js[gw2_keys]',
+    'wv-purchase-detail.js[gw2_keys, gw2_selected_key_v1]',
+    'wv-shop-ui.js[gw2_keys]',
+  ]);
+  /* `accounts-panel.js` NO esta, y es a proposito: hasta el HB#84 el audit lo
+   * contaba, porque su unico `getItem('gw2_keys')` esta DENTRO de un comentario
+   * (accounts-panel.js:170) que documenta el fix de la Idea 64. El audit leia
+   * prosa, asi que informaba un sitio muerto — y si alguien lo borraba de verdad
+   * el numero bajaba solo, sin que ningun assert se enterara. El corpus ahora
+   * se barre sin comentarios (mismo helper que idea64-dos-pestanas.test.js:170).
+   * Volver a escribir una lectura cruda ACA es lo que tiene que dar FAIL.
+   */
+  const mLista = salida.match(
+    /LECTORES CRUDOS \(legacy espejo\) POR MODULO: (.*)/);
+  const leidos = mLista && mLista[1] !== '(ninguno)'
+    ? mLista[1].split(' ; ').map(s => {
+        const m = s.match(/^(\S+)\s*\[(.*)\]$/);
+        return m ? m[1] + '[' + m[2].split(', ').sort().join(', ') + ']' : s.trim();
+      }).sort()
+    : null;
+  ok(!!leidos,
+     'el audit nombra los modulos que leen la legacy espejo a pelo',
+     'salida: ' + salida.slice(-300));
+  const inesperados = (leidos || []).filter(f => !LECTORES_LEGACY_ESPERADOS.has(f));
+  ok(leidos && inesperados.length === 0,
+     'los lectores crudos de la legacy espejo son los conocidos, con nombre',
+     'inesperados: ' + (inesperados.join(', ') || '(ninguno)') +
+     ' | lista: ' + (leidos || []).join(', '));
+  const faltantes = [...LECTORES_LEGACY_ESPERADOS].filter(f => !(leidos || []).includes(f));
+  ok(leidos && faltantes.length === 0,
+     'ningun lector crudo conocido desaparecio sin que se decida aqui',
+     'faltantes: ' + (faltantes.join(', ') || '(ninguno)') +
+     ' | si uno se mudo a Storage, borralo de LECTORES_LEGACY_ESPERADOS y decilo');
 
   /* ── pieza 3: LA QUE SOSTIENE A LAS OTRAS DOS ───────────────────────────
    * Si una gn: de MIRROR_MAP no estuviera en MIGRATION_PREFIXES, el audit la

@@ -52,6 +52,24 @@ for (const m of storage.slice(skStart, storage.indexOf('\n  };', skStart))
                   .matchAll(/(\w+):\s*'(gn:[^']+)'/g)) constDeGn.set(m[2], m[1]);
 
 /* --- corpus: por archivo, los NOMBRES que valen cada clave --- */
+/* El corpus guarda DOS textos y los barridos usan el que NO tiene comentarios.
+ *
+ * `accounts-panel.js:170` tiene `localStorage.getItem('gw2_keys')` DENTRO de un
+ * comentario, y el barrido lo contaba como un lector crudo vivo. O sea que el
+ * audit informaba un sitio que ya no existe, y —peor— si alguien lo borraba de
+ * verdad, el numero BAJABA solo y ningun assert se enteraba. Es la misma
+ * debilidad que la Idea 64 ya cerro en su test con `cuerpoSinComentarios`
+ * (tests/idea64-dos-pestanas.test.js:170): un aserción que mira prosa no puede
+ * distinguir "el bug sigue" de "borraron el comentario".
+ *
+ * `t` (con comentarios) se conserva porque los ALIAS se resuelven sobre el texto
+ * crudo: un alias declarado en un comentario es ruido igual que una llamada, y
+ * basta con que laregex no lo alcance.
+ */
+const cuerpoSinComentarios = (codigo) => codigo
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/\/\/[^\n]*/g, ' ');
+
 const archivos = readdirSync(jsDir).filter(f => f.endsWith('.js') && f !== 'storage.js');
 const corpus = archivos.map(f => {
   const t = readFileSync(join(jsDir, f), 'utf8');
@@ -80,7 +98,7 @@ const corpus = archivos.map(f => {
       if (gn) aliasDe.set(k, gn);
     }
   }
-  return { f: f, t: t, alias: aliasDe };
+  return { f: f, t: t, codigo: cuerpoSinComentarios(t), alias: aliasDe };
 });
 
 /** Formas con las que un modulo puede nombrar la clave `key`:
@@ -104,12 +122,12 @@ function nombresDe(c, key) {
 function usa(c, metodo, key) {
   const re = new RegExp('\\b' + metodo + '\\(\\s*(?:Storage\\.STORAGE_KEYS\\.)?(' +
                         nombresDe(c, key) + ')(?![\\w])');
-  return re.test(c.t);
+  return re.test(c.codigo);
 }
 
 function usaCrudo(c, metodo, key) {
   const re = new RegExp('\\b' + metodo + '\\(\\s*(' + nombresDe(c, key) + ')(?![\\w])');
-  return re.test(c.t);
+  return re.test(c.codigo);
 }
 
 const filas = [];
@@ -146,11 +164,25 @@ const espejo = [...storage.slice(mStartM, mStartM + 1200)
   .matchAll(/'(gn:[^']+)':\s*'([^']+)'/g)]
   .map(m => ({ gn: m[1], legacy: m[2] }));
 
+const lista = (metodo, campo) => {
+  const out = new Map();   // archivo -> Set de legacy que explica por que aparece
+  for (const p of espejo) {
+    for (const c of corpus) {
+      if (!usaCrudo(c, metodo, p[campo])) continue;
+      if (!out.has(c.f)) out.set(c.f, new Set());
+      out.get(c.f).add(p[campo]);
+    }
+  }
+  return [...out.keys()].sort()
+    .map(f => f + ' [' + [...out.get(f)].sort().join(', ') + ']');
+};
+
 const suma = (metodo, campo) => espejo.reduce(
   (n, p) => n + corpus.filter(c => usaCrudo(c, metodo, p[campo])).length, 0);
 
 const escLegW = suma('setItem', 'legacy');   // escribe la legacy a pelo, fuera de Storage
 const escLegR = suma('getItem', 'legacy');   // lee la legacy a pelo (esto es lo normal)
+const escGnW  = suma('setItem', 'gn');       // escribe la gn: a pelo, saltandose Storage
 const escGnR  = suma('getItem', 'gn');       // lee la gn: a pelo, saltandose Storage
 
 const orden = { CONGELADA: 0, 'DUAL-WRITE': 1, 'SOLO-LEGACY': 2 };
@@ -182,8 +214,26 @@ console.log('CONGELADAS: ' + n.CONGELADA + ' | DUAL-WRITE: ' + n['DUAL-WRITE'] +
  * (Storage.get lee la legacy primero). Y lo que hay que FORBIDAR no es el
  * escritor crudo de la legacy — que es el que hoy escribe, y sin el la lista de
  * cuentas se pierde — sino el LECTOR CRUDO de la gn:, que es el unico que se
- * saltaria el espejo. Los dos cuentan 0.
+ * saltaria el espejo.
+ *
+ * Y el ESCRITORES CRUDO de la gn: (escGnW), que faltaba: es el unico movimiento
+ * que rompe el espejo DE VERDAD. Si alguien escribe la `gn:` a pelo, el
+ * `Storage.get` — que lee la legacy primero — sigue viendo el valor viejo para
+ * siempre, y ningun re-sincronizador lo arregla porque `_resyncMirrors` copia
+ * legacy -> gn:, no al reves.
+ *
+ * `escLegR` se imprime CON NOMBRE, no pelado. Es el unico numero de este guard
+ * que puede ir de 0 a 40 sin un solo FAIL (o sea decoracion, si nadie lo
+ * asserta), y un numero pelado seria la misma debilidad que el regex de
+ * MIRROR_MAP que este guard vino a matar: una red que no puede romperse porque
+ * no mira comportamiento. La lista permite que el test la gatee modulo por
+ * modulo, y asi un modulo nuevo se vuelve un FAIL y no un numero que sube solo.
  */
 console.log('ESCRITORES CRUDOS (legacy espejo): ' + escLegW +
             ' | LECTORES CRUDOS (legacy espejo): ' + escLegR +
+            ' | ESCRITORES CRUDOS (gn: espejo): ' + escGnW +
             ' | LECTORES CRUDOS (gn: espejo): ' + escGnR);
+console.log('LECTORES CRUDOS (legacy espejo) POR MODULO: ' +
+            (lista('getItem', 'legacy').join(' ; ') || '(ninguno)'));
+console.log('ESCRITORES CRUDOS (gn: espejo) POR MODULO: ' +
+            (lista('setItem', 'gn').join(' ; ') || '(ninguno)'));
