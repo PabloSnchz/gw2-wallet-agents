@@ -75,19 +75,38 @@ ok(cortos.every((c) => c[1].length < 100),
   'ningun mensaje corto y fijo quedo con ttl numerico gigante por propagar el cambio',
   JSON.stringify(cortos.map((c) => c[1].slice(0, 40))));
 
-// Y el default sigue siendo un numero finito: si alguien saca el `|| 3500` y
+// Y el default sigue siendo un numero finito: si alguien saca el default y
 // deja `Number(opts.ttl)`, un call-site sin ttl daria NaN y el toast no se
-// borraria nunca. Esta es la version CORRECTA de un assert que la version
-// previa de este archivo tenia al reves: antes citaba la existencia del `||`
-// como garantia, cuando el `||` es justamente lo que se come el `ttl: 0`.
-const defTtl = app.match(/opts\.ttl\s*\|\|\s*(\d+)/);
+// borraria nunca.
+//
+// El assert se mide sobre el fuente SIN COMENTARIOS, y no sobre el fuente
+// entero. Medido: el regex `/opts.ttl\s*\|\|\s*(\d+)/` matcheaba la PROSA
+// del comentario que HB#85 escribio al lado (`// opts.ttl || 3500 se tragaba
+// el 0...`) y daba verde con el codigo real en `??`. O sea: el test defendia
+// el defecto Y su comentario, y una vez arreglado el defecto el test seguia
+// verde por el comentario. Es la misma clase que ALERT-61 (el guard de la Idea
+// 61 leia prosa y contaba un sitio muerto): un assert que lee texto no puede
+// afirmar sobre codigo.
+//
+// Acepta `||` o `??`: lo que el assert quiere decir es "hay un default
+// numerico finito", no "el operador es este". Fijar el operador seria repetir
+// el error en espejo.
+const codigo = app.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+const defTtl = codigo.match(/opts\.ttl\s*(?:\|\||\?\?)\s*(\d+)/);
 ok(!!defTtl, 'el ttl por defecto de toast() sigue siendo un numero finito',
-  defTtl ? 'default = ' + defTtl[1] + ' ms' : 'no se encontro el default');
+  defTtl ? 'default = ' + defTtl[1] + ' ms' : 'no se encontro el default en el CODIGO');
 if (defTtl) {
-  ok(defTtl[1] === '3500',
-    'el default es 3500 (o sea: `ttl: 0` NO es persistente, resuelve al default)',
-    'el test anterior trata este `||` como garantia; es lo contrario');
+  ok(defTtl[1] === '3500', 'el default es 3500 ms',
+    'encontro ' + defTtl[1]);
 }
+
+// Y el que de verdad importa, que el assert anterior no podia decir porque
+// su propia regex exigia el `||`: con el codigo real, `ttl: 0` es persistente.
+// Se afirma sobre el texto del default para que la afirmacion y el codigo no
+// puedan separarse otra vez.
+ok(/opts\.ttl\s*\?\?\s*3500/.test(codigo),
+  'el default se resuelve con `??`, asi que `ttl: 0` es persistente de verdad',
+  'el codigo no usa `??` para el ttl');
 
 console.log('\n' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);
