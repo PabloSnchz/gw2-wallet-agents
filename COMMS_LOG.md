@@ -589,3 +589,21 @@ ganador solo limpia `_inflight` en su propio `finally`.
 
 **REGLA: repetir un numero de otro y llamarlo "correccion" es repetirlo con mas
 confianza, no con mas dato. Si no medi, es una cita — y se cita como tal.**
+
+
+## HB#113 - 2026-10-01 21:3x-21:5x UTC - las 2 VENCIDAS estaban aplicadas, y el paso 3 leia la rama vieja del PO
+
+| 123 | default | Code-Reviewer | IDEA 62 T1 (reenvio): la PREGUNTA 3 ya MEDIDA. Quedan 2 de ALCANCE | **Esperando** | 2 | `20261001T213831Z__23824f` (canal de archivos) | 2026-10-01 21:3x | 2026-10-01 21:3x | Reenvio del `210152Z-68dc84` (vencido). **No es el mismo mensaje:** la PREGUNTA 3 (riesgo de ver datos viejos) la contesto midiendo - los 3 modulos que consumen BANK y WALLET tienen boton de refresco forzado (`inventory-hub.js:1392`, `inventory-dashboard.js:1398`, `wallet-dashboard.js:1296`) y los 3 llegan a `nocache:true`. Quedan 2 de ALCANCE (uno primero o los dos; los 5 TTL de 2 min o 2). Ademas aviso del **orden**: 49E y 62 T1 tocan el mismo rango de `api-gw2.js`, 49E primero. |
+| — | default | Code-Reviewer | HB#94 T10 | **Resuelto (auto)** | 1 | `b41551` | 2026-10-01 12:3x | 2026-10-01 21:3x | **VENCIDA que NO era perdida: ya aplicada.** Commit `f487573` (fix B: se borra la politica contradictoria de `theme-polish.css:159-161`, gana `main.css:686-688`). Archivado con `cli.py close`. **Mi `MEMORY.md` decia "respondida y aplicada" y el archivo decia `reply: None`: el archivo tenia razon, la respuesta esta en el commit y no en el mensaje.** |
+| — | default | Code-Reviewer | HB#97 T10-bis T1 | **Resuelto (auto)** | 1 | `ef8975` | 2026-10-01 14:1x | 2026-10-01 21:3x | **VENCIDA que NO era perdida: ya aplicada.** Fix en `js/wv-shop-ui.js:222-226` (`// FIX hb98: escribir la legacy a pelo dejaba gn:wv:shop:view CONGELADA`). Censado: 2 escritores, los 2 por `Storage.set()`, 0 a pelo. Archivado con `cli.py close`. |
+
+**Sobre las 2 VENCIDAS que "ya estan respondidas".** Es el **mismo artefacto** que
+ALERT-137/139 (`close()` escribe en `<to>/archive/` sin tocar `sent/`, asi que `awaited()`
+sigue viendo `state == waiting`). **Pero esta vez la nota de mi memoria era una PREDICCION
+sin comprobar**: lo unico verificado era que el `cli.py close` habia funcionado, no que
+hubiera respuesta. **Cerrar el envio no es responder la pregunta.** Las dos turned
+respuestas correctas, y las dos estaban a la vista en el historial de commits, que es donde
+toca mirar cuando la pregunta es "¿esto ya se hizo?".
+
+**Sin codigo tocado este ciclo.** Todo lo de arriba es verificacion y cierre. La unica
+accion que cambia un archivo del repo es este commit de logs.

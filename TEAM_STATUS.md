@@ -4087,3 +4087,122 @@ si tienen respuesta (T14/T15, 49E) llegaron en este mismo ciclo.
 3. **37 worktrees** y **15 ramas remotas** ya mergeadas.
 4. `feat-idea49g-ach-acc-compacta`: 620 lineas esperando veredicto desde el HB#102.
    No mergear por merito (ALERT-48).
+# TEAM_STATUS - Heartbeat #113 (2026-10-01 21:3x-21:5x UTC)
+
+**Corto:** las 2 "VENCIDAS al Reviewer" que mi memoria daba por respondidas NO lo estaban
+en el canal - lo estaban en el codigo. Verificado y cerrado. La 3ra (IDEA 62 T1) se reenvio
+con su PREGUNTA 3 ya MEDIDA, para que al Reviewer le queden 2 preguntas y no 3. Y el
+`BACKLOG` del PO estaba mas al dia que la rama que el paso 3 dice que lea: 3 de las 4 ideas
+que cuenta ya estan aplicadas.
+
+## Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **Reviewer** | IDEA 62 T1 reenviada (`20261001T213831Z-23824f`), 2 preguntas de ALCANCE. 49E (`14245a`) sigue esperando. T14/T15 ya tiene veredicto. | **1 en vuelo.** La 49E es la que bloquea el fix de 2 lineas que ya tiene test. |
+| **PO** | Sin tarea. Su rama mas reciente es `po/hb110-dashboard` (ronda 35), NO `po/hb99-dashboard` (ronda 33) que apunta el paso 3. | Ver abajo: el paso 3 leia 2 rondas de atras. |
+| **Documentador** | Sin tarea (regla de no-fallback vigente). No se le mando nada porque no hubo commit de codigo este ciclo. | - |
+
+## Lo que se cerro SIN tocar codigo
+
+**1) Las 2 VENCIDAS (HB#94 T10 y HB#97 T10-bis T1) ya estaban aplicadas.**
+
+Mi `MEMORY.md` decia "ya respondidas y aplicadas". El archivo del canal decia
+`reply: None`. **Una de las dos cosas esta mal, y el archivo tiene razon.** La
+respuesta existe, pero en el commit, no en el mensaje:
+
+- **T10** (`.raid-wing-card` invisible con `prefers-reduced-motion`): commit `f487573`,
+  fix B - **borrar** la politica contradictoria de `theme-polish.css:159-161`, no tocar
+  la tarjeta. Gana `main.css:686-688`.
+- **T10-bis** (`gn:wv:shop:view` congelada): el fix esta en `js/wv-shop-ui.js:222-226`
+  (`// FIX hb98: escribir la legacy a pelo dejaba gn:wv:shop:view CONGELADA`).
+
+Las dos se archivaron con `cli.py close`. **Lo que no se hizo fue volver a preguntar.**
+
+**2) La PREGUNTA 3 de IDEA 62 T1, contestada por medicion.**
+
+El PO pregunto si subir el TTL a 30 min hace que Pablo vea datos viejos. Segui
+`forceNoCache` desde el boton hasta el wrapper: **los 3 modulos que consumen BANK y WALLET
+tienen boton de refresco forzado** (`inventory-hub.js:1392`, `inventory-dashboard.js:1398`,
+`wallet-dashboard.js:1296`), y los tres llegan a `nocache:true`. El TTL pasa a ser el
+DEFAULT, no la unica via de frescura. Reenviada al Reviewer con eso ya resuelto.
+
+## El hallazgo del ciclo: el paso 3 del HEARTBEAT.md lee la rama VIEJA del PO
+
+`HEARTBEAT.md` dice leer `po/hb99-dashboard`. Esa rama esta en la **ronda 33**. Las
+**rondas 34 y 35 estan en `po/hb104-dashboard` y `po/hb110-dashboard`**. Leyendo la que
+dice el paso 3, el conteo da **3**; leyendo la de verdad, da **4**.
+
+**Peor: leer la vieja UNDERCUENTA el trabajo ya hecho.** Con la fuente desactualizada
+`IDEA 63` (ronda 16) y `IDEA 64` (ronda 19) se ven como pendientes. Las dos estan
+aplicadas en `origin/main` con su codigo comentado: `app.js:536` dice *"Idea 63 T1"* y
+`resetFilters()` existe; `characters.js:1521` dice *"Idea 63 T1"* y resetea los 4 filtros;
+`characters.js:1103-1110` tiene el clamp de paginacion. `IDEA 64` esta en `15d6d75`.
+
+**Regla: el paso 3 tiene que descubrir la rama del PO, no nombrarla.** La rama se
+llama `po/<algo>-dashboard` y el PO crea una por heartbeat; `main` no las tiene y la mas
+reciente cambia cada 2 h. **Un criterio que se apoya en un nombre de rama fijo se
+desvanece solo, sin error.**
+
+## Un FAIL mio que era el arnes (3o del ciclo)
+
+Cense los escritores a pelo de `gn:wv:shop:view` con
+`/localStorage\.setItem\s*\(\s*['"](gn:wv:shop:view|gw2_wv_view_v1)['"]/` y dio **0**,
+con su control negativo tambien en 0. Anotado *"0 escritores, con control"*, y casi lo
+reporto como resultado.
+
+**El regex no matcheaba NADA en todo `js/` (42 archivos).** El proyecto no escribe pref con
+`localStorage.setItem` literal: pasa por `Storage.set()`, y el unico `setItem` crudo esta
+dentro de `storage.js` (`:293`, `:298`, `:382`). Un 0 asi no es *"no hay"*; es *"no se"*.
+El control negativo no lo detecto porque **un criterio roto y un criterio imposible dan el
+mismo 0**. Lo que lo detecta es el **control POSITIVO**: el mismo regex aplicado a
+`localStorage.setItem("gn:` en todo `js/` -> tambien 0 -> el patron esta roto.
+
+Censado bien: **2 escritores, los 2 por `Storage.set()`** (`router.js:257`,
+`wv-shop-ui.js:226`), **0 escrituras a pelo**, y la legacy `gw2_wv_view_v1` aparece solo en
+las 2 tablas de `storage.js` (`:115` migracion, `:160` espejo).
+
+**Regla: un censo necesita un control positivo, no solo uno negativo.** El negativo
+prueba que el filtro no es demasiado ancho. El positivo prueba que no es demasiado
+estrecho - que es exactamente el modo de falla que se disfraza de resultado.
+
+## Estado de propuestas (paso 3 del ciclo)
+
+Con la rama correcta (`po/hb110-dashboard`): **4 cuentan, 3 cerradas** por estar ya
+aplicadas, y la 4ta (ronda 35 / T14-T15) tiene veredicto del Reviewer sin aplicar porque
+su alcance cambio de eje.
+
+| Ronda | Idea | Estado real (verificado contra `origin/main` @ `47a2526`) |
+|---|---|---|
+| 16 | IDEA 63 filtros que sobreviven al cambio de cuenta | **APLICADA** (`app.js:536`, `characters.js:1103/1521`, test `idea63-filtros-cuentas`) |
+| 19 | IDEA 64 dos pestanas se pisan la lista | **APLICADA** (`15d6d75`) |
+| 33 | T12 toggle Raids/Strikes | **APLICADA** (`9c93300`) |
+| 34 | T13 el latch que nadie apaga | **APLICADA** (`1e5aedb`) |
+| 35 | T14/T15 | Veredicto del Reviewer: **el eje estaba mal**. No se implementa todavia. |
+
+**Ninguna propuesta nueva que mandar al Reviewer.** Las 4 que quedan abiertas en el canal
+(62 T1, 49E, y las 2 de HB#94/HB#97 ya resueltas) son preguntas que formule yo, no trabajo
+del PO.
+
+## Alertas nuevas
+
+- **ALERT-153** - el paso 3 del `HEARTBEAT.md` apunta a una rama del PO que envejece sola.
+  Ver arriba.
+- **ALERT-154** - un control negativo no distingue "no hay" de "el filtro no matchea".
+
+## Lo que decide Pablo (no lo hago yo)
+
+- **T14/T15: opcion C (mover el toggle a `index.html`) o fix B (2 flags).** Es markup +
+  CSS de 3 capas y cambia la posicion visual. El Reviewer dice que B tiene 3 condiciones que
+  yo no habia escrito. Sigo sin implementar.
+- **Borrar los 39 worktrees** acumulados y las ramas remotas ya mergeadas.
+- **Detener UNA de las dos sesiones** que escriben en `agents` (ALERT-119: 5 de 5 ciclos).
+
+## Pendiente del proximo ciclo
+
+1. `git fetch` PRIMERO + `git worktree list` + `git ls-remote --heads` antes de concluir
+   que algo esta abierto.
+2. Leer la rama del PO **descubriendola**: `git ls-remote --heads origin "refs/heads/po/*"`,
+   quedarse con la de commit mas reciente. No la del paso 3.
+3. `node tools/hb105-suite.cjs` y leerse el numero entero: **1347/0 en 53 archivos**.
+4. Recoger 62 T1 (`23824f`) y 49E (`14245a`) por el canal de archivos.

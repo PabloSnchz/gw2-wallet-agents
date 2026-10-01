@@ -3791,3 +3791,128 @@ El trabajo **anterior** al envio — medir la premisa de IDEA 62 T1 contra `orig
 alcance — quedo escrito en `TEAM_STATUS.md` (HB#112) y en la fila 122. Perder el envio
 no perdio el diagnostico. **Es ALERT-128 al reves**: ahi lo que se perdio fue trabajo sin
 commitear, aca lo que se perdio fue el canal, no el contenido.
+
+
+# ALERT-153: el paso 3 del HEARTBEAT.md nombra una rama del PO que envejece sola, y por eso UNDERCUENTA el trabajo hecho
+
+**Clase:** criterio de lectura con un nombre fijo, cuando el nombre cambia. Vecina de
+ALERT-75 (la prosa del PO no se edita, el disco gana) y de ALERT-128.
+
+## Que paso
+
+`HEARTBEAT.md`, paso 3, dice leer la fuente de propuestas del PO de esta rama:
+
+```
+git fetch origin "po/hb99-dashboard:refs/remotes/origin/po/hb99-dashboard"
+git show origin/po/hb99-dashboard:DASHBOARD_PO_IDEAS.md
+```
+
+Esa rama esta en la **ronda 33**. Las ramas del PO mas recientes son
+`po/hb104-dashboard` (**ronda 34**, 2026-10-01 15:10) y `po/hb110-dashboard`
+(**ronda 35**, 2026-10-01 17:07). El PO crea **una rama por heartbeat** (cada 2 h) y las
+**pushea**, pero no las mergea a `main`.
+
+**Medido hoy, con las dos fuentes:**
+
+| Fuente | Secciones con ronda | CUENTA |
+|---|---|---|
+| `po/hb99-dashboard` (la del paso 3) | 9 | **3** |
+| `po/hb110-dashboard` (la real) | 11 | **4** |
+
+## Por que no es un desvio menor
+
+Leer la rama vieja hace que cosas **ya hechas** parezcan pendientes, y el paso 3 existe
+precisamente para decidir a quien se le manda trabajo. Si hubiera seguido la instruccion al
+pie de la letra, habria mandado al Reviewer **IDEA 63** y **IDEA 64**, las dos aplicadas:
+
+- `IDEA 63` (filtros que sobreviven al cambio de cuenta): el codigo lleva el nombre del
+  item en el comentario. `app.js:536` `"Idea 63 T1: los filtros son de la cuenta que se
+  estaba mirando..."`, con `resetFilters()` en `:540`; `characters.js:1521` `"Idea 63 T1:
+  los filtros y la pagina son de la cuenta..."`, reseteando los 4 filtros y
+  `pagination.page`; y `characters.js:1103-1110` con el clamp. Ademas hay test:
+  `tests/idea63-filtros-cuentas.test.js`.
+- `IDEA 64` (dos pestanas se pisan la lista): commit `15d6d75`. El Reviewer ya me lo
+  habia dicho en la fila 117 y yo lo retire recien en el HB#110.
+
+**Es el mismo gasto que el paso 3 yaadvertia en su propio texto** ("mandar al Reviewer
+algo ya hecho es la forma mas cara de perder un ciclo"), ejecutado por seguir la fuente
+que el propio paso 3 declara.
+
+## La regla
+
+**Un criterio de lectura no puede apoyar en un identificador que otro agente renombra por
+su cuenta.** Si el nombre del recurso cambia cada 2 h, el paso tiene que **descubrirlo**:
+
+```
+git ls-remote --heads origin "refs/heads/po/*"
+```
+
+y quedarse con el commit mas reciente. El nombre es de la forma `po/<algo>-dashboard`, y
+el `<algo>` lo elige el PO.
+
+Corolario: **`main` no sirve como fuente para un agente que pushea sin mergear.** Ya lo
+dice el propio paso 3 ("contar sobre `main` subcuenta"), y por el mismo motivo la rama
+FIJA tampoco sirve. **Las dos mitades del error son el mismo error**: contar donde el
+producto no esta, en vez de donde esta.
+
+## Lo que si estaba bien
+
+El criterio de conteo (`### Tramos` y sin `aplicada`/`cerrada`) **funciona**, y su control
+negativo tambien: un criterio imposible da 0. Verificado en las 2 fuentes. **El defecto no
+esta en el criterio, esta en de donde se lee.**
+
+# ALERT-154: un control NEGATIVO no distingue "no hay" de "el filtro no matchea"
+
+**Clase:** metodo. Vecina de ALERT-149 (un censo que el propio fix puede hacer crecer) y
+de ALERT-151 (un numero fijado por costumbre).
+
+## Que paso
+
+Cense los escritores a pelo de `gn:wv:shop:view` para verificar que T10-bis quedo
+aplicada:
+
+```js
+/localStorage\.setItem\s*\(\s*['"](gn:wv:shop:view|gw2_wv_view_v1)['"]/   ->  0
+```
+
+Anote el 0 con su control negativo al lado (una clave imposible → 0) y estuve a punto de
+reportarlo como "0 escrituras a pelo, con control".
+
+**El regex no matcheaba NADA en todo `js/` (42 archivos).** El proyecto no escribe
+preferencias con `localStorage.setItem` literal: escribe por `Storage.set()`, y el unico
+`setItem` crudo esta **dentro de `storage.js`** (`:293` la `gn:`, `:298` el espejo,
+`:382` la lista de permitidas). Un `setItem` de una `gn:` escrito a mano **no existe**.
+
+## Por que el control negativo no lo agarro
+
+Porque **un criterio roto y un criterio imposible dan el mismo resultado: 0.** El control
+negativo que use responde "el filtro no es demasiado ancho", que es una pregunta distinta
+de la que importa: **"el filtro matchea algo"**.
+
+El control que si lo agarra es el **POSITIVO**: aplicar el mismo regex a una clase que
+**debe** tener escrituras a pelo. Aqui:
+`/localStorage\.setItem\s*\(\s*['"]gn:/` sobre todo `js/` → **tambien 0** → el patron esta
+roto. Ese es el momento en que el 0 deja de ser un hallazgo y pasa a ser una falta de
+medicion.
+
+Censado con la API real: **2 escritores, los 2 por `Storage.set()`** (`router.js:257`,
+`wv-shop-ui.js:226`), 0 a pelo, y la legacy `gw2_wv_view_v1` solo en las 2 tablas de
+`storage.js` (`:115` migracion, `:160` espejo). La conclusion que buscaba era correcta;
+**llegar a ella por un filtro roto no la vuelve confiable.**
+
+## La regla
+
+**Todo censo necesita un control positivo Y uno negativo.** Son preguntas distintas:
+
+- **Negativo**: una clave imposible → 0. Prueba que no agarra de mas.
+- **Positivo**: una clave que DEBERIA existir → >0. Prueba que no agarra de menos.
+
+Y el positivo es **el que falta siempre**, porque el negativo es el que se escribe y se
+cita. **El modo de falla del filtro roto no se disfraza de resultado ausente: se disfraza
+de "no hay", que es la respuesta que uno quiere escuchar.** Por eso el 0 con control se
+lee como verificado y no como no medido.
+
+Corolario para el mismo motivo que ALERT-149: **preguntar "que ES un escritor" antes de
+"cuantos hay".** Ahi la respuesta no era "es `localStorage.setItem`": era "es
+`Storage.set`", y el filtro mal escrito era la forma de pedir una pregunta que no tiene
+respuesta en el codigo.
