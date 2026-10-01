@@ -1849,6 +1849,24 @@
       // por clave: leerlo adentro seria 2 arrays nuevos + 23 `indexOf` por cada
       // clave del store.
       var bases = collectCacheBases();
+      // Los MISMOS proveedores de bases, para la cache de SESION. Sin esto el
+      // boton borraba el disco y cada modulo con `__mem` propia seguia sirviendo
+      // desde memoria: los bytes anunciados como liberados volvian a servirse, y
+      // el toast decia una verdad y la cuota no se movia. El Reviewer lo anoto
+      // como "NO exigido" (fila 073, nota al pie); entra porque sin el hook el
+      // NUMERO que ve Pablo no es el numero que se libero.
+      //
+      // En `dryRun` NO se toca: la pregunta es "cuanto se borraria", y vaciar
+      // memoria antes de responder ya seria borrar.
+      var memCleared = 0;
+      if (!dryRun) {
+        var mods = root.__cacheBaseProviders || [];
+        for (var mi = 0; mi < mods.length; mi++) {
+          var f = mods[mi] && mods[mi].__cacheClearMem;
+          if (typeof f !== 'function') continue;
+          try { memCleared += (f.call(mods[mi]) || 0); } catch (_) { /* un modulo que falla no impide liberar los demas */ }
+        }
+      }
       for (var i = 0; i < before; i++) {
         var k = localStorage.key(i);
         if (!isCacheKey(k, bases)) {
@@ -1887,7 +1905,8 @@
         removed = before - localStorage.length;
       }
     } catch (_) { /* localStorage puede no existir (modo privado): no es un error */ }
-    return { removed: removed, kept: kept, bytes: bytes, keptBytes: keptBytes, dryRun: dryRun };
+    return { removed: removed, kept: kept, bytes: bytes, keptBytes: keptBytes,
+             memCleared: memCleared, dryRun: dryRun };
   }
 
   // ========================================================================

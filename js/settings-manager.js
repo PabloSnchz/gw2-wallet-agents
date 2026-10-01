@@ -565,7 +565,7 @@
       // registre su clave; una lista de categorias deja de serlo en el mismo
       // commit. El tamano es el dato que Pablo puede comparar con la cuota.
       '• Se conservan ' + dry.kept + ' claves (' + fmtBytes(dry.keptBytes) + ')\n\n' +
-      'La API volverá a descargar los datos, y el WV también. Lo que otros módulos ya tienen en memoria (incluido el WV) se conserva hasta que recargues la página.';
+      'La API volverá a descargar los datos, y el WV también. Se libera también lo que esos dos tienen en memoria; lo que otros módulos ya tienen cargado se conserva hasta que recargues la página.';
     if (!confirm(msg)) return;   // 2. Cancelar NO borra nada: el dryRun no habia borrado nada
     // 3. Ahora si.
     var res = api.__cacheClear();

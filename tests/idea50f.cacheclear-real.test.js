@@ -433,8 +433,25 @@ ok(!!sig && sig[1].indexOf('bases') !== -1,
   'isCacheKey recibe el registro por parametro: ' + (sig ? '(' + sig[1] + ')' : 'no encontrada'));
 ok(isCacheBody.indexOf('collectCacheBases') === -1,
   'isCacheKey NO colecta por clave (serian 2 arrays + 23 indexOf POR clave del store)');
-ok(/var bases = collectCacheBases\(\);[\s\S]{0,200}localStorage\.key\(/.test(srcApi),
-  'cacheClear colecta el registro UNA vez, antes del loop que recorre el store');
+// El invariante es "UNA vez" y "ANTES del loop". Se mide por POSICION dentro
+// del cuerpo de `cacheClear`, no por una ventana de caracteres entre la linea
+// de la colecta y la primera `localStorage.key(`: esa ventana medía la
+// DISTANCIA, o sea el tamaño del codigo que se cuela en el medio. Cuando se
+// agrego el hook `__cacheClearMem` (Idea 50b, el mismo `cacheClear`), el bloque
+// nuevo empujó la `localStorage.key(` mas alla de los 200 caracteres y el assert
+// cayo sin que el comportamiento hubiera cambiado. Un assert que mide el
+// TAMAÑO del codigo que lo separa no afirma el invariante: afirma la linea de
+// al lado. Lo que importa es que la colecta este una sola vez y antes del
+// recorrido del store, y eso no depende de cuanto codigo haya en medio.
+const cacheClearBody = (srcApi.match(/function cacheClear\(opts\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+ok(cacheClearBody !== '', 'el cuerpo de cacheClear se pudo acotar');
+const iColecta = cacheClearBody.indexOf('collectCacheBases()');
+const iLoop = cacheClearBody.indexOf('localStorage.key(');
+eq((cacheClearBody.match(/collectCacheBases\(\)/g) || []).length, 1,
+  'y la colecta ocurre UNA sola vez en todo el cuerpo: por clave serian 2 arrays + 23 indexOf POR clave');
+ok(iColecta !== -1 && iLoop !== -1 && iColecta < iLoop,
+  'cacheClear colecta el registro ANTES del loop que recorre el store',
+  'colecta en ' + iColecta + ', primer key() en ' + iLoop);
 
 console.log('\n' + (fail === 0 ? 'TODO OK' : 'HAY FALLOS') + ' — ' + pass + ' pass / ' + fail + ' FAIL');
 process.exit(fail === 0 ? 0 : 1);

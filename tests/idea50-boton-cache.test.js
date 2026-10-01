@@ -262,26 +262,47 @@ ok(/¿Liberar la caché de la API y del WV\?/.test(msg),
 // exactamente el modo de falla de un dato sin alcance declarado (ALERT-68 y
 // ALERT-78), aplicado al unico texto que el usuario lee antes de confirmar una
 // operacion destructiva. Por eso el limite esta escrito Y asertado.
-console.log('\n[4b] el copy declara el alcance real: la `__mem` del WV no se toca');
+//
+// ── ALERT-91, ESTA SECCION, CORREGIDA EN EL COMMIT DEL FIX ────────────────
+// La version anterior de esta seccion afirmaba EL DEFECTO:
+//   ok(clearApiBody.indexOf('WizardsVault') === -1,
+//      'y el boton no la alcanza todavia: no hay hook, es el tramo siguiente')
+//   ok(/incluido el WV/.test(msg),
+//      'la linea final distingue la cache de SESION (intacta) ...')
+// O sea una foto: se ponian ROJOS el dia de arreglar el bug, y el fix desligaba
+// la red que lo justificaba. Un assert tiene que describir lo que quiero que
+// siga siendo cierto manana, no lo que quiero ver hoy. Con el hook ya puesto,
+// los dos signos cambiaron: el hook tiene que EXISTIR y el copy tiene que
+// DECIR que la memoria del WV se libera. Lo que se conserva es la intencion
+// del tramo (el copy no puede prometer una recarga global), no la foto.
+//
+// El detalle de POR QUE el fix no metio `WizardsVault` en este archivo esta en
+// `tests/idea50b-hook-cache-mem.test.js` (seccion 2): la capa API no nombra
+// ningun modulo, usa el registro global `__cacheBaseProviders` que el WV se
+// anoto al cargarse.
+console.log('\n[4b] el copy declara el alcance real: ahora la memoria del WV SI se libera');
 const srcSM = fs.readFileSync(path.join(ROOT, 'js', 'settings-manager.js'), 'utf8');
 const clearApiBody = (srcSM.match(/function clearApiCache\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
 const wvSrc = fs.readFileSync(path.join(ROOT, 'js', 'wizards-vault.js'), 'utf8');
 ok(/var __mem = new Map\(\)/.test(wvSrc) && /var __inflight = new Map\(\)/.test(wvSrc),
-  'el WV tiene su propia cache de sesion (wizards-vault.js:40-41): la limitacion es REAL, no teorica');
+  'el WV tiene su propia cache de sesion (wizards-vault.js:40-41): la que el hook tiene que vaciar');
+ok(/__cacheClearMem\s*:\s*function\s*\(/.test(wvSrc),
+  'y el WV EXPOE `__cacheClearMem`: el hook existe, ya no es el tramo siguiente');
 ok(clearApiBody.indexOf('WizardsVault') === -1,
-  'y el boton no la alcanza todavia: no hay hook, es el tramo siguiente');
-ok(/en memoria/.test(msg), 'el confirm lo dice: el copy no promete una recarga global');
+  'y este archivo NO nombra al modulo: lo alcanza por el registro global, no por una lista de modulos');
+ok(/en memoria/.test(msg), 'el confirm sigue hablando de memoria: es el dato en disputa');
 ok(msg.indexOf('La API volverá a descargar') !== -1,
   'lo que promete es "la API volvera a descargar los datos", que es lo unico que pasa de verdad');
 ok(/hasta que recargues la página/.test(msg),
   'y dice HASTA CUANDO: el alcance del dato esta escrito, no es una promesa abierta');
 // H1, segunda mitad: la ultima linea decia "Lo que otros módulos ya tienen en
-// memoria (el WV) se conserva", lo que se leia como "el WV no se toca". Lo que
-// no se toca es la CACHE DE SESION del WV (`wizards-vault.js:40-41`), no su
-// cache en disco, que el boton SI borra. Con el WV nombrado en la pregunta,
-// la ambiguedad es directamente incorrecta.
-ok(/incluido el WV/.test(msg),
-  'la linea final distingue la cache de SESION (intacta) de la de DISCO (borrada)');
+// memoria (el WV) se conserva", lo que se leia como "el WV no se toca". Con el
+// hook, esa frase paso a ser FALSA y se cambio en el mismo commit: el boton
+// ahora libera la memoria del WV, y el texto tiene que decirlo.
+ok(!/incluido el WV/.test(msg),
+  'el copy ya NO dice "(incluido el WV)" al lado de "se conserva": seria falso con el hook puesto');
+ok(/Se libera también lo que esos dos tienen en memoria/.test(msg),
+  'y DECLARA que la memoria de la API y del WV si se libera: el texto coincide con lo que hace el boton');
 const okT = a.toasts.filter(t => t.kind === 'success');
 eq(okT.length, 1, 'un unico toast de exito');
 ok(okT.length === 1 && okT[0].msg.indexOf('3 claves') !== -1,
