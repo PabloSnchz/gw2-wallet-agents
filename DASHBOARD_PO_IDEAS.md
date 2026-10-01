@@ -1,11 +1,92 @@
 # DASHBOARD_PO_IDEAS.md — Ideas del PO para el dashboard
 
-> Actualizado: 2026-10-01T01:00:00Z (Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta de la lista sin aviso; lost update REPRODUCIDO sobre el `KeyManager` real de `app.js`, y 0 de 33 tests tienen dos stores. Entra también la ronda 17 (ALERT-84: "Armería Legendaria" visible que dice "Cargando" para siempre), con T1 ya commiteado y **T3+T4 con veredicto del Reviewer**)
+> Actualizado: 2026-10-01T04:00:00Z (Heartbeat PO ronda 22 — 🔴 la puerta de permisos de la ronda 21 YA ESTÁ MERGEADA (`ea10e9b`, T1+T3) y es correcta: verificada contra un censo cerrado de 15 endpoints con scope. Pero es **una cerradura en UNA de TRES puertas**: `importApiKeys` (restore de archivo y **Gist**) y el import del Excel escriben `ACCOUNT_KEYS` sin mirar un solo permiso, y `validateImportData` solo chequea versión y nombre de app. Para las 27 cuentas de Pablo la puerta que importa es la que no tiene candado. Prioridad #1: **T2-mini** (contador "N con permisos incompletos", 🟢 20 min) → **T2** (chips por fila, 🟡 ~1 h) → **T4** (el import dice qué trajo). Entra también el **copy de `app.js:683`, que nombra "glifos" y ese módulo es código muerto** — 🟢 1 línea, error mío del copy de ayer)
 > Mantenedor: PO (product-owner)
 
 
 
 ---
+
+## ACTUALIZACION 2026-10-01 04:00 UTC — Heartbeat PO ronda 22 — 🔴 T1 está mergeada y es correcta. Es una cerradura en UNA de TRES puertas.
+
+> **Espejo de la ronda 22 del PO.** El detalle largo está en `PRE_BACKLOG.md` (privado del PO). Esta entrada existe para que el dashboard no quede 3 rondas atrás: **las rondas 20 y 21 no llegaron acá** (se workingaron solo en `PRE_BACKLOG.md` y sus fixes sí se mergearon). Estado real de las tres: ronda 20 **T5** mergeada @ `b1b74bb` · ronda 21 **T1 + T3** mergeadas @ `ea10e9b` · ronda 21 **Idea 64 T1+T2** @ `ea2721b` · ronda 17 **ALERT-84 T3+T4** @ `4778f92`.
+
+### La pregunta de la ronda (que nadie se había hecho sobre la ronda 21)
+
+La ronda 21 encontró que la puerta de `addOrUpdate` validaba 2 de los 7 permisos que la app usa, y el texto de `index.html` le decía a Pablo que marcara 2. Eso se arregló ayer (`ea10e9b`).
+
+**La pregunta de hoy no fue "¿qué feature falta?". Fue: si la puerta exige los 7, ¿por dónde más puede entrar una API key a la lista de cuentas?** Porque una puerta solo sirve si es la única.
+
+### Antes que nada: el censo de la ronda 21 estaba incompleto. Lo cerré
+
+Re-extraje del código de `origin/main` (`_hb77_endpoints.py`) todos los fragmentos de URL en los 46 módulos de `js/` + `index.html`: **15 formas de endpoint con scope y 6 públicas.** La ronda 21 había medido **9**. Los 6 que faltaban, con el scope que **declara la wiki** (wikitext crudo, `action=raw`, no de memoria):
+
+| endpoint que faltaba | scope declarado | ¿permiso nuevo? |
+|---|---|---|
+| `/v2/account` | `account` | no |
+| `/v2/account/bank` | `account, inventories` | no |
+| `/v2/account/materials` | `account, inventories` | no |
+| `/v2/commerce/transactions` | `account, tradingpost` | no |
+| `/v2/commerce/listings` | sin campo `scope` | — |
+| `/v2/commerce/prices` | sin campo `scope` | — |
+
+**La unión de los 15 es exactamente los 7 de `REQUIRED_PERMISSIONS`. La lista mergeada está completa — y verificada, que no es lo mismo.** ✅ **T1 CERRADA.**
+
+> ⚠️ **Corrección del PO:** el `app.js:660-661` del fix dice `/v2/account/bank → account, inventories`, pero la tabla de arriba lo confirma contra la wiki y **no lo corrige**. Lo que sí queda sin verificar: `/v2/account/wizards-vault` da **404** en la wiki con ese título (`api-gw2.js` lo llama igual y funciona), así que su scope **no está verificado** y el PO no lo afirma.
+
+### 🔴 EL HALLAZGO: 3 escritores de la lista de cuentas, 1 con candado
+
+`STORAGE_KEYS.ACCOUNT_KEYS` (`gn:account:keys`) tiene **3 sitios que la escriben**, y solo uno pasa por `addOrUpdate`, que es el único que valida:
+
+| # | escritor | quién lo llama | ¿pasa por la puerta? |
+|---|---|---|---|
+| 1 | `app.js:747` `KeyManager.save()` | `addOrUpdate` (modal), `rename`, `remove` | ✅ **sí** — y solo para lo que entra por el modal |
+| 2 | `settings-manager.js:252` `importApiKeys()` | `:393` restaurar desde archivo · `:429` **importar desde el Gist** | ❌ **no** |
+| 3 | `accounts-panel.js:197` | import del Excel cifrado (otro panel) | ❌ **no** |
+
+```js
+// settings-manager.js:247-261
+function importApiKeys(apiKeysData) {
+  if (!apiKeysData) return;
+  if (apiKeysData.list !== undefined && Array.isArray(apiKeysData.list)) {
+    Storage.set(Storage.STORAGE_KEYS.ACCOUNT_KEYS, apiKeysData.list);   // <- a disco, sin mirar un permiso
+```
+
+La puerta #2 no es secundaria: el export lleva las keys en claro (`settings-manager.js:175` y `:212`, `apiKeys: exportApiKeys()`), el Gist las sube (`gist-sync.js:452` → `SettingsManager.importFromData` → `importApiKeys`), y `validateImportData` (`settings-manager.js:230-241`) chequea **exactamente dos cosas**: que la versión sea `3.0` y que el archivo diga `app: 'gw2-wallet-ligero'`. **No mira una key.**
+
+### Lo que Pablo ve después de restaurar el Gist en otra máquina
+
+1. El toast dice *"Configuración importada"* y cuántas cuentas. **Nada sobre permisos.**
+2. `KeyManager.load()` (`app.js:694`) lee la lista y no valida.
+3. Cada módulo pide su endpoint. Con una key de `account`+`wallet`, la API responde **403** y la capa degrada a `[]`/`0` (Idea 47/57, ya medidas).
+4. **Los 14 módulos quedan vacíos y no hay un solo mensaje.** Peor en Suerte: `getAccountLuck` devuelve `[]` y la columna muestra **`0%`**, un valor plausible y verdadero — se cree de buena fe.
+5. `renderKeysList` (`app.js:994-1024`) muestra ícono, etiqueta, chip "En uso", la key ofuscada y 4 botones. **Cero información de salud.**
+
+**Esto reencuadra la T2 de la ronda 21.** Yo la propuse como *"mostrar los permisos por cuenta"* — un extra. **Es la única defensa que no depende de por dónde entró la key.**
+
+### Tramos
+
+| # | tramo | dificultad | por qué |
+|---|---|---|---|
+| 🔴 **0** | **T2-mini: contador arriba del modal — "27 cuentas · 3 con permisos incompletos"** | 🟢 ~20 min | La pregunta que Pablo se hace primero no es *cuáles* sino *cuántas*: si son 3 las arregla; si son 27, el mensaje que necesita es otro. Sin esto, T2 obliga a recorrer 27 filas a ojo |
+| 🔴 **0.5** | **Copy `app.js:683`: `unlocks` nombra "glifos", un módulo que NO existe** (`homestead-tracker.js` es código muerto, Idea 44, decimoquinto heartbeat en 0%). El texto correcto es **"Legendaria Imbuida, nodo de home"** | 🟢 **1 línea** | Es el mensaje que Pablo lee cuando su key es rechazada. **Es un error mío del copy de ayer** — misma clase que el `confirm()` de la ronda 19: el código es honesto, el texto que lo acompaña no |
+| 🔴 **1** | **T2: chips de permisos por fila**, los que falten en rojo. Lee `tokeninfo` de las cuentas **ya guardadas** — implementa `tokenHasWVPermissions` (`api-gw2.js:712`, 0 callers) como su primer lector real. **Cubre las 3 puertas** | 🟡 ~1 h | Es la cerradura. Guardar un dato nuevo por cuenta ⇒ **va al Reviewer** (ALERT-48) |
+| 🔴 **1.5** | **T4: el import dice qué trajo** — cuántas de las N llegaron sin los 7 | 🟢 ~15 min | Sin triage en el momento de la restauración, T2 le deja el trabajo a Pablo. Toca el import ⇒ Reviewer |
+
+> **Lo que NO se propone: validar en `importApiKeys`.** Son 27 llamadas a `tokeninfo` (~25 s) y **bloquean el import**; peor, una key caduca **tira el import entero**. No se arregla un problema de permisos creando un problema de datos. La forma correcta es **no validar al importar y marcar "sin verificar"**, que es lo que T2 da gratis.
+
+### Web research de la ronda (vigésima vez)
+
+- **Reddit `/r/Guildwars2` → 403** (20/20). **gw2treasures `/feeds` → 404** (20/20; la ruta no existe desde la ronda 12).
+- **Wiki `API:2/tokeninfo` → sí.** (a) Sirvió para el censo. Y trae una inconsistencia que **confirma la regla del PO**: la descripción dice **`builds`** y el ejemplo de respuesta devuelve **`build`**. *Un scope escrito de memoria es una constante, y las constantes se pudren* — y esta vez se pudre en la documentación oficial. (b) **Algo que el PO no sabía y NO abre idea:** `tokeninfo` devuelve `type` (`APIKey`/`Subtoken`) y `urls` en subtokens restringidos. Si se pegara un subtoken con lista de URLs, la puerta pasa y algunos endpoints dan 403 sin explicación. **Anotado como P3 dentro de T2** (que el chip muestre también `type`), no como idea: Pablo usa keys de `arena.net`.
+- **Parche febrero 2026 = 42 Legendaria Imbuida** (28 Boss Bounty + 6 Weekly Quickplay). **Cierra el HB#50 / COMM 034**: el `vloxx` con `li: 1` hacía el 100% inalcanzable **por diseño del juego**, no por la app. ✅ **Cerrado por el juego.**
+- **Idea 44 (`homestead-tracker.js`): 0%, decimoquinto heartbeat.** Sale de la tabla; queda en "decisión del Principal".
+
+### Correcciones propias de la ronda
+
+1. El censo de la ronda 21 era de **9 endpoints, no de 15**. La conclusión no cambió, pero el número estaba mal.
+2. **La medición automatizada dio un censo más chico que el real y no lo delató.** `_hb77_endpoints.py` no vio `/v2/account/home/nodes` ni `/v2/characters/:id/inventory`, porque se arman con `fetch` crudo y concatenación, no con un literal `/v2/...`. Los encontré recién al grepear a mano. **Imprimir el total junto a la lista, y compararlo contra un grep a mano** — la regla funcionó.
+3. **`app.js:683` nombra un módulo que no existe.** Error mío, introducido en el copy de la ronda 21 y mergeado sin que nadie lo pudiera ver. Va como T2-mini/0.5, 🟢 1 línea.
 
 ## ACTUALIZACION 2026-10-01 01:00 UTC — Heartbeat PO ronda 19 — 🔴 IDEA 64: dos pestañas abiertas borran una cuenta sin aviso
 
@@ -396,27 +477,14 @@ Si el body de `/v2/account/raids` fuera `progress:[{id,cm,li}]` (objeto, no arra
 
 | # | Idea | Dificultad | Estado | ETA |
 |---|------|-----------|--------|-----|
-| 🔴 **0** | **IDEA 49G: `ach_acc` en forma compacta.** El Tramo C arregló `ach_meta` (20.22 → 1.71 MB) pero `kLS(base,token)` (`api-gw2.js:250`) mete el fingerprint del token EN EL NOMBRE de la key → `ach_acc` no es una key, son **27, una por cuenta**, y el sharding no las toca. Medido con la forma real de la wiki (`{id,current,max,done,bits}`): 3.000 logros con progreso × 27 = **4.10 MB**, y `+1.71` de `ach_meta` = **5.81 MB contra una cuota de 4.98 MB**. **El punto de quiebre es ~2.700 logros por cuenta**, y un veteran con raids+legendarias llega ahí. Además `TTL.ACH_ACC` son 2 min pero `getCache:324` **no borra la vencida**, y si Pablo rota tokens cada `ach_acc:*` huérfano son 100-364 KB eternos. **Solución: guardar `"id,id,..."` (33 KB/cuenta) → 0.36 MB con 27 cuentas, 11× menos. Suma final 3.14 MB, dentro de la cuota con 1.8 MB de margen.** No es tan trivial como el Tramo C: `getAccountAchievements` tiene **2 consumidores que leen campos del objeto** (`achievements.js:1058` vía `computeProgress:184-186` y `earnedAP:216-217`; `activities.js:902` lee `a.done`) | 🟡 Media | **No implementado. Medido con la forma real del endpoint** | **AHORA** |
-| 🔴 **0.5** | **IDEA 52: `raid-tracker.js` tiene 5 de 30 encuentros que no existen.** El BACKLOG decía *"12 de 12 ids en el catálogo"* — eso era comparar 12, no 30. Medido sobre `WINGS`: **25 de 30**. 4 son renombres 1:1 (`siege_the_stronghold`→`escort`, `desmina`→`soulless_horror`, `dhuum`→`voice_in_the_void`, `gates_of_ahdashim`→`gate`) y **`vloxx` no existe en ninguna parte** (el ala del CM del 29-sep, NO MARCABLE en los dos módulos). Al revés: **5 eventos reales sin cablear.** Es el mismo bug que ALERT-41 en el módulo que todo el mundo creía sano, y es el que Pablo usa todas las semanas | 🟢 Fácil | **No implementado. Fix de dato, sin lógica ni CSS** | **AHORA (30 min)** |
-| 🔴 **1** | **IDEA 49: la caché persistente muere en silencio.** `api-gw2.js:189` — `function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(_){} }` — **se traga el `QuotaExceededError`**. Cuota medida en navegador real: **4.98 MB**. Caché de logros por cuenta: **0.53 MB** (6.991 achievements × 79 B medidos). **27 cuentas = 14.22 MB al 100%, 9.95 MB al 70%, 5.69 MB al 40%.** La app revienta entre la **cuenta ~10 y la ~24**; Pablo tiene **27**. Cuando revienta, la copia en localStorage deja de existir (la de `__mem` sobrevive, por eso no hay error visible), **cada F5 vuelve a ser un arranque en frío de 433 requests ≈ 65 s** — y `cacheClear()` tiene **0 callers y ningún botón**, así que no hay escape. **Lo grave no es la lentitud: es que se presenta como "la Bóveda anda lenta" y no como un fallo.** **Tramo C ✅ MERGEADO (`f98da49`)**. Tramo A ✅ mergeado. **Tramo D 🔴 BLOQUEADO (HB#13): tal como está escrita BORRA `gw2_keys`, que no es una huérfana sino la lista de 27 cuentas — ver IDEA 61. NO implementarlo antes.** Tramo D 🟢 (1-1.5 h): barrido de huérfanas al arrancar — sube de "conviene" a necesario. Tramo F 🟢 (30 min): `cacheClear()` que borre de verdad + botón. Tramo E 🟢 (30 min): `getCache` borra las entradas vencidas (hoy el TTL deja de leer pero no libera). Tramo B 🟡 (2-3 h): LRU — **BAJA de prioridad**, era la respuesta a un problema que ya no es el problema. **Orden 49G → 49D → 49F → 49E; B al final** | 🟢 D / 🟢 F / 🟢 E / 🟡 B | **C y A mergeadas. D/F/E pendientes** | **Después de 49G** |
-| ✅ | **IDEA 48: recalibrar el pool (3 → 6) + ETA en el contador** — **CERRADA.** Tramo A @ `9d77b32` + merge `78a5a7a` (`api-gw2.js` v2.19.0, `POOL_MAX: 6` L129). Tramo B @ `90d2b0e` (`wallet-dashboard.js` v2.9.0, ETA medida con umbrales `ETA_MIN_DONE=3` / `ETA_MIN_MS=1500`) | 🟢 / 🟡 | **Cerrada** | ✅ |
-| ✅ | **IDEA 47: los ceros falsos** — **CERRADA.** Merge @ `110b049` + `776b1ea` (`.catch` en launches tardíos) + `7ca8195` (allSettled + banner) + `92b9cc1` (call site del TP nombra el fallo) | 🟡 | **Cerrada** | ✅ |
-| ✅ | **IDEA 46 t1: pool global de requests** — **CERRADA.** Mergeada @ `2f6ce82`, merge `bf0fb62` → `agents/main`, más `10ead9b` (fuga de slot en `poolPump`) y `9a8262c` (pool de FASE 2 en inventario). **La Idea 48 es la continuación de esta, no una alternativa** | 🟢 Fácil | **Cerrada** | ✅ |
-| ✅ | **IDEA 46 t2: honestidad de la cola** — **CERRADA** por el Tramo B de la 48 (`90d2b0e`): el contador ya mide y muestra ETA real en vez de decir "Cargando…" | 🟡 | **Cerrada** | ✅ |
-| ✅ | **IDEA 45: progreso N/total + error por cuenta nombrado** — **CERRADA** en `agents/main` @ `ee0494d` (`wallet-dashboard.js` v2.8.0) | — | **Implementada** | ✅ |
-| ✅ | **Commerce delivery** (`getCommerceDelivery`) — API en `agents/main` @ `7d13155`. **UI sigue pendiente** (0 callers) | 🟢 | API lista, sin UI | Con 46 t2 |
-| ✅ | **Fix `meta.js`: endpoint `/v2/events` obsoleto** | 🟢 | **CERRADO** @ `f533d67` (guard `LEY_LINE_ENDPOINT_RETIRED`, v3.4.1) | ✅ |
-| 🥈 1 | **Dungeon dailies multicuenta** (`account/dungeons` + `dungeons`, **ambos confirmados contra `/v2.json` el 04:00**; 8 mazmorras / 36 paths, público, sin paginar). Completa la familia WB + mapchests + dailycrafting. **Mejora relación esfuerzo/valor de todo el backlog** | 🟢 Fácil | API confirmada, **sigue en 0% (sexto heartbeat)** | **Próxima** |
-| 🥇 2 | **Coleccionables account-scoped multicuenta** — 12 endpoints, **12/12 confirmados contra el índice oficial `/v2.json` el 04:00** (`skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts/skins`, `mounts/types`, `titles`, `dyes`, `home/cats`). Empezar por `skins`. ✅ Ya no depende de la 46 t1 (está mergeada). Con `POOL_MAX=6` los 324 requests bajan de ~97 s a ~49 s | 🟡 Media | API confirmada, 0% implementado | Después de 49C |
-| 🥇 3 | Fractal Tracker multicuenta (T1-T4+CM, instabilities, agony) — falta el 3er tipo de contenido instanciado | 🟡 Media | API parcial, patrón de raid/strike reusable | Ahora |
-| 🥉 4 | Titles tracker (`/v2/account/titles`, 496). **Reabierta**: `achievements.js` solo usa `/v2/titles?id=` como resolutor de nombres, nunca llama al account-scoped. No es redundante | 🟢 Fácil | API confirmada | Próxima |
-| ⚠️ 5 | `homestead-tracker.js` — **código muerto**: sus wrappers no están en el `return` de `GW2Api` y `index.html` no lo referencia. **Quinta verificación, misma respuesta.** Sale de la tabla → decisión abierta del Principal | 🟡 | **Parado** | — |
-| 🥉 6 | New Items Awareness Feed (`gw2treasures.com`) | 🟢 Fácil | Validated, not implemented | Continuous |
-| 4 | Mobile PWA (manifest.json + service worker) | 🟡 Media | CSS breakpoints done, PWA no | Post-Homestead |
-| 5 | WvW Borderlands beta tracker | 🟡 Media | Not implemented | Nov 10 |
-| 6 | Inventory cleanup tool (MetaForge WARDOGS competitive gap) | 🟡 Media | Not implemented | Post-Homestead |
-| 7 | Goal tracking | 🟡 Media | Validated | — |
-| 8 | Alt Roster Tracker | 🟡 Media | API limitation (no rested XP for alts) | — |
+| 🔴 **0** | **IDEA 65 (ronda 22): 3 escritores de la lista de cuentas, 1 con candado.** La puerta de permisos (`ea10e9b`) solo protege `addOrUpdate`. `settings-manager.js:252 importApiKeys()` escribe `ACCOUNT_KEYS` a disco sin mirar un permiso, y es lo que usan **el restore de archivo y el Gist**; `accounts-panel.js:197` es el tercer escritor. `validateImportData` chequea versión y `app`, no keys. Con una key de 2 permisos restaurada, **los 14 módulos quedan vacíos sin un solo mensaje** y Suerte muestra `0%` | 🟡 ~1 h (T2) | **Abierta — T2 va al Reviewer** | Inmediato |
+| 🔴 **0.2** | **T2-mini: el contador del modal** ("27 cuentas · 3 con permisos incompletos") | 🟢 ~20 min | **Abierta** | Con T2 |
+| 🔴 **0.3** | **Copy `app.js:683`: `unlocks` nombra "glifos" y ese módulo es CÓDIGO MUERTO** (`homestead-tracker.js`, Idea 44, decimoquinto heartbeat en 0%). Error propio, introducido en el copy de la ronda 21 | 🟢 **1 línea** | **Abierta** | Inmediato |
+| 🟢 **0.5** | **T4: el import dice cuántas de las N llegaron sin los 7** | 🟢 ~15 min | **Abierta — toca el import ⇒ Reviewer** | Con T2 |
+| ✅ | **Ronda 21 T1 + T3: la puerta exige los 7 que la app USA, no 2** — **CERRADAS @ `ea10e9b`.** Verificadas por el PO en la ronda 22 contra un censo cerrado de **15 endpoints con scope** (la ronda 21 había medido 9): la unión de scopes es exactamente los 7 de `REQUIRED_PERMISSIONS`. **Sin verificar:** `/v2/account/wizards-vault` (la página de la wiki da 404 con ese título) | — | **Implementadas** | ✅ |
+| 🔴 **1** | **IDEA 49G: `ach_acc` en forma compacta.** El Tramo C arregló `ach_meta` pero `kLS(base,token)` sigue guardando el fingerprint del token | 🟡 | **Abierta — es la que CIERRA la cuota** | Siguiente |
+| 🟡 **2** | **IDEA 47 / 57: la capa que degrada a `[]`/`0`.** Es la **causa** de que una key mala parezca una cuenta vacía. T2 es la superficie; 47/57 son el fondo | 🟡 | 47 mergeada · 57 abierta | Con T2 |
+| ⚠️ — | **`homestead-tracker.js` — FUERA DE LA TABLA.** Código muerto: wrappers ausentes del `return` de `GW2Api`, `index.html` no lo referencia. **Decimoquinto** heartbeat en 0%. Es también el módulo que el copy de `app.js:683` nombra como si existiera | — | **Decisión del Principal: implementar o borrar** | — |
 
 ## 🟢 Heartbeat PO 2026-09-30 06:00 UTC — Idea 50: la cuota no se libera nunca
 
@@ -750,6 +818,7 @@ Reviewer en timeout #10 (platform bug). Proceeding by merit.
 - Cerradas/completadas: 3 (VoE content integration verification; Idea 45; fix `/v2/events`)
 - Bloqueadas: 1 (Legendary component tracker — Phase 3)
 - **Nuevas en el heartbeat 2026-09-30 02:00 UTC:** Idea 48 (🔴 pool calibrado a 1/3 del permiso, sube a #1; 30-45 min para 16 s menos por pantalla)
+- **Nuevas en el heartbeat 2026-10-01 04:00 UTC (ronda 22):** IDEA 65 (3 escritores de la lista de cuentas, 1 con candado) + T2-mini + T4 + el copy de `app.js:683`. Cerradas: ronda 21 **T1 + T3** (`ea10e9b`), ronda 20 **T5** (`b1b74bb`), ronda 19 **Idea 64 T1+T2** (`ea2721b`), ronda 17 **ALERT-84 T3+T4** (`4778f92`)
 
 ---
 
