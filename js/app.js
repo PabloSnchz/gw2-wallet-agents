@@ -1062,9 +1062,6 @@
   // === Propuesta 8: parsear errores de la API en mensajes diferenciados ===
   function parseKeyError(err) {
     const m = (err?.message || '');
-    // Un error que ya viene clasificado (con `kind`) trae su propio mensaje, y
-    // ese mensaje es el bueno: se respeta en vez de reescribirlo.
-    if (err?.kind) return { msg: m || 'Error desconocido', kind: err.kind };
     // El mensaje de la puerta de permisos (app.js, REQUIRED_PERMISSIONS) ya
     // nombra los 7 que exige y el motivo de cada uno. Antes esta linea
     // devolvia "Faltan permisos: account + wallet" — los 2 permisos de antes de
