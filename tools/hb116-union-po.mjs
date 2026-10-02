@@ -28,17 +28,25 @@ const dateOf = (h) => {
 };
 
 // main primero, despues las ramas de mas nueva a mas vieja: gana la mas nueva.
-const fuentes = [
-  'origin/main',
-  'origin/po/hb114-dashboard',
-  'origin/po/hb110-dashboard',
-  'origin/po/hb104-dashboard',
-  'origin/po/hb99-dashboard',
-  'origin/po/hb97-wv-view',
-  'origin/po/hb87-dashboard',
-  'origin/po/hb77-dashboard',
-  'origin/po/hb69-dashboard',
-];
+//
+// HB#134 -- LAS REFS SE LEEN, NO SE ESCRIBEN. Esta lista estaba escrita a mano
+// (9 entradas) mientras `ls-remote` devuelve 15: faltaban 6, y entre las que
+// faltaban estaban TODAS las de poda, que son las rondas mas nuevas. El conteo
+// corria sobre un subconjunto y el numero que salia era una propiedad de la
+// lista, no del PO. Ya lo habia avisado ALERT-170 (HB#131) y el HB#132 otra
+// vez; el numero cambio entre ciclos sin que el PO escribiera nada, porque la
+// rama seguia en el mismo commit.
+//
+// El orden importa: main primero (gana el cuerpo mas reciente) y despues las
+// refs en el orden que las devuelve ls-remote (que es alfabetico, y por lo
+// tanto NO es "de mas nueva a mas vieja" -- el desempate por fecha lo hace
+// dateOf() mas abajo, sobre la seccion, no sobre la rama).
+const lsRefs = execSync('git ls-remote --heads origin "refs/heads/po/*"')
+  .toString().split('\n').filter((l) => l.trim())
+  .map((l) => 'origin/' + l.split(/\s+/)[1].replace('refs/heads/', ''));
+if (lsRefs.length < 9) throw new Error('ls-remote devolvio ' + lsRefs.length + ' refs po/*: se esperaba >=9, el remoto esta incompleto o el glob fallo');
+
+const fuentes = ['origin/main', ...lsRefs];
 
 const mapa = new Map();
 const conflictos = [];

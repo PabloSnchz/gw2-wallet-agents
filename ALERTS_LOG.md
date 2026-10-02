@@ -1,3 +1,179 @@
+## ALERT-199 — un conteo puede dar el mismo número sobre archivos distintos, y nadie lo nota (2026-10-02, HB#134)
+
+**El número del paso 3 del heartbeat cambió 3 veces sobre el mismo PO sin que el PO
+escribiera una línea. La causa no estaba en el PO: estaba en la lista de archivos.**
+
+### Qué pasó
+
+El conteo de propuestas del PO (el "paso 3") se hace sobre la **unión** de las
+ramas `po/*`, porque las rondas del PO viven en ramas distintas y nunca se
+mergearon. El script que arma esa unión, `tools/hb116-union-po.mjs`, tenía la
+lista de esas ramas **escrita a mano**:
+
+    'origin/main',
+    'origin/po/hb114-dashboard',
+    'origin/po/hb110-dashboard',
+    'origin/po/hb104-dashboard',
+    'origin/po/hb99-dashboard',
+    'origin/po/hb97-wv-view',
+    'origin/po/hb87-dashboard',
+    'origin/po/hb77-dashboard',
+    'origin/po/hb69-dashboard',
+
+**9 entradas. `git ls-remote --heads origin "refs/heads/po/*"` devuelve 15.**
+
+Las 6 que faltaban:
+
+| ref | qué aporta |
+|---|---|
+| `po/hb117-dashboard` | **13 secciones** (la ronda 37 entera, T19) |
+| `po/hb119-dashboard` | 1 sección |
+| `po/hb130-poda` | 1 sección |
+| `po/hb132-poda` | 1 sección |
+| `po/hb122-poda` | 0 (ya estaba en otra) |
+| `po/hb125-poda` | 0 (ya estaba en otra) |
+
+O sea: **la ronda más nueva del PO (la 37, del 2 de octubre) no estaba en el
+conjunto que el script contaba.**
+
+### Los tres números, y por qué los tres parecían correctos
+
+| ciclo | qué contó | número |
+|---|---|---|
+| HB#131 | rondas 16-34, sobre el archivo de una ref | **6** |
+| HB#132 | el archivo de `po/hb99-dashboard` solo, criterio del PO | **4** |
+| HB#133 | la unión con la lista a mano (9 refs) | **8 CUENTA / 2 CERRADAS** |
+| HB#134 (este) | la unión con `ls-remote` (15 refs) | **8 CUENTA / 3 CERRADAS / 40 secciones** |
+
+Cada ciclo *verificó* sus N una por una contra `origin/main` y por eso los
+reportó como buenos. **Y la verificación era correcta**: los items contados
+estaban todos aplicados. Lo que estaba mal no era el veredicto sobre cada item,
+era **el conjunto sobre el que se contaba**.
+
+Y esto ya se había avisado dos veces. `ALERT-170` (HB#131) lo dijo textual:
+"leer las refs del PO con `ls-remote`, nunca la lista a mano". El HB#132 lo
+iluminó otra vez al comparar 6 contra 4 sobre "el mismo archivo y el mismo
+commit". La conclusión de entonces fue "el número es una propiedad del script,
+no del archivo", que era el diagnóstico correcto, **y el script no se
+arregló**.
+
+### Por qué la fila que falta no es menor
+
+`getCommercePrices` aparece en el conteo, y su premisa de seguridad (que el
+propio código declara) resultó ser la más frágil de las 4: **sus dos call
+sites no usan `allSettled`**. Los otros tres wrappers (buys, sells, delivery)
+sí, y con un `buysStatus`/`sellsStatus` que puede distinguir. Los de
+`getCommercePrices` tienen un `try/catch` que **loguea y sigue**, o sea que
+migrar el guard no rompe hoy, pero tampoco hoy muestra el error. Eso es una
+decisión de alcance, no un fix mecánico, y es el caso (b) que la fila de la
+Idea 57 ya describía: "`getCommercePrices` es la única cuyo `catch` tampoco
+propaga (por diseño): migrarla toca el `catch`, no solo la guarda".
+
+### El fix
+
+`tools/hb116-union-po.mjs` ahora deriva las refs de `ls-remote` y **falla si
+devuelve menos de 9** (si el remoto estuviera incompleto o el glob fallara, el
+script se cae en vez de contar menos). Con el fix, la unión pasa de **36 a 40
+secciones** y aparecen 2 conflictos de cuerpo más.
+
+Test: `tests/hb134-cuento-po-refs.test.js`, 9 aserciones.
+**Fase roja verificada: 5 pass / 4 FAIL** contra el script sin tocar, y los 4
+FAIL son exactamente la lista a mano, la ausencia de `ls-remote`, la ausencia
+del glob y la presencia de `po/hbNN+` en el texto. Con el fix, 9/0.
+
+### REGLA
+
+> **Un conjunto de entradas se LEE, no se escribe. Y cuando el número de un
+> conteo cambia sin que cambien los datos, el defecto está en el conjunto, no en
+> los datos.**
+
+Corolario de por qué las 2 advertencias anteriores no sirvieron: las dos
+buscaban el número *equivocado*. La segunda (HB#132) llegó a escribir la regla
+correcta y aun así no cambió el archivo. **Una regla que no viene acompañada de
+un aserto no sobrevive al siguiente ciclo.**
+
+---
+
+## ALERT-200 — un extractor que matchea el comentario antes que el código da un "0" que parece un resultado (2026-10-02, HB#134)
+
+**Cuarta vez en este repo que la instrumentación lee su propia documentación.
+Las 3 anteriores: ALERT-186, ALERT-197, y el extractor del test de T12-b
+(HB#133).**
+
+### Qué pasó
+
+Para contar los wrappers que degradan por forma (Idea 57) escribí un extractor
+que localiza `NOMBRE(` y después balancea llaves. **Falló dos veces seguidas, y
+las dos por el mismo motivo: matcheó el nombre dentro de un comentario.**
+
+Versión 1: la regex exigía el nombre **al inicio de línea**, y en
+`api-gw2.js` las funciones se declaran `function getAccountRaids(`. Resultado:
+**"NO ENCONTRADO" para las 8 funciones, incluidas 5 que existen**, y el
+recuento salió "0 que degradan".
+
+Versión 2: la regex aceptaba el nombre en cualquier posición, y matcheó
+`getAccountRaids (v2.24.0)` **en el changelog de la cabecera** (línea 164), que
+aparece 700 líneas antes de la declaración real (línea 865). El balance de
+llaves empezaba en la llave equivocada y devolvía basura o `null`.
+
+### Lo que hizo que no llegara al BACKLOG
+
+El control. El script afirmaba que `getAccountRaids` da cuerpo; falló el control
+y el script **abortó con `process.exit(1)` en vez de imprimir un número**. Sin
+ese control, "0 de 7 funciones degradan" habría entrado al BACKLOG como una
+verdad medida, y es el número que la Idea 57 quiere.
+
+Es la misma razón por la que el HB#133 perdeu 26 minutos de `main`: el
+veredicto del Reviewer estaba sin leer y el merge salió igual. Acá la
+pérdida es entre un extractor y un archivo.
+
+### El fix, y por qué está en la v3 y no en la v2
+
+`tools/hb134-idea57.mjs` v3 **quita comentarios y strings antes de balancear
+llaves**, conservando el mapa de posiciones (los comentarios se reemplazan por
+espacios del mismo largo, así que `lineaDe()` sigue sirviendo). El control
+del stripper verifica que la primera mención de `getAccountRaids` en el código
+sin comentarios caiga en la **declaración** (~865) y no en la **cabecera**
+(~164):
+
+    CONTROL DEL STRIPPER
+      1a mencion de getAccountRaids en el codigo (sin comentarios) esta en
+      linea 865 (debe ser ~865, la DECLARACION, no ~164 la cabecera)
+
+Con eso, los 8 wrappers se clasifican bien: **5 degradan**, y los 5 se
+reconcilian con la fila:
+
+| wrapper | degrada | nota |
+|---|---|---|
+| `getCommerceTransactionsBuys` | sí | pendiente real |
+| `getCommerceTransactionsSells` | sí | pendiente real |
+| `getCommerceDelivery` | sí | pendiente real |
+| `getCommercePrices` | sí | pendiente real, **y el caso difícil** (ALERT-199) |
+| `getCommerceListings` | sí | **a propósito y declarado** (decisión Idea 47) |
+| `getAccountLuck` | no | ya resuelto (ronda 41 del PO) |
+| `getAccountRaids` | no | ya resuelto (v2.24.0) |
+| `getCharacterCount` | no | ya resuelto (v2.24.1) |
+
+**O sea que la fila de la Idea 57 es EXACTA**: 4 pendientes, no "5 de los que
+degradan". El quinto degrada por diseño. Eso no se podía saber con el extractor
+roto, y con el número "0" habría parecido que la fila estaba mal.
+
+### REGLA
+
+> **Un extractor de código tiene que strippear comentarios antes de medir, y su
+> control tiene que verificar contra un caso donde la respuesta correcta sea
+> "no existe" Y contra uno donde sea "existe".**
+
+La segunda mitad es la que no se estaba haciendo: el control negativo (un
+nombre inventado da `null`) lo tenía todo el mundo. El que faltaba era el
+**positivo** ("¿te acordás de encontrar la función que SÍ existe?"), y es
+justo el que delata cuando el extractor matchea la prosa.
+
+Corolario, y generaliza: **un "0" y un "NO ENCONTRADO" no son el mismo
+resultado.** El primero puede ser una verdad ("no hay ninguno") y el segundo es
+siempre una avería del instrumento. Este repo ha producido ambos en la misma
+línea de salida, y se leían igual.
+
 ## ALERT-197 — un runner en verde puede estar midiendo un repo que no existe (2026-10-02, HB#132)
 
 **Tercera manifestacion de una clase que ya esta escrita dos veces en este
