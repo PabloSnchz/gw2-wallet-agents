@@ -145,7 +145,7 @@
     return n;
   }
 
-  function _fila(node, abiertos, esc, profundidad) {
+  function _fila(node, abiertos, esc, profundidad, de) {
     var abierto = _abierto(node, abiertos);
     var tieneHijos = !node.isLeaf && node.children && node.children.length;
     var sangria = 10 + profundidad * 14;
@@ -164,9 +164,17 @@
     out += '<span style="width:13px;flex-shrink:0;text-align:center;font-size:0.6rem;' +
       'color:var(--tx-3);">' + (tieneHijos ? (abierto ? '▾' : '▸') : '·') + '</span>';
 
+    // Icono y color de rareza salen del MISMO resolvedor. El arbol y la tabla
+    // lo comparten, y el arbol lo pasa entero a los hijos.
+    var info = de ? de(node.id) : null;
+    if (info && info.icon) {
+      out += '<img src="' + esc(info.icon) + '" alt="" width="14" height="14" loading="lazy"' +
+        ' style="width:14px;height:14px;flex-shrink:0;border-radius:2px;">';
+    }
+
     out += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;' +
-      'white-space:nowrap;font-size:0.76rem;color:var(--tx-1);" title="' + esc(node.name) + '">' +
-      esc(node.name) + '</span>';
+      'white-space:nowrap;font-size:0.76rem;color:' + ((info && info.color) || 'var(--tx-1)') + ';"' +
+      ' title="' + esc(node.name) + '">' + esc(node.name) + '</span>';
 
     // La multiplicidad solo cuando es > 1. Un "×1" en todas las filas es ruido.
     if (node.count > 1) {
@@ -193,7 +201,7 @@
     if (tieneHijos && abierto) {
       var hijos = '';
       for (var i = 0; i < node.children.length; i++) {
-        hijos += _fila(node.children[i], abiertos, esc, profundidad + 1);
+        hijos += _fila(node.children[i], abiertos, esc, profundidad + 1, de);
       }
       out += '<div class="lt-nodo-hijos">' + hijos + '</div>';
     }
@@ -206,6 +214,10 @@
     opts = opts || {};
     var esc = opts.esc || function (s) { return String(s == null ? '' : s); };
     var abiertos = opts.abiertos || {};
+    // `opts.de` lo inyecta el tracker, que es el unico que sabe de donde
+    // salen los iconos. La vista no pide nada por su cuenta, igual que no
+    // pide `esc`: si nadie lo pasa, se dibuja sin icono y sin color.
+    var de = opts.de || null;
 
     // EL ORDEN DE ESTAS DOS GUARDAS ES LO QUE IMPORTA
     // `build()` devuelve `node: null` con `needsPrecursors: true` cuando faltan
@@ -233,7 +245,7 @@
     }
 
     var html = '<div class="lt-arbol" data-lt-tree="1">';
-    html += _fila(res.node, abiertos, esc, 0);
+    html += _fila(res.node, abiertos, esc, 0, de);
     html += '</div>';
 
     // Lo que NO entra en la cuenta, dicho. Si desaparece, el usuario no tiene
@@ -296,8 +308,12 @@
       var falta = Math.max(0, necesito - tengo);
       totT += tengo; totN += necesito; totF += falta;
       var borde = i ? 'border-top:1px solid rgba(255,255,255,0.04);' : '';
+      // El mismo `de` que el arbol. Sin el, la celda queda en var(--tx-1)
+      // como estaba: que la red falle no puede sacar la tabla de pantalla.
+      var infoFila = opts.de ? opts.de(r.itemId) : null;
       h += '<tr style="' + borde + '">' +
-        '<td style="padding:5px 6px;color:var(--tx-1);overflow:hidden;text-overflow:ellipsis;' +
+        '<td style="padding:5px 6px;color:' + ((infoFila && infoFila.color) || 'var(--tx-1)') +
+        ';overflow:hidden;text-overflow:ellipsis;' +
         'max-width:0;" title="' + esc(r.name) + '">' + esc(r.name) + '</td>' +
         '<td style="padding:5px 6px;text-align:right;color:var(--tx-3);' +
         'font-variant-numeric:tabular-nums;">' + tengo + '</td>' +

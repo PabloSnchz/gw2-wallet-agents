@@ -14,8 +14,9 @@
 //
 // LO QUE NO TIENE, Y POR QUE
 //   No hay campo `icon`: la fuente no trae icono (0 de 634 recetas).
-//   No se escribe una URL inventada. Para el icono esta `iconUrl(id)`,
-//   que se resuelve en runtime contra la API.
+//   El icono NO se resuelve aca: no hay forma de hacerlo sin red, y una URL
+//   inventada seria peor que ninguna. Lo resuelve `js/item-icons.js`, que
+//   orquesta GW2Api.getItemsMany y devuelve icono y color por id.
 //   No hay `nameEs`: la fuente solo trae el nombre en ingles.
 //
 // ARISTAS SIN ID (2). itemId 0 no es un item.
@@ -946,13 +947,10 @@ var LegendaryPrecursors = (function(){
     "110081": { "name": "Gift of the Tenebral Ward", "dataStatus": "material", "craftType": "none", "outputCount": 1, "disciplines": [], "isMaterial": true, "ingredients": [] },
     "110142": { "name": "Fledgling Constellation", "dataStatus": "material", "craftType": "none", "outputCount": 1, "disciplines": [], "isMaterial": true, "ingredients": [] },
   };
-  var ICON_URL = 'https://api.guildwars2.com/v2/item/';
-  function iconUrl(id){ return ICON_URL + id + '/icon'; }
   return {
     byItem: BY,
     counts: {"recipe": 467, "material": 436, "vendor": 4},
     totalItems: 907,
-    iconUrl: iconUrl,
     get: function(id){ return BY[String(id)] || null; },
     has: function(id){ return Object.prototype.hasOwnProperty.call(BY, String(id)); }
   };

@@ -635,7 +635,17 @@
     }
 
     var res = T.build(id);
-    var opts = { esc: esc, abiertos: abiertosArbol };
+
+    // `de` lo aporta `ItemIcons` y es el MISMO para el arbol y para la tabla:
+    // los dos lo piden al mismo resolvedor, no hay dos caminos. Si todavia no
+    // esta, `de` es null y la vista dibuja sin icono y sin color, que es lo
+    // que tiene que pasar mientras la red responde o si nunca responde.
+    var Icons = root.ItemIcons;
+    var opts = {
+      esc: esc,
+      abiertos: abiertosArbol,
+      de: Icons ? function (iid) { return Icons.de(iid); } : null
+    };
 
     body.innerHTML = (vistaModal === 'totales')
       ? UI.renderTotalsHTML(res, ownedMap(), opts)
@@ -681,14 +691,33 @@
     // estan, responde al instante sin tocar el DOM.
     var UI = root.LegendaryTreeUI;
     if (UI) {
-      UI.ensurePrecursors(function () {
+      UI.ensurePrecursors(function (okPrec) {
         // Solo se repinta si el modal sigue abierto. Volver a pintar un modal
         // cerrado no se ve, pero puede pisar lo que el usuario esta mirando si
         // abrio otra cosa mientras cargaba.
         var mm = document.getElementById('ltItemModal');
-        if (mm && !mm.hidden && state.openItemId === id) pintarModalLegendaria();
+        var abierto = mm && !mm.hidden && state.openItemId === id;
+        if (okPrec && abierto) pedirIconos(id);
+        else if (abierto) pintarModalLegendaria();
       });
     }
+  }
+
+  // Icono y rareza del contrato COMPLETO de precursores, no solo de este
+  // arbol. La razon es el costo: el usuario abre el arbol de otra legendaria al
+  // toque, y pedirlo por arbol serian 5 lotes por cada legendary que mire.
+  // `getItemsMany` ya deduplica y cachea, asi que el precio es el primer arbol
+  // y no cada apertura. Idempotente de punta a punta: si no hay Iconos todavia
+  // no hace nada, y si los datos estan `cargar` resuelve al instante.
+  function pedirIconos(id) {
+    var Icons = root.ItemIcons;
+    var Prec = root.LegendaryPrecursors;
+    if (!Icons || typeof Icons.cargar !== 'function') return;
+    if (!Prec || !Prec.byItem) return;
+    Icons.cargar(Object.keys(Prec.byItem)).then(function () {
+      var mm = document.getElementById('ltItemModal');
+      if (mm && !mm.hidden && state.openItemId === id) pintarModalLegendaria();
+    });
   }
 
   // Delegacion: un solo listener sobre el contenedor, no uno por card. Con

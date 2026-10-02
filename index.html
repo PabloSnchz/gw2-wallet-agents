@@ -1016,6 +1016,15 @@
 <script defer src="js/legendary-tree-ui.js?v=1.0.0"></script>
   <script defer src="js/render-catologo.js?v=1.0.0"></script>
 
+  <!-- Icono y color de rareza de los items del arbol. Va ACa, y no junto a los
+       otros de la Armeria, por una razon de mantenimiento concreta:
+       `alert86.censo-clasificacion.test.js` ancla las lineas 1012..1017 de este
+       HTML por POSICION, no por contenido, asi que agregar un <script> en medio
+       rompe un test que no va con este modulo. El orden entre estos scripts no
+       importa para que funcione: `item-icons` se busca en runtime, cuando el
+       tracker abre el modal, y no al cargar la pagina. -->
+  <script defer src="js/item-icons.js?v=1.0.0"></script>
+
   <!-- Wizard's Vault — UI desacoplada (Fases 1-3) -->
   <script defer src="js/wv-shop-ui.js?v=1.0.2"></script>
   <script defer src="js/wv-objectives-ui.js?v=1.0.0"></script>

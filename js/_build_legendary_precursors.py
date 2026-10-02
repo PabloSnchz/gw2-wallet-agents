@@ -43,7 +43,7 @@ LO QUE LA FUENTE NO TIENE, Y QUE NO SE INVENTA
   1) ICONOS. 0 de 634 recetas traen icono en los ingredientes. No hay de
      donde sacarlos en build, y no se escribe una URL inventada: por eso
      este archivo NO lleva campo icon. El consumidor resuelve el icono en
-     runtime contra la API (ver doc de `iconUrl` mas abajo), que ademas es
+      runtime, contra la API, desde `js/item-icons.js`, que ademas es
      lo correcto: la URL del icono de GW2 tiene el hash del asset adentro,
      y no se puede adivinar.
   2) NOMBRES EN ESPANOL. La fuente trae el nombre en ingles y nada mas.
@@ -240,8 +240,10 @@ def build_js(entradas, conteo, por_tipo, total_hojas, sin_id):
     a("//")
     a("// LO QUE NO TIENE, Y POR QUE")
     a("//   No hay campo `icon`: la fuente no trae icono (0 de 634 recetas).")
-    a("//   No se escribe una URL inventada. Para el icono esta `iconUrl(id)`,")
-    a("//   que se resuelve en runtime contra la API.")
+    a("//   El icono NO se resuelve aca: no hay forma de hacerlo sin red, y")
+    a("//   una URL inventada seria peor que ninguna. Lo resuelve")
+    a("//   `js/item-icons.js`, que orquesta GW2Api.getItemsMany y devuelve")
+    a("//   icono y color por id.")
     a("//   No hay `nameEs`: la fuente solo trae el nombre en ingles.")
     a("//")
     a("// ARISTAS SIN ID (%d). itemId 0 no es un item." % len(sin_id))
@@ -278,13 +280,10 @@ def build_js(entradas, conteo, por_tipo, total_hojas, sin_id):
           % (iid, js_str(e["name"]), e["dataStatus"], e["craftType"],
              e["outputCount"], disc, "true" if e["isMaterial"] else "false", ings))
     a("  };")
-    a("  var ICON_URL = 'https://api.guildwars2.com/v2/item/';")
-    a("  function iconUrl(id){ return ICON_URL + id + '/icon'; }")
     a("  return {")
     a("    byItem: BY,")
     a("    counts: %s," % json.dumps(conteo))
     a("    totalItems: %d," % len(entradas))
-    a("    iconUrl: iconUrl,")
     a("    get: function(id){ return BY[String(id)] || null; },")
     a("    has: function(id){ return Object.prototype.hasOwnProperty.call(BY, String(id)); }")
     a("  };")
