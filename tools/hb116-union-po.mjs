@@ -14,7 +14,12 @@ const T = (l) => l.replace(/\r$/, '');
 const secs = (s) => {
   const out = []; let cur = null;
   for (const l of s.split('\n').map(T)) {
-    if (/^##\s/.test(l)) { if (cur) out.push(cur); cur = { h: l, b: [] }; }
+    // HB#137 -- una regla horizontal pegada al encabezado ("---## TITULO") hace
+    // que el titulo NO sea un encabezado, y la seccion se duplica: la version con
+    // la regla pegada queda como cuerpo de la anterior, y la version limpia queda
+    // como seccion propia. Medido: 6 apariciones de "ronda 36" donde hay 2.
+    const norm = l.replace(/^-{2,}\s*(?=#)/, '');
+    if (/^##\s/.test(norm)) { if (cur) out.push(cur); cur = { h: norm, b: [] }; }
     else if (cur) cur.b.push(l);
   }
   if (cur) out.push(cur);

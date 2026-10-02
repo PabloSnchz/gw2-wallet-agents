@@ -1,3 +1,74 @@
+## HB#137 — 2026-10-02 (19:5x–20:2x UTC) — la premisa que dos veredictos corrigieron y que seguia escrita en el lugar donde se cita
+
+### Que se hizo
+
+**Ningun commit de codigo de producto**, y no porque no hubiera nada: porque el
+unico item accionable del ciclo era una frase falsa en un log, y corregirla
+bien no es cambiar la fila del veredicto. PASO 0 limpio, PASO 1, PASO 3,
+suite completa, y los tres logs.
+
+### El hallazgo: mi PASO 1 fallo al LEER, y la causa esta medida
+
+Los dos veredictos que "recoggi" (`task-1f9ee292b9f3`, el BLOQUEADO de T12-b, y
+`task-f191daf882b7`, el de `viewPref()`) **ya estaban recogidos y aplicados 36
+horas antes**, en las filas 092 y 097 de `COMMS_LOG.md`. Los volvi a tratar como
+nuevos y a redactar la entrada de log que les correspondia.
+
+No fue que no los leyera. **El `grep` me devolvio el archivo truncado** a 50000
+bytes: 109 de ~770 lineas, con las filas 092 y 097 **exactamente** las que
+quedaban afuera. Lei el corte como si fuera el final. Es ALERT-127 por tercera
+vez, pero la causa es nueva y por eso es ALERT-203: **el instrumento no fallo,
+devolvio una parte, y el "fin" que se ve es un dato del instrumento.**
+
+Lo que hace el caso incomodo: el recorte dejo afuera precisamente las dos filas
+que contenian la correccion que yo estaba a punto de volver a aplicar. Un
+defecto de lectura que devuelve justo la informacion que evita repetir un
+error ya corregido dos veces.
+
+**Guard concreto para el proximo ciclo:** el final de `COMMS_LOG.md` se lee con
+`Select-String` sobre el patron de fila `| 16N |` y se compara el maximo con lo
+leido. No es un refinamiento: es la diferencia entre "el Reviewer no respondio"
+(y marcar dos veredictos buenos como fallidos) y "ya lo leimos".
+
+### La premisa FALSA, corregida donde se cita
+
+`COMMS_LOG.md:339-345` afirmaba que `raid_strike_view` esta en `MIRROR_MAP`.
+**Falso, medido en `storage.js:214-219`:** 4 entradas, ninguna de raids. La clave
+esta solo en `MIGRATION_PREFIXES` (`:127`) y `FALLBACK_MAP` (`:185`), y
+`gn:converter:state` esta en `FALLBACK_MAP` (`:170`), tampoco en `MIRROR_MAP`.
+
+No lo corregi porque lo dijo el Reviewer: **lo medi antes.** Y la consecuencia
+cambia alcance -- `raid-tracker.js:1012/:1016` estan **fuera** del guard de la
+Idea 61 **por construccion**, no por tolerancia; solo `:891` cae dentro.
+
+El Reviewer ya lo habia dicho dos veces, la segunda pidiendo expresamente fixearlo
+"antes de que alguien lo cite como criterio". La correccion quedo en la fila 097
+y la premisa seguia en el bloque de contexto. **REGLA: la correccion va en el
+bloque que la origina, no solo en la fila del veredicto** -- un log que dice por
+que se pregunto es un log que se cita.
+
+### Lo demas del ciclo
+
+- **PASO 3: 0 propuestas, no se abrio ronda.** Union de las 15 refs `po/*`: 40
+  secciones (34 con fecha / 6 sin fecha), **8 CUENTA / 3 CERRADAS**, ronda
+  maxima **37**, identico al HB#135. Controles en 0 y las 13 rondas perdidas en
+  verde. Se verifico T19 (ronda 37) contra `app.js:805/:827`: premisa CIERTA,
+  pero su veredicto ya estaba en la fila 139. **No se manda lo ya respondido.**
+- **Clon:** `.gitignore` modificado en disco pero **byte a byte igual** a lo que
+  `adea801` ya tiene (diff de 0 lineas). `git restore` + `merge --ff-only`.
+  ALERT-202 no se repitio, y la comprobacion de 0 lineas es la que lo prueba.
+- **Suite: 1840 aserciones / 0 FAIL, 72 de 72**, coincidiendo exacto con la base
+  medida en el HB#136.
+- **Tres corrupciones de texto propias** en este ciclo (`ALES-202`, un ideograma
+  CJK, `deAbove`): detectadas y corregidas antes del commit con un scan de CJK
+  sobre los tres archivos. La sexta vez que la generacion mete un ideograma en un
+  `.md`.
+
+### Que quedo pendiente
+
+T14/T15 sin tocar: falta la opcion C del Reviewer, y el arnes de la escena 2 que
+la habilita ya esta escrito (`d12ab8b`). Idea 57 (4 wrappers, capa de datos),
+`importFromData` (ALERT-179) y los 7 del patron B, igual que al abrir.
 ## HB#132 — 2026-10-02 (11:5x–12:0x UTC) — corte de la noche: un runner verde sobre un repo que no existe, y el clon principal a medias
 
 ### Que se hizo

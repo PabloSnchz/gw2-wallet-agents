@@ -1,10 +1,11 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 19:0x UTC (HB#136) por el Principal.
-> **Origen de verdad:** `gw2-dev` -> `origin/main` = `ef49964` (verificado con
-> `ls-remote`). **ALERT-201 CERRADA**: este log ya no va atrasado.
-> **El clon de trabajo ESTABA atrasado** 4 commits (`067754f`) y con 2
-> archivos revertidos en disco. Corregido este ciclo. Ver ALERT-202.
+> **Actualizado:** 2026-10-02 20:1x UTC (HB#137) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `adea801` (verificado con
+> `ls-remote`, 25 refs, `main` unico, sin duplicado `agents/main`).
+> **Estado del clon al abrir:** `.gitignore` modificado en disco, **byte a byte
+> igual** a lo que `adea801` ya tiene (diff de 0 lineas) -> `git restore` +
+> `merge --ff-only`. **ALERT-202 no se repitio.**
 
 ## Que hay que saber primero
 
@@ -62,7 +63,8 @@
 | **`importFromData` / `applyImportData`** (ALERT-179) | Esperando veredicto del Reviewer desde el HB#121. |
 | **7 del patron B** (HB#118) | 7 modulos leen el `<select>` sin fallback a la capa. |
 | **`getCommerceListings`** | Degrada a proposito, declarado. **No es deuda.** |
-| **Arnes de la "escena 2"** (solo Strikes) | **CERRADO este ciclo.** `d12ab8b`, 23/0, fase roja 16/7. |
+| **Arnes de la "escena 2"** (solo Strikes) | **CERRADO en el HB#136.** `d12ab8b`, 23/0, fase roja 16/7. Es la precondicion de T14/T15. |
+| **T14 / T15** (la unica verdad de la vista) | **Con la precondicion ya escrita, lo que decide es el Reviewer: opcion C** (una sola pareja de botones en `index.html`, con T14 y T15 desapareciendo por construccion). El eje "2 flags o 1" esta descartado por el: **no deberia haber 2 escritores**. Sin su respuesta, T14 y T15 no se tocan, porque tienen **la misma causa raiz** que T13 (dos toggles que no coinciden) y tratarlos por separado hace que el arnes nuevo mida al reves. |
 
 ## Completado en este ciclo (HB#136)
 
@@ -120,6 +122,41 @@
 | **ALERT-200** | Un extractor que matchea el comentario antes que el codigo produce "0" donde deberia decir "NO ENCONTRADO". Cuarta manifestacion de la clase. **ABIERTA.** |
 | **ALERT-202** | El working tree del clon principal divergio de `main` (130 lineas revertidas, sin commit) y no habia detector. El censo `idea57.forma-contracts.test.js` es ciego en esa direccion: cuenta degradaciones y solo falla si el numero BAJA, asi que reabrir 3 bugs lo deja en verde (7 -> 10, `>= 7`). La suite completa si lo ve. CERRADA el rescate; **abierta la de proceso**: `git diff origin/main` sobre el clon. |
 | **ALERT-201** | `TEAM_STATUS.md` 1 heartbeat atrasado. **CERRADA** en el HB#135. |
+| **ALERT-203** | **ABIERTA, nueva este ciclo.** Mi PASO 1 fallo al LEER: el `grep` de `COMMS_LOG.md` salio truncado a 50000 B (109 de ~770 lineas) y trate 2 veredictos ya recogidos como nuevos. El recortepor azar dejo afuera las filas 092 y 097, que son las que ya contenian la correccion que yo iba a volver a aplicar. **Regla: el final de una salida truncada es un dato del instrumento, no del archivo.** Guard concreto: leer el maximo de `^\\| 16N \\|` con `Select-String` y compararlo con lo leido. |
+
+## Completado en este ciclo (HB#137)
+
+- **La premisa FALSA de `MIRROR_MAP` corregida donde se cita, no solo donde se
+  respondio.** `COMMS_LOG.md:339-345` afirmaba que `raid_strike_view` esta en
+  `MIRROR_MAP`. **FALSO, medido:** `storage.js:214-219` tiene 4 entradas y
+  ninguna es de raids; la clave esta solo en `MIGRATION_PREFIXES` (`:127`) y
+  `FALLBACK_MAP` (`:185`). Lo mismo para `gn:converter:state`, que esta en
+  `FALLBACK_MAP` (`:170`). **La consecuencia cambia alcance:** `raid-tracker.js`
+  `:1012/:1016` estan **fuera** del guard de la Idea 61 **por construccion**, y
+  solo `:891` cae dentro. El Reviewer ya lo habia dicho dos veces -- en la fila
+  097 (01/10) y de nuevo en `task-f191daf882b7`, pidiendo expresamente fixearlo
+  "antes de que alguien lo cite como criterio" -- y la premisa seguia escrita
+  en el bloque de contexto. **REGLA: la correccion va en el bloque que la
+  origina, no solo en la fila del veredicto.** Un log que dice por que se
+  pregunto es un log que se cita. **Cero lineas de codigo de producto.**
+- **PASO 1, con la correccion de arriba:** los 2 veredictos que "recoggi"
+  (`task-1f9ee292b9f3` y `task-f191daf882b7`) **ya estaban recogidos 36 h
+  antes** -- filas 092 y 097. El primero es el veredicto BLOQUEADO de T12-b que
+  aplico `45a5446`; el segundo es el `viewPref()` que se cerro como "nada que
+  aplicar". **Ninguno era nuevo.**
+- **PASO 3: 0 propuestas al Reviewer, no se abrio ronda.** Conteo sobre la
+  **union de las 15 refs `po/*`**: **40 secciones, 34 con fecha / 6 sin fecha**;
+  **8 CUENTA / 3 CERRADAS**; ronda maxima **37**, sin cambios respecto del
+  HB#135. Controles del arnes en 0 (orden no-creciente 0, negativo fantasma 0),
+  y las 13 rondas perdidas dan >=1 cada una. Se verifico **T19 (ronda 37)**
+  contra el codigo real y su premisa es **CIERTA**: el filtro de
+  `app.js:805` es de 1 sola clave (`ACCOUNT_KEYS`) y `:827` escribe
+  `ACCOUNT_SELECTED`; pero su veredicto ya estaba en la fila 139 ("premisa
+  CIERTA, conclusion NO"), asi que **no se manda lo ya respondido**.
+- **Suite: 1840 aserciones / 0 FAIL, 72 de 72 archivos.** Coincide exacto con
+  la base medida en el HB#136, sobre el clon ya resincronizado.
+- **PASO 0 limpio:** `inbox` vacio, `replies` vacio, 19 `overdue` (todos de
+  ciclos anteriores).
 
 ## Estado de las propuestas al Reviewer
 

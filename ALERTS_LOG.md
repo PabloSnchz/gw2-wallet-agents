@@ -1,3 +1,63 @@
+## ALERT-203 - un `grep` que devuelve el archivo truncado se lee como si devolviera el archivo (2026-10-02, HB#137)
+
+**EL INSTRUMENTO NO FALLO. Devolvio la mitad del archivo, con una nota al pie
+que dice que hay mas, y yo lei el corte como si fuera el final. Es ALERT-127
+por tercera vez, y las dos anteriores eran "no lei el veredicto". Esta tiene la
+causa medida.**
+
+### Que paso
+
+El PASO 1 del heartbeat busca las filas de `COMMS_LOG.md` cuyo estado no sea
+"resuelto". El `grep_search` salio con **el archivo truncado a 50000 bytes**: 109
+lineas de las ~770 del log, con las filas 092 y 097 fuera del corte. En pantalla
+terminaba en la fila 090 a medio escribir.
+
+Lo que hice con eso: **trate 2 veredictos como nuevos.** Recogi
+`task-1f9ee292b9f3` y `task-f191daf882b7` con `check_agent_task`, lei los dos
+veredictos completos, y empece a redactar una entrada de log nueva. Los dos
+veredictos **ya estaban recogidos y aplicados** 36 horas antes: la fila 092
+recoge exactamente `task-f191daf882b7` ("Resuelto, nada que aplicar") y la 097
+aplica la correccion de `MIRROR_MAP`.
+
+### Por que esto no es ALERT-127 "otra vez"
+
+Las dos anteriores dicen "hay un veredicto sin leer y no lo mire". Esta dice algo
+peor y mas preciso: **el veredicto estaba leido, y el grep me devolvio una parte
+del archivo que no lo contenia.** Si en vez de las filas 092 y 097 el corte
+hubiera caido en medio de una fila abierta, el resultado habria sido peor y
+invisible: yo hubiera concluido "el Reviewer no respondio a estos dos" y los
+habria marcado fallidos.
+
+Lo que casi lo hace pasar es que **las dos filas que quedaron afuera eran las
+que contenian la correccion**. Es decir: el defecto de lectura no me devolvio
+informacion cualquiera, me devolvio exactamente la informacion que servia para
+evitar que repitiera un error que ya estaba corregido dos veces.
+
+### La regla
+
+**El final de un archivo truncado no es una afirmacion sobre el archivo.** Cuando
+la salida de una herramienta termina con un aviso de truncado, el "fin" que se
+ve es un dato del **instrumento**, y hay que ir a buscar el final real antes de
+concluir nada.
+
+En la practica, para este log el guard es barato y mechanical: **el numero de la
+ultima fila es `| 16N |`, y se lee con `Select-String`, que devuelve el numero de
+linea y no el texto.** Si el maximo no coincide con lo que leí, el grep esta
+truncado. `Select-String` sobre miles de lineas de markdown no da problema de
+salida porque devuelve MatchInfo, no el archivo entero.
+
+Corolario para las mediciones: **si un conteo o un grep dio un numero, el
+numero tiene que ir acompanado del numero de lineas que leyo.** "7 propuestas"
+sobre 38 secciones es un dato; "7 propuestas" sobre lo que me devolvio un grep
+truncado es un dato sobre el corte. Los dos se ven igual en el log.
+
+### Lo que se hizo
+
+La correccion de fondo (la premisa falsa de `MIRROR_MAP`) quedo escrita en el
+bloque de contexto que la originaba, no solo en la fila del veredicto: ver
+COMMS_LOG.md:339 y la correccion agregada, y la fila 163. **Sin costo para el
+producto: cero lineas de codigo.**
+
 ## ALERT-199 — un conteo puede dar el mismo número sobre archivos distintos, y nadie lo nota (2026-10-02, HB#134)
 
 **El número del paso 3 del heartbeat cambió 3 veces sobre el mismo PO sin que el PO

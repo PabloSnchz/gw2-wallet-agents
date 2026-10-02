@@ -1,3 +1,356 @@
+## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
+
+> **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
+> **10 items abiertos** en `BACKLOG.md` @ `origin/main` `32926dd` = **≥8 = MODO PODA**.
+> En MODO PODA la corrida entera es podar: **no se investiga y no se traen ideas.**
+> Lo que hay abajo son **mediciones sobre el código y la API viva**, no(web research).
+
+### El número que decide
+
+| | items abiertos |
+|---|---|
+| al empezar (medido con `^- \[ \] `, que es el criterio del equipo) | **10** |
+| al terminar | **6** |
+
+Los 6 que quedan, y por qué siguen: **ALERT-41** (bloqueado por una llamada de Pablo con
+token real), **Coberturable account-scoped**, **Dungeon dailies**, **Idea 57** (4 wrappers),
+**WvW Borderlands** (deadline 10/11), **Idea 50 Tramo E** (30 min).
+
+### 🔴 El más caro de la cola eran 15-20h de trabajo que no existía
+
+La fila *"Legendary Armory Phase 3 — ⏳ AWAITING API connection (Phase 3 commit 4) —
+~15-20h remaining"* era **el número más grande del backlog**, y su único bloqueo era una
+espera. Medido pieza por pieza en `origin/main` @ `32926dd`:
+
+| lo que la fila pedía | dónde está, medido |
+|---|---|
+| los 4 scripts cargados, en orden | `index.html:1012-1015` |
+| la ruta | `router.js:125`, `:1616-1626`, `:1875-1879` |
+| panel y nav | `index.html:539`, `:761` |
+| `registerRender` + las 3 firmas del veredicto | `render-catologo.js` — 5 llamadas, `renderCatalogGrid`/`renderFilterBar`/`renderProgress` x3 cada una |
+| **"Phase 3 commit 4"** | **`ed9a126`, mergeado**: el contrato de fabricación (`craftType` + `dataStatus` para los 206 ids) |
+
+**Cerrada.** Un item que promete 15-20h y dice *"AWAITING"* no es trabajo a medias: es
+trabajo inexistente con la etiqueta del trabajo inexistente.
+
+### 🔴 Una fila cuya condición de cierre la API no puede cumplir
+
+`ALERT-89` decía: *"Se cierra cuando el catálogo traiga el nombre oficial"*.
+Medido contra `/v2/raids?ids=all` **hoy** (HTTP 200, 6 raids, 30 eventos):
+
+> **Los 30 eventos traen `{id, type}`. Cero de 30 tienen `name`.**
+
+`camp` no es la excepción: es la norma, y por eso el fixture congelado lo trajo sin nombre.
+**Una fila que espera un dato que la fuente no produce espera para siempre.** El fix ya
+está mergeado (`1176be6`, ancestro de `main` = SI) y la guarda con allowlist es la
+protección permanente. Recontado hoy: **30 declarados, 30 en la API, 1 fantasma (`vloxx`),
+1 faltante (`camp`), 0 duplicados.**
+
+### Las otras dos podas
+
+- **`Estilos inline de inventory-dashboard.js`** → archivada. Re-medido: siguen siendo **2**
+  (`border-radius` en `:764` — un `<img>` — y `:885` — un `<label>`; las cifras de línea
+  volvieron a correrse, 762/883 → 764/885). Y la fila **esperaba un veredicto de una task
+  muerta**: `task-8408fd859db1` dio **404** y COMMS_LOG 029 quedó **CERRADA** en el HB#53.
+  No es un item bloqueado, es un item **colgado**.
+- **`Idea 63 T3`** → archivada. La fila misma dice *"no es del equipo: es preferencia de uso,
+  va a Pablo"*: es una elección entre dos comportamientos, no trabajo. Misma regla que la
+  fila de Homestead en la ronda 40.
+
+### Una corrección que no es poda: la Idea 57 pedía 7 y quedan 4
+
+La fila listaba `buys, sells, delivery y luck` + `prices`. **`luck` ya está hecho**:
+`getAccountLuck` (`api-gw2.js:1347`) lleva `FORMA (v2.27.0)`: separa el `null` de forma del
+`[]` legítimo y propaga solo el primero — el caso que la fila declaraba *"el peor de los
+once"* es el único que quedó bien resuelto, y por la razón más difícil. **Lo que queda, con
+el arnés y no a mano: 4** (`buys` `:918`, `sells` `:962`, `delivery` `:1038`, `prices`
+`:1138`). Los otros 2 que degradan por forma degradan **a propósito y declarado**
+(`fetchBatchWithRepair` `:602`, helper de lote; `getCommerceListings` `:1090`, catálogo global).
+
+### ⚠️ Y un aviso de integridad que no es del backlog
+
+Al crear el worktree de esta ronda, **`DASHBOARD_PO_IDEAS.md` llegó al disco con 0 bytes**
+y `git status` lo reportaba como modificado — no como el HEAD. El blob en el árbol está
+íntegro (**156.930 bytes**, sin pérdida en la historia; restaurado con `git checkout --`).
+Lo que casi pasa es lo de siempre: si ese archivo hubiera llegado vacío y yo hubiera
+"actualizado" el dashboard encima, **156 KB reemplazados por un párrafo**. Es el mismo
+error que en la ronda 37 (reemplacé `PRE_BACKLOG.md` por una copia de 13 KB).
+
+> **Después de `git worktree add`, medir el tamaño de los `.md` que son tuyos antes de
+> editar uno.** Es la misma regla que *"imprimir el total junto al 0"*: un archivo que llega
+> vacío no se nota hasta que ya lo sobreescribiste.
+
+
+---
+
+## ACTUALIZACION 2026-10-02 02:00 UTC — Heartbeat PO ronda 38 — T20: el botón de "Sincronizar desde la nube" dice 0 de las 7 cosas que su botón hermano dice las 7
+
+> **Espejo de la ronda 38 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
+
+### El hallazgo, en una tabla
+
+Los **dos** botones de restauración ejecutan las **mismas 7 escrituras**
+(`applyImportData`, `settings-manager.js:483`) y **dicen cosas distintas**:
+
+| botón | qué dice el `confirm` |
+|---|---|
+| **archivo** · `settings-manager.js:593` | `'Se sobrescribirán:\n• API Keys (' + keyCount + ' claves)\n• Wizard's Vault…'` — **las 7 categorías, con la cifra** |
+| **Gist** · `gist-sync.js:451` | `'Esto sobrescribirá tu configuración local.\n\n¿Continuar?'` — **0 categorías, 0 cifras** |
+
+La capacidad ya está escrita **60 líneas antes, en el mismo archivo**. No hay que
+descubrir nada para arreglarlo: hay que copiar.
+
+### Arnés `_hb119_arnes.js` — `downloadAndSync()` verbatim, deps inyectadas
+
+```
+CONTROL  remoto==local (27/27), ACEPTA    27 -> 27   perdidas 0
+CASO 1   remoto más viejo (27/12), ACEPTA 27 -> 12   perdidas 15   <- la escena
+CASO 2   remoto más viejo (27/12), CANCELA 27 -> 27   perdidas 0
+CASO 3   remoto más NUEVO (3/27), ACEPTA   3 -> 27   perdidas -24
+
+el confirm menciona una cifra?  false  (los 4)
+el confirm menciona una fecha?   false  (los 4)
+```
+
+El CONTROL discrimina: 27/27 deja 27 y 27/12 deja 12. El overwrite **no es una
+suposición mía, se ejecutó**.
+
+### Lo que lo hace serio: es el único elemento del backup sin segunda copia
+
+Todo lo demás del export (pins de wallet, favoritos, home nodes) se regenera con
+un click. **La lista de `apiKeys` no**: una API key de GW2 no se vuelve a
+descargar de la página de ArenaNet. Si no la guardaste, hay que crear otra.
+
+### El dato para arreglarlo existe y no lo lee nadie
+
+`exportData()` escribe `exportedAt` (`settings-manager.js:209`). **Cero lecturas
+en todo el repo** (0 ocurrencias fuera de sus 2 escrituras, 0 en `gist-sync.js`).
+Y el otro ya está **en pantalla**: `updateGistStatus()` pinta *"Última
+sincronización: \<fecha\>"* (`index.html:1235`), en el mismo modal, a centímetros
+del botón.
+
+### Por qué el equipo no lo vio — y sí lo vio a medias
+
+HB#104 lo rozó. El comentario de `applyImportData` (`settings-manager.js:475`)
+dice que *"el camino del Gist siempre fue correcto"* porque confirma antes de
+importar. **Eso es cierto sobre el ORDEN** — y es por ahí que se dejó. El
+problema de esta ronda no es el orden: es que **"el confirm está en el lugar
+correcto" no es "el confirm dice la verdad"**. La regla escrita por el propio
+equipo está en la v1.0.4 del mismo archivo (`:15`), y se aplicó al botón de
+**liberar caché**. No se aplicó al de **borrar cuentas**.
+
+### Tramos
+
+- **T20-a** 🟢 15 min, 3 líneas — el confirm del Gist dice las mismas 7 categorías
+  + `keyCount`. Precedente literal: `settings-manager.js:593`.
+- **T20-b** 🟡 ~1 h — **la dirección**: si el remoto es más viejo, el confirm lo
+  dice y nombra la diferencia. Sin esto, T20-a le muestra "12 claves" a Pablo y
+  aun así no puede saber si son sus 12 o las 15 que le faltan.
+- **T20-c** 🟢 30 min — **una foto local antes de sobrescribir**, con
+  `exportData()`, que ya sabe armar el JSON. Es el principio de HB#104 aplicado
+  al otro camino. **Sin el, el error de T20-b no tiene red.**
+
+**T20-c es el único de los 3 que evita la pérdida en vez de contarla.**
+
+### Prioridades (ronda 38)
+
+| # | tramo | 🟢/🟡 | tiempo | nota |
+|---|---|---|---|---|
+| 1 | **T19-a** | 🟢 | 20 min | `gn:tokenchange` no llega al InventoryHub. El único que pido sin esperar |
+| 2 | **T20-a** | 🟢 | 15 min | el confirm del Gist dice las 7 categorías + la cifra |
+| 3 | **T20-c** | 🟢 | 30 min | foto local antes de sobrescribir. **El que evita la pérdida** |
+| 4 | **T20-b** | 🟡 | ~1 h | la dirección. Va con T20-a, no la reemplaza |
+| 5 | **T17-b** | 🟢 | 15 min | **decisión de Pablo:** `#/account/strikes` es una ruta sin botón que la alcance |
+| 6 | T17-a | 🟢 | 20 min | el hash se actualiza al cambiar de vista |
+| 7 | T18-a | 🟡 | 30 min | `showPanel()` y `setActiveView()` no se pisan |
+| 8 | Opción (c) de T14/T15 | 🟡 | ~1 h | una sola pareja de botones. Cierra T14, T15, T16 y media T18 |
+| 9 | T14-b | 🟢 | 20 min | test de unicidad, después de (c) |
+| 10 | T11 | 🟢 | — | `accounts-panel.js` `state.view` sin persistir |
+
+**Cerrada esta ronda:** **T19-c** ✅ mergeada (`d32e054`, HB#118) — los 4 lectores
+de la cuenta seleccionada pasan por la capa `Storage`. Anotada en `PROMOTIONS.md`.
+**Sigue abierta:** T19-a (el token muerto), T19-b (espera tu decisión de producto).
+
+Sin novedad externa: **38 de 38 rondas** con Reddit 403 y
+`gw2treasures/feeds/new_items` 404. gw2treasures **vivo** por otra ruta (la home,
+HTTP 200): **78.425 ítems / 8.381 logros / 10.635 skins / 4.821 skills**. Lo que
+salió de T20 salió de **preguntarme qué pasa si aprieto el botón de mi propia ronda
+37**, no de ninguna búsqueda.
+
+---
+
+
+## ACTUALIZACION 2026-10-02 00:40 UTC — Heartbeat PO ronda 37 — T19: la app tiene un mecanismo de multi-pestaña que funciona, cubre 1 clave, y la clave que no cubre es la que Pablo está mirando.
+
+> **Espejo de la ronda 37 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
+> Medido sobre `origin/main` @ `5f4688f`, con `git fetch` primero.
+
+La pregunta **no** es "¿qué feature falta?". Sale de una frase que la **ronda 36
+dejó escrita como caso de uso de Pablo** — *"Pablo copia la URL y la abre en otra
+pestaña"* — y que no seguimos: **si Pablo abre la Bóveda en dos pestañas, ¿la app
+sabe que la otra existe?**
+
+### 🔴 T19 — el filtro del handler es de 1 clave, y el dominio que escribe son 2
+
+**Censo medido:** `git grep -n "addEventListener('storage'" -- js` → **2 listeners
+en 46 módulos**: `app.js:804` y `wv-purchase-detail.js:2168`.
+
+El de cuentas, verbatim (`app.js:798-821`):
+
+```js
+window.addEventListener('storage', (e) => {
+  if (!e || e.key !== Storage.STORAGE_KEYS.ACCOUNT_KEYS) return;   // :805  ← el filtro
+  ...
+  // "Si la seleccion era una cuenta que la otra pestaña borro, se anula"
+  try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}   // :815
+});
+```
+
+**Lo que hay que mirar es la 815 contra la 805.** El handler **escribe**
+`ACCOUNT_SELECTED` y **se niega a observarla**. Y el filtro no es una omisión de
+lista: es una **guarda de igualdad sobre una clave, en un objeto que escribe
+dos** (`app.js:791` y `:827`, a 32 líneas de distancia).
+
+**Y el filtro sale más caro de lo que parece:** `gn:account:selected` está en
+`MIRROR_MAP` (`storage.js:209-214`), así que `Storage.set` hace **2 `setItem`** y
+el navegador emite **2 eventos**. El handler descarta los 2 con la misma línea.
+
+### Arnés `_hb117_t19.mjs` — 3 casos, y el CONTROL discrimina
+
+```
+CONTROL — A agrega una cuenta, B mirando la lista
+   eventos que recibió B : gn:account:keys, gw2_keys
+   reacciones de B       : lista de cuentas actualizada        <- el listener FUNCIONA
+
+CASO REAL — A cambia a CUENTA-14, B abierta al lado
+   eventos que recibió B : gn:account:selected, gw2_selected_key_v1
+   reacciones de B       : (NINGUNA)
+   A muestra CUENTA-14   |   B muestra CUENTA-01   |   en disco: key-13
+
+CASO 2 — F5 a la pestaña B
+   B pasa de CUENTA-01 a CUENTA-14, misma URL
+   -> la cuenta depende de QUÉ pestaña recarga
+
+CASO 3 — A y B en CUENTA-05, A borra esa cuenta
+   reacciones de B   : seleccion anulada  ->  disco: (borrada)
+   eventos que recibió A : gn:account:selected, gw2_selected_key_v1
+   reacciones de A   : (NINGUNA)
+   A sigue pintando  : CUENTA-05          <- cuenta que ya no existe
+```
+
+**Lo que paga Pablo, en orden:**
+
+1. **La segunda pestaña no es copia de la primera.** Misma URL, misma ruta,
+   cuentas distintas — y con 27 cuentas **probablemente eso es lo que quiere**
+   (mirar dos cuentas en paralelo). **Por eso el bug NO es que B no reaccione.**
+2. **El F5 decide qué cuenta ves.** Sin aviso, con la misma URL.
+3. **Caso 3: el mecanismo que SÍ funciona deja un token muerto.** B se protege
+   y borra la clave compartida; A recibe los 2 eventos y no reacciona a ninguno.
+   **Severidad honesta: media**, es transitorio (al recargar, `app.js:744` lo
+   arregla). Lo vendo como **la demostración del contra-producto**, no como
+   rotura de datos.
+
+### ⚠️ 3 cosas que **no** afirmo (descartadas antes de reportar)
+
+1. **"Los módulos siguen a la otra pestaña"** — FALSO. Hay **4** lectores a pelo
+   de `gw2_selected_key_v1` (`inventory-hub.js:163`, `raid-tracker.js:921`,
+   `strike-tracker.js:415`, `wv-purchase-detail.js:1842`) y **los 4 leen primero
+   el `<select>`**, con localStorage de fallback. Casi reporto media app
+   siguiendo a la otra.
+2. **"El handler cubre 0 claves"** — el CONTROL lo desmiente: cubre 1, y bien.
+   El titular honesto es **1 de 2**.
+3. **El censo de "cuántas claves debería mirar"** — mi script dio **7** donde hay
+   **63** literales `gn:`, porque la mayoría va por constante. **No abro idea con
+   ese número.**
+
+### 🔵 Pregunta que va a Pablo y define el tamaño del fix
+
+> *¿La segunda pestaña es "otra cuenta a propósito" o "la misma, y la que no se
+> enteró"?*
+
+Si fuera lo segundo, el arreglo es 🟢 de una línea. Pero con 27 cuentas el caso
+probable es el primero, y ahí **el arreglo no es sincronizar: es no mentir en el
+F5.**
+
+### Tramos
+
+| # | tramo | 🟢/🟡 | tiempo | nota |
+|---|---|---|---|---|
+| 1 | **T19-a** | 🟢 | 20 min | **el único que pido sin esperar a nadie.** Caso 3: cuando el handler anula su selección, que el token muerto no quede en memoria. Guarda después de `this.list = fresh`, + 2 tests del arnés |
+| 2 | **T19-c** | 🟢 | 15 min | los 4 lectores a pelo de `gw2_selected_key_v1` → `Storage.get(ACCOUNT_SELECTED)`. Hoy funcionan **por el espejo**, no por contrato. Otro archivo, otra clase: no se mezcla con T19-a |
+| 3 | **T19-b** | 🟡 | — | **bloqueado por la pregunta a Pablo**, no por código |
+| 4 | **T17-b** | 🟢 | 15 min | **decisión de Pablo:** `#/account/strikes` es una ruta sin botón que la alcance. **La única que cambia el producto** |
+| 5 | **T17-a** | 🟢 | 20 min | el hash se actualiza al cambiar de vista con el toggle |
+| 6 | **T18-a** | 🟡 | 30 min | `showPanel()` y `setActiveView()` no se pisan. Va con (c) |
+| 7 | Opción (c) de T14/T15 | 🟡 | ~1 h | una sola pareja de botones |
+| 8 | T14-b | 🟢 | 20 min | test de unicidad, **después** de (c) |
+| 9 | T11 | 🟢 | — | `accounts-panel.js` `state.view` sin persistir |
+
+Sin novedad externa: **37 de 37 rondas.** Reddit 403, `old.reddit` 302,
+`gw2treasures/feeds/new_items` **307 → 404**, wiki 200.
+**T19 no viene de la web:** sale de leer mi propia ronda 36 y preguntar qué hice
+con una frase que escribí como caso de uso.
+
+### Regla que sale
+
+> *Un mecanismo que cubre 1 de las 2 claves que su propio objeto escribe no está
+> terminado: está escrito a la mitad, y la mitad que falta es la que el comentario
+> de al lado ya nombra.* La línea 815 **borra** `ACCOUNT_SELECTED` desde dentro de
+> un handler que **filtra** `ACCOUNT_KEYS`. La capacidad estaba; faltaba la
+> segunda clave de una guarda.
+
+## ⟱ Heartbeat PO — ronda 42 (HB#132, 2026-10-02) — PAUSA: podado, y el podado encontró un endpoint que no existe
+
+**Control de carga:** conteo sobre `origin/main` @ **`1b6b930`**, `findstr /r /c:"^- \[ \]" BACKLOG.md` → **5 items abiertos** → **MODO PAUSA** (4-7): no se agregan ideas, la corrida es podado. Las rondas 39-41 ya llevaron el número de 23 a 5.
+
+⚠️ **La primera medición casi fue sobre el árbol equivocado.** El clon de `gw2-dev` que uso está en `docs-hb113-logs` @ `067754f`, **30+ commits atras y con 75 cambios ajenos sin commitear**. Contando ahí salen **20 items**, de los cuales 15 ya estaban podados en `main`: un conteo sobre el clon da **4 veces el número real** y hace creer que hay cola para llenar. Es la regla de la ronda 37 con el número al revés.
+
+### Poda 1 — WvW Borderlands: 🚩 **el endpoint no existe (404)**
+
+La fila pedía "~6-8h, Nov 10 deadline" y afirmaba *"la Bóveda tiene WvW objectives"*.
+
+| medición | resultado |
+|---|---|
+| `/v2/wvw/borderlands` | **404**, body vacío |
+| `/v2/wvw/objectives?ids=all` | **200**, 178 objetivos, **ninguno de Borderlands** |
+| tipos de esos 178 | Camp 42, Tower 39, Ruins 30, Keep 24, Spawn 24, Generic 9, Resource 6, Mercenary 3, Castle 1 |
+| `map_type` de la muestra | `RedHome` / `BlueHome` (WvW_home) |
+| `git grep -n wvw origin/main -- js/` | 0 hits que no sean filtro de modo del WV |
+
+**No hay ni el endpoint ni los datos.** Y lo de *"la Bóveda tiene WvW objectives"* es falso en el sentido útil: lo que hay es un **filtro de modo** sobre el Wizard's Vault (`wv-objectives-dashboard.js:244` ordena `pve 0 / pvp 1 / wvw 2`). El único WvW real es `characters.js:95/505` (`/v2/wvw/ranks`, público, para el nombre del rango). Es la clase ALERT-41 al revés: allá el endpoint existe y no trae lo esperado; **acá el endpoint directamente no existe**.
+
+**Lo que sobrevive:** renderizar los 178 objetivos públicos (se bajan **sin token**). Es idea nueva → **no entra en esta corrida**, el control de carga está en PAUSA.
+
+**Por qué se poda y no se archiva:** un item que promete 6-8h sobre un endpoint en 404 es *trabajo que no existe con la etiqueta de trabajo que no existe*. Si vuelve, la pregunta previa es una llamada: `curl /v2/wvw/borderlands`.
+
+### Poda 2 — Idea 57: de los 4 sitios que quedan, **1 es trabajo real**
+
+El arnés `tests/idea57.forma-contracts.test.js` corre **14 pass / 0 FAIL**: **7 sitios degradan por forma**, 3 declarados "a propósito" (`fetchBatchWithRepair` ×2, `getCommerceListings`), quedan **4**.
+
+Pregunta nueva, y no era *"¿cuántos degradan?"* sino **"migrar el wrapper cambia algo que Pablo VE?"**. Arnés propio (`_hb132_arnes.js`, CONTROL 4/4) cruzando *la UI ya muestra el fallo* × *el catch de la capa ya propaga*:
+
+| wrapper | UI ya lo muestra | catch propaga | migrar cambia algo |
+|---|---|---|---|
+| `getCommerceTransactionsBuys` | sí (`buysStatus='error'`) | sí | **NO — robustez** |
+| `getCommerceTransactionsSells` | sí (`sellsStatus='error'`) | sí | **NO — robustez** |
+| `getCommerceDelivery` | sí (`deliveryStatus='error'`) | sí | **NO — robustez** |
+| `getCommercePrices` | **NO** | **NO** | **SÍ — trabajo real** |
+
+Los 3 degradan en una ruta **cubierta 2 veces**: migrarlos no cambia una celda que Pablo vea. **`getCommercePrices` sí**: sus 2 call sites (`converter-modal.js:462`, `inventory-dashboard.js:600`) hacen `await` sin estado de error, y la capa no propaga ni el catch (por diseño: `out` se arma con `concat`, un lote caído no puede correr a los demás). En pantalla queda **el ítem sin precio, indistinguible de "no tiene precio en el TP"** — el mismo fallo de la Idea 47 que ya pagó caro la columna Suerte.
+
+**Lo que queda abierto:** 1 wrapper propaga + sus 2 call sites distinguen *"no se pudo leer"* de *"no tiene"*, con el patrón ya escrito 3 veces en el mismo archivo. Las 3 de robustez → **revisar 2026-11-15**.
+
+### Dos errores míos, ambos antes de reportar
+
+1. **El arnés v1 dio un hecho FALSO**: "getCommerceDelivery sin catch". Lo tiene, y propaga (`throw error`). Mi extractor cortaba el cuerpo con `'\n  function '` y se comió el `catch`. Lo detecté porque **ya había leído ese código a mano 3 tool calls antes** — si no lo hubiera leído, lo reportaba. Rehecho en v2 con un CONTROL explícito.
+2. **La v1 preguntaba "¿el call site tiene `try`?" y esa no es la pregunta.** El `try` no es cobertura: lo que importa es si el fallo llega a la pantalla. La v2 lo pregunta bien.
+
+**Un objetivo (`%` en cmd)**: `curl -w "...:%%{http_code}"` salió literalmente `%{http_code}` y un `-o nul` con dos URLs imprimió la etiqueta dos veces. Una medición de red que **no da número** no es medición.
+
+**Reglas que salen:**
+1. *Contar sobre el clon de trabajo da 4 veces el número real.* El conteo de carga es la **única** medición que hay que hacer sobre `origin/main`, y es la que más fácil se hace mal porque el clon está a mano y `origin` hay que ir a buscarlo.
+2. *Un item con un estimado grande es una afirmación sobre la fuente de datos, y hay que verificarla antes de podarlo o de creerlo.* "6-8h" y "Nov 10 deadline" son promesas; un 404 las desmiente a las dos.
+3. *"Migrar el wrapper" y "el usuario ve algo distinto" son dos preguntas distintas, y solo la segunda es producto.* 3 de 4 sitios eran robustez en una ruta ya cubierta dos veces.
 ## ACTUALIZACION 2026-10-01 22:40 UTC — Heartbeat PO ronda 36 — T16/T17/T18: no hay "un toggle". Hay 2 rutas, 2 toggles y 3 verdades.
 
 > **Espejo de la ronda 36 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
