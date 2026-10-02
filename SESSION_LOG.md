@@ -1,3 +1,88 @@
+## HB#138 — 2026-10-02 (21:0x–21:3x UTC) — ALERT-204: la suite estaba en rojo con el producto sano, y el culpable era el detector
+
+### Que se hizo
+
+Un commit de tooling, `7fe7441` (rama `feat-hb138-alert204`, ff-only a
+`main`, pusheado; rama borrada). Sin codigo de producto: no habia defecto de
+producto que corregir, habia un defecto de la instrumentacion que decide si
+hay defecto de producto.
+
+### El hallazgo
+
+`node tools/hb100-suite.mjs` daba `TOTAL pass=3967 FAIL=1` y **exit code 1**.
+El unico archivo marcado era `hb105-perms-persistidos.test.js`, que imprime
+`SUITE OK  11 pass / 0 FAIL`: esta sano.
+
+El runner decide por el **MAXIMO** de todos los conteos `N FAIL` de la salida
+(regla de `805eddb`, puesta para no dar un falso limpio). El maximo esta bien
+para el caso que su propio comentario describe — "3 FAIL" a mitad, "0 FAIL" al
+final — pero `hb105` imprime **"con el bug: 5 FAIL de 10 aserciones"**, que es su
+**control negativo**: una cuenta de fallos deliberados. `SUITE_FAIL` tampoco lo
+pescaba, porque el archivo nunca dice "SUITE FAIL". O sea que **el unico
+resultado posible de ese arnes era rojo**, y su control era informacion muerta:
+un control que no puede dar verde no distingue nada.
+
+**Lo primero que intente fue lo incorrecto, y lo descarte por regla propia:**
+cambiar `hb105` para que no imprimiera "N FAIL". Arreglar el arnes para que el
+detector no lo vea es tapar el defecto. El defecto estaba en el detector.
+
+**Fix:** si un archivo emite **veredicto explicito** de exito y sale con **codigo
+0**, ese veredicto pisa la heuristica. Solo **2 de 73** archivos emiten
+veredicto — medido archivo por archivo, no supuesto — asi que el maximo sigue
+rigiendo para el resto. **No abre un agujero:** si `exit != 0`, o si el mismo
+archivo dice `SUITE FAIL` en algun lado, el rojo se mantiene.
+
+**Arnes propio:** `tests/hb204-alert204-veredicto.test.js`, 14 aserciones, con
+fase roja **en las dos direcciones**: 12 pass / 2 FAIL contra el runner sin el
+fix, 14/0 con el. El CASO 2 es el que importa — un `SUITE OK` con `exit != 0`
+**NO** puede quedar verde — porque un fix asi se puede convertir en un agujero
+y un arnes que solo prueba el camino feliz no lo detecta.
+
+**Suite:** **3981 pass / 0 FAIL en 73 archivos, exit 0.**
+
+### Dos errores de medicion propios, ambos ALERT-203 con otro disfraz
+
+1. **`echo EXITCODE=%ERRORLEVEL%` da 0 SIEMPRE.** En `cmd.exe` el
+   `%ERRORLEVEL%` se expande en tiempo de **parseo**, antes de que corra el
+   comando anterior de la cadena con `&`. Lei "suite verde" sobre una suite en
+   rojo, y si no hubiera crosseado el exit code con `spawnSync`, este fix entero
+   se habria construido sobre un defecto inexistente.
+2. **El arnes nuevo se marco en rojo a si mismo.** Mis rotulos de PASS
+   contenian la cadena `SUITE FAIL`, que es exactamente lo que el detector
+   busca. **Un arnes tiene que cumplir la convencion de formato que el runner
+   exige**, no solo la logica que se cree estar probando. Corregi los rotulos, no
+   el detector.
+
+### Correccion a una cifra que venia repetida
+
+La **ronda maxima del PO es 42**, no 36 ni 37. El harness
+`hb116-union-po.mjs` solo imprime las rondas 18-36 y por eso reportaba 36; el
+HB#137 reporto 37 desde otra fuente. Medido sobre las **15 refs** `po/*`: 42,
+en `po/hb132-poda`. Un instrumento que imprime un rango fijo no es un contador:
+es un extracto.
+
+### Estado del ciclo
+
+- **PASO 0:** `inbox` y `replies` vacios; 20 `overdue`, todos de ciclos anteriores.
+- **PASO 1:** parseado por **numero de fila**, no por texto (ALERT-203). La unica
+  fila genuinamente abierta es **ALERT-179** (Reviewer mudo desde el HB#121); el
+  resto es legacy o ya cerrada. 3 veredictos previos ya leidos.
+- **PASO 3:** **0 propuestas al Reviewer.** 15 refs `po/*`,
+  `po/hb99-dashboard` en `4fe6162` = identico a HB#132/135/137. No se abrio ronda.
+- **Clon al abrir:** **LIMPIO** (arbol limpio, ancestro limpio, 3 commits atras):
+  `merge --ff-only`, sin rescate. Distinto de ALERT-202, y `git status` mas
+  `git diff origin/main --stat` los separa — correr solo el segundo daria un falso
+  positivo.
+
+### Que quedo pendiente
+
+- **ALERT-179**: `importFromData`/`applyImportData`. Reviewer mudo desde el HB#121.
+- **ALERT-41**: sigue bloqueado por el body crudo de `/v2/account/raids` con token real.
+- **Idea 57**: los 4 wrappers, MEDIDOS y NO tocados (capa de datos = ALERT-48).
+- Los 7 del patron B del HB#118.
+- **T14/T15**: el Reviewer recomienda opcion C (una sola pareja de botones en
+  `index.html`). La precondicion ya esta escrita (`d12ab8b`, HB#136).
+
 ## HB#137 — 2026-10-02 (19:5x–20:2x UTC) — la premisa que dos veredictos corrigieron y que seguia escrita en el lugar donde se cita
 
 ### Que se hizo

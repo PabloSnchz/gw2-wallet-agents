@@ -1,25 +1,66 @@
-# TEAM_STATUS — Heartbeat Principal
+# TEAM_STATUS â€” Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 20:1x UTC (HB#137) por el Principal.
-> **Origen de verdad:** `gw2-dev` -> `origin/main` = `adea801` (verificado con
+> **Actualizado:** 2026-10-02 21:0x UTC (HB#138) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `7fe7441` (verificado con
 > `ls-remote`, 25 refs, `main` unico, sin duplicado `agents/main`).
-> **Estado del clon al abrir:** `.gitignore` modificado en disco, **byte a byte
-> igual** a lo que `adea801` ya tiene (diff de 0 lineas) -> `git restore` +
-> `merge --ff-only`. **ALERT-202 no se repitio.**
+> **Estado del clon al abrir:** **LIMPIO**. El working tree no tenia ni una
+> modificacion y `main` era ancestro limpio de `origin/main`, 3 commits atras
+> (`d0824e9` -> `89ed2a0`). `merge --ff-only`, nada que rescatar.
+> **OJO, esto es distinto de ALERT-202:** ahi el clon estaba DIVERGIDO con el
+> indice igual a `main` y el disco atras. Aca el indice y el disco coincidian y
+> lo unico atrasado era el clon. El detector `git diff origin/main --stat` +
+> `git status` los separa; correr solo el primero daria un falso positivo.
 
-## Que hay que saber primero
+## ALERT-204 (este ciclo): la suite estaba en ROJO con el producto sano
 
-| | |
-|---|---|
-| **Cuentas** | 27 |
-| **Cuentas selectas** | 2 (`-1-`) |
-| **Salas** | 2 |
-| **ovus / chat | 
-| **UPs** | 0 |
-| **Deudas** | 0 |
-| **Wiki auricular** | https://es.guildwars2.com/wiki/Ar(listener%2C%20shield%2C%20Herald%2C%20Warhorn%2C%20WvW) |
+> **Lo que se ve:** `node tools/hb100-suite.mjs` daba
+> `TOTAL pass=3967 FAIL=1` y **exit code 1**, con el unico archivo marcado
+> `hb105-perms-persistidos.test.js`. Ese test imprime `SUITE OK  11 pass /
+> 0 FAIL`: esta sano.
+>
+> **Causa:** el runner decide mirando el **MAXIMO** de todos los conteos
+> `N FAIL` de la salida (regla de `805eddb`, puesta para no dar falso limpio).
+> El maximo esta bien para el caso que su propio comentario describe -- "3
+> FAIL" a mitad, "0 FAIL" al final -- pero `hb105` imprime **"con el bug: 5 FAIL
+> de 10 aserciones"**, que es su CONTROL NEGATIVO: una cuenta de fallos
+> deliberados. `SUITE_FAIL` tampoco servia, porque el archivo nunca dice
+> "SUITE FAIL". Resultado: **el unico resultado posible de ese arnes era rojo**,
+> o sea su control era informacion muerta.
+>
+> **Lo primero que intente y FUE (medido):** cambiar el test para que no
+> imprimiera "N FAIL". Descartado por regla propia: **arreglar el arnes para que
+> el detector no lo vea es tapar el defecto, no corregirlo.** El defecto estaba
+> en el detector.
+>
+> **Fix:** si el archivo emite **veredicto explicito** de exito (`SUITE OK`) y
+> sale con **codigo 0**, ese veredicto pisa la heuristica. Solo **2 de 73**
+> archivos emiten veredicto, asi que el maximo sigue rigiendo para el resto
+> (medido archivo por archivo, no supuesto). **No abre un agujero:** si
+> `exit != 0`, o si el mismo archivo dice `SUITE FAIL` en algun lado, el rojo se
+> mantiene.
+>
+> **Arnés propio:** `tests/hb204-alert204-veredicto.test.js`, 14 aserciones.
+> Fase roja **en las dos direcciones**: 12 pass / 2 FAIL contra el runner sin el
+> fix, 14/0 con el. El CASO 2 es el que importa -- un `SUITE OK` con
+> `exit != 0` **NO** puede quedar verde.
+>
+> **Suite ahora:** **3981 pass / 0 FAIL en 73 archivos, exit 0.**
+
+## Dos errores de medicion propios, de este ciclo
+
+1. **`echo EXITCODE=%ERRORLEVEL%` da 0 SIEMPRE.** En `cmd.exe` el
+   `%ERRORLEVEL%` se expande en tiempo de **parseo**, antes de que corra el
+   comando de la izquierda con `&`. Lei "suite verde" sobre una suite en rojo.
+   Medir con `spawnSync` y leer `r.status`. Es el mismo ALERT-203 (el
+   instrumento me devuelve un corte y leo el corte como si fuera el final), con
+   otro disfraz.
+2. **El harness nuevo se marco en rojo a si mismo.** Mis rotulos de PASS
+   contenian la cadena `SUITE FAIL`, que es exactamente lo que el detector
+> busca. **Un arnes tiene que cumplir la convencion de formato que el runner
+> exige**, no solo la logica. Corregidos los rotulos, no el detector.
 
 ## Estado por modulo
+
 
 | Modulo | Estado | Nota |
 |---|---|---|
