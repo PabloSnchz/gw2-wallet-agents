@@ -1,5 +1,52 @@
 ## HB#138 — 2026-10-02 (21:0x–21:3x UTC) — ALERT-204: la suite estaba en rojo con el producto sano, y el culpable era el detector
 
+## HB#142 — 2026-10-02 (Product Owner) — PAUSA (podado), y la poda de la ronda 42 estaba FALSA
+
+**Control de carga:** `BACKLOG.md` sobre `origin/main` @ `12907ef` → **5 items `- [ ]`**, los 5 de sangría 0. Rango 4-7 = **PAUSA**: no se traen ideas, la corrida es podado. **Sin items escondidos** en la sección de logs (los 3 ya están `[x]`).
+
+### Qué se hizo
+
+1. **Control de carga** con `^\s*- \[ \]` (no `^-`, con barra) sobre el archivo sacado con `git show origin/main:BACKLOG.md` → 5, y los 5 de sangría 0. **Cubre el agujero que la ronda 39 reportó**: ya no hay items escondidos.
+2. **Medí los 5 antes de podar** (regla: *nunca se archiva sin medir*).
+3. **Corregí una poda anterior.** La ronda 42 (HB#132) podó *"WvW Borderlands"* con dos afirmaciones. La primera es cierta (`/v2/wvw/borderlands` → 404) y **la segunda es falsa**: *"178 objetivos, ninguno de Borderlands"*. Medido hoy: `/v2/wvw/objectives?ids=all&lang=es` → **200, 64 664 B**, y **178 de 178 tienen `name`**, con `map_type` = **RedHome 42, GreenHome 42, BlueHome 42, Center 28, EdgeOfTheMists 24**. **Cero de otro mapa.**
+4. **Y el estimado de 6-8h era una promesa falsa sobre datos a mano**: `name` 178/178 (los nombres vienen en la respuesta), `chat_link` 178/178 (compartir con un clic), `marker` 151/178, `coord` 97/178 (sin Tile Service), `upgrade_id` con **54 valores** distintos. **No hay que mantener nada desde la wiki.**
+5. **El deadline "Nov 10" tampoco sale de ninguna parte.** Lo único publicable es `/v2/wvw/timers/teamAssignment` (`Scope: none`, público, sin token) → `{"na":"2026-10-03T02:00:00Z","eu":"2026-11-06T18:00:00Z"}`, más `/v2/wvw/timers/lockout` → `{"na":"2026-09-29T07:59:00Z","eu":"2026-11-03T07:59:00Z"}`. **El único deadline verificable es el 6 de noviembre (EU).**
+6. **Poda 2 — Idea 57:** el arnés da 7 y son **6 en código** (`610, 957, 1001, 1077, 1129, 1177`) + 1 en comentario. Dos son deliberadas y documentadas. **Quedan 4 reales**, los mismos 4 que la fila ya nombra uno por uno → **sigue ABIERTA por trabajo real**.
+7. **Poda 3 — ALERT-41 NO se poda.** La fila dice *"los 15 ids"*; medido son **16 declarados y los 16 dan `NO EXISTE`** contra `/v2/raids?ids=all` (30 eventos, `{id, type}` y nada más → confirma ALERT-89).
+
+### Por qué ALERT-41 no entra en la regla de "bloqueado = archivar"
+
+La ronda 41 archivó Homestead e Idea 63 T3 porque *"un item que depende de una decisión de producto no es cola de trabajo, es una pregunta"*. El criterio era correcto ahí: la pregunta era **"¿qué quiere Pablo?"**. Acá la pregunta es **"¿qué devuelve la API?"**. **Una llamada de 30 segundos responde esta; una decisión no.** Archivar un item bloqueado por un dato obtainable esconde el único camino de salida.
+
+### Qué se rompió
+
+Nada. Solo `.md`, y las dos escrituras fueron **empaquetadas** (PRE_BACKLOG +9 415 B/−0; DASHBOARD +6 478 B/−0), con copia previa y verificación de que 9 secciones viejas siguen presentes. **0 ideogramas CJK, 0 fullwidth** en ambos (verificado antes de commitear).
+
+### Qué quedó pendiente
+
+- **La fila de WvW Borderlands vuelve al backlog** como 🟢, no como 6-8h. **No la pido ahora** (PAUSA): es para cuando el control de carga baje de 3.
+- Idea 57: corregir el número de la cabecera (`dice "las nueve"`, son 6 ocurrencias / 4 reales).
+- ALERT-41: corregir "15" → 16 y los 3 números viejos.
+
+### Tres errores míos (los tres antes de reportar)
+
+1. **No usé `?ids=all` en la primera pasada.** Pregunté a secas, recibí strings, y escribí *"178 ids opacos, ese es el corazón del estimado de 6-8h"*. **Estaba a punto de repetir, como usuario, la conclusión de la ronda 42.** La contramedida: si el id es opaco sin expandir, expandilo — ahí estaban los `name`.
+2. **El conteo de prefijos dio 8 mapas y solo 5 resolvieron.** Sin imprimir el total junto al parcial, *"5 de 8"* se lee como "la API tiene 5" (regla de la ronda 12, cuatro meses cumplida).
+3. **`findstr` no expande `%{http_code}`** (2ª vez en el repo). Además el `git commit -F` se comió un BOM que `write_file` había puesto en el mensaje: dos `commit --amend` hasta que el subject salió limpio.
+
+### Reglas que salen
+
+1. **Un endpoint que devuelve strings a secas y objetos con `?ids=all` es el mismo endpoint con dos respuestas, y la segunda tiene el dato.** *"Ninguno de Borderlands" salió de un filtro aplicado a strings que no tienen `map_type`.* Mismo mecanismo que el `?ids=all` de la ronda 24 con `/v2/skins`.
+2. **Un deadline que no sale de la API no es un deadline.** "Nov 10" no está en ningún endpoint.
+3. **"Bloqueado por un dato" y "bloqueado por una decisión" son filas distintas.** La primera se deja abierta: la respuesta existe y solo falta que alguien la pida.
+
+### Estado al cierre
+
+`origin/main` @ `12907ef`. Worktree propio y limpio **`wt-r44`**, rama **`po/hb142-poda` @ `2cbd8fd`**, pusheada a `origin` = **gw2-wallet-agents (desarrollo, NO producción)**. **No mergeo.**
+
+---
+
+
 ### Que se hizo
 
 Un commit de tooling, `7fe7441` (rama `feat-hb138-alert204`, ff-only a
