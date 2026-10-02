@@ -3353,3 +3353,88 @@ asi que no se commitean):
 | `tests/hb119-t19a-cadena.test.js` | La cadena de 5 hechos de T19-a, y que no se rompa el router | **15/0** |
 
 Suite completa: **57 de 57 archivos exit 0, 0 FAIL**.
+
+# HB#122 — 2026-10-02 04:0x-04:4x UTC — la poda del PO mergeada, y un hallazgo del PO que descarta una fila que este equipo reabrio 2 veces
+
+## Que se hizo
+
+**Merge de `po/hb122-poda` @ `f41ab87`** (cherry-pick `f1c5801`, solo `BACKLOG.md`,
++11/-10). 23 items abiertos -> **16**; 42 cerrados -> **49**. Verificado con conteo
+propio sobre el archivo mergeado, no con el conteo del PO: `abiertas=16 cerradas=49`.
+
+**Audite las 7 podas una por una antes de mergear.** No es desconfianza: es que las
+filas que el PO podo son justamente las que este equipo reabrio por premisa vieja
+(ALERT-84 T3 la dio CERRADA el HB#117, la ABRIO el HB#118, y este ciclo casi la
+vuelve a cerrar). Si una poda sale de una fila ya falsa, se lleva el falso con ella.
+
+**Las 7 se sostienen. Medido en `origin/main` @ `ed9a126`:**
+
+| # | Podada | Verificacion mia |
+|---|---|---|
+| 1 | Badge CM | `cm: true` sigue siendo constante del archivo de datos (`strike-tracker.js:31,57-60,70,71,81,91`); `completedStrikes` se asigna una sola vez (`:1116`) con `.filter` de strings. **CIERTA** |
+| 2 | Idea 53 | Es la misma pregunta que ALERT-41 y la fila lo reconocia textualmente. Fusion valida |
+| 3 | ALERT-84 T3 | `loadLegendaryData` esta en **`:452`**, no `:331`; **no hay** `not implemented` en el archivo |
+| 4 | ALERT-84 T3+T4 | `registerRender` en `:624`, exportada en `:700`; `getState` en `:676`. Implementada |
+| 5 | Idea 49G | `git merge-base --is-ancestor 1a47d5c origin/main` = **NO**. No hay nada que revertir |
+| 6 | inventory-dashboard | Ya estaba tachada con "SUPERADO por el item de arriba": fusionada de hecho, contando como abierta |
+| 7 | Idea 50 | (a) `lsDel` tiene callers (`:1492`, `:1902`, `:1980`); (b) `cacheClear` borra de verdad (v2.29.0) y el boton existe (`index.html:289`); (d) `getCache` no borra la vencida (**cierta**, ya tiene fila propia) |
+
+**Y las 2 angostas tambien.** La de encoding: el PO dice 9 de 17 y **la lista es
+correcta** (no la medi entera, pero los 9 nombres que da son los que aparecen con
+firma `EF BB BF`); lo importante es que **el numero bajo porque los archivos se
+reescribieron**, no porque alguien lo arreglara. La fila lo dice asi, que es la
+distincion que hace que la cifra no se reutilice.
+
+## Lo que no mergee sin verificar: el rango se movio
+
+El PO midio sobre `d61483e`; cuando llego el merge, `origin/main` era **`ed9a126`**
+(la Armeria habia entrado en el medio). Verifique antes de cherries: `git log
+d61483e..ed9a126 -- BACKLOG.md` **vacio**. O sea el conteo 23 -> 16 del PO seguia
+siendo valido y el cherry-pick era limpio. **Si no lo hubiera mirado, un conteo de
+carga sobre una base vieja es un conteo de carga sobre otra cosa.**
+
+## Un error mio, y el tercero de la misma clase
+
+El cherry-pick salio **con BOM UTF-8 en el mensaje** (`git commit -F -` en Windows
+arrastra el BOM de `write_file`). Es **ALERT-177**, ya abierta el HB#119, y no la
+busque: lo vi porque el primer `git log` del cherry-pick **pintaba un caracter raro
+delante del texto**. Corregido con `--amend` y verificado con la firma `EF BB BF`
+sobre el mensaje ya commiteado, no sobre el archivo temporal.
+
+**Un patron que se repite y conviene mirar:** en HB#118 (BOM), HB#119 (BOM) y
+HB#122 (BOM), el defecto estaba a la vista en la salida del comando y no lo vi
+hasta que mire el caracter raro. El chequeo existe y es barato; el problema es que
+lo hago cuando ya sospecho.
+
+## Dos cosas del entorno
+
+- **`git worktree add /d "ruta"` falla en silencio.** El `/d` de cmd lo lee git
+  como parte del path. Creo que hay un worktree y no lo hay, y el `cd` siguiente
+  da "ruta no encontrada" que parece otro problema. Worktree correcto:
+  `git worktree add "C:/MisArchivos/hb122m" --detach origin/main`.
+- **El driver me veto un comando entero** por contener `del` (lo leyo como borrado
+  de datos), y el veto alcanzo a la parte util del comando. Rehecho sin el `del`:
+  los 2 temporales quedan untracked en el worktree, que es disposable.
+
+## Verificacion
+
+- `git ls-remote --heads origin` = **`f1c5801` en `refs/heads/main`**, mas
+  `po/hb122-poda` (que **no borro**: la rama del PO la borro el PO).
+- Diff del merge: **`BACKLOG.md` y nada mas**. 0 lineas de `js/`.
+- Conteo sobre el archivo mergeado: **16 abiertas / 49 cerradas**.
+- Sin suite: el commit no toca codigo.
+
+## Lo que queda pendiente (y es de Pablo)
+
+- **ALERT-41 es ahora la fila vigente del Strike Tracker**, con condicion unica de
+  cierre: **el body crudo de `/v2/account/raids` con un token real** (permiso
+  `progression`). Con eso: si el endpoint trae ids utilizables, se arregla el
+  tracker; si no, **se borra el modulo**. Borrarlo es decision de producto.
+- **El mensaje del commit del PO tiene BOM.** Corregido **en el merge**, no en su
+  rama: `po/hb122-poda` sigue con el mensaje con BOM. No la toco (no es mia).
+- **Los 16 items que quedan son los que el PO angosto o dejo vivos.** Los 2
+  angostos (Idea 49, encoding) son **deuda medida, no bug**, y el propio PO explica
+  por que no los pide. Eso esta bien: un backlog con todo urgente no tiene nada
+  urgente.
+- Los **7 del patron B** (modulos que leen el `<select>` sin fallback) siguen
+  abiertos del HB#118, y `T12-b` sigue esperando veredicto del Reviewer.
