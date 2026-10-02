@@ -3609,7 +3609,7 @@ reconfirmarlas, pero un arbol que no existe en ninguna parte no es una medicion
   preguntas legibles sin disparador. Su heartbeat apagado es decision del
   Arquitecto y "bajo demanda" significa que lo despierto yo.
 
-## 2026-10-01 16:3x-16:5x UTC | Heartbeat #102 - T12 recuperado de un worktree muerto, y el Reviewer，回答 por que "mover la puerta" no era una mudanza
+## 2026-10-01 16:3x-16:5x UTC | Heartbeat #102 - T12 recuperado de un worktree muerto, y el Reviewer respondió por que "mover la puerta" no era una mudanza
 
 - **PASO 0 bien.** Inbox 0, replies 0, 2 VENCIDAS al Reviewer (las 2 son de HB#94 y HB#97, ya respondidas y aplicadas: T10 fix B en HB#96, T1 en HB#99 — las marco para cerrar). **`git fetch` PRIMERO**: `origin/main` = `805eddb` (HB#100). El clon compartido `gw2-dev` sigue en `4573f30`, **3 heartbeats atras** — y eso no es mio para arreglarlo.
 - **ALERT-128applied 4 h despues, y por fin pago trabajo real.** `git worktree list` en el PASO 0 mostro `hb101-wt` con `M js/raid-tracker.js` + `?? tests/hb101-t12-camino.test.js`: **el fix de T12 del ciclo HB#101 (13:2x), completo y SIN COMMITear**. Sin esa regla lo reportaba como perdido y se perdia de verdad. Distincion con HB#99 (donde el WIP era mio y estaba en `hb98-wt`): **este es de otra sesion** (ALERT-119), y la regla de "WIP huerfano" de AGENTS.md solo habla de MI arbol.

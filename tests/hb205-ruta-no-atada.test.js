@@ -8,7 +8,7 @@
  * Ese worktree ya no existe → ENOENT ANTES de la primera aserción: exit=1,
  * 0 pass, y el runner lo reportaba como "sin-veredicto". O sea: el fix de
  * ALERT-179 podía haberse revertido entero y ese arnés no lo notaba. La
- * suite给出的 rojo era real, peroapisaba por un arnés roto y no por el
+ * suite dada rojo era real, pero resbalaba por un arnés roto y no por el
  * producto — el mismo falso que ALERT-204, con la causa invertida.
  *
  * ── Por qué un censo y no un arreglo a mano ───────────────────────────────

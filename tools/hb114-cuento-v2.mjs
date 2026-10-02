@@ -40,7 +40,7 @@ function sec(idx) {
   return lines.slice(s, e);
 }
 
-// Items de la tabla de Tramos: primera columna en negrita,形 "| **T14-a** |"
+// Items de la tabla de Tramos: primera columna en negrita, tipo "| **T14-a** |"
 function itemsDeTramos(body) {
   const ti = body.join('\n').search(/###\s*Tramos/i);
   if (ti < 0) return [];

@@ -1,6 +1,6 @@
 /*! tests/hb104-confirm-antes-de-escribir.test.js
  *
- * HB#104 — Cancelar un restore de配置 NO puede dejar los datos escritos.
+ * HB#104 — Cancelar un restore de configuracion NO puede dejar los datos escritos.
  *
  * ─── El defecto, medido en `origin/main` @ `7002e78` ────────────────────────
  *

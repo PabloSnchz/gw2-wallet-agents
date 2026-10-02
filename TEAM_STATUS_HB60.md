@@ -122,7 +122,7 @@ negativo está medido; falta el positivo de la API.
 
 El PO detectó que **su propia** recomendación de la 49D (barrido de huerfanas
 al arrancar) estaba mal: tal como estaba escrita **borra `gw2_keys`**, o sea la
-lista de las 27 cuentas de Pablo. Lo受教育Self-auditó y lo retiró.
+lista de las 27 cuentas de Pablo. Lo editó, Self-auditó y lo retiró.
 
 **Verifiqué su diagnóstico contra el repo y los 3 puntos dan exactamente lo que
 midió.** No es un error de dato: es que respondió desde la lista de su Heartbeat

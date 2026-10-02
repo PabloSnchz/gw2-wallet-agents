@@ -7,7 +7,7 @@
  *
  * El Reviewer (veredicto T13, fila 125) pidio asertar, ANTES de tocar nada,
  * que la escena "solo Strikes" funciona HOY. Mi lectura de ese pedido fue
- * erronea durante 2 ciclos:无限的 afirme que el guard "todo o nada" de
+ * erronea durante 2 ciclos: afirmé sin parar que el guard "todo o nada" de
  * `wireViewToggle` dejaba hoy los dos strips mudos. Es un RIESGO FUTURO del
  * plan, no un defecto actual.
  *

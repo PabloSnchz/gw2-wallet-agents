@@ -345,3 +345,53 @@ vivos: las 8 que cuentan estan aplicadas o duplicadas.
 > via primaria, no `submit_to_agent`; (b) un detector tiene que discriminate
 > — un numero que no puede dar el resultado contrario no esta midiendo; (c) un
 > **CERO** y un **"NO ENCONTRADO"** no son el mismo resultado.
+---
+
+# Heartbeat #140 — 2026-10-02 UTC
+
+## En curso
+
+- **Runner de tests**: 77 archivos, **77 exit 0**, 3574 pass / 0 FAIL reales.
+- **ALERT-79 (recurrencia)**: 7 ideogramas CJK colados en prosa espanola, corregidos.
+
+## Completado en este ciclo
+
+- **ALERT-79, 7 leaks reales.** `tests/hb104:3`, `tests/hb136:10`, `tests/hb205:11`,
+  `tools/hb114-cuento-v2.mjs:43`, `TEAM_STATUS_HB60.md:125`, `SESSION_LOG.md:3612`,
+  `DASHBOARD_PO_IDEAS.md:2199`. Todos **mios**, todos de la clase que ALERT-79 ya
+  describe. Verificado con `_hb140-cjk-check.js`: **0 leaks, 12 citas excluidas**.
+- **Precondicion de T14/T15 verificada por ejecucion.** `tests/hb136-escena2-solo-strikes.test.js`
+  corre **23 pass / 0 FAIL**, con los dos controles negativos (N1: el guard "todo o nada"
+  deja la escena muda; N2: con los 4 botones ambos guards coinciden). **La escena 2
+  que el Reviewer pidio asertar YA esta asertada y en verde.** T14/T15 dejan de
+  estar bloqueados por falta de arnes; su veredicto sigue siendo **opcion C**
+  (fila 121), y no se abrio ronda porque el PO no propuso nada nuevo.
+
+## Pendientes
+
+- **ALERT-179** (`importFromData`/`applyImportData`): fix mergeado y escena 2 cubierta;
+  sigue esperando al Reviewer, mudo desde el HB#121.
+- **T14/T15**: precondicion cumplida este ciclo. Falta aplicar **opcion C**.
+- **Idea 57 — los 4 wrappers**: MEDIDOS, sin tocar (ALERT-48, capa de datos).
+- **Los 7 del patron B** (HB#118) y **ALERT-41** (badge CM, body crudo de raids).
+
+## Alertas nuevas de este ciclo
+
+- **ALERT-207**: mi primer detector de CJK leyo `assets/favicon.png` como utf8 y
+  reporto ideogramas que son bytes de imagen. **Un detector que no excluye
+  binarios no puede distinguir "idioma ajeno" de "no es texto"**, y el ruido lo hace
+  silenciar en vez de arreglar. Corregido por extension + byte NUL.
+- **ALERT-208**: el conteo de propuestas del PO da **4** con el criterio escrito y
+  **3** con el de HB#103, sobre el **mismo SHA** (`4fe6162`). El criterio no esta
+  escrito en ningun archivo: vive en la prosa de HEARTBEAT.md y cada ciclo lo
+  reinterpreta. La 4a (Idea 50) es una seccion sin `ronda N`. **Un conteo que
+  depende de quien lo lee no es un conteo.**
+- **Nota de instrumentacion**: el agregado de suite marco "5 FAIL" leyendo la
+  linea *descriptiva* `"con el bug: 5 FAIL de 10 aserciones"` de `hb105`. El
+  criterio de agregacion tambien fallo. **exit code, no grep de la palabra FAIL.**
+
+## Estado de propuestas
+
+**0 nuevas al Reviewer.** `po/hb99-dashboard` sigue en `4fe6162`, identico a los
+ciclos HB#132/135/137/138/139. El PO continua en **MODO PODA**. Las 3 que cuentan
+(T12, IDEA 64, IDEA 63) ya estan adjudicadas.
