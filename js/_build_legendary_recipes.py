@@ -33,6 +33,23 @@ Por que este archivo existe y no se lee tools/cl_recipes.json en el navegador:
   craftType 'none' y el consumidor nunca tiene que preguntarse si le
   falto informacion o si la pieza no tiene receta.
 
+LO QUE ESTE CONTRATO NO HACE (medido 2026-10-02, no deducido):
+
+  No alcanza para armar el arbol de fabricacion completo. Las entradas son
+  los 206 items DEL CATALOGO, y los ingredientes de la Forja Mistica no son
+  del catalogo: los 236 ingredientes distintos de las 142 con receta estan
+  236 de 236 fuera de este contrato. De esos 236, 169 tienen receta en la
+  fuente.
+
+  Recorriendo con este contrato, el arbol no baja de 2 niveles: todo
+  ingrediente cae como hoja y el resultado es la lectura plana "4 piezas,
+  y no se sabe de que". El arbol de verdad (hasta 9 niveles, 55 nodos en
+  Frostfang) sale de leer la fuente completa.
+
+  Decidir si los precursores entran al contrato o se resuelven en runtime
+  contra otra fuente es decision de Pablo. Este archivo no la toma por
+  defecto; solo deja constancia de que hace falta tomarla.
+
 Metodo de verificacion (ARME_TRABAJO_NOCHE.md seccion 4), corrido y medido el
 2026-10-02 con tools/hb122-verificar-items.cjs:
 
