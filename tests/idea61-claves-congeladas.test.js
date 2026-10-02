@@ -426,11 +426,15 @@ section('6. el espejo, en comportamiento, para los 4 pares de MIRROR_MAP');
     'activities-theme.js[gn_home_nodes_marked]',
     'activities.js[gn_activities_toggles]',
     'inventory-dashboard.js[gw2_keys]',
-    'inventory-hub.js[gw2_selected_key_v1]',
-    'raid-tracker.js[gw2_selected_key_v1]',
-    'strike-tracker.js[gw2_selected_key_v1]',
     'wv-objectives-dashboard.js[gw2_keys]',
-    'wv-purchase-detail.js[gw2_keys, gw2_selected_key_v1]',
+    // T19-c (HB#118): `inventory-hub.js`, `raid-tracker.js` y
+    // `strike-tracker.js` SALEN de la lista: su unico raw era
+    // `gw2_selected_key_v1`, que el fix movio a `Storage.get(ACCOUNT_SELECTED)`.
+    // No se reemplazan por `[gw2_keys]` porque ninguno leia esa otra legacy:
+    // ponerla seria inventar un control sobre una lectura que no existe.
+    // `wv-purchase-detail.js` SI se REDUCE (no se borra): tiene 2 raws, `:858`
+    // `gw2_keys` — que sigue a proposito — y el de la selected, que ya no.
+    'wv-purchase-detail.js[gw2_keys]',
     'wv-shop-ui.js[gw2_keys]',
   ]);
   /* `accounts-panel.js` NO esta, y es a proposito: hasta el HB#84 el audit lo

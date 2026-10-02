@@ -408,11 +408,22 @@
     });
   }
 
+  /**
+   * Token de la cuenta seleccionada.
+   *
+   * ANTES: `localStorage.getItem('gw2_selected_key_v1')` a pelo, por debajo de la
+   * capa `Storage` (T19-c).
+   * AHORA: `Storage.get(ACCOUNT_SELECTED)` — espejo (legacy) -> gn: -> fallback.
+   *
+   * FALLBACK DEL DOM — INTENCIONAL: el `<select id="keySelectGlobal">` gana
+   * cuando tiene valor, que es lo que pasa hoy. No es residuo de un copiado;
+   * cambiar esta precedencia es otro ciclo.
+   */
   function getSelectedToken() {
     try {
       var sel = document.getElementById('keySelectGlobal');
       if (sel && sel.value) return sel.value.trim();
-      var stored = localStorage.getItem('gw2_selected_key_v1');
+      var stored = Storage.get(Storage.STORAGE_KEYS.ACCOUNT_SELECTED);
       if (stored) return stored;
     } catch (e) {}
     return null;

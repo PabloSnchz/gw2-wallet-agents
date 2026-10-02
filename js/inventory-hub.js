@@ -156,11 +156,27 @@
   function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function(m) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]); }); }
   function fmtInt(n) { n = Number(n || 0); return n.toLocaleString('es-AR'); }
+  /**
+   * Token de la cuenta seleccionada.
+   *
+   * ANTES: `localStorage.getItem('gw2_selected_key_v1')` a pelo. Eso salteaba la
+   * capa `Storage` y leia la legacy por la puerta de atrás (T19-c).
+   *
+   * AHORA: `Storage.get(ACCOUNT_SELECTED)`, que resuelve en este orden:
+   * espejo (legacy) -> gn: -> FALLBACK_MAP. La gn: es la que sube el Gist, asi que
+   * leerla directo dejaba al backup con una foto distinta de la de la pantalla.
+   *
+   * FALLBACK DEL DOM — INTENCIONAL, no es residuo de un copiado: el
+   * `<select id="keySelectGlobal">` gana cuando tiene valor, y eso es lo que
+   * ocurre hoy. El DOM se llena desde `KeyManager.state.selected`, que a su vez
+   * viene de la misma clave, o sea que el `<select>` refleja la seleccion mas
+   * rapido que el disco. Se conserva tal cual; cambiarlo es otro ciclo.
+   */
   function getSelectedToken() {
     try {
       var sel = document.getElementById('keySelectGlobal');
       if (sel && sel.value) return sel.value.trim();
-      return localStorage.getItem('gw2_selected_key_v1') || null;
+      return Storage.get(Storage.STORAGE_KEYS.ACCOUNT_SELECTED) || null;
     } catch (e) { return null; }
   }
   function getItemName(item) { return item ? (item.name || ('Ítem #' + item.id)) : '—'; }
