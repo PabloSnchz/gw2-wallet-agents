@@ -8,7 +8,13 @@
 //       tiene que quedarlas ADELANTE, no perderlas
 const fs = require('fs');
 const path = require('path');
-const ROOT = 'C:/MisArchivos/hb123';
+// ALERT-205 (HB#139): esto era `const ROOT = 'C:/MisArchivos/hb123'`, la ruta
+// del worktree donde se escribio el arnes. Ese worktree ya no existe, asi que el
+// archivo moria con ENOENT ANTES de la primera asercion: exit=1, 0 pass, y el
+// runner lo reportaba como "sin-veredicto". El fix de ALERT-179 podia haber
+// sido revertido entero y este archivo no lo habria notado. Como todos los
+// demas: el repo se resuelve desde la ubicacion del propio arnes.
+const ROOT = path.join(__dirname, '..');
 
 const src = fs.readFileSync(path.join(ROOT, 'js/settings-manager.js'), 'utf8');
 const lines = src.split(/\r?\n/);
@@ -48,7 +54,15 @@ const ok = (cond, txt) => { if (cond) { pass++; console.log('  pass - ' + txt); 
 
 console.log('\n[IDENTIDAD] las dos listas eran la misma (ASI FUE EL HALLAZGO)');
 ok(la.length === 7, 'applyImportData tiene las 7 escrituras (medido: ' + la.length + ')');
-ok(la.join('|') === la.join('|'), 'applyImportData es la unica copia de las 7');
+// ALERT-205 (HB#139): esto era `ok(la.join('|') === la.join('|'), ...)` — una
+// comparacion de una lista consigo misma. SIEMPRE verdadera, con el fix o sin
+// el fix: una guarda que no puede fallar no es una guarda (misma clase que
+// ALERT-92). Lo que la frase queria decir es "las 7 escrituras viven en UN solo
+// lugar del archivo", y eso se mide contra el archivo entero, no contra `la`.
+const enElArchivo = lines.filter((l) => ESCRITURA.test(l)).map((l) => l.trim());
+ok(enElArchivo.length === 7 && enElArchivo.join('|') === la.join('|'),
+   'applyImportData es la UNICA copia de las 7 (en todo settings-manager.js: '
+   + enElArchivo.length + ')');
 
 // El hallazgo era que las dos listas eran iguales. Aplicado el fix, la segunda
 // tiene que HABER DESAPARECIDO -- no "ser igual", sino no existir. Por eso el
