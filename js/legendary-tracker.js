@@ -111,16 +111,59 @@
   // hace nada es peor que no dibujarlo.
   var filters = { type: null, generation: null, expansion: null };
 
-  // Alcance de "Mi progreso" (punto 2.2). Es estado PROPIO y no un cuarto
-  // filtro, porque responde otra pregunta: los tres de arriba eligen "de que
-  // tipo", este elige "de cuales de esos me interesan".
-  //   'unlocked' -> solo las que ya tengo
-  //   'missing'  -> solo las que me faltan
-  // No aplica al Catalogo: ahi se ve el catalogo entero, y "solo faltantes"
-  // sobre un catalogo completo es "todo", o sea un switch que no cambia nada
-  // visible. Por eso vive fuera de `filters` y no se dibuja ahi.
-  var PROGRESS_SCOPES = { UNLOCKED: 'unlocked', MISSING: 'missing' };
-  var scope = PROGRESS_SCOPES.UNLOCKED;
+  // COLA DE CRAFTEO (punto 2.3, 2026-10-02). Reemplaza el switch de alcance.
+  //
+  // QUE SE CAE, y por que. El switch "Desbloqueadas / Solo faltantes" (2.2)
+  // respondia "de cuales de las que pasan el filtro me interesan", y la
+  // respuesta que daba no servia para el trabajo: saber que te faltan 190
+  // legendarias no es un plan, es un numero. Pablo lo reencuadro: "Mi
+  // progreso" pasa a ser la cola de crafteo, o sea de a UNA legendaria a la
+  // vez, con lo que falta de cada una.
+  //
+  // Por eso `scope` desaparece y NO se convierte en un filtro mas: un filtro
+  // recorta un conjunto que ya existe, y la cola es una ELECCION del usuario.
+  // Un recorte implicito de las 206 no es una eleccion, y por eso los tres
+  // filtros se conservan (sirven para elegir que legendarias entran) mientras
+  // el switch se va.
+  //
+  // Maximo 5. Es foco, no inventario: el objetivo de posesion del PO sigue
+  // siendo 16 y son cosas distintas.
+  var QUEUE_MAX = 5;
+
+  // Ids, en ORDEN. El orden es la prioridad del usuario y por eso se
+  // conserva: una cola ordenado alfabeticamente pierde lo unico que el
+  // usuario dijo al arrastrar las cosas.
+  //
+  // `sGet` es el `localStorage` crudo del modulo con `gn:` (linea 35), no la
+  // capa `Storage`. Es el mismo patrón que `raid-tracker.js` (ALERT-118): la
+  // clave ya nace `gn:` asi que no hay espejo que romper y no se agrega al
+  // `MIRROR_MAP`. Anotado en ALERTS_LOG por si la migracion lo alcanza.
+  var queue = sGet('queue') || [];
+
+  // Que se pueda cargar una cola corrupta sin romper el modulo. Un
+  // `localStorage` editado a mano, o de una version anterior, puede traer
+  // cualquier cosa: un objeto, un array de strings, 40 ids, el mismo id 9
+  // veces. Todo eso cae al default en vez de romper el render.
+  //
+  // NO se filtra contra el catalogo aqui, y el motivo es el orden: el tracker
+  // se inicializa antes que `legendary-data.js` puede estar listo, y descartar
+  // ids "inexistentes" contra un catalogo vacio BORRARIA la cola del usuario.
+  // Lo que no existe se filtra al pintar (`queueItems`), que es cuando el
+  // catalogo ya esta.
+  function sanitizeQueue(raw) {
+    var out = [];
+    if (!Array.isArray(raw)) return out;
+    for (var i = 0; i < raw.length && out.length < QUEUE_MAX; i++) {
+      var id = Number(raw[i]);
+      // `Number(null)` es 0 y `Number('')` es 0: se rechazan explicitos.
+      if (!isFinite(id) || id <= 0) continue;
+      if (raw[i] === null || raw[i] === undefined || raw[i] === '') continue;
+      id = Math.floor(id);
+      if (out.indexOf(id) !== -1) continue;
+      out.push(id);
+    }
+    return out;
+  }
 
   // ========================================================================
   // 2. UTILIDADES
@@ -246,18 +289,51 @@
     return cat.filter(passesFilters);
   }
 
-  // Que items muestra "Mi progreso": los que pasan los filtros DE PRIMERO, y
-  // despues el alcance. El orden importa y es el correcto: el switch es una
-  // segunda capa sobre un conjunto ya recortado. Al reves, "Solo faltantes" con
-  // filtro de Armas traeria las armas que faltan entre TODAS, y el filtro
-  // actua como si no se hubiera tocado.
-  function progressItems(owned) {
+  // Que items muestra "Mi progreso". Antes eran las desbloqueadas (o las que
+  // faltaban) ENTRE LAS 206: un subconjunto implicito de 206, que es
+  // justamente lo que se decidio dejar de mostrar. Ahora son las que el
+  // usuario ELIGIO, en el orden en que las eligio.
+  //
+  // Los filtros NO recortan la cola, y esa es una decision, no un olvido:
+  // un filtro que acorta una lista que el usuario armo le hace perder de su
+  // vista algo que el puso ahi. Los filtros sirven para ELEGIR QUE
+  // legendarias entran en la cola (se aplican en el Catalogo), no para
+  // recortarla despues.
+  //
+  // El filtro contra el catalogo va AQUI y no en `sanitizeQueue`, por el
+  // orden de carga: si se descartara al leer, un id que todavia no esta en
+  // `root.LegendaryCatalog` borraria la cola del usuario.
+  function queueItems() {
     var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
-    return cat.filter(function (item) {
-      if (!passesFilters(item)) return false;
-      var isOwned = !!(owned[item.id] && owned[item.id] > 0);
-      return scope === PROGRESS_SCOPES.MISSING ? !isOwned : isOwned;
-    });
+    if (!queue.length) return [];
+    var byId = {};
+    cat.forEach(function (it) { if (it) byId[it.id] = it; });
+    var out = [];
+    queue.forEach(function (id) { if (byId[id]) out.push(byId[id]); });
+    return out;
+  }
+
+  // Agrega o quita una legendaria de la cola. Devuelve QUETO PASO para que el
+  // llamador pueda distinguir los tres casos: los tres se ven igual en la UI
+  // salvo por el toast, y un retorno booleano no alcanza para el tercero.
+  //
+  // Al agregar con la cola llena NO se desplaza la primera: el plan no lo dice,
+  // y sacar algo que el usuario puso para meter otra cosa es una perdida
+  // silenciosa. Se rechaza y se dice. Quitar siempre es libre.
+  function toggleQueue(itemId) {
+    var id = Number(itemId);
+    if (!isFinite(id) || id <= 0) return 'invalid';
+
+    var at = queue.indexOf(id);
+    if (at !== -1) {
+      queue.splice(at, 1);
+      sSet('queue', queue);
+      return 'removed';
+    }
+    if (queue.length >= QUEUE_MAX) return 'full';
+    queue.push(id);
+    sSet('queue', queue);
+    return 'added';
   }
 
   // `owned` es {id: count}. El stub de API no trae nada, asi que hoy es {} y la
@@ -454,6 +530,13 @@
     var title = document.getElementById('ltItemModalTitle');
     if (title) title.textContent = nombre;
 
+    // El render del modal no consulta nada (mismo corte que los otros cuatro):
+    // si quiere saber si esta en la cola, se le dice. Se adjunta ACA y no
+    // dentro de `computeMaterials` porque ese es calculo puro de materiales y
+    // una funcion que depende de lo que el usuario tiene puesto en la cola no
+    // es pura. `computeMaterials` es API publica y su contrato no cambia.
+    if (datos && typeof datos === 'object') datos.inQueue = queue.indexOf(Number(itemId)) !== -1;
+
     if (state.itemModalRenderer) {
       body.innerHTML = state.itemModalRenderer(datos, item);
     } else {
@@ -480,6 +563,16 @@
     content.addEventListener('click', function (e) {
       var target = e.target;
       while (target && target !== content) {
+        // El boton de la cola se resuelve PRIMERO y por el mismo camino que la
+        // card, no con un listener aparte: es un hijo de la card, asi que si no
+        // cortamos aca, el toggle abre el modal de la legendaria que el
+        // usuario solo queria agregar. Se distingue por `data-action`, no por
+        // clase, porque el `while` sube por el DOM y una clase la comparte
+        // media grilla.
+        if (target.getAttribute && target.getAttribute('data-action') === 'queue-toggle') {
+          handleQueueToggle(target.getAttribute('data-id'));
+          return;
+        }
         if (target.classList && target.classList.contains('lt-item-card')) {
           openItemModal(target.getAttribute('data-id'));
           return;
@@ -487,6 +580,34 @@
         target = target.parentNode;
       }
     });
+  }
+
+  // Un solo lugar donde el toggle decide que pasa. El render (el boton) no
+  // decide nada: si el toast o el repintado vivieran en el render, la misma
+  // accion dariera dos resultados distintos segun quien dibuje.
+  function handleQueueToggle(itemId) {
+    var r = toggleQueue(itemId);
+    var item = catalogById(itemId);
+    var nombre = item ? (item.nameEs || item.name) : ('#' + itemId);
+
+    if (r === 'added') {
+      toast('Agregada a la cola: ' + nombre + ' (' + queue.length + '/' + QUEUE_MAX + ')', 'success');
+    } else if (r === 'removed') {
+      toast('Quitada de la cola: ' + nombre);
+    } else if (r === 'full') {
+      toast('La cola ya tiene ' + QUEUE_MAX + ' legendarias. Quitá una para agregar otra.', 'error');
+      return;
+    } else {
+      return;
+    }
+    if (state.inited && state.active) renderCurrentMode();
+  }
+
+  function catalogById(itemId) {
+    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    var id = Number(itemId);
+    for (var i = 0; i < cat.length; i++) if (cat[i] && cat[i].id === id) return cat[i];
+    return null;
   }
 
   function renderCurrentMode() {
@@ -511,65 +632,32 @@
 
     if (state.mode === MODES.CATALOG) {
       var items = catalogItems();
-      content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned);
+      content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned, queue.slice());
       wireFilterBar();
       wireItemCards();
     } else {
-      // Los items los calcula el tracker, no el render. Antes los elegia
-      // `renderProgress()` por su cuenta desde `state.owned`, lo que hacia
-      // imposible que los filtros del tracker llegaran a esa vista: los
-      // filtros viven acá y el render no los tiene. Que el recorte se decida
-      // en un solo lado es lo que hace que "Armas" signifique lo mismo en las
-      // dos vistas.
-      var pItems = progressItems(owned);
+      // Los items los calcula el tracker, no el render. "Mi progreso" es la
+      // COLA, y la cola es del usuario: no pasa por `passesFilters` (un filtro
+      // acortaria una lista que el usuario armo) y sale en su orden.
+      var qItems = queueItems();
       content.innerHTML = r.filterBar(filters, all) +
-        '<div class="lt-progress-scope" data-scope-bar="true">' +
-          scopeToggleHTML() +
-        '</div>' +
         r.progress(
-          { owned: owned, mode: state.mode, items: pItems, scope: scope, filters: filters },
-          catalogStats(pItems, owned)
+          { owned: owned, mode: state.mode, items: qItems, queue: queue.slice(), queueMax: QUEUE_MAX },
+          catalogStats(qItems, owned)
         );
       wireFilterBar();
-      wireScopeBar();
       wireItemCards();
     }
   }
 
-  // Switch "Desbloqueadas / Solo faltantes".
-  function scopeToggleHTML() {
-    return '<div style="display:inline-flex;gap:4px;align-items:center;margin-bottom:14px;">' +
-      '<span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Mostrar:</span>' +
-      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'active' : '') + '" ' +
-        'data-scope="unlocked" ' +
-        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
-        'border:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '1px solid #68ff9f' : '1px solid var(--bd-1)') + ';' +
-        'background:' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'rgba(104,255,163,0.15)' : 'var(--bg-1)') + ';' +
-        'color:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '#68ff9f' : 'var(--tx-2)') +
-        ';">Desbloqueadas</button>' +
-      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.MISSING ? 'active' : '') + '" ' +
-        'data-scope="missing" ' +
-        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
-        'border:' + (scope === PROGRESS_SCOPES.MISSING ? '1px solid #974EFF' : '1px solid var(--bd-1)') + ';' +
-        'background:' + (scope === PROGRESS_SCOPES.MISSING ? 'rgba(151,78,255,0.2)' : 'var(--bg-1)') + ';' +
-        'color:' + (scope === PROGRESS_SCOPES.MISSING ? '#974EFF' : 'var(--tx-2)') +
-        ';">Solo faltantes</button>' +
-    '</div>';
-  }
-
-  function wireScopeBar() {
-    var bar = $('#legendaryModeContent [data-scope-bar="true"]');
-    if (!bar || bar.getAttribute('data-wired') === 'true') return;
-    bar.setAttribute('data-wired', 'true');
-    bar.addEventListener('click', function (e) {
-      var t = e.target;
-      if (!t || !t.getAttribute) return;
-      var sc = t.getAttribute('data-scope');
-      if (!sc) return;
-      scope = (sc === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
-      renderCurrentMode();
-    });
-  }
+  // [2.2 removido] `scopeToggleHTML()` y `wireScopeBar()` vivian aqui. El
+  // switch "Desbloqueadas / Solo faltantes" se cae con la cola (punto 2.3) y
+  // NO se reemplaza por otro switch: la pregunta que respondia ("cuales de
+  // las 206 me interesan") la responde ahora la eleccion explicita, y volver
+  // a un control que recorte un conjunto implicito seria rehacer el problema.
+  // Se deja el comentario porque el `id` `.lt-progress-scope` y la clase
+  // `.lt-scope-btn` quedaron en el arbol en 07de012 y su ausencia futura
+  // tiene que ser rastreable.
 
   // Delegación de eventos: los botones de filtro los genera `render-catologo.js`
   // y no tienen id, solo `data-ftype`/`data-fvalue`. Un listener por cada
@@ -906,6 +994,8 @@
       materials: state.materials.slice(),
       characterItems: state.characterItems.slice(),
       readErrors: state.readErrors.slice(),
+      queue: queue.slice(),
+      queueMax: QUEUE_MAX,
       filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion }
     };
   }
@@ -941,19 +1031,33 @@
     // deep-link) pueda fijar el recorte sin escribir en el objeto interno.
     // `null` limpia el filtro; el valor se valida contra el propio dato, no
     // contra una lista: un filtro de tipo que no existe en el catalogo es
-    // legitimo (se ve la grilla vacia), uno de scope que no es uno de los dos
-    // NO lo es y cae al default en vez de dejar la vista sin items.
+    // legitimo (se ve la grilla vacia). El alcance (2.2) se fue con la cola
+    // (2.3) y con el no hay un valor valido que "caiga al default".
     setFilter: function (key, value) {
       if (key !== 'type' && key !== 'generation' && key !== 'expansion') return false;
       filters[key] = (value === '' ? null : value);
       if (state.inited && state.active) renderCurrentMode();
       return true;
     },
-    setScope: function (value) {
-      scope = (value === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
-      if (state.inited && state.active) renderCurrentMode();
-      return scope;
-    },
+    // Cola de crafteo (2.3). Publica por la misma razon que `setScope` era
+    // publica: un consumidor externo (el modal, un test, un deep-link) tiene
+    // que poder leer y escribir la eleccion del usuario sin tocar el objeto
+    // interno. `toggleQueue` NO repinta: el llamador decide cuando, porque el
+    // boton del render ya esta dentro del ciclo de render.
+    //
+    // `setScope` SE SACA de la API publica con el switch. No se deja como
+    // `undefined`: una clave presente con valor `undefined` es indistinguible
+    // de "la dejo y no la se", y un consumidor que la espere la va a ver.
+    getQueue: function () { return queue.slice(); },
+    queueMax: QUEUE_MAX,
+    toggleQueue: toggleQueue,
+    _sanitizeQueue: sanitizeQueue,
+    // SOLO PARA TESTS. Pone la cola sin pasar por `toggleQueue`, para poder
+    // afirmar sobre estados que la UI no produce (un id guardado que ya no
+    // esta en el catalogo). Es la unica puerta que escribe la cola sin
+    // persistir, y por eso tiene el prefijo `_` como el resto de la
+    // observabilidad de este modulo.
+    _setQueueForTest: function (arr) { queue = sanitizeQueue(arr); },
     _debug: function () {
       return {
         version: VER,
@@ -966,7 +1070,9 @@
         error: state.error ? String(state.error.message || state.error) : null,
         render: getRenderState(),
         filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion },
-        scope: scope,
+        queue: queue.slice(),
+        queueMax: QUEUE_MAX,
+        queueVisible: queueItems().length,
         dom: {
           panel: !!el('legendaryArmoryPanel'),
           panelVisible: el('legendaryArmoryPanel') ? !el('legendaryArmoryPanel').hasAttribute('hidden') : false,

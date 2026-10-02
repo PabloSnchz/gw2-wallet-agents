@@ -208,7 +208,7 @@
   // =======================================================================
   // RENDER: GRID DEL CATÁLOGO (5 COLUMNAS)
   // =======================================================================
-  function renderCatalogGrid(items, owned) {
+  function renderCatalogGrid(items, owned, queue) {
     if (!items || items.length === 0) {
       return '<div class="lt-empty-state" style="text-align:center;padding:32px;color:var(--tx-3);">' +
         '<div style="font-size:0.8rem;">No se encontraron legendarias con los filtros aplicados.</div>' +
@@ -217,7 +217,7 @@
     }
 
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, owned, idx);
+      return renderItemCard(item, owned, idx, queue);
     });
 
     return '<div class="lt-catalog-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
@@ -225,12 +225,38 @@
     '</div>';
   }
 
-  function renderItemCard(item, owned, idx) {
+  function renderItemCard(item, owned, idx, queue) {
     var isOwned = !!(owned[item.id] && owned[item.id] > 0);
     var tColor = typeColor(item);
     var eColor = expansionColor(item);
     var gLabel = genLabel(item);
     var owns = isOwned ? (owned[item.id] || 1) : 0;
+
+    // Cola de crafteo (2.3). `queue` llega como COPIA y puede no venir: un
+    // consumidor viejo que llame a `catalogGrid(items, owned)` con dos
+    // argumentos ve el catalogo sin el boton, no un error. `indexOf` sobre
+    // undefined es un TypeError, y por eso el default va explicito.
+    var q = queue || [];
+    var qPos = q.indexOf(item.id);
+    var inQueue = qPos !== -1;
+    // Las 3 primeras con mas peso visual (plan de noche). Se distinguen por
+    // el grosor del borde izquierdo, que es la unica señal que la card ya
+    // usa para su tipo: agregar una categoria de color seria una 4ta.
+    var isTop3 = inQueue && qPos < 3;
+
+    // El boton va en la fila de badges y NO absoluto sobre la card. Con
+    // `padding:10px` un boton pegado a `bottom:6px` se monta sobre el nombre,
+    // y resolverlo agrandando el padding cambia la altura de las 206 cards del
+    // catalogo por un control de una sola vista. Ademas un control dentro de
+    // la card dispara su click: por eso el `data-action` se resuelve ANTES que
+    // la card en el listener, no por `stopPropagation` en el boton.
+    var queueBtn = '<button data-action="queue-toggle" data-id="' + item.id + '" ' +
+      'class="lt-queue-btn" title="' + (inQueue ? 'Quitar de la cola de crafteo' : 'Agregar a la cola de crafteo') + '" ' +
+      'style="padding:1px 6px;border-radius:999px;font-size:0.6rem;font-weight:700;cursor:pointer;' +
+      'border:' + (inQueue ? '1px solid #974EFF' : '1px solid var(--bd-1)') + ';' +
+      'background:' + (inQueue ? 'rgba(151,78,255,0.22)' : 'rgba(255,255,255,0.06)') + ';' +
+      'color:' + (inQueue ? '#974EFF' : 'var(--tx-3)') + ';">' +
+      (inQueue ? (qPos + 1) + 'º' : '+ Cola') + '</button>';
 
     // Overlay de estado
     var statusOverlay;
@@ -275,14 +301,15 @@
       badges += '<span title="Tradeable en TP" style="font-size:0.6rem;opacity:0.6;">💎</span>';
     }
 
-    badges += '</div>';
+    badges += queueBtn + '</div>';
 
     // Nombre display (español si existe)
     var displayName = item.nameEs || item.name;
 
     return '<div class="card lt-item-card" data-id="' + item.id + '" data-type="' + esc(item.type) + '" ' +
+      'data-in-queue="' + (inQueue ? '1' : '0') + '" ' +
       'style="position:relative;cursor:pointer;padding:10px;border-radius:12px;' +
-      'border-left:3px solid #974EFF;' +
+      'border-left:' + (isTop3 ? '5px' : '3px') + ' solid #974EFF;' +
       'animation-delay:' + (idx * 0.02) + 's">' +
       statusOverlay +
       '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -305,72 +332,63 @@
   // RENDER: PROGRESS VIEW
   // =======================================================================
   function renderProgress(state, stats) {
-    var catalog = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
-
-    // QUE CAMBIA (punto 2.2, 2026-10-02): antes el render elegia sus propios
-    // items con `catalog.filter(owned)`. Ahora RECIBE la lista ya recortada en
-    // `state.items`, porque el recorte depende de dos cosas que el render no
-    // tiene: los filtros que viven en el tracker y el alcance del switch.
-    // Que el tracker decida el conjunto y el render solo lo pinte es lo que
-    // hace que "Armas" muestre lo mismo en Catalogo y en Mi progreso.
+    // QUE CAMBIA (punto 2.3, 2026-10-02): "Mi progreso" deja de ser un
+    // subconjunto IMPLICITO de las 206 y pasa a ser la COLA de crafteo, que es
+    // una eleccion explicita del usuario. Tres cosas se van con eso:
     //
-    // Se conserva el fallback a `owned` para cuando `state.items` no venga
-    // (un consumidor viejo que llame a `progress()` con la firma anterior).
-    // Sin ese fallback, ese consumidor veria una grilla vacia en vez de un
-    // error: el modo de fallo silencioso.
-    var items;
-    if (Array.isArray(state.items)) {
-      items = state.items.slice();
-    } else {
-      items = catalog.filter(function (item) {
-        return state.owned[item.id] && state.owned[item.id] > 0;
-      });
-    }
+    //   1. el alcance (2.2): no hay mas "Desbloqueadas / Solo faltantes"
+    //   2. el ORDEN alfabetico. Este es el cambio de comportamiento mas
+    //      importante y el mas facil de no notar: la cola va en el orden que
+    //      el usuario puso, y ordenar por nombre tira abajo lo unico que la
+    //      cola afirmo, que es cual va primero.
+    //   3. el resumen "Completado X / 206", que respondia por el progreso
+    //      global de la coleccion. Ahora responde por la cola, que es lo que
+    //      el usuario esta por fabricar.
+    //
+    // Se conservan `state.owned` y las firmas registradas. `state.owned` sigue
+    // llegando porque las cards lo usan para el badge ✓ y no porque el recorte
+    // dependa de el: la cola ya no se deriva de lo que el usuario posee.
+    var items = Array.isArray(state.items) ? state.items.slice() : [];
+    var queue = Array.isArray(state.queue) ? state.queue : [];
+    var queueMax = Number(state.queueMax) > 0 ? Number(state.queueMax) : items.length;
 
-    // Ordenar por rareza de progreso (no owned primero en catálogo, owned primero en progreso)
-    items.sort(function (a, b) {
-      return (a.nameEs || a.name).localeCompare(b.nameEs || b.name, 'es');
-    });
+    // `stats` es lo que calcula el tracker sobre la cola, pero el texto del
+    // resumen se arma ACA y usa `items.length` a proposito: si el tracker
+    //_FILTER un id que no esta en el catalogo, el resumen tiene que decir
+    // las que se VEN, no las que se guardaron. Un contador que cuenta cosas
+    // invisibles es un contador que no se puede verificar mirando la pantalla.
+    var n = items.length;
 
     if (items.length === 0) {
-      // El mensaje viejo decía SIEMPRE "Aún no poseés ninguna legendaria".
-      // Con el switch y los filtros queda mentira en dos casos reales: si el
-      // alcance es "Solo faltantes" y no falta ninguna, o si un filtro dejó la
-      // lista vacia. Un empty state que afirma algo falso es peor que no
-      // tener ninguno: el usuario cree que la API fallo.
-      var hayFiltro = !!(state.filters && (state.filters.type || state.filters.generation || state.filters.expansion));
-      var soloFaltantes = state.scope === 'missing';
-      var msg, sub;
-      if (hayFiltro) {
-        msg = 'No hay legendarias con los filtros aplicados.';
-        sub = 'Probá limpiar los filtros para ver el progreso completo.';
-      } else if (soloFaltantes) {
-        msg = 'No te falta ninguna legendaria de esta vista.';
-        sub = 'Tenés todas las legendarias desbloqueadas. Cambiá a <strong>Desbloqueadas</strong> para verlas.';
-      } else {
-        msg = 'Aún no poseés ninguna legendaria.';
-        sub = 'Cambiá a la vista <strong>Catálogo</strong> para explorar todas las legendarias.';
-      }
+      // Empty state honesto, y el unico caso que hay: la cola vacia. Las tres
+      // ramas viejas (filtro activo / solo faltantes / ninguna poseida) ya no
+      // existen como estados alcanzables, y un empty state con ramas para
+      // estados imposibles es codigo que dice cosas que no puede pasar.
       return '<div class="lt-progress-empty" style="text-align:center;padding:40px;color:var(--tx-3);">' +
-        '<div style="font-size:0.85rem;margin-bottom:8px;">' + msg + '</div>' +
-        '<div style="font-size:0.75rem;">' + sub + '</div>' +
+        '<div style="font-size:0.85rem;margin-bottom:8px;">Tu cola de crafteo está vacía.</div>' +
+        '<div style="font-size:0.75rem;">Elegí hasta ' + fmtInt(queueMax) +
+        ' legendarias en la vista <strong>Catálogo</strong> con el botón <strong>+ Cola</strong>, ' +
+        'y acá vas a ver qué te falta de cada una.</div>' +
         '</div>';
     }
 
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, state.owned, idx);
+      return renderItemCard(item, state.owned, idx, queue);
     });
+
+    var pct = queueMax ? Math.round((n / queueMax) * 100) : 0;
 
     return '<div class="lt-progress-summary" style="margin-bottom:16px;">' +
       '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
         '<div style="display:flex;align-items:center;gap:6px;">' +
-          '<span style="font-size:0.75rem;color:var(--tx-3);">Completado:</span>' +
-          '<strong style="font-size:1rem;color:#974EFF;">' + fmtInt(stats.owned) + ' / ' + fmtInt(stats.total) + '</strong>' +
+          '<span style="font-size:0.75rem;color:var(--tx-3);">Cola de crafteo:</span>' +
+          '<strong style="font-size:1rem;color:#974EFF;">' + fmtInt(n) + ' / ' + fmtInt(queueMax) + '</strong>' +
         '</div>' +
         '<div style="width:120px;height:8px;background:var(--bg-1);border-radius:4px;overflow:hidden;">' +
-          '<div style="width:' + stats.pct + '%;height:100%;background:#974EFF;border-radius:4px;"></div>' +
+          '<div style="width:' + pct + '%;height:100%;background:#974EFF;border-radius:4px;"></div>' +
         '</div>' +
-        '<span style="font-size:0.7rem;color:var(--tx-3);">' + stats.pct + '%</span>' +
+        '<span style="font-size:0.7rem;color:var(--tx-3);">' +
+          (n >= queueMax ? 'completa' : 'las 3 primeras tienen prioridad') + '</span>' +
       '</div>' +
       '</div>' +
       '<div class="lt-progress-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
