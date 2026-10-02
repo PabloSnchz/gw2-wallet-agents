@@ -103,18 +103,49 @@ def read_catalog_ids():
     puede recibir un id. Si los dos se separan, el error tiene que estar en el
     contrato, que es el que se lee de las dos formas.
     """
+    return sorted(read_catalog().keys())
+
+
+def read_catalog():
+    """Catalogo completo: id -> {name, nameEs, icon, ...}.
+
+    Antes esto devolvia solo los ids y las entradas `no_recipe` salian con el
+    nombre vacio. Medido 2026-10-02: las 64 entradas sin receta tienen SI el
+    nombre en legendary-data.js (name, nameEs, icon), y NO en la fuente
+    (0 de 64), que es justamente por lo que no tienen receta: GW2 no publica
+    la receta de las legendarias. O sea, el nombre ya estaba a mano todo este
+    tiempo, en el archivo que el generador ya leia, y no hacia falta ninguna
+    llamada a la API.
+
+    Sin nombre, esas 64 filas son un numero a secas y no se pueden buscar ni
+    mostrar en Mi progreso.
+    """
     with open(CATALOG, "r", encoding="utf-8") as f:
         src = f.read()
     m = re.search(r"var LEGENDARY_CATALOG = \[(.*?)\n\];", src, re.S)
     if not m:
         raise SystemExit("No se encontro 'var LEGENDARY_CATALOG = [...]' en " + CATALOG)
-    ids = [int(x) for x in re.findall(r'"id":\s*(\d+)', m.group(1))]
-    if not ids:
-        raise SystemExit("El catalogo no tiene ids: el artefacto esta vacio o mal formado")
-    return ids
+    cuerpo = "[" + m.group(1) + "]"
+    try:
+        items = json.loads(cuerpo)
+    except ValueError as e:
+        raise SystemExit(
+            "El catalogo no es JSON parseable (%s). No se sigue: si no se puede"
+            " leer el nombre, las %s entradas no_recipe saldrian sin nombre y eso"
+            " es peor que un build que falla." % (e, len(items) if items else "?")
+        )
+    if not items:
+        raise SystemExit("El catalogo esta vacio o mal formado")
+    cat = {}
+    for it in items:
+        iid = int(it["id"])
+        if iid in cat:
+            raise SystemExit("El catalogo repite el id %d. La clave seria ambigua." % iid)
+        cat[iid] = it
+    return cat
 
 
-def build_entries(catalog_ids, recipes):
+def build_entries(catalog_ids, recipes, catalog):
     by_output = {}
     for r in recipes:
         out = int(r["output_id"])
@@ -132,12 +163,23 @@ def build_entries(catalog_ids, recipes):
     status = {"recipe": 0, "no_recipe": 0, "placeholder": 0}
 
     for item_id in catalog_ids:
+        meta = catalog.get(item_id, {})
         r = by_output.get(item_id)
         if r is None:
+            # `isMaterial: false` en el placeholder no es decoracion: Mi
+            # progreso lo usa para NO ofrecer "Legendary Equipment Unlocked!"
+            # como material faltante. Ese id es el objeto que GW2 crea al
+            # desbloquear una legendaria; no se puede tener, no se compra, no
+            # se craftea. Offercerlo como faltante seria mostrarle a Pablo una
+            # tarea imposible con un numero al lado.
             if item_id == PLACEHOLDER_ID:
                 entries[item_id] = {
                     "craftType": "none",
                     "dataStatus": "placeholder",
+                    "name": meta.get("name", PLACEHOLDER_NAME),
+                    "nameEs": meta.get("nameEs", ""),
+                    "icon": meta.get("icon", ""),
+                    "isMaterial": False,
                     "ingredients": [],
                 }
                 status["placeholder"] += 1
@@ -145,6 +187,10 @@ def build_entries(catalog_ids, recipes):
                 entries[item_id] = {
                     "craftType": "none",
                     "dataStatus": "no_recipe",
+                    "name": meta.get("name", ""),
+                    "nameEs": meta.get("nameEs", ""),
+                    "icon": meta.get("icon", ""),
+                    "isMaterial": False,
                     "ingredients": [],
                 }
                 status["no_recipe"] += 1
@@ -179,12 +225,48 @@ def build_entries(catalog_ids, recipes):
             "recipeId": int(r["output_id"]),
             "outputCount": r.get("output_count", 1),
             "disciplines": r.get("disciplines", []),
+            "name": meta.get("name", ""),
+            "nameEs": meta.get("nameEs", ""),
+            "icon": meta.get("icon", ""),
+            # Con receta, la pieza SI es un material: hay que poder obtenerla.
+            # El placeholder NO lo es (ver PLACEHOLDER_NOTE). Esta bandera es
+            # la que le permite a Mi progreso no ofrecer lo imposible.
+            "isMaterial": True,
             "ingredients": ings,
         }
         counts[craft_type] += 1
         status["recipe"] += 1
 
     return entries, counts, status
+
+
+def verify_names(entries):
+    """Ninguna entrada puede salir sin nombre.
+
+    Motivo: el nombre de las %d entradas `no_recipe` salia vacio durante
+    ciclos. No hacia falta ninguna llamada a la API para arreglarlo -- estaba
+    en legendary-data.js, que el build ya leia para los ids. Pero si eso se
+    rompe (alguien renombra el campo, cambia el formato del catalogo) y nadie
+    mira, las %d filas vuelven a ser numeros a secas y el arbol se dibuja
+    como un arbol de ids: inbuscable e ilegible.
+
+    Por eso es un fallo de build y no un aviso. Un nombre vacio es un dato
+    que se perdio en silencio; un build que falla se ve.
+    """
+    sin_nombre = [i for i, e in entries.items() if not (e.get("name") or "").strip()]
+    if sin_nombre:
+        raise SystemExit(
+            "%d entradas del contrato salieron SIN nombre: %s%s\n"
+            "El catalogo tiene el nombre de los 206 items; si estas entradas no, "
+            "el problema es que legendary-data.js cambio de forma y read_catalog "
+            "no esta leyendo los campos que cree."
+            % (len(sin_nombre), ", ".join(str(x) for x in sin_nombre[:10]),
+               " ..." if len(sin_nombre) > 10 else "")
+        )
+    sin_icon = [i for i, e in entries.items() if not (e.get("icon") or "").strip()]
+    # El icon es deseable pero no bloqueante: el nombre es lo que hace
+    # buscable una fila, el icon es lo que la hace linda.
+    return len(sin_nombre), len(sin_icon)
 
 
 def js_str(s):
@@ -222,6 +304,28 @@ def build_js(entries, counts, status, catalog_ids, source_counts):
       (counts["mystic_forge"], counts["crafting"], counts["none"]))
     a(" *   dataStatus  recipe=%d  no_recipe=%d  placeholder=%d" %
       (status["recipe"], status["no_recipe"], status["placeholder"]))
+    a(" *")
+    a(" * PROFUNDIDAD DEL ARBOL -- SE CUENTA INCLUYENDO LA HOJA")
+    a(" *")
+    a(" * `depth` es el numero de niveles desde la legendaria hasta un material")
+    a(" * base, Y LA HOJA CUENTA COMO UN NIVEL. Medido 2026-10-02 sobre las %d" % status["recipe"])
+    a(" * con receta: minimo 2, maximo 9, y el reparto es")
+    a(" *   nivel 2 -> 1     nivel 5 -> 57")
+    a(" *   nivel 6 -> 5     nivel 7 -> 50     nivel 8 -> 28     nivel 9 -> 1")
+    a(" *")
+    a(" * Esto NO es cosmetico. Dos personas midiendo lo mismo obtuvieron")
+    a(" * 'maximo 8, minimo 1, 57 en nivel 4' y 'maximo 9, minimo 2, 57 en nivel 5'")
+    a(" * sobre el MISMO dato, y las dos tenian razon: una contaba la hoja como")
+    a(" * nivel y la otra no. El contrato fija una sola lectura para que la UI y")
+    a(" * los tests hablen el mismo idioma. Si algun dia se cambia esta regla,")
+    a(" * hay que cambiarla aca y no en el consumidor.")
+    a(" *")
+    a(" * Lo mismo con el conteo de NODOS: un nodo es un item del arbol")
+    a(" * (receta o hoja). Medido desde la raiz 30684 (Frostfang): 55 nodos =")
+    a(" * 17 con receta + 38 hojas. Decir '17 nodos' y '55 nodos' son las dos")
+    a(" * medias, y la segunda es la que corresponde a 'cosas que tenes que")
+    a(" * conseguir'.")
+    a(" *")
     a(" * Fuente: %d recetas (%s)" % (
         source_counts["total"],
         ", ".join("%s=%d" % (k, v) for k, v in sorted(source_counts["por_tipo"].items()))))
@@ -279,12 +383,21 @@ def build_js(entries, counts, status, catalog_ids, source_counts):
             )
             disc = ", ".join(js_str(d) for d in e["disciplines"])
             a('    "%d": { "craftType": "%s", "dataStatus": "recipe", "recipeId": %d, '
-              '"outputCount": %s, "disciplines": [%s], "ingredients": [%s] },' %
+              '"outputCount": %s, "disciplines": [%s], "name": %s, "nameEs": %s, '
+              '"icon": %s, "isMaterial": true, "ingredients": [%s] },' %
               (item_id, e["craftType"], e["recipeId"],
-               json.dumps(e["outputCount"]), disc, ings))
+               json.dumps(e["outputCount"]), disc, js_str(e["name"]),
+               js_str(e["nameEs"]), js_str(e["icon"]), ings))
         else:
-            a('    "%d": { "craftType": "none", "dataStatus": "%s", "ingredients": [] },'
-              % (item_id, e["dataStatus"]))
+            # Las entradas sin receta llevan nombre. Antes salian como
+            # '"30684": { "craftType": "none", "dataStatus": "no_recipe", "ingredients": [] }'
+            # y eran un numero a secas: no se podian buscar ni pintar. El
+            # nombre sale del catalogo, no de la API -- la fuente tiene 0 de
+            # 64, que es justo por lo que no hay receta.
+            a('    "%d": { "craftType": "none", "dataStatus": "%s", "name": %s, '
+              '"nameEs": %s, "icon": %s, "isMaterial": false, "ingredients": [] },' %
+              (item_id, e["dataStatus"], js_str(e["name"]),
+               js_str(e["nameEs"]), js_str(e["icon"])))
     a("  };")
     a("")
     a("  // Devuelve la entrada de un id del catalogo, o null si el id no es del")
@@ -370,7 +483,8 @@ def main():
         print("       El contrato declara ese nombre; si GW2 lo cambio, hay que")
         print("       actualizar PLACEHOLDER_NAME y lo que lo consume, no el filtro.")
 
-    entries, counts, status = build_entries(catalog_ids, recipes)
+    entries, counts, status = build_entries(catalog_ids, recipes, read_catalog())
+    sin_nombre, sin_icon = verify_names(entries)
     js = build_js(entries, counts, status, catalog_ids, source_counts)
 
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
@@ -389,6 +503,14 @@ def main():
     print("   Suma craftType == items: %s (%d)" % (suma == len(catalog_ids), suma))
     if suma != len(catalog_ids):
         raise SystemExit("La suma de craftType no cierra con el catalogo.")
+    print("   Entradas con nombre: %d/%d  (sin nombre: %d)" %
+          (len(catalog_ids) - sin_nombre, len(catalog_ids), sin_nombre))
+    print("   Entradas con icon:  %d/%d  (sin icon: %d)" %
+          (len(catalog_ids) - sin_icon, len(catalog_ids), sin_icon))
+    mats = sum(1 for e in entries.values() if e.get("isMaterial"))
+    print("   isMaterial=true: %d | isMaterial=false: %d  (el 95093 va en false a "
+          "proposito: es el marcador de cuenta, no se puede tener)" %
+          (mats, len(entries) - mats))
 
 
 if __name__ == "__main__":
