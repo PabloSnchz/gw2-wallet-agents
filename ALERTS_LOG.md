@@ -1,3 +1,109 @@
+## ALERT-190 — 5 commits terminados, testeados y fuera de `main`, en ramas que ninguna rama remota alcanzaba
+
+**Fecha:** 2026-10-02 (HB#126)
+**Estado:** CERRADO. Mergeados y pusheados (`fd8e579`).
+
+`origin/main` estaba en `de42a69` mientras el arbol de trabajo tenia 4 commits
+**por delante**, todos con mensajes de 40 lineas que describian verificaciones
+hechas:
+
+| sha | Que era | Rama local |
+|---|---|---|
+| `3520fdc` | el generador de recetas declara su fuente | `feat-hb125-idea57-t2` |
+| `0d498b1` | MERGE del Tramo 2 de Idea 57 | `feat-hb125-idea57-t2` |
+| `0a6c569` | la poda del PO, 6 archivadas | `docs-hb125-poda` |
+| `ad0e353` | la cabecera de `api-gw2.js` que mentia en presente | `docs-hb125-poda` |
+
+`git branch -r --contains <sha>` no devolvia **nada** para ninguno: no estaban en
+ninguna rama remota. Dos worktrees limpios, commits completos, trabajo real.
+
+**Por que importa mas de lo que parece.** Un commit a medio hacer empuja a
+alguien a mirarlo. Un commit terminado, testeado y commiteado **no empuja a
+nadie**: parece que ya esta, asi que nadie lo busca. Si un ciclo murio antes del
+push, el proximo `git worktree prune` se los lleva y el trabajo se pierde sin
+que ningun log diga nada.
+
+**El chequeo es de una linea** y hay que correrlo antes de dar por cerrado el
+ciclo, no cuando ya sospechas:
+
+```
+git branch -r --contains <sha>
+git merge-base --is-ancestor <sha> origin/main
+```
+
+Una salida vacia en el primero es la senal. Ojo: `git log origin/main` **no
+alcanza** para esto, porque `git log` del worktree muestra el HEAD local y uno
+lee de memoria que "ya lo pushee".
+
+---
+
+## ALERT-191 — un cambio de 231 lineas que reescribe el modo principal de un modulo, sin un solo test
+
+**Fecha:** 2026-10-02 (HB#126)
+**Estado:** CERRADO. Test propio con 15 asserts, fase roja verificada.
+
+El paso 5 de la Armeria (la cola de crafteo) estaba **hecho, sin commitear y sin
+test** en el worktree `hb125-ronda`. El plan de Pablo lo pedia, asi que la
+tentacion era commitearlo tal cual.
+
+Un cambio que reescribe el modo principal de un modulo necesita test **aunque
+venga bien pensado**, por dos razones concretas, y las dos se cumplieron:
+
+1. **Sin test no hay forma de saber si rompe otra cosa.** Aplicado sobre
+   `origin/main` limpio, dio **4 FAIL** que nadie habia visto porque nadie lo
+   corrio.
+2. **El test encuentra bugs que el codigo no tiene.** Escribiendolo aparecio
+   uno (ver ALERT-192). El WIP estaba "completo" y aun asi tenia una perdida
+   silenciosa.
+
+**La fase roja importa tanto como el verde.** Contra el archivo sin la cola, el
+test da **14 FAIL de 15**, y el unico pass es COLA-13 (los filtros se
+mantienen), que es exactamente el que debe pasar. Sin ese control, un test que
+da verde porque no esta mirando nada es indistinguible de uno que mide.
+
+**El error propio de este ciclo, que es el mismo riesgo:** la primera version del
+test **abortaba** en COLA-02 con `TypeError: toggleQueue is not a function`, y
+los 13 asserts siguientes nunca se midieron. Un test que deja de medir es peor
+que uno que falla, porque el numero verde miente. Se arreglo con un stub que
+devuelve `{ok:false,reason:'ausente'}` cuando la API no existe.
+
+---
+
+## ALERT-192 — el validador de escritura y el de lectura de la cola no coincidian: items que se perdian solos
+
+**Fecha:** 2026-10-02 (HB#126)
+**Estado:** CERRADO en `ae10e5b`. Con assert propio (COLA-07).
+
+La cola de crafteo tiene dos validadores y no decian lo mismo:
+
+```js
+// ESCRITURA (toggleQueue) — acceptaba el entero O NO:
+if (!isFinite(id) || id <= 0) return { ok:false, reason:'id-invalido' };
+
+// LECTURA (sanitizeQueue) — exigia entero:
+if (!isFinite(n) || n <= 0 || Math.floor(n) !== n) continue;
+```
+
+Consecuencia medida, no teorica: un id fraccionario (`1.5`) **entra vivo a la
+cola, se persiste, y desaparece en la recarga**. El modulo se quita solo un item
+del usuario. Sin error, sin warning, sin entrada de log: el unico rastro seria
+una cola mas corta de lo que el usuario recuerda haber armado.
+
+Lo reporto el test, con el sintoma exacto: `FAIL - COLA-07 ... [q=[1.5]]`.
+
+**Por que lo dejo como alerta y no como anecdote.** Es el modo de fallo mas
+caro de esta familia y el mas facil de repetir: cada funcion que valida entrada
+en el camino de escritura tiene **su propio** criterio, y nada obliga a que
+coincidan con el criterio de lectura. La asercion nueva no prueba que este
+numero este bien — prueba que **los dos caminos rechazan lo mismo**, que es la
+propiedad que faltaba.
+
+Corolario pratico: cuando se agrega una funcion que valida, el test tiene que
+probar **la misma entrada invalida por los dos caminos**. Un solo camino es la
+mitad de la prueba.
+
+---
+
 ## ALERT-189 - un arnés puede dar verde sobre el bug que dice cazar: el del "unknown" mostraba el motivo equivocado
 
 **Fecha:** 2026-10-02 (HB#124)

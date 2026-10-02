@@ -11,6 +11,31 @@
 
 ---
 
+## Ficha de la pieza: la cola de crafteo
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Leyenda Legendaria -> pestaña "Mi progreso". Ahi ahora hay una lista de hasta 5 legendarias: "Cola de crafteo 3/5". Para agregar, tabs a la pestaña "Catálogo" y toca una legendaria (se pinta de morado). Volves a "Mi progreso" y aparece la fila, con dos botones: "Materiales" (abre el modal con lo que te falta) y "Quitar". Las 3 primeras filas tienen borde morado.
+- **Ruta:** `#/account/legendary-armory` (pestaña Mi progreso)
+- **Descripción:** Elegis hasta 5 legendarias y ves, en una pantalla, cuales estas por fabricar y que materiales te faltan de cada una.
+- **Commits:** `ae10e5b`
+- **Rama:** `feat-hb126-cola-crafteo` (mergeada a main)
+- **Si no entra:** "Mi progreso" sigue siendo la grilla de antes (las 206 divididas en desbloqueadas / solo faltantes), con el switch de alcance. El catalogo no cambia. No se rompe nada: es lo que habia hasta ayer.
+- **Si sale mal:** la cola se pierde al recargar, o no acepta la 6ta legendaria. **Medido antes de mergear: 15 asserts propios mas la suite completa (66 archivos, 1701 pass, 0 FAIL), y un id fraccionario que entraba vivo y se perdia en la recarga ya esta corregido.**
+
+### Lo que se CAE con esto, y por que
+
+El switch "Desbloqueadas / Solo faltantes" y el porcentaje "Completado: X / 206"
+desaparecen de "Mi progreso". Es un cambio de direccion **acordado con Pablo**
+(plan de noche, seccion 2): "Mi progreso" ya no divide las 206 legendarias por
+si las tenes, sino que muestra lo que elegiste fabricar. Un filtro de alcance
+sobre una lista que ya no existe seria un boton que no cambia nada.
+
+Los 3 filtros de categoria (Tipo / Gen / Expansion) **se quedan**. Ahora eligen
+que legendarias tenes a mano para meter en la cola.
+
+---
+
 ## Ficha de la pieza: materiales de una legendaria
 
 - **Tipo:** mejora visible

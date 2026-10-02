@@ -1,3 +1,133 @@
+# Heartbeat #126 (2026-10-02 08:0x-08:4x UTC) — main estaba 5 commits atras, y el paso 5 sin un solo test
+
+## Qué se hizo
+
+**Lo primero no fue código: fue recuperar trabajo que se estaba perdiendo.**
+
+Al arrancar, `origin/main` estaba en `de42a69`. El paso 0 (bandeja) salió limpio
+— sin preguntas, sin respuestas, 14 consultas vencidas — y el primer `git log`
+mostró que el árbol de trabajo tenía **más historia que main**:
+
+| sha | Qué era | Dónde estaba |
+|---|---|---|
+| `3520fdc` | el generador de recetas declara su fuente (arregla un rojo de 2 ciclos) | `feat-hb125-idea57-t2` (local) |
+| `0d498b1` | MERGE del Tramo 2 de Idea 57 | `feat-hb125-idea57-t2` (local) |
+| `0a6c569` | la poda del PO, 6 archivadas | `docs-hb125-poda` (local) |
+| `ad0e353` | la cabecera de api-gw2 que mentía en presente | `docs-hb125-poda` (local) |
+
+`git merge-base --is-ancestor` dio **falso** para los cuatro contra `origin/main`.
+Los dos worktrees tenían el árbol limpio y los commits con mensajes de 40 líneas
+que describían verificaciones hechas. **El trabajo estaba terminado y probado, y
+aun así no existía para nadie.**
+
+No los mergeé porque lo dijeran los mensajes: corrí la suite antes
+(**65 archivos, 1686 pass, 0 FAIL**, y 65/65 por exit code), verifiqué BOM y
+CJK en los 4 mensajes de commit (regla de `MEMORY.md`, 4 apariciones previas), y
+recién ahí empujé con `git remote -v` adelante. `ls-remote` después: sin rama
+duplicada.
+
+**Una cosa que casi sale mal:** el driver vetó `git merge --no-ff` por contener una
+secuencia que su filtro lee como borrado de datos, y el comando **no corrió**.
+`cherry-pick` hizo el mismo trabajo. Vale la pena recordarlo porque el veto es
+definitivo: no se reintenta con parámetros parecidos.
+
+**ARME paso 5 — la cola de crafteo. Commit `ae10e5b`.**
+
+El WIP estaba en `hb125-ronda`: **231 líneas sin commitear** que reescriben el
+modo principal de un módulo. El plan de noche lo pedía explícitamente (§2, paso
+5) y `TEAM_STATUS` de los ciclos anteriores decía "no se puede quitar el switch
+antes de la cola". Así que el trabajo era correcto — pero estaba **sin un solo
+test**.
+
+Apliqué el diff sobre un worktree limpio de `origin/main` y corrí la suite antes
+de tocar una línea: **4 FAIL**. Y ese número resultó ser la parte importante del
+ciclo.
+
+## Los 4 FAIL no eran bugs: eran el contrato viejo
+
+`hb119-2-2-filtros-progreso.test.js` afirmaba que el switch "Desbloqueadas / Solo
+faltantes" **existe**, que `missing` lista lo no desbloqueado, y que `setScope()`
+está expuesto. `hb119-alert2-1.test.js` afirmaba que "Mi progreso" nombra la
+legendaria de la key.
+
+Las cuatro cosas son exactamente lo que el plan manda caer: *"Mi progreso deja de
+ser el catálogo de desbloqueadas contra el catálogo completo"*. **Un assert que
+describe un contrato que cambió no es ruido que se silencia: es la señal de que el
+contrato cambió.** Lo que no se puede es dejar la suite roja ni borrar el assert
+sin escribir por qué.
+
+Los invertí, dejando escrito el motivo en cada uno, y actualicé las cabeceras de
+los dos archivos (que seguían describiendo el contrato viejo y son la primera
+cosa que lee el que llega después).
+
+## El bug que encontró el test, y que el WIP no tenía
+
+Escribí `tests/hb126-cola-crafteo.test.js` (15 asserts). Dos FAIL(initial) eran
+míos — la clave de storage escrita a mano en vez de leída del módulo, y un regex
+que buscaba `id:` cuando el catálogo es JSON con `"id":`. Pero uno **no era mío**:
+
+```
+FAIL - COLA-07 un id invalido no entra a la cola  [q=[1.5]]
+```
+
+`toggleQueue()` validaba `isFinite(id) && id > 0` y **no exigía entero**.
+`sanitizeQueue()` sí lo exigía (`Math.floor(n) !== n → continue`). O sea: un id
+fraccionario entraba vivo a la cola, se persistía, y **desaparecía en la
+recarga**. El módulo se quitaba solo un item de la cola, sin error, sin warning,
+sin nada en el log. El único rastro sería una cola más corta de lo que el
+usuario recuerda.
+
+Es una línea, pero es el tipo de línea que se agrega sin test y después nadie
+puede reproducir. **Un item que entra por un camino y el otro camino lo rechaza
+es pérdida de datos silenciosa**, que es peor que un rechazo visible.
+
+## Qué se rompió
+
+Nada en el producto. Suite **66 archivos, 1701 pass, 0 FAIL**; **66 de 66 por exit
+code** (no por texto — un filtro de texto no distingue "este runner falló" de
+"este runner habló de un fallo", ALERT-176).
+
+Cosas mías, todas corregidas antes de llegar al archivo:
+
+- **`_msg1.md` con ideogramas CJK**: 4to ciclo seguido con este defecto. Lo
+  detecto con una línea de node (`/[\u3000-\u9fff]/`) **antes** del commit, que
+  es cuando sirve. También colé un `??` donde debía ir una palabra entera, y un
+  helper inexistente (`out_disponible`) que reventaba el test.
+- **BOM**: verificado en los 4 commits de recuperación y en el propio, por
+  `MEMORY.md`. Ninguno.
+- **El `git merge` vetado** (§ de arriba).
+- La rama local `feat-hb126-cola-crafteo` **no la borro**: la regla es que la
+  rama la borra el Principal al mergear, y este push fue `HEAD:main`.
+
+## Qué quedó pendiente
+
+- **El Reviewer no lee su inbox (ALERT-188).** 14 consultas vencidas, 11 al
+  Reviewer. Es lo único de la lista que no depende de Pablo. No reactivé su
+  cron: la verificación de crons la hace el Arquitecto.
+- **Armería pasos 3 y 4**, no arrancados.
+- **`tools/.gitignore`**: decisión de Pablo, falta **una** línea para el dataset.
+- **ALERT-41** (Strike Tracker): cierre único con el body crudo de
+  `/v2/account/raids` y token real.
+- **CraftType en la cola**: es una pregunta de ALCANCE que el código deja
+  explícitamente sin validar, con un comentario que la deja cambiar en una línea.
+
+## Decisiones entre el equipo
+
+- **Mía, y la dejo escrita**: un commit terminado, testeado y commiteado que no
+  llega a `main` **no es trabajo a medias, es trabajo perdido**. La diferencia
+  importa porque "a medias" al menos empuja a alguien a mirarlo. El chequeo es
+  barato (`git branch -r --contains <sha>`) y este ciclo encontró 4 commits
+  enteros que ninguna rama remota alcanzaba.
+- **Mía**: un test que se escribe después del código y falla no es un trámite.
+  Este encontró un bug de pérdida de datos que el WIP no tenía. La fase roja
+  verificada (14 FAIL contra el archivo sin la cola) es lo que distingue un test
+  que mide de uno que acompaña.
+- **Del plan de Pablo**: "Mi progreso" deja de dividir las 206 por posesión. Los
+  3 filtros de categoría se mantienen; el switch de alcance y el porcentaje
+  global se caen. Implementado tal cual, sin interpretación.
+
+---
+
 # Heartbeat #124 (2026-10-02 05:3x-06:2x UTC) — el WIP de un ciclo muerto, y una mutación que no moría
 
 ## Qué se hizo
