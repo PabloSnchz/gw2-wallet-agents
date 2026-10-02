@@ -113,7 +113,17 @@
   // resultado era un control visible que en "Mi progreso" no hacia nada: se
   // podia tocar "Armas" y la vista no cambiaba. Un control visible que no
   // hace nada es peor que no dibujarlo.
-  var filters = { type: null, generation: null, expansion: null };
+  // `ownership` es el filtro "Tengo / Me faltan" del catalogo (2026-10-02). Se
+  // declara en el estado inicial aunque hoy valga `null`: un filtro sin off
+  // declarado no tiene forma de apagarse y se parece a uno que funciona.
+  //
+  // NO es el switch "Desbloqueadas / Solo faltantes" que se CAyo a proposito
+  // (`hb126-cola-crafteo.test.js`, COLA-11 y COLA-12 siguen afirmando que no
+  // existen `data-scope=` ni `setScope`). Aquel elegia que lista mostrar sobre
+  // una vista que ya no existe; este recorta el catalogo por la MISMA senal que
+  // ya pinta en cada card. Por eso el eje se llama `ownership` y no `scope`:
+  // el nombre sigue siendo parte del contrato, no una etiqueta.
+  var filters = { type: null, generation: null, expansion: null, ownership: null };
 
   // Alcance de "Mi progreso" (punto 2.2). Es estado PROPIO y no un cuarto
   // filtro, porque responde otra pregunta: los tres de arriba eligen "de que
@@ -309,17 +319,42 @@
   // apliquen EXACTAMENTE la misma regla (punto 2.2). Antes estaba embebido en
   // `catalogItems()` y por eso el progreso no lo podia reutilizar sin
   // duplicarlo: duplicar un filtro es como se desincronizan dos filtros.
-  function passesFilters(item) {
+  // El filtro de posesion usa EXACTAMENTE la senal que ya esta en la card:
+  // `owned[id] > 0` es lo que hace que `renderItemCard` pinte el tilde verde en
+  // vez de "PENDING". Si el filtro usara otra cosa, "Tengo" y el tilde
+  // contarian cosas distintas y el usuario veria un boton que no cuadra con lo
+  // que tiene enfrente.
+  //
+  // `ignoreOwnership` existe para `ownershipCounts`: el boton tiene que contar
+  // sobre el subconjunto que YA pasan tipo/gen/exp, y no sobre el que todavia
+  // incluye el propio filtro de posesion.
+  function passesFilters(item, owned, ignoreOwnership) {
     if (!item) return false;
     if (filters.type && item.type !== filters.type) return false;
     if (filters.generation && String(item.generation) !== String(filters.generation)) return false;
     if (filters.expansion && item.expansion !== filters.expansion) return false;
+    if (!ignoreOwnership && filters.ownership) {
+      var laTengo = !!(owned && owned[item.id] > 0);
+      if (filters.ownership === 'tengo' && !laTengo) return false;
+      if (filters.ownership === 'faltan' && laTengo) return false;
+    }
     return true;
   }
 
-  function catalogItems() {
+  // Cuantos hay de cada lado, para lo que imprimen los botones. Los cuenta el
+  // tracker y no el render: el render ya recibio la lista recortada y si los
+  // contara el tendria que reimplementar el filtro para saber el denominador.
+  function ownershipCounts(owned) {
     var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
-    return cat.filter(passesFilters);
+    var base = cat.filter(function (it) { return passesFilters(it, owned, true); });
+    var n = 0;
+    base.forEach(function (it) { if (owned && owned[it.id] > 0) n++; });
+    return { tengo: n, faltan: base.length - n, total: base.length };
+  }
+
+  function catalogItems(owned) {
+    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    return cat.filter(function (it) { return passesFilters(it, owned); });
   }
 
   // Que items muestra "Mi progreso": los que pasan los filtros DE PRIMERO, y
@@ -522,16 +557,8 @@
 
       var q = t.getAttribute('data-lt-queue');
       if (q) {
-        var res = toggleQueue(q);
-        if (!res.ok) {
-          toast(res.reason === 'llena'
-            ? 'La cola de crafteo esta llena (' + QUEUE_MAX + '). Quita una primero.'
-            : 'No se pudo agregar a la cola.', 'warn');
-          return;
-        }
-        toast(res.added
-          ? 'Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').'
-          : 'Quitada de la cola.', res.added ? 'success' : 'info');
+        var res = encolarConAviso(q);
+        if (!res.ok) return;
         pintarModalLegendaria();
         // El contador de la cabecera dice "3/5" y la cola se ve en Mi progreso:
         // sin este repintado el modal queda diciendo la verdad y la pantalla
@@ -667,6 +694,24 @@
   // Delegacion: un solo listener sobre el contenedor, no uno por card. Con
   // 206 cards, un listener por card es 206 closures que se reconstruyen en
   // cada repintado del filtro.
+  // Agregar o quitar de la cola, con el aviso que corresponde. Vive ACÁ y no
+  // duplicado en el boton del modal y el de la card: la accion es una sola y
+  // los dos botones la llaman. Dos copias del aviso son dos lugares donde el
+  // mensaje puede quedar viejo sin que nada lo note.
+  function encolarConAviso(rawId) {
+    var res = toggleQueue(rawId);
+    if (!res.ok) {
+      toast(res.reason === 'llena'
+        ? 'La cola de crafteo esta llena (' + QUEUE_MAX + '). Quita una primero.'
+        : 'No se pudo agregar a la cola.', 'warn');
+      return res;
+    }
+    toast(res.added
+      ? 'Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').'
+      : 'Quitada de la cola.', res.added ? 'success' : 'info');
+    return res;
+  }
+
   function wireItemCards() {
     var content = $('#legendaryModeContent');
     if (!content || content._ltCardsWired) return;
@@ -675,6 +720,21 @@
     content.addEventListener('click', function (e) {
       var target = e.target;
       while (target && target !== content) {
+        if (target.getAttribute) {
+          // El boton de encolar de la card (2026-10-02). Va PRIMERO porque
+          // esta DENTRO de la card: sin este chequeo, el `while` sube del boton
+          // a la card y la abre, y un solo click encolaria y abriria el arbol a
+          // la vez. Es el mismo criterio que usa `wireQueuePanel` con sus dos
+          // botones, y el motivo por el que NO lleva un listener propio: 206
+          // cards con un listener cada una son 206 listeners por repintado.
+          var cq = target.getAttribute('data-card-queue');
+          if (cq) {
+            e.stopPropagation();
+            var res = encolarConAviso(cq);
+            if (res.ok) renderCurrentMode();
+            return;
+          }
+        }
         if (target.classList && target.classList.contains('lt-item-card')) {
           onCardTapped(target.getAttribute('data-id'));
           return;
@@ -787,7 +847,11 @@
     var owned = ownedMap();
 
     if (state.mode === MODES.CATALOG) {
-      var items = catalogItems();
+      var items = catalogItems(owned);
+      // Dos argumentos, como siempre: la firma de `renderFilterBar` y
+      // `renderCatalogGrid` es el CONTRATO de renderers y la vigila
+      // `alert84.t3t4-registro`. Los conteos y la cola llegan por consulta
+      // (`getOwnershipCounts` / `getQueue`), no por un parametro nuevo.
       content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned);
       wireFilterBar();
       wireItemCards();
@@ -835,6 +899,10 @@
         filters.type = null;
         filters.generation = null;
         filters.expansion = null;
+        // Sin esta linea "Limpiar" dejaria "Tengo" puesto: el catalogo
+        // seguiria recortado y el boton, apagado. El usuario aprieta limpiar y
+        // ve que no cambio nada.
+        filters.ownership = null;
         renderCurrentMode();
       }
     });
@@ -1176,6 +1244,11 @@
     // reglas distintas de las 5.
     toggleQueue: toggleQueue,
     getQueue: function () { return state.queue.slice(); },
+    // Cuantos hay de cada lado del filtro de posesion, ya recortados por los
+    // filtros de tipo/gen/exp que esten puestos. Lo consulta
+    // `renderFilterBar` en vez de recibirlo por parametro, para no cambiar la
+    // firma del contrato de renderers (`alert84.t3t4-registro` la mide).
+    getOwnershipCounts: function () { return ownershipCounts(ownedMap()); },
     QUEUE_MAX: QUEUE_MAX,
     closeItemModal: closeItemModal,
     computeMaterials: computeMaterials,

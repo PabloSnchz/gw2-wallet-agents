@@ -180,8 +180,44 @@
         esc(label) + ' (' + count + ')</button>';
     });
 
-    // Clear button (solo si hay filtros activos)
-    var hasActive = filters.type || filters.generation || filters.expansion;
+    // Botones de posesion: "Tengo" / "Me faltan" (2026-10-02).
+  //
+  // Los dos comparten `data-ftype="ownership"`, y ESO es lo que los hace
+  // excluyentes: el toggle generico de `wireFilterBar` escribe `filters[ft]`,
+  // asi que apretar uno sobrescribe al otro. Con dos `data-ftype` distintos los
+  // dos podrian quedar apretados a la vez, y el catalogo mostraria la
+  // interseccion de dos filtros que el usuario nunca pidio.
+  //
+  // Los numeros de "Tengo / Me faltan" los PREGUNTA al tracker, y no llegan por
+  // parametro. `renderFilterBar(filters, catalog)` tiene la firma del contrato
+  // de renderers y esa firma es un contrato con `alert84.t3t4-registro`: leaky
+  // un parametro obliga a cambiar el arnés para agregar un dato. Y contarlos
+  // aca exige reimplementar el predicado de filtros —duplicarlo es como los
+  // dos filtros se desincronicen, que es justo lo que `passesFilters` evita—.
+  // El tracker ya es dependencia de este render: se registra ahi y se leen
+  // filtros y `owned` por `getState()`.
+  var own = { tengo: 0, faltan: 0 };
+  if (root.LegendaryTracker && typeof root.LegendaryTracker.getOwnershipCounts === 'function') {
+    own = root.LegendaryTracker.getOwnershipCounts() || own;
+  }
+  var ownBtn = function (value, label, count, color) {
+    var active = filters.ownership === value;
+    return '<button class="lt-filter-btn ' + (active ? 'active' : '') + '" ' +
+      'data-ftype="ownership" data-fvalue="' + value + '" ' +
+      'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
+      'border:' + (active ? '1px solid ' + color : '1px solid var(--bd-1)') + ';' +
+      'background:' + (active ? color + '26' : 'var(--bg-1)') + ';' +
+      'color:' + (active ? color : 'var(--tx-2)') + ';' +
+      'transition:all 0.15s ease;">' +
+      esc(label) + ' (' + count + ')</button>';
+  };
+  // Verde = el tilde de la card; violeta = lo que queda por hacer. Los mismos
+  // dos estados que ya distinguen "la tengo" de "no la tengo" en la grilla.
+  var ownBtns = ownBtn('tengo', 'Tengo', own.tengo, '#68ff9f') +
+    ownBtn('faltan', 'Me faltan', own.faltan, '#974EFF');
+
+  // Clear button (solo si hay filtros activos)
+    var hasActive = filters.type || filters.generation || filters.expansion || filters.ownership;
     var clearBtn = hasActive ?
       '<button class="lt-filter-clear" data-action="clear-filters" ' +
       'style="padding:4px 12px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
@@ -201,6 +237,10 @@
         '<span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Exp:</span>' +
         expBtns.join('') +
       '</div>' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;">' +
+        '<span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Yo:</span>' +
+        ownBtns +
+      '</div>' +
       clearBtn +
     '</div>';
   }
@@ -208,6 +248,18 @@
   // =======================================================================
   // RENDER: GRID DEL CATÁLOGO (5 COLUMNAS)
   // =======================================================================
+  // La cola se lee UNA vez por grilla y se pasa a cada card. `getQueue()` ya era
+  // parte de la API publica del tracker; la firma de `renderCatalogGrid` queda
+  // como la del contrato.
+  function colaActual() {
+    if (root.LegendaryTracker && typeof root.LegendaryTracker.getQueue === 'function') {
+      return root.LegendaryTracker.getQueue() || [];
+    }
+    return [];
+  }
+
+  // `queue` es la cola de crafteo, y viaja hasta la card para que el boton de
+  // encolar pueda decir EN QUE ESTADO esta sin que el usuario abra el modal.
   function renderCatalogGrid(items, owned) {
     if (!items || items.length === 0) {
       return '<div class="lt-empty-state" style="text-align:center;padding:32px;color:var(--tx-3);">' +
@@ -216,8 +268,9 @@
         '</div>';
     }
 
+    var cola = colaActual();
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, owned, idx);
+      return renderItemCard(item, owned, idx, cola);
     });
 
     return '<div class="lt-catalog-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
@@ -225,7 +278,13 @@
     '</div>';
   }
 
-  function renderItemCard(item, owned, idx) {
+  // `queue` es la cola de crafteo. La vista de progreso (`renderProgress`)
+  // llama a esta funcion con 3 argumentos, asi que el default no es cosmetico:
+  // sin el, un item de la vista de progreso lee `queue.indexOf` de `undefined`
+  // y la vista de progreso deja de pintar entera.
+  function renderItemCard(item, owned, idx, queue) {
+    var cola = queue || [];
+    var enCola = cola.indexOf(Number(item.id)) !== -1;
     var isOwned = !!(owned[item.id] && owned[item.id] > 0);
     var tColor = typeColor(item);
     var eColor = expansionColor(item);
@@ -280,6 +339,28 @@
     // Nombre display (español si existe)
     var displayName = item.nameEs || item.name;
 
+    // Boton de encolar, DENTRO de la card (2026-10-02).
+    //
+    // Va dentro a proposito: la card abre el arbol y el boton encola, asi que
+    // el click del boton tiene que GOLPEAR la card para que no abra el modal al
+    // mismo tiempo. `wireItemCards` lo intercepta antes de llegar a la card.
+    //
+    // El texto corto y el `title` largo no son dos mensajes distintos: el texto
+    // es lo que entra en 5 columnas, y el `title` + `aria-label` son el texto
+    // EXACTO del modal ("Quitar de la cola" / "Agregar a la cola"), que es lo
+    // que el usuario necesita para saber el estado sin abrir nada. Un boton
+    // que solo dice "+ Cola" cuando el item ya esta encolado es un boton que
+    // obliga a abrir el modal para averiguarlo.
+    var textoCola = enCola ? 'Quitar de la cola' : 'Agregar a la cola';
+    var queueBtn = '<div style="margin-top:6px;display:flex;justify-content:flex-end;">' +
+      '<button type="button" class="lt-card-queue-btn" data-card-queue="' + item.id + '" ' +
+      'title="' + textoCola + '" aria-label="' + textoCola + '" ' +
+      'style="padding:4px 10px;border-radius:20px;font-size:0.66rem;font-weight:600;cursor:pointer;' +
+      'white-space:nowrap;border:1px solid ' + (enCola ? '#974EFF' : 'var(--bd-1)') + ';' +
+      'background:' + (enCola ? 'rgba(151,78,255,0.18)' : 'var(--bg-1)') + ';' +
+      'color:' + (enCola ? '#974EFF' : 'var(--tx-3)') + ';">' +
+      (enCola ? '✓ En la cola' : '+ Cola') + '</button></div>';
+
     return '<div class="card lt-item-card" data-id="' + item.id + '" data-type="' + esc(item.type) + '" ' +
       'style="position:relative;cursor:pointer;padding:10px;border-radius:12px;' +
       'border-left:3px solid #974EFF;' +
@@ -298,6 +379,7 @@
         '</div>' +
       '</div>' +
       (tpBadge ? '<div style="margin-top:6px;">' + tpBadge + '</div>' : '') +
+      queueBtn +
       '</div>';
   }
 
@@ -357,8 +439,9 @@
         '</div>';
     }
 
+    var cola = colaActual();
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, state.owned, idx);
+      return renderItemCard(item, state.owned, idx, cola);
     });
 
     return '<div class="lt-progress-summary" style="margin-bottom:16px;">' +

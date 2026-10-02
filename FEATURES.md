@@ -365,3 +365,18 @@ escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuen
 - **Si no entra:** el modal "Materiales" vuelve a la lista de materiales de antes, sin árbol ni totales. La cola de crafteo y el catálogo no cambian. No se rompe.
 - **Si sale mal:** el modal del item es el que falla. El resto de la Leyenda Legendaria (catálogo, cola, Mi progreso) no depende de él: los 3 call sites están guardados y sin la vista el tracker degrada honestamente en vez de romper.
 - **Métrica:** 386 líneas de arnés nuevo (`tests/armeria-ui-arbol.test.js`, 56 pass / 0 FAIL) + 238 de la cola (`tests/armeria-cola.test.js`, 40/0). Sin el fix de `9f3b097` el arnés de la vista da 49 pass / **7 FAIL**. Suite completa 4145/0 sobre 77 archivos.
+
+
+## Ficha de la pieza: filtro Tengo/Me faltan y boton de encolar en la card
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Leyenda Legendaria -> pestana "Catalogo" -> (1) en la barra de filtros, a la derecha, el grupo "Yo:" con dos botones, "Tengo (N)" y "Me faltan (N)"; se aprietan uno por vez y se combinan con Tipo/Gen/Exp. (2) Abajo a la derecha de cada card, un boton "+ Cola"; si el item ya esta encolado dice "+ En la cola" en violeta, sin abrir el modal.
+- **Ruta:** `#/account/legendary-armory`
+- **Descripción:** Filtra el catalogo por si la legendaria la tenes o te falta, y encola sin abrir el arbol.
+- **Commits:** `PENDIENTE`
+- **Rama:** `feat-hb144-armeria-filtros-y-boton-cola`
+- **Métrica:** 42 aserciones en `tests/armeria-filtros-cola-card.test.js`. Contra `origin/main` sin el cambio da 8 pass / 21 FAIL (exit 1); con el cambio 42/0 (exit 0). Suite completa 2119 aserciones / 0 FAIL en 81 de 81 archivos.
+- **Si no entra:** no se pierde nada de lo que ya funciona. El catalogo queda como estaba: sin los dos botones de filtro y sin el boton de encolar en la card. Para encolar habria que abrir el modal (el boton de la cabecera), como ahora.
+- **Si sale mal:** lo unico que puede quedar raro es la barra de filtro: los conteos "Tengo (N)" / "Me faltan (N)" se calculan sobre los filtros de Tipo/Gen/Exp que esten puestos, asi que si el numero no cuadra con lo que se ve, es el conteo, no el recorte. El recorte en si usa exactamente el mismo `owned[id] > 0` que el tilde verde de la card, asi que el boton y el tilde no pueden discrepar.
+
