@@ -93,10 +93,20 @@
  *   para decidir si la pista de permiso tiene sentido. Los tres guards que
  *   existian usaban dos idiomas: los de la v2.24.0/v2.24.1 decian "forma no
  *   soportada (...)" y el de luck decia "La API no devolvio un array of...".
- *   Los 5 wrappers que faltan migrar entran con el idioma del contrato, y si
+ *   Los wrappers que faltan migrar entran con el idioma del contrato, y si
  *   el de luck quedara fuera, el primer consumidor que filtre por esa cadena
  *   falla en silencio. No se unifico con un helper exportado: eso no evita el
  *   acoplamiento por texto, lo esconde.
+ *   v2.29.0: la cifra que estaba aqui ("5 wrappers que faltan migrar") nunca
+ *   coincidio con el codigo, y no es un numero que envejecio: nacio viejo. En
+ *   `a3d0b5b`, el commit que lo escribio, la marca `Migracion = Tramo 2` ya
+ *   estaba en mas sitios de los que la frase decia. El numero de hoy lo cuenta
+ *   `tests/idea57t5-cuenta-medida.test.js`, que compara lo que dice esta
+ *   cabecera con lo que encuentra en el archivo: si el Tramo 2 migra uno, el
+ *   test baja en FAIL y esta cabecera hay que actualizarlo con el porque.
+ *   Por eso la frase de arriba no lleva cifra: la que va aca la verifica el
+ *   test, no un lector. Acertar el numero no era la tarea; que no se pueda
+ *   mentir sin que algo lo note, si.
  *   Test: tests/idea57t4-idioma-contrato.test.js (14 aserciones; 2 FAIL contra
  *   el archivo sin el fix, verificado con `git stash push` + `pop`). Recorre
  *   todos los guards `Array.isArray` del archivo: un wrapper nuevo cae en el
@@ -1171,7 +1181,18 @@
               // `out` se arma por `concat` y un lote caido no puede correr a
               // los demas. El costo es que un fallo de forma de UN lote se ve
               // como un item sin precio, sin distinguirlo de "no hay precio".
-              // Migracion = Tramo 2 de la Idea 57, y es la unica de las nueve
+              // v2.29.0: el "nueve" de la version anterior nunca fue un conteo
+              // de sitios sino de MENCIONES: la marca vivia en comentarios
+              // inline y en JSDoc, y varios JSDoc eran el mismo sitio que ya
+              // contaba su inline. Los sitios reales de hoy los cuenta
+              // `tests/idea57t5-cuenta-medida.test.js`.
+              //
+              // NOTA DE ORDEN, porque romperlo rompe el test: la linea de
+              // abajo, la que dice "Migracion = Tramo 2", tiene que quedar
+              // pegada a este `Array.isArray` (la ventana del detector son 6
+              // lineas). Una nota de por vida entre las dos hace que el sitio
+              // deje de contarse y el conteo baje solo.
+              // Migracion = Tramo 2 de la Idea 57, y es la unica de las cuatro
               // cuya decision requiere tocar el `catch` tambien, no solo la
               // guarda: por eso necesita el veredicto del Reviewer.
               var prices = Array.isArray(data) ? data : [];
