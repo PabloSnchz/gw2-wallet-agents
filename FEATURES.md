@@ -325,3 +325,28 @@ escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuen
 - **Métrica:** el camino del Gist pasa de 0 puntos de retorno a 1. El del archivo ya
   tenía el suyo desde HB#104 (leer antes de preguntar); este era el hermano que faltaba.
 
+
+## Arnés de la escena 2 (solo Strikes) — la precondición de T14/T15
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** — (no cambia la pantalla; es un test)
+- **Ruta:** —
+- **Descripción:** test que verifica que entrando por la pestaña Strikes los
+  botones funcionan solos, aunque la pareja de Raids ni exista en la pantalla.
+- **Commits:** `d12ab8b`
+- **Rama:** `hb136-escena2`
+- **Si no entra:** no se rompe nada visible. Lo que se pierde es la red de
+  seguridad: T14/T15 tocan el cableado de estos mismos botones, y el Reviewer
+  puso como condición previa, dos veces, asertar esta escena antes de tocar.
+  Sin el arnés, ese trabajo se hace sin red, y el defecto que se evita (botones
+  sin listener: se hace click y no pasa nada) es del tipo que no se nota hasta
+  que Pablo está en esa pestaña.
+- **Si sale mal:** nada: es un archivo de test nuevo, no toca producto, y no
+  reemplaza ni solapa con `hb125-t12b-escritor-comun.test.js` (ese registra
+  siempre los 4 botones, y por eso no puede ver esta escena; el aserto N2 deja
+  escrita esa diferencia).
+- **Métrica:** 23 aserciones. Con el producto mutado a guard "todo o nada"
+  da 16/7 FAIL (exit 1) y con el producto sano 23/0 (exit 0): el arnés
+  detecta la regresión en las dos direcciones. La suite completa queda en
+  1840/0 sobre 72 archivos (la base sin este archivo es 1817/71).

@@ -84,3 +84,14 @@ _(vací)_
   Ademas `d06c8d7`: si das Cancelar, antes ponia "sincronizada" y recargaba.
 - **Ficha:** `FEATURES.md`, "Foto antes de sobrescribir la configuración desde la nube"
 
+
+
+## HB#136 · arnes de la escena 2 (solo Strikes)
+
+- **Rama:** `hb136-escena2`  ·  **Commit:** `d12ab8b`
+- **Por que entra:** es la precondicion que el Reviewer pidio DOS veces (filas 118 y
+  125) antes de tocar T14/T15, y no existia. El arnes de T12-b no la puede ver porque
+  su escenario registra siempre los 4 botones.
+- **Que hay que mirar:** nada en pantalla. No es una feature para probar, es la red
+  debajo de dos que si van a venir.
+- **Ficha:** `FEATURES.md`, "Arnes de la escena 2 (solo Strikes)".

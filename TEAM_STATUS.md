@@ -1,6 +1,6 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 18:3x UTC (HB#135) por el Principal.
+> **Actualizado:** 2026-10-02 19:0x UTC (HB#136) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `ef49964` (verificado con
 > `ls-remote`). **ALERT-201 CERRADA**: este log ya no va atrasado.
 > **El clon de trabajo ESTABA atrasado** 4 commits (`067754f`) y con 2
@@ -62,47 +62,56 @@
 | **`importFromData` / `applyImportData`** (ALERT-179) | Esperando veredicto del Reviewer desde el HB#121. |
 | **7 del patron B** (HB#118) | 7 modulos leen el `<select>` sin fallback a la capa. |
 | **`getCommerceListings`** | Degrada a proposito, declarado. **No es deuda.** |
-| **Arnes de la "escena 2"** (solo Strikes) | **Pedido por el Reviewer** en T12-b. Es la
-|  | precondicion de T14/T15: hoy esa escena ANDA, y el test que la fija es lo |
-|  | que distingue (3a) de (3b). Falta medir si ya tiene cobertura. |
+| **Arnes de la "escena 2"** (solo Strikes) | **CERRADO este ciclo.** `d12ab8b`, 23/0, fase roja 16/7. |
 
-## Completado en este ciclo (HB#135)
+## Completado en este ciclo (HB#136)
 
-- **RESCATE: el working tree del clon principal tenia 130 lineas YA MERGEADAS
-  revertidas.** `js/api-gw2.js` y `tests/idea57.forma-contracts.test.js`
-  estaban en un estado del ~30/09: sin los 3 guards de FORMA, sin `lsHas`, sin
-  `__expiredDrops`, y con la cabecera que HB#125 ya habia corregido. El INDEX
-  era identico a `origin/main`: solo el disco estaba atras.
-  `git restore --worktree` + `git merge --ff-only origin/main`. Copia del estado
-  viejo en `%TEMP%\hb135-rescate\`. **ALERT-202.**
-- **MEDIDO por que nadie lo vio: el censo mira al reves.** `main` degrada en
-  **7** sitios, el revertido en **10**, y el aserto 4 de
-  `idea57.forma-contracts.test.js` es `>= 7` con la nota "si es a proposito,
-  actualiza este numero": **subir el recuento lo deja en verde.**
-- **PERO la suite SI lo ve**, y esto corrige mi propio diagnostico:
-  `idea57-t2-forma-propaga.test.js` da **8 FAIL** contra el revert y 21/0
-  contra `main`. **Mi afirmacion de que el Tramo 2 se aplico sin test de
-  comportamiento era FALSA.** Escribi un test redundante (61 asserts, 36 FAIL
-  en rojo) y lo **borre**: duplicar un arnes es el transversal #4.
-  **El defecto real no es del codigo ni del arnes: el clon de trabajo divergio
-  de `main` y nadie lo nota porque nadie corre la suite contra el clon.**
-  Detector barato para el proximo ciclo: `git diff origin/main --stat` sobre
-  los archivos trackeados del clon.
-- **3 veredictos del Reviewer recogidos** (paso 1, todos `finished`): T13
-  (fila 125), T14+T15 (fila 121) y T12-b (fila 120). **Los tres YA estaban
-  anotados** en `COMMS_LOG.md` desde ciclos anteriores: me los lei tarde.
-  Tercera vez del mismo modo de fallo (ALERT-127).
-- **Correccion del Reviewer a una premisa mia**: el guard "todo o nada" de
-  `wireViewToggle` **no** deja hoy los dos strips mudos -- es **riesgo futuro**
-  del plan, y la escena "solo Strikes" **funciona hoy**.
-- **Paso 3: 0 propuestas nuevas.** `po/hb99-dashboard` sigue en `4fe6162`,
-  identico al HB#132. `ls-remote` = 15 refs (confirmado). Controles del
-  `hb116-union-po.mjs` en 0 (orden roto 0, negativo 0), 40 secciones.
-  **No se abrio ronda** porque la rama no se movio: el conteo no puede
-  cambiar sin que el PO escriba.
-- **Suite completa: 72 archivos, 1872 aserciones, 0 FAIL**, por exit code,
-  sobre worktree limpio de `origin/main`.
+- **Arnes de la "escena 2" (solo Strikes): CERRADO.** Era la precondicion que el
+  Reviewer pidio dos veces (filas 118 y 125) antes de tocar T14/T15, y **no
+  existia**. Primero la MEDI, como era debido: el arnes de T12-b
+  (`hb125-t12b-escritor-comun.test.js:130-137`) registra **siempre los 4
+  botones**, y con los 4 presentes el guard "por pareja" y el guard "todo o
+  nada" se comportan igual -- o sea que **no puede distinguir el fix de su
+  ausencia**. Por eso el aserto N2 deja escrita esa indistinguibilidad: es lo
+  que impide que alguien lo descarte como redundante.
+- **La escena, medida en el codigo real y no inferida:** `index.html` tiene
+  **0 matches** de los 4 ids (se inyectan), `raid-tracker.js:1244` y
+  `strike-tracker.js:558` los crean en sus `ensurePanelContent()`, y
+  `router.js:1600` en `#/account/strikes` llama a `StrikeTracker.activate()`
+  **sin tocar** `RaidTracker.activate()`. O sea: el par de Raids no llega a
+  existir, y por eso el guard por pareja (y no el de "todo o nada") es el que
+  evita 4 botones sin listener.
+- **Fase roja sobre el PRODUCTO, no sobre el arnes** (mutando
+  `raid-tracker.js` con el guard "todo o nada" y restaurando en `finally`):
+  **16 pass / 7 FAIL, exit 1**. Con el producto sano: **23/0, exit 0**. El
+  arnes detecta la regresion en las dos direcciones.
+- **Correccion a una afirmacion MIA que estuvo instalada 2 ciclos:** afirme
+  que el guard "todo o nada" dejaba hoy los dos strips mudos. Es un **riesgo
+  futuro** del plan, no un defecto actual: el codigo tiene el guard por pareja
+  (`raid-tracker.js:1078`) y la escena funciona. El Reviewer ya me lo habia
+  corregido y lolei tarde (ALERT-127, tercera vez del mismo modo de fallo).
+- **CORRECCION A UNA CIFRA QUE VENIA ANOTADA: la suite NO da 1872.** Medido
+  con el archivo nuevo apartado: base = **1817 aserciones / 71 archivos**, con
+  el archivo = **1840 / 72** (+23, exacto). El 1872 de los ciclos anteriores
+  venia de un worktree con el clon divergido (ALERT-202). El `FetchError` que
+  aparece en la salida es la **salida esperada** que afirma
+  `idea84-leyenda-pipeline.test.js:330`, no un fallo.
+- **PASO 0 limpio:** `inbox` vacio, `replies` vacio. 20 consultas vencidas en el
+  canal de archivos, todas de ciclos anteriores.
+- **PASO 1:** los 3 veredictos (120, 121, 125) **ya estaban leidos y anotados**
+  desde el HB#135. No hay ninguno nuevo sin recoger. La fila 147/148
+  (ALERT-179) sigue "Esperando": el cron del Reviewer esta **apagado por
+  diseno** y verificar crons no me corresponde.
+- **PASO 3: 0 propuestas, no se abrio ronda.** `po/hb99-dashboard` sigue en
+  `4fe6162` (ronda 33), identico al HB#132 y al HB#135. `ls-remote` = 15 refs
+  `po/*`. Sin ronda nueva no se manda nada al Reviewer.
+- **Estado del clon:** limpio y alineado con `origin/main` = `a5edad6` al abrir
+  el ciclo (`git diff origin/main --stat` vacio). Sin rescate este vez.
 
+## Pendiente que requiere a Pablo
+
+- Nada nuevo este ciclo. Sigue en pie lo de ALERT-194 (arbol de fabricacion) y
+  la decision de si promover lo que este en `PROMOTIONS.md`.
 ## Alertas del ciclo
 
 | | |

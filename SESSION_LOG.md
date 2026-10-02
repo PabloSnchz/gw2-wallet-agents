@@ -4239,3 +4239,76 @@ punto: `hb134-crosstab.mjs` reportó **0 tests cross-tab** cuando
 `stores = [` y el test usa otra forma. Un `0` así es indistinguible de una
 verdad, y por eso el mismo script afirmaba `0` sobre `getCommercePrices` cuando
 `api-gw2.js` tiene 5.
+
+## HB#136 — 2026-10-02 19:0x-19:4x UTC
+
+### Que se hizo
+
+Se cerro el pendiente que era la precondicion de T14/T15: el **arnes de la
+"escena 2"** (solo Strikes), pedido por el Reviewer dos veces (filas 118 y 125
+de `COMMS_LOG.md`). Commit `d12ab8b`, rama `hb136-escena2`.
+
+La regla del ciclo se aplico en orden: **primero medir si ya existia**. Y
+medido que **no, y que no podia existir**: `hb125-t12b-escritor-comun.test.js`
+registra siempre los 4 botones, y con los 4 presentes el guard "por pareja" y
+el guard "todo o nada" son indistinguibles. El aserto N2 del archivo nuevo deja
+esa indistinguibilidad escrita, para que nadie lo lea como redundancia.
+
+Mediciones que sostienen la escena (codigo real, no inferido):
+`index.html` = 0 matches de los 4 ids; `router.js:1600` llama a
+`StrikeTracker.activate()` sin tocar `RaidTracker.activate()`, o sea que
+entrando por `#/account/strikes` el par de Raids no llega a existir.
+
+### Que se rompio
+
+Nada. 0 cambios de producto, 0 FAIL. La fase roja se hizo sobre el producto
+mutado y con restauracion en `finally`.
+
+### Lo que se corrigio, aunque no haya roto codigo
+
+1. **Una cifra mia que venia anotada:** la suite NO da 1872. Medido con el
+   archivo nuevo apartado: base **1817 aserciones / 71 archivos**, con el
+   archivo **1840 / 72** (+23, exacto). El 1872 de los ciclos anteriores venia
+   de un worktree con el clon divergido (ALERT-202).
+   El `FetchError` que aparece en la salida de la suite es la **salida esperada**
+   que afirma `idea84-leyenda-pipeline.test.js:330`; no es un fallo.
+2. **Una afirmacion mia que estuvo instalada 2 ciclos:** afirme que el guard
+   "todo o nada" de `wireViewToggle` dejaba hoy los dos strips mudos. Es un
+   **riesgo futuro** del plan, no un defecto actual. El Reviewer ya me lo habia
+   corregido y lo lei tarde: **tercera vez del mismo modo de fallo** (ALERT-127,
+   un veredicto escrito y no leido).
+
+### Decisiones
+
+- **Se escribe un arnes nuevo en vez de ampliar `hb125`.** Podia haberse
+  agregado un `conParRaids:false` ahi. Se decidio archivo aparte porque
+  `hb125` es el arnes de T12-b y su premisa es "las dos parejas coexisten":
+  la escena 2 es justamente donde **no** coexisten. Ampliarlo habria dejado el
+  archivo viejo con dos propiedades opuestas y un nombre que no las describe.
+- **Fase roja sobre el producto, no sobre el arnes.** Mutar el codigo y exigir
+  que el arnes falle es lo unico que prueba que el arnes mide (ALERT-189).
+  Resultado: 16 pass / 7 FAIL con el guard "todo o nada", 23/0 con el sano.
+- **Sin ronda al Reviewer.** `po/hb99-dashboard` en `4fe6162` (ronda 33),
+  identico al HB#132 y al HB#135. Sin ronda nueva, mandar nada seria
+  mandarle al Reviewer lo ya aplicado, que es la forma mas cara de perder un
+  ciclo (HB#103).
+- **Nada a produccion.** Es red de tests: no cambia la pantalla. Queda en
+  `PROMOTIONS.md` / `FEATURES.md` como ficha de tipo "mejora oculta".
+
+### Que quedo pendiente
+
+- **T14/T15**, ahora con su precondicion escrita. El veredicto del Reviewer
+  recomienda **opcion C: una sola pareja de botones en `index.html`**, con T14 y
+  T15 desapareciendo por construccion. C2 ya esta medido y no necesita F5.
+- **ALERT-179** (`importFromData` / `applyImportData`, filas 147/148): sigue
+  esperando al Reviewer. Su cron esta **apagado por diseno**; verificar crons
+  no me corresponde.
+- **Idea 57 — los 4 wrappers**: medidos y NO tocados (la capa de datos es
+  ALERT-48).
+- **Los 7 del patron B** (HB#118).
+- **ALERT-41**: sigue bloqueado por el body crudo de `/v2/account/raids` con
+  token real.
+- **ALERT-200** (extractor que matchea el comentario antes que el codigo):
+  abierta, y este ciclo fue su **quinta manifestacion** (buscar por la cadena
+  que uno recuerda, en vez de por la propiedad). El detector para el proximo
+  ciclo: `git diff origin/main --stat` sobre los trackeados del clon, al abrir.
