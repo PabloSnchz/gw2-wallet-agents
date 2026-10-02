@@ -1,0 +1,72 @@
+﻿docs(po): ronda 38 — T20: el boton de "Sincronizar desde la nube" dice 0 de las 7 cosas que su hermano dice las 7
+
+Medido sobre origin/main @ 4fe38bc, con git fetch primero.
+
+Metodo: 38a ronda de web research y la 38a en 38 sin una feature nueva (Reddit
+403, gw2treasures/feeds/new_items 404, wiki 200). La pregunta no fue "que feature
+falta" sino una que sale de leer mi propia ronda 37: esa ronda describio que el
+backup sostiene las 27 cuentas, y la ronda 22 ya habia descubierto que el camino
+del Gist es una de las 3 puertas por donde entra una API key. Entonces: que pasa
+si aprieto "Sincronizar desde la nube"?
+
+El hallazgo: los dos botones de restauracion ejecutan las MISMAS 7 escrituras
+(applyImportData, settings-manager.js:483) y dicen cosas distintas.
+  - archivo  settings-manager.js:593  -> las 7 categorias, con la cifra
+  - Gist     gist-sync.js:451        -> 0 categorias, 0 cifras
+La capacidad ya esta escrita 60 lineas antes, en el mismo archivo. No hay que
+descubrir nada para arreglarlo: hay que copiar.
+
+Arnes _hb119_arnes.js, downloadAndSync() verbatim de origin/main con deps
+inyectadas, CONTROL incluido:
+  CONTROL 27/27 ACEPTA   27 -> 27  perdidas 0
+  CASO 1  27/12 ACEPTA   27 -> 12  perdidas 15   <- la escena
+  CASO 2  27/12 CANCELA  27 -> 27  perdidas 0
+  CASO 3  3/27 ACEPTA    3 -> 27  perdidas -24
+El CONTROL discrimina: el overwrite no es una suposicion, se ejecuto. Y el
+confirm no dice cifra ni fecha en los 4 casos.
+
+Lo que lo hace serio: todo lo demas del export (pins, favoritos, home nodes) se
+regenera con un click. La lista de apiKeys no. Una API key de GW2 no se vuelve a
+descargar de ArenaNet. Es el unico elemento del backup sin segunda copia.
+
+El dato para arreglarlo existe y no lo lee nadie: exportedAt se escribe
+(settings-manager.js:209) y tiene 0 lecturas en todo el repo, 0 en gist-sync.js.
+Y el otro ya esta en pantalla: updateGistStatus() pinta "Ultima sincronizacion"
+en index.html:1235, a centimetros del boton.
+
+Conexion con el equipo: HB#104 si lo rozo. El comentario de applyImportData
+(settings-manager.js:475) dice que el camino del Gist "siempre fue correcto"
+porque confirma antes de importar. Eso es cierto sobre el ORDEN, y es por ahi
+que se dejo. El problema no es el orden: es que "el confirm esta en el lugar
+correcto" no es "el confirm dice la verdad", y las dos se confundieron. La regla
+la escribio el propio equipo en la v1.0.4 del mismo archivo (:15) y se aplico al
+boton de liberar cache; no se aplico al de borrar cuentas.
+
+Tramos: T20-c verde 30 min (foto local antes de sobrescribir; el unico que evita
+la perdida en vez de contarla) > T20-a verde 15 min, 3 lineas (las 7 categorias
++ keyCount) > T20-b amarillo ~1 h (la direccion).
+
+Lo que NO afirmo: (a) que Pablo pierda cuentas; el backup es manual, 0 setInterval,
+no hay auto-sync. Lo que afirmo es que el boton no dice con que decision se esta
+tomando. (b) que el boton de archivo este bien: dice la cifra pero no la
+direccion. (c) No abro idea sobre el token en claro del Gist: es del Principal.
+
+Cierre de estado: T19-c CERRADA y mergeada (d32e054, HB#118), anotada en
+PROMOTIONS.md. T19-a sigue abierta, verificada: inventory-hub.js no escucha
+gn:tokenchange. Mi ronda 37 estaba sin mergear; la traje con cherry-pick limpio
+sobre esta rama.
+
+Dos errores de metodo, ambos antes de reportar: (a) se me colaron cuatro
+ideogramas CJK en el comentario de un script y sobraba un replace no-op; los vi
+leyendo el archivo que acababa de escribir y corregi antes de ejecutar, y el scan
+los confirma en 0. (b) Casi reporto que downloadAndSync no tiene try y por lo
+tanto truena mudo: el catch esta en index.html:1381, en el boton. Lo vi al leer
+el call site.
+
+Ronda 38 de 38 sin aporte externo. gw2treasures vivo por otra ruta (la home,
+HTTP 200): 78.425 items, 8.381 logros, 10.635 skins, 4.821 skills.
+
+Arranque desde un worktree propio y limpio (wt-r38, rama po/hb119-dashboard desde
+origin/main). No se toco el clon compartido ni produccion.
+
+Co-Authored-By: QwenPaw <noreply@qwenpaw.ai>

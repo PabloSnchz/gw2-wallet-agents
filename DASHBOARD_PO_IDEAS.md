@@ -1,3 +1,100 @@
+## ACTUALIZACION 2026-10-02 02:00 UTC — Heartbeat PO ronda 38 — T20: el botón de "Sincronizar desde la nube" dice 0 de las 7 cosas que su botón hermano dice las 7
+
+> **Espejo de la ronda 38 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
+
+### El hallazgo, en una tabla
+
+Los **dos** botones de restauración ejecutan las **mismas 7 escrituras**
+(`applyImportData`, `settings-manager.js:483`) y **dicen cosas distintas**:
+
+| botón | qué dice el `confirm` |
+|---|---|
+| **archivo** · `settings-manager.js:593` | `'Se sobrescribirán:\n• API Keys (' + keyCount + ' claves)\n• Wizard's Vault…'` — **las 7 categorías, con la cifra** |
+| **Gist** · `gist-sync.js:451` | `'Esto sobrescribirá tu configuración local.\n\n¿Continuar?'` — **0 categorías, 0 cifras** |
+
+La capacidad ya está escrita **60 líneas antes, en el mismo archivo**. No hay que
+descubrir nada para arreglarlo: hay que copiar.
+
+### Arnés `_hb119_arnes.js` — `downloadAndSync()` verbatim, deps inyectadas
+
+```
+CONTROL  remoto==local (27/27), ACEPTA    27 -> 27   perdidas 0
+CASO 1   remoto más viejo (27/12), ACEPTA 27 -> 12   perdidas 15   <- la escena
+CASO 2   remoto más viejo (27/12), CANCELA 27 -> 27   perdidas 0
+CASO 3   remoto más NUEVO (3/27), ACEPTA   3 -> 27   perdidas -24
+
+el confirm menciona una cifra?  false  (los 4)
+el confirm menciona una fecha?   false  (los 4)
+```
+
+El CONTROL discrimina: 27/27 deja 27 y 27/12 deja 12. El overwrite **no es una
+suposición mía, se ejecutó**.
+
+### Lo que lo hace serio: es el único elemento del backup sin segunda copia
+
+Todo lo demás del export (pins de wallet, favoritos, home nodes) se regenera con
+un click. **La lista de `apiKeys` no**: una API key de GW2 no se vuelve a
+descargar de la página de ArenaNet. Si no la guardaste, hay que crear otra.
+
+### El dato para arreglarlo existe y no lo lee nadie
+
+`exportData()` escribe `exportedAt` (`settings-manager.js:209`). **Cero lecturas
+en todo el repo** (0 ocurrencias fuera de sus 2 escrituras, 0 en `gist-sync.js`).
+Y el otro ya está **en pantalla**: `updateGistStatus()` pinta *"Última
+sincronización: \<fecha\>"* (`index.html:1235`), en el mismo modal, a centímetros
+del botón.
+
+### Por qué el equipo no lo vio — y sí lo vio a medias
+
+HB#104 lo rozó. El comentario de `applyImportData` (`settings-manager.js:475`)
+dice que *"el camino del Gist siempre fue correcto"* porque confirma antes de
+importar. **Eso es cierto sobre el ORDEN** — y es por ahí que se dejó. El
+problema de esta ronda no es el orden: es que **"el confirm está en el lugar
+correcto" no es "el confirm dice la verdad"**. La regla escrita por el propio
+equipo está en la v1.0.4 del mismo archivo (`:15`), y se aplicó al botón de
+**liberar caché**. No se aplicó al de **borrar cuentas**.
+
+### Tramos
+
+- **T20-a** 🟢 15 min, 3 líneas — el confirm del Gist dice las mismas 7 categorías
+  + `keyCount`. Precedente literal: `settings-manager.js:593`.
+- **T20-b** 🟡 ~1 h — **la dirección**: si el remoto es más viejo, el confirm lo
+  dice y nombra la diferencia. Sin esto, T20-a le muestra "12 claves" a Pablo y
+  aun así no puede saber si son sus 12 o las 15 que le faltan.
+- **T20-c** 🟢 30 min — **una foto local antes de sobrescribir**, con
+  `exportData()`, que ya sabe armar el JSON. Es el principio de HB#104 aplicado
+  al otro camino. **Sin el, el error de T20-b no tiene red.**
+
+**T20-c es el único de los 3 que evita la pérdida en vez de contarla.**
+
+### Prioridades (ronda 38)
+
+| # | tramo | 🟢/🟡 | tiempo | nota |
+|---|---|---|---|---|
+| 1 | **T19-a** | 🟢 | 20 min | `gn:tokenchange` no llega al InventoryHub. El único que pido sin esperar |
+| 2 | **T20-a** | 🟢 | 15 min | el confirm del Gist dice las 7 categorías + la cifra |
+| 3 | **T20-c** | 🟢 | 30 min | foto local antes de sobrescribir. **El que evita la pérdida** |
+| 4 | **T20-b** | 🟡 | ~1 h | la dirección. Va con T20-a, no la reemplaza |
+| 5 | **T17-b** | 🟢 | 15 min | **decisión de Pablo:** `#/account/strikes` es una ruta sin botón que la alcance |
+| 6 | T17-a | 🟢 | 20 min | el hash se actualiza al cambiar de vista |
+| 7 | T18-a | 🟡 | 30 min | `showPanel()` y `setActiveView()` no se pisan |
+| 8 | Opción (c) de T14/T15 | 🟡 | ~1 h | una sola pareja de botones. Cierra T14, T15, T16 y media T18 |
+| 9 | T14-b | 🟢 | 20 min | test de unicidad, después de (c) |
+| 10 | T11 | 🟢 | — | `accounts-panel.js` `state.view` sin persistir |
+
+**Cerrada esta ronda:** **T19-c** ✅ mergeada (`d32e054`, HB#118) — los 4 lectores
+de la cuenta seleccionada pasan por la capa `Storage`. Anotada en `PROMOTIONS.md`.
+**Sigue abierta:** T19-a (el token muerto), T19-b (espera tu decisión de producto).
+
+Sin novedad externa: **38 de 38 rondas** con Reddit 403 y
+`gw2treasures/feeds/new_items` 404. gw2treasures **vivo** por otra ruta (la home,
+HTTP 200): **78.425 ítems / 8.381 logros / 10.635 skins / 4.821 skills**. Lo que
+salió de T20 salió de **preguntarme qué pasa si aprieto el botón de mi propia ronda
+37**, no de ninguna búsqueda.
+
+---
+
+
 ## ACTUALIZACION 2026-10-02 00:40 UTC — Heartbeat PO ronda 37 — T19: la app tiene un mecanismo de multi-pestaña que funciona, cubre 1 clave, y la clave que no cubre es la que Pablo está mirando.
 
 > **Espejo de la ronda 37 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.

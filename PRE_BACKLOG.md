@@ -22,6 +22,120 @@ no es "¿qué feature falta?":
 
 ---
 
+## Heartbeat PO 2026-10-02 02:00 UTC - T20: el boton de "Sincronizar desde la nube" dice 0 de las 7 cosas que el boton hermano dice las 7
+
+**Metodo:** 38a ronda de web research y **la 38a en 38 sin una feature nueva**
+(Reddit 403, `gw2treasures/feeds/new_items` 404, wiki 200). La pregunta **no** fue
+"que feature falta" sino una que sale de leer mi propia ronda 37: esa ronda
+describio que el backup es lo que sostiene las 27 cuentas, y en la 22 ya habia
+descubierto que el camino del Gist es **una de las 3 puertas** por donde entra
+una API key. Entonces: **que pasa si aprieto "Sincronizar desde la nube"?**
+
+Arnes `_hb119_arnes.js`, con `downloadAndSync()` **verbatim** de
+`origin/main @ 4fe38bc` y deps inyectadas.
+
+### El hallazgo
+
+Los **dos** botones de restauracion hacen **exactamente lo mismo** y **dicen cosas
+distintas**:
+
+| | boton | que dice el confirm |
+|---|---|---|
+| **archivo** | `settings-manager.js:593` | `'Se sobrescribiran:\n• API Keys (' + keyCount + ' claves)\n• Wizard\'s Vault...'` - **las 7 categorias, con la cifra** |
+| **Gist** | `gist-sync.js:451` | `'Esto sobrescribira tu configuracion local.\n\n¿Continuar?'` - **0 categorias, 0 cifras** |
+
+Los dos terminan en `applyImportData()` (`settings-manager.js:483`), o sea las
+mismas 7 escrituras. **La capacidad ya existe y esta escrita 60 lineas antes, en
+el mismo archivo.** No hay que descubrir nada para arreglarlo: hay que copiar.
+
+Y hay un dato que hace que esto sea un hallazgo y no una observacion de estilo:
+**el boton de Gist es el que puede perder las cuentas, y las cuentas no se
+recuperan.** Una API key de GW2 no se descarga de la pagina de ArenaNet otra
+vez: si no la guardaste, hay que crear una nueva. Todo lo demas del export (pins
+de wallet, favoritos, home nodes) se regenera con un click. **La lista de
+`apiKeys` es el unico elemento del backup que no tiene segunda copia.**
+
+### El arnes, con CONTROL que discrimina
+
+```
+CONTROL  remoto==local (27/27), ACEPTA   27 -> 27   perdidas 0
+CASO 1   remoto mas viejo (27/12), ACEPTA 27 -> 12   perdidas 15   <- la escena
+CASO 2   remoto mas viejo (27/12), CANCELA 27 -> 27  perdidas 0
+CASO 3   remoto mas NUEVO (3/27), ACEPTA  3 -> 27   perdidas -24
+
+el confirm menciona una cifra?  false  (los 4 casos)
+el confirm menciona una fecha?   false  (los 4 casos)
+```
+
+El CONTROL discrimina: 27/27 deja 27 y 27/12 deja 12, o sea el overwrite no es
+una suposicion mia, se ejecuto. Y en **los 4** el confirm no dice ni un numero
+ni una fecha.
+
+### El dato para arreglarlo ya esta escrito, y no lo lee nadie
+
+`exportData()` escribe `exportedAt: new Date().toISOString()`
+(`settings-manager.js:209`). **Cero lecturas en todo el repo:** `exportedAt` = 0
+ocurrencias fuera de sus 2 escrituras, y 0 dentro de `gist-sync.js`. El
+timestamp de la foto remota existe en el archivo y se descarta.
+
+Y el otro ya esta **en pantalla**: `updateGistStatus()` pinta
+*"Ultima sincronizacion: \<fecha\>"* (`index.html:1235`), en el mismo modal, a
+centimetros del boton que sobreescribe. `gist.updated_at` se lee una vez
+(`gist-sync.js:456`) y solo para el `return`.
+
+### Por que el equipo no lo vio (y por que importa)
+
+HB#104 si lo vio, pero de otra cosa. El comentario de `applyImportData`
+(`settings-manager.js:475`) dice textual:
+
+> *"Por que el camino del Gist no lo tenia: gist-sync.js:451 confirma y :452
+> importa, o sea el ahi siempre fue correcto. Solo el de archivo estaba
+> invertido, y por eso es un descuido y no una decision."*
+
+Eso es cierto **sobre el ORDEN**, y es por ahi que se dejo. El problema de esta
+ronda no es el orden: es que **"el confirm esta en el lugar correcto" no es
+"el confirm dice la verdad"**, y las dos cosas se confundieron. El mismo archivo
+tiene la regla escrita en la v1.0.4 (`:15`): un `confirm()` tiene que decir la
+cifra real, no una enumeracion que se pudre. Se aplico al boton de **liberar
+cache**. No se aplico al de **borrar cuentas**.
+
+### Tramos
+
+- **T20-a (verde, 15 min, 3 lineas):** el confirm del Gist dice las mismas 7
+  categorias + `keyCount`, calcualo con `configData.data.apiKeys.list.length`
+  que ya esta en la mano, dos lineas antes del `confirm`. Precedente literal:
+  `settings-manager.js:593`. Sin tocar `settings-manager.js`.
+- **T20-b (amarillo, ~1 h):** **la direccion**. Si `exportedAt` del remoto es mas
+  viejo que el ultimo cambio local, el confirm lo dice y nombra la diferencia
+  ("el remoto es del 20/09 y tiene 12 cuentas; tenes 27"). Sin esto, T20-a le
+  muestra a Pablo "12 claves" y aun asi no puede saber si son sus 12 o las 15
+  que le faltan. Este es el tramo que de verdad salva las cuentas: T20-a solo
+  hace el boton honesto, T20-b hace la decision informada.
+- **T20-c (verde, 30 min):** **una foto local antes de sobrescribir.**
+  `exportData()` ya sabe armar el JSON; escribirlo en `localStorage` con un
+  timestamp antes del `confirm` convierte un restore en reversible. Es el
+  principio que HB#104 establecio ("cancelar era indistinguible de aceptar, y el
+  backup anterior ya no existia") aplicado al otro camino. Sin el, el error de
+  T20-b no tiene red: si Pablo acepta por error, las 15 cuentas se fueron.
+
+**T20-c es el unico de los 3 que evita la perdida en vez de contarla.**
+
+### Lo que NO afirmo
+
+1. **No afirmo que Pablo pierda cuentas.** Es el escenario: depende de que el Gist
+   este mas viejo que el local, y el backup es manual (0 `setInterval` en
+   `gist-sync.js` y `index.html`: **no hay auto-sync**, verificado). Lo que
+   afirmo es que **el boton no dice con queDecision se esta tomando**, y que el
+   dato para decirlo esta escrito y sin leer.
+2. **No afirmo que el boton de archivo este bien.** Dice la cifra y las
+   categorias, pero tampoco dice la direccion: T20-b sirve para los dos.
+3. **No abro idea sobre el cifrado del Gist.** El token va en claro al Gist
+   (lo revise el PO en 2026-09-28 y quedo anotado en el backlog como "tokens
+   sin encriptar en gist-sync.js, amarillo"). Es tema del Principal, no mio.
+
+---
+---
+
 ## 🔴 T19 — el filtro del handler es de 1 clave, y el dominio que escribe son 2
 
 **Censo, medido sobre los 46 módulos de `js/`:**
