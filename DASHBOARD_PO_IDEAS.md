@@ -1843,7 +1843,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO auditó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
@@ -2123,3 +2123,57 @@ Medido con `git show <rev>:index.html` y conteo de líneas, sobre las 3 revision
 
 ---
 
+---
+
+## ⟱ Heartbeat PO — ronda 42 (HB#132, 2026-10-02) — PAUSA: podado, y el podado encontró un endpoint que no existe
+
+**Control de carga:** conteo sobre `origin/main` @ **`1b6b930`**, `findstr /r /c:"^- \[ \]" BACKLOG.md` → **5 items abiertos** → **MODO PAUSA** (4-7): no se agregan ideas, la corrida es podado. Las rondas 39-41 ya llevaron el número de 23 a 5.
+
+⚠️ **La primera medición casi fue sobre el árbol equivocado.** El clon de `gw2-dev` que uso está en `docs-hb113-logs` @ `067754f`, **30+ commits atras y con 75 cambios ajenos sin commitear**. Contando ahí salen **20 items**, de los cuales 15 ya estaban podados en `main`: un conteo sobre el clon da **4 veces el número real** y hace creer que hay cola para llenar. Es la regla de la ronda 37 con el número al revés.
+
+### Poda 1 — WvW Borderlands: 🚩 **el endpoint no existe (404)**
+
+La fila pedía "~6-8h, Nov 10 deadline" y afirmaba *"la Bóveda tiene WvW objectives"*.
+
+| medición | resultado |
+|---|---|
+| `/v2/wvw/borderlands` | **404**, body vacío |
+| `/v2/wvw/objectives?ids=all` | **200**, 178 objetivos, **ninguno de Borderlands** |
+| tipos de esos 178 | Camp 42, Tower 39, Ruins 30, Keep 24, Spawn 24, Generic 9, Resource 6, Mercenary 3, Castle 1 |
+| `map_type` de la muestra | `RedHome` / `BlueHome` (WvW_home) |
+| `git grep -n wvw origin/main -- js/` | 0 hits que no sean filtro de modo del WV |
+
+**No hay ni el endpoint ni los datos.** Y lo de *"la Bóveda tiene WvW objectives"* es falso en el sentido útil: lo que hay es un **filtro de modo** sobre el Wizard's Vault (`wv-objectives-dashboard.js:244` ordena `pve 0 / pvp 1 / wvw 2`). El único WvW real es `characters.js:95/505` (`/v2/wvw/ranks`, público, para el nombre del rango). Es la clase ALERT-41 al revés: allá el endpoint existe y no trae lo esperado; **acá el endpoint directamente no existe**.
+
+**Lo que sobrevive:** renderizar los 178 objetivos públicos (se bajan **sin token**). Es idea nueva → **no entra en esta corrida**, el control de carga está en PAUSA.
+
+**Por qué se poda y no se archiva:** un item que promete 6-8h sobre un endpoint en 404 es *trabajo que no existe con la etiqueta de trabajo que no existe*. Si vuelve, la pregunta previa es una llamada: `curl /v2/wvw/borderlands`.
+
+### Poda 2 — Idea 57: de los 4 sitios que quedan, **1 es trabajo real**
+
+El arnés `tests/idea57.forma-contracts.test.js` corre **14 pass / 0 FAIL**: **7 sitios degradan por forma**, 3 declarados "a propósito" (`fetchBatchWithRepair` ×2, `getCommerceListings`), quedan **4**.
+
+Pregunta nueva, y no era *"¿cuántos degradan?"* sino **"migrar el wrapper cambia algo que Pablo VE?"**. Arnés propio (`_hb132_arnes.js`, CONTROL 4/4) cruzando *la UI ya muestra el fallo* × *el catch de la capa ya propaga*:
+
+| wrapper | UI ya lo muestra | catch propaga | migrar cambia algo |
+|---|---|---|---|
+| `getCommerceTransactionsBuys` | sí (`buysStatus='error'`) | sí | **NO — robustez** |
+| `getCommerceTransactionsSells` | sí (`sellsStatus='error'`) | sí | **NO — robustez** |
+| `getCommerceDelivery` | sí (`deliveryStatus='error'`) | sí | **NO — robustez** |
+| `getCommercePrices` | **NO** | **NO** | **SÍ — trabajo real** |
+
+Los 3 degradan en una ruta **cubierta 2 veces**: migrarlos no cambia una celda que Pablo vea. **`getCommercePrices` sí**: sus 2 call sites (`converter-modal.js:462`, `inventory-dashboard.js:600`) hacen `await` sin estado de error, y la capa no propaga ni el catch (por diseño: `out` se arma con `concat`, un lote caído no puede correr a los demás). En pantalla queda **el ítem sin precio, indistinguible de "no tiene precio en el TP"** — el mismo fallo de la Idea 47 que ya pagó caro la columna Suerte.
+
+**Lo que queda abierto:** 1 wrapper propaga + sus 2 call sites distinguen *"no se pudo leer"* de *"no tiene"*, con el patrón ya escrito 3 veces en el mismo archivo. Las 3 de robustez → **revisar 2026-11-15**.
+
+### Dos errores míos, ambos antes de reportar
+
+1. **El arnés v1 dio un hecho FALSO**: "getCommerceDelivery sin catch". Lo tiene, y propaga (`throw error`). Mi extractor cortaba el cuerpo con `'\n  function '` y se comió el `catch`. Lo detecté porque **ya había leído ese código a mano 3 tool calls antes** — si no lo hubiera leído, lo reportaba. Rehecho en v2 con un CONTROL explícito.
+2. **La v1 preguntaba "¿el call site tiene `try`?" y esa no es la pregunta.** El `try` no es cobertura: lo que importa es si el fallo llega a la pantalla. La v2 lo pregunta bien.
+
+**Un objetivo (`%` en cmd)**: `curl -w "...:%%{http_code}"` salió literalmente `%{http_code}` y un `-o nul` con dos URLs imprimió la etiqueta dos veces. Una medición de red que **no da número** no es medición.
+
+**Reglas que salen:**
+1. *Contar sobre el clon de trabajo da 4 veces el número real.* El conteo de carga es la **única** medición que hay que hacer sobre `origin/main`, y es la que más fácil se hace mal porque el clon está a mano y `origin` hay que ir a buscarlo.
+2. *Un item con un estimado grande es una afirmación sobre la fuente de datos, y hay que verificarla antes de podarlo o de creerlo.* "6-8h" y "Nov 10 deadline" son promesas; un 404 las desmiente a las dos.
+3. *"Migrar el wrapper" y "el usuario ve algo distinto" son dos preguntas distintas, y solo la segunda es producto.* 3 de 4 sitios eran robustez en una ruta ya cubierta dos veces.
