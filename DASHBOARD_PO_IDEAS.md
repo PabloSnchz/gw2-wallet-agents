@@ -1,5 +1,66 @@
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
+## ⟱ Heartbeat PO — ronda 43 (HB#142, 2026-10-02) — PAUSA: podado, y **la poda de la ronda 42 estaba FALSA**
+
+**Control de carga:** `BACKLOG.md` sobre `origin/main` @ **`12907ef`** → **5 items `- [ ]`**, los 5 de sangría 0 → **MODO PAUSA** (4-7): no se traen ideas, la corrida es podado. **Sin items escondidos**: la sección *"Pendientes que el control de carga no contaba"* ya no aporta ninguno (sus 3 están `[x]`).
+
+### 🔴 Corrección a la ronda 42: `/v2/wvw/objectives` **sí** tiene los Borderlands, y con nombre
+
+La ronda 42 podó *"WvW Borderlands"* con dos afirmaciones: **"el endpoint no existe (404)"** y **"178 objetivos, ninguno de Borderlands"**. La primera es cierta y la segunda es **falsa** — y las dos juntas sostienen la poda.
+
+| lo que la ronda 42 escribió | lo que dice el mismo endpoint |
+|---|---|
+| `/v2/wvw/objectives?ids=all` → *"178 objetivos, ninguno de Borderlands"* | **200**, **64 664 B**, y **178 de 178 tienen `name`**. `map_type`: **RedHome 42, GreenHome 42, BlueHome 42**, Center 28, EdgeOfTheMists 24. **Cero de otro mapa.** |
+| *"el endpoint no existe"* | `/v2/wvw/borderlands` sí da 404 — **pero `/v2/wvw/objectives` es el endpoint del dato y da 200** |
+
+**Cómo se produjo el "ninguno":** mirando `/v2/wvw/objectives` **sin `ids=all`**, que devuelve **strings** crudos (`"1099-99"`). Un string no tiene `map_type`, así que el filtro "cuáles son de Borderlands" no tenía nada que mirar. Con `?ids=all` el endpoint devuelve los objetos:
+
+```
+{"id":"1099-99","name":"Laboratorio de Hamm","type":"Camp","map_type":"RedHome",
+ "map_id":1099,"upgrade_id":6,"marker":"https://render.guildwars2.com/.../102532.png",
+ "chat_link":["&DGMAAABLBAAA"]}
+{"id":"1143-99","name":"Laboratorio de Zakk",...,"map_type":"BlueHome","map_id":1143,...}
+{"id":"1102-99","name":"Laboratorio de Lesh",...,"map_type":"GreenHome","map_id":1102,...}
+```
+
+**Y la fila de 6-8h era una promesa sobre mantener datos a mano que NO hay que mantener:**
+
+| campo | cobertura | qué habilita |
+|---|---|---|
+| `name` | **178/178** | el nombre oficial viene en la respuesta — no hay que sourcear de la wiki |
+| `chat_link` | **178/178** | compartir el objetivo con un clic — el entregable real de un tracker |
+| `marker` | 151/178 | icono listo (URL de render) |
+| `coord` | 97/178 (el resto `label_coord`) | coordenadas de mapa: render posible **sin** Tile Service |
+| `upgrade_id` | **54 valores** (1-57, faltan 12 y 43) | cruza con `/v2/wvw/upgrades` |
+
+**El deadline "Nov 10" tampoco sale de ninguna parte.** Lo único que la API publica sobre rotación de borderlands es `/v2/wvw/timers/teamAssignment` — **`Scope: none`**, público, sin token — y hoy devuelve `{"na":"2026-10-03T02:00:00Z","eu":"2026-11-06T18:00:00Z"}`. `/v2/wvw/timers/lockout` → `{"na":"2026-09-29T07:59:00Z","eu":"2026-11-03T07:59:00Z"}`. **El único deadline verificable es 6 de noviembre (EU).**
+
+**Estado medido:** la app usa **0 de 21 rutas `/v2/wvw/*`** salvo `/v2/wvw/ranks` (`characters.js:505`), y **no dibuja mapas** (`tile|maprender|canvas` → 0; el único `map` es un link a `maps.gw2.io`, `meta.js:538`). **Corrección extra:** de los 8 `map_id`, solo **5 de 8** resuelven contra `/v2/maps` (1099, 95, 96, 38, 968); **3 no existen** (94, 1102, 1143), confirmado contra los **1086** mapas de `?ids=all`. O sea: **`map_id` no es confiable para el título del mapa, `map_type` sí** — está en cada objetivo.
+
+**Decisión:** la fila **vuelve al backlog como 🟢**, no como 6-8h. El estimado venía de "hay que mantener los nombres" y los nombres vienen en el payload. Es el patrón de `wv-objectives-dashboard.js`, que ya existe. **No pido nada de esto ahora** (PAUSA): es para cuando baje de 3.
+
+### Poda 2 — Idea 57: el arnés dice 7 y son **6** ocurrencias
+
+`git show origin/main:js/api-gw2.js` + grep de `Array.isArray(data) ? data : []` → **6 en código** (`610, 957, 1001, 1077, 1129, 1177`) + **1 en comentario** (`126`). Dos son deliberadas y documentadas (`610` = `fetchBatchWithRepair`, helper de lote; `1129` = `getCommerceListings`, catálogo global, Idea 47). **Quedan 4 reales** — los mismos 4 que la ronda 42 identificó y que la fila nombra uno por uno. **La fila sigue ABIERTA por trabajo real**; el número que hay que corregir es el de la cabecera, que todavía dice "las nueve".
+
+### Poda 3 — ALERT-41: **NO se poda**, y el número de la fila está mal
+
+La fila dice *"los **15** ids de `STRIKES_BY_EXPANSION`"*. **Medido hoy contra la API viva:** la constante declara **6 expansiones y 16 strikes**, y los **16 dan `NO EXISTE`** contra `/v2/raids?ids=all` (200, 6 raids, **30 eventos** — los mismos 30, `{id, type}` y nada más, lo que confirma ALERT-89). **No se poda porque el bloqueador es una llamada de 30 segundos de Pablo, no trabajo del equipo.**
+
+**Por qué esta no entra en la regla de "un item que depende de una decisión de producto no es cola de trabajo":** la ronda 41 archivó Homestead e Idea 63 T3 por eso, y el criterio era correcto ahí — la pregunta era *"¿qué quiere Pablo?"*. Acá la pregunta es *"¿qué devuelve la API?"*. **Una llamada de Pablo responde esta; una decisión de Pablo no.** Archivar un item bloqueado por un dato obtainable esconde el único camino de salida.
+
+### Tres errores míos (los tres antes de reportar)
+
+1. **`?ids=all` no lo usé en la primera pasada.** Pregunté a secas, recibí strings, y escribí *"178 ids opacos, ese es el corazón del estimado de 6-8h"*. **Estaba a punto de repetir como usuario la conclusión de la ronda 42.** La contramedida: si el id es opaco sin expandir, expandilo — ahí estaban los `name`.
+2. **El conteo de prefijos dio 8 mapas y solo 5 resolvieron.** Sin imprimir el total junto al parcial, *"5 de 8"* se lee como "la API tiene 5".
+3. **`findstr` no expande `%{http_code}`** (2ª vez en el repo). Los códigos salieron de `curl -w` en comando aparte.
+
+### Reglas que salen
+1. **Un endpoint que devuelve strings a secas y objetos con `?ids=all` es el mismo endpoint con dos respuestas, y la segunda tiene el dato.** *"Ninguno de Borderlands" salió de un filtro aplicado a strings que no tienen `map_type`.*
+2. **Un deadline que no sale de la API no es un deadline.** "Nov 10" no está en ningún endpoint; el verificable es `teamAssignment` (público, sin token).
+3. **"Bloqueado por un dato" y "bloqueado por una decisión" son filas distintas.** La primera se deja abierta: la respuesta existe y solo falta que alguien la pida.
+
+
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
 > **10 items abiertos** en `BACKLOG.md` @ `origin/main` `32926dd` = **≥8 = MODO PODA**.
 > En MODO PODA la corrida entera es podar: **no se investiga y no se traen ideas.**
