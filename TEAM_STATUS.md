@@ -1,3 +1,94 @@
+# TEAM_STATUS - Heartbeat #132 (2026-10-02 11:5x-12:0x UTC)
+
+**Corto:** cierre del plan de noche. **Corte de las 12:00 UTC alcanzado: no se
+arranco nada nuevo.** Dos cosas se corrigieron antes de cerrar, y las dos son
+del mismo tipo: **un numero que se leia de un lugar que no era el codigo.**
+
+1. **La suite daba 53 archivos en el clon principal y 68 en `origin/main`.** Los
+   dos runs en verde, los dos con el mismo runner y el mismo codigo. La razon:
+   el working tree del clon principal esta en la rama `docs-hb113-logs`, **19
+   commits atras**, y su `index` tiene `api-gw2.js` con el contenido de
+   `origin/main` mientras el archivo en disco tiene una version **vieja** que
+   perduio el Tramo E. Verificado por hash: **`index` == `origin/main`, disco !=
+   ambos.** Un runner que recorre `tests/` sobre ese disco mide un repo que no
+   existe.
+2. **`TEAM_STATUS.md` estaba 19 heartbeats atras y `SESSION_LOG.md` 42.** No es
+   un forgetting: los ultimos ciclos escribieron solo `COMMS_LOG.md`.
+
+## Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **Code-Reviewer** | T12-b (alcance) | **Veredicto leido y Decision tomada** (HB#131). **Sin nada en vuelo ahora.** |
+| **PO** | Ronda 42 | **Sin novedades.** La rama `po/hb99-dashboard` no se movio: sigue en `4fe6162` (ronda 33). |
+| **Documentador** | - | Sin tarea (regla de no-fallback vigente). |
+| **Pablo** | ALERT-41 | **BLOQUEADO**, unico item que necesita un token real suyo. |
+
+## El numero del paso 3, y por que NO se abrio ronda
+
+Conteo con el criterio del PO (la seccion trae `### Tramos` y ninguna linea
+dice `aplicada`/`cerrada`): **4 CUENTA sobre 22 secciones**, control negativo
+imposible = 0. Las 4 son **rondas viejas** y **las 4 ya estan aplicadas**,
+verificadas una por una contra `origin/main`:
+
+| Ronda | Que | Verificacion |
+|---|---|---|
+| 33 | T12 | `9c93300` ancestro = **SI** |
+| 19 | IDEA 64 | **`NO esta en el BACKLOG`** (ver abajo) |
+| 16 | IDEA 63 | `eb69fb3` ancestro = **SI** |
+| s/f | Idea 50 | `46b2d7f` ancestro = **SI** |
+
+**0 nuevas. No se manda nada al Reviewer.** Mandarle trabajo ya hecho es la
+forma mas cara de perder un ciclo, y por eso el conteo se verifica antes de
+escalar.
+
+**Una correccion al conteo de los ciclos previos:** HB#131 conto **6 CUENTA
+sobre "rondas 16-34"** y verifico 6 una por una. Hoy el mismo archivo da **4**.
+La razon es que HB#131 conto sobre un archivo que se leyo con otro criterio, no
+que el PO haya hecho marche atras: la rama esta en el **mismo** `4fe6162`. **El
+numero de un conteo es una propiedad del SCRIPT que conto, no del archivo que
+ conto.** Es la misma clase que el `53` vs `68` de la suite.
+
+## Lo que se detecto y NO se toco: el clon principal esta a medias
+
+`git status` del clon `gw2-dev` (NO el worktree de trabajo): **2 `MM`** y **75
+untracked**.
+
+    js/api-gw2.js                     MM
+    tests/idea57.forma-contracts.test.js  MM
+
+Medido, no supuesto:
+
+- `HEAD` = `067754f` en la rama `docs-hb113-logs`.
+- El **index** de `api-gw2.js` tiene hash **identico a `origin/main`**.
+- El **disco** tiene una version distinta, y es la **vieja**: `lsHas` = 3 en
+  `origin/main` y en el index, **0 en disco**. `expiredDrops` = 4 / 4 / **0**.
+
+O sea: **el Tramo E (mergeado en `f4e35e4`) esta ausente del archivo en disco.**
+Si alguien commitea desde ahi, revierte el fix.
+
+**NO lo toco y NO lo commiteo.** Es el clon que la regla de dos clones declara
+"no es un lugar de trabajo", y `docs-hb113-logs` no es un nombre de rama de
+trabajo: es un estado de index a medio aplicar. Restaurarlo es una operacion
+destructiva sobre trabajo de otro ciclo, y **no hay forma de saber cual de los
+dos lados es el que se quiso dejar.**
+
+## Estado de propuestas
+
+**0 al Reviewer.** Sin ronda nueva del PO, y sin nada propio que reportar este
+ciclo (cierre de logs, sin codigo de producto).
+
+## Pendiente del proximo ciclo
+
+1. **T12-b: el codigo.** Opcion **(3a)** ya decidida, con **las 3 condiciones en
+   un MISMO commit** (sin la 1 es regresion; sin la 3 no cablea). Fase roja +
+   las 3 aserciones, y despues suite completa.
+2. **El clon principal de `gw2-dev` esta a medias** (arriba). No hacer push
+   desde ahi nunca; el worktree `wt-hb132` es el metodo que funciono.
+3. **ALERT-41**: la unica llamada que Pablo tiene que hacer con su token real.
+
+---
+
 # TEAM_STATUS - Heartbeat #131 (2026-10-02 11:3x-11:5x UTC)
 
 **Corto:** el PASO 1 devolvio un veredicto del Reviewer que llevaba **dos ciclos sin

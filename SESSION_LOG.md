@@ -1,3 +1,99 @@
+## HB#132 — 2026-10-02 (11:5x–12:0x UTC) — corte de la noche: un runner verde sobre un repo que no existe, y el clon principal a medias
+
+### Que se hizo
+
+**Cierre de ciclo. Ningun commit de codigo de producto**, porque se alcanzo el
+corte de las 12:00 UTC del plan de noche. Lo que si se hizo: PASO 0, PASO 1,
+PASO 3, suite completa desde `origin/main`, y los logs.
+
+### El hallazgo del ciclo: "53 archivos, 1347 pass, 0 FAIL" era un repo que no existe
+
+El runner del repo (`tools/hb105-suite.cjs`) dio, en el clon principal:
+
+    archivos: 53 | pass: 1347 | FAIL: 0 | sin veredicto: 0
+
+Reconstruido el runner **por exit code** (ALERT-172: el runner del repo no
+puede fallar; ALERT-176: un filtro de texto no distingue "este runner fallo" de
+"este runner hablo de un fallo"), el mismo run da **53/53 exit 0** en el mismo
+directorio. Los dos verdes, el mismo codigo, el mismo runner rebuilt. O sea el
+numero no estaba en disputa: **estaba midiendo otra cosa.**
+
+Corrido el mismo runner en un **worktree fresco desde `origin/main`**:
+
+    archivos: 68 | exit 0: 68 | exit != 0: 0
+
+**La diferencia son 15 archivos de test, y estan en `origin/main`.** Verificado:
+`git ls-files tests/*.test.js` = **53** en el clon principal contra **68** en el
+worktree. Los 15 que faltan son los de la Armeria y la ronda 119-126
+(`hb119-*`, `hb121-*`, `hb122-contrato-recatas`, `idea50e.cache-expiry-purge`,
+`armeria-*`).
+
+**POR QUE, y es lo que hace que esto no sea un bug de counting:** el clon
+principal esta en la rama `docs-hb113-logs`, **19 commits atras**, y su working
+tree **no es un checkout limpio de esa rama**. `git status` da:
+
+    MM js/api-gw2.js
+    MM tests/idea57.forma-contracts.test.js
+
+y medido por hash:
+
+| | `api-gw2.js` | `lsHas` | `expiredDrops` |
+|---|---|---|---|
+| `origin/main` | `4C2CB572...` | 3 | 4 |
+| **index** local | `4C2CB572...` (**igual**) | 3 | 4 |
+| **disco** | `969522F4...` (distinto) | **0** | **0** |
+
+O sea: **el index tiene el Tramo E y el disco no.** El fix mergeado en `f4e35e4`
+esta ausente del archivo en disco. Un runner que recorre `tests/` sobre ese
+directorio no esta midiendo el repo: esta midiendo el estado a medias de un
+ciclo que no llego a terminar.
+
+**REGLA, y generaliza la que ya existe:** *un conteo es una propiedad del
+SCRIPT que conto y del DIRECTORIO que recorrio, no del repo.* Ya esta escrito
+dos veces en este repo con dos pretextos distintos (ALERT-72/P4: el runner
+parseaba 20 de 27 y el script paralelo daba otro numero; ALERT-78: el total de
+suite sin alcance declarado). Esta es la tercera forma: **no es que el numero
+este mal, es que el numero es cierto y el denominador no es el repo.**
+
+### El paso 3, y una correccion a un conteo mio anterior
+
+`po/hb99-dashboard` **no se movio**: sigue en `4fe6162` (ronda 33). Conteo con
+el criterio del PO: **4 CUENTA / 22 secciones**, control negativo imposible = 0.
+Las 4 verificadas una por una contra `origin/main`: T12 (`9c93300` ancestro SI),
+IDEA 63 (`eb69fb3` ancestro SI), Idea 50 (`46b2d7f` ancestro SI), **IDEA 64 no
+esta en el BACKLOG**.
+
+**HB#131 conto 6 sobre el mismo archivo.** No es que el PO haya hecho marche
+atras: es la misma rama, mismo commit. **El 6 era el numero de MI script, y el 4
+es el de otro.** Se entrega el 4 con su control negativo, no el 6 que se leyo
+antes.
+
+### Lo que NO se hizo, y por que
+
+- **T12-b: no se escribio el codigo.** Es lo primero del proximo ciclo. La
+  opcion (3a) quedo **medida y decidida** en el HB#131, con las 3 condiciones en
+  un mismo commit. Escribirla ahora seria empezar un trabajo que no llega a
+  terminar antes del corte, y el corte existe para que eso no pase.
+- **No se toco el clon principal.** Es el clon que la regla de dos clones
+  declara "no es un lugar de trabajo". Ademas **no hay forma de saber cual de
+  los dos lados del `MM` es el que se quiso dejar** (index = `origin/main`,
+  disco = version vieja): restaurar es una operacion destructiva sobre trabajo
+  de otro ciclo. Queda anotado en `TEAM_STATUS.md` para Pablo.
+- **No se abrio ronda con el PO.** 0 propuestas nuevas, y las 4 que hay ya estan
+  aplicadas.
+
+### Verificaciones del ciclo
+
+- Suite por exit code desde `origin/main` @ `7d45e83`: **68 archivos, 68 exit 0,
+  0 caidas.**
+- `origin/main` = `7d45e83`. Worktree fresco `wt-hb132`, nunca desde el clon
+  principal.
+- BOM: `TEAM_STATUS.md` 0, `COMMS_LOG.md` 0. CJK: **0** en lo escrito (2
+  ideogramas se colaron al escribir y los agarro el detector antes del commit;
+  van 2 ciclos seguidos que esto se resuelve antes y no despues).
+
+---
+
 ## HB#130 — 2026-10-02 (11:30–12:1x UTC)
 
 ### Qué se hizo

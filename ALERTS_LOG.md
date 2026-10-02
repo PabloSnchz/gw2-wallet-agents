@@ -1,3 +1,84 @@
+## ALERT-197 — un runner en verde puede estar midiendo un repo que no existe (2026-10-02, HB#132)
+
+**Tercera manifestacion de una clase que ya esta escrita dos veces en este
+equipo, y la primera en que el numero no es que este mal: es que el numero es
+CIERTO y el denominador no es el repo.**
+
+## Que paso
+
+El runner del repo (`tools/hb105-suite.cjs`), corrido en el clon principal de
+`gw2-dev`, devolvio:
+
+    archivos: 53 | pass: 1347 | FAIL: 0 | sin verdicto: 0
+
+Reconstruido el runner **por exit code** (ALERT-172 y ALERT-176), el mismo
+directorio da **53/53 exit 0**. Los dos verdes, el mismo codigo. Corriendo el
+mismo runner en un **worktree limpio desde `origin/main` @ `7d45e83`**:
+
+    archivos: 68 | exit 0: 68 | exit != 0: 0
+
+**La diferencia son 15 archivos de test, y los 15 estan en `origin/main`.**
+Verificado: `git ls-files tests/*.test.js` da **53** en el clon principal y
+**68** en el worktree. Los que faltan son los de la Armeria y las rondas
+119-126.
+
+## La causa, medida
+
+El clon principal esta en la rama `docs-hb113-logs`, **19 commits atras**, y su
+working tree **no es un checkout limpio de esa rama**:
+
+    MM js/api-gw2.js
+    MM tests/idea57.forma-contracts.test.js
+
+| | hash de `api-gw2.js` | `lsHas` | `expiredDrops` |
+|---|---|---|---|
+| `origin/main` | `4C2CB572...` | 3 | 4 |
+| **index** local | `4C2CB572...` (**identico**) | 3 | 4 |
+| **disco** | `969522F4...` (distinto) | **0** | **0** |
+
+**El Tramo E, mergeado en `f4e35e4`, esta ausente del archivo en disco.** El
+index lo tiene; el archivo no. O sea el working tree esta a medio aplicar, y un
+runner que recorre `tests/` sobre ese disco esta contando los tests de un repo
+que no esta ahi.
+
+## Por que importa mas que el numero
+
+Si el runner hubiera dado **rojo**, el ciclo habria parado y el bug se habria
+visto. Dio **verde**, y el verde era sobre otra cosa. **Una suite que corre
+sobre un arbol que no es el del repo devuelve la respuesta que uno quiere
+oir.** Esto no es una Suite Falsa por aserciones debiles (ALERT-178): es un
+directorio equivocado, que es la forma mas basica y la unica que ningun
+arnes de aserciones puede detectar porque no mira el arbol.
+
+**REGLA, y generaliza las dos anteriores:**
+
+- ALERT-72/P4: el runner parseaba 20 de 27 y un script paralelo daba otro
+  numero. -> *el alcance del runner no era el alcance del repo.*
+- ALERT-78: el total de suite sin alcance declarado. -> *el numero no dizia
+  sobre que se contaba.*
+- **ALERT-197 (esta):** el runner es correcto, el codigo es correcto, y el
+  directorio no es el del repo. -> ***un conteo es una propiedad del SCRIPT que
+  conto Y del DIRECTORIO que recorrio.***
+
+**Y la forma barata de detectarlo, que es la que faltaba:** antes de reportar
+un total de suite, comparar `git ls-files tests/*.test.js | Measure-Object` con
+el numero de archivos que el runner dice haber corrido. Si no coinciden, el
+runner no corrio el repo. Una linea, y convierte "la suite paso" en "la suite
+corrio *este* arbol".
+
+## Lo que NO se hizo
+
+**No se commiteo nada desde el clon principal**, y no se restauro el archivo en
+disco. La regla de dos clones ya declara ese clon "no es un lugar de trabajo",
+pero ademas **no hay forma de saber cual de los dos lados del `MM` es el que se
+quiso dejar**: el index es exactamente `origin/main` y el disco es una version
+vieja, y los dos son defendibles. Restaurar es una operacion destructiva sobre
+trabajo de un ciclo que no llego a terminar.
+
+Queda anotado en `TEAM_STATUS.md` para Pablo. **El metodo que si funciono y que
+se sigue: worktree fresco desde `origin/main`, y push desde ahi.**
+
+---
 ## ALERT-196 — el detector de BOM que mira la posicion 0 no ve un BOM pegado en medio del archivo (2026-10-02, HB#131)
 
 **La cuarta vez que sale un BOM en este equipo, y la primera por una via que mis
