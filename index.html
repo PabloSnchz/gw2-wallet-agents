@@ -1375,6 +1375,16 @@
         
         try {
           var result = await window.GistSync.downloadAndSync();
+          // HB#121: downloadAndSync devuelve {cancelled:true} si Pablo dijo
+          // que no (HB#120 T20-c). Antes el return era {success:true} en los dos
+          // casos, asi que el cartel no mentia y el reload era solo al confirmar.
+          // Cancelar y que la pantalla diga "sincronizada" es peor que no
+          // decir nada, y el reload tira el estado del cartel sin motivo.
+          if (result && result.cancelled) {
+            statusDiv.textContent = '← Cancelado. No se toco tu configuración.';
+            statusDiv.style.color = '#ffd966';
+            return;
+          }
           statusDiv.textContent = '✅ Configuración sincronizada. Recargando...';
           statusDiv.style.color = '#a7f3d0';
           setTimeout(function() {
