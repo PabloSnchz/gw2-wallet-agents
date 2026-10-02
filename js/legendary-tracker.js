@@ -518,7 +518,7 @@
       // acciones, y por eso son DOS botones: uno que hace las dos cosas es un
       // gesto que el usuario no puede predecir.
       var v = t.getAttribute('data-lt-view');
-      if (v) { vistaModal = v; renderItemModal(); return; }
+      if (v) { vistaModal = v; pintarModalLegendaria(); return; }
 
       var q = t.getAttribute('data-lt-queue');
       if (q) {
@@ -532,7 +532,7 @@
         toast(res.added
           ? 'Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').'
           : 'Quitada de la cola.', res.added ? 'success' : 'info');
-        renderItemModal();
+        pintarModalLegendaria();
         // El contador de la cabecera dice "3/5" y la cola se ve en Mi progreso:
         // sin este repintado el modal queda diciendo la verdad y la pantalla
         // de al lado queda mintiendo.
@@ -544,9 +544,9 @@
         var UI = root.LegendaryTreeUI;
         if (UI) {
           UI._resetCache();
-          UI.ensurePrecursors(function () { renderItemModal(); });
+          UI.ensurePrecursors(function () { pintarModalLegendaria(); });
         }
-        renderItemModal();
+        pintarModalLegendaria();
         return;
       }
 
@@ -559,7 +559,7 @@
         if (nid) {
           var k = Number(nid);
           if (abiertosArbol[k]) delete abiertosArbol[k]; else abiertosArbol[k] = true;
-          renderItemModal();
+          pintarModalLegendaria();
           return;
         }
         walk = walk.parentNode;
@@ -584,7 +584,13 @@
   // de nuevo, y el usuario tendria que recorrer el mismo camino cada vez.
   var abiertosArbol = {};
 
-  function renderItemModal() {
+  // NO se llama `renderItemModal` a proposito: ese nombre es del renderer que
+  // registra render-catologo.js, y el invariante de hb124 dice que el tracker
+  // calcula y el archivo de render pinta. Esta funcion no pinta el catalogo:
+  // despacha a LegendaryTreeUI para el arbol o los totales. Con el mismo nombre
+  // habria dos cosas distintas con un solo nombre, que es la confusion que ese
+  // invariante existe para evitar.
+  function pintarModalLegendaria() {
     var body = document.getElementById('ltItemModalBody');
     var actions = document.getElementById('ltItemModalActions');
     if (!body) return;
@@ -641,7 +647,7 @@
     vistaModal = 'arbol';
     abiertosArbol = {};
     m.hidden = false;
-    renderItemModal();
+    pintarModalLegendaria();
 
     // Los precursores son 268 KB y se piden la PRIMERA vez que se abre un
     // arbol, no al arrancar la app. `ensurePrecursors` es idempotente: si ya
@@ -653,7 +659,7 @@
         // cerrado no se ve, pero puede pisar lo que el usuario esta mirando si
         // abrio otra cosa mientras cargaba.
         var mm = document.getElementById('ltItemModal');
-        if (mm && !mm.hidden && state.openItemId === id) renderItemModal();
+        if (mm && !mm.hidden && state.openItemId === id) pintarModalLegendaria();
       });
     }
   }

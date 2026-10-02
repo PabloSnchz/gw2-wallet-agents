@@ -93,10 +93,18 @@
   // Con DOS ve que cada uno de esos 4 se abre en subrecetas.
   var NIVEL_ABIERTO_POR_DEFECTO = 2;
 
+  // Un valor EXPLICITO gana siempre, y hay que mirarlo PRIMERO.
+  // Si se preguntara primero "¿esta en el nivel que sale abierto por defecto?",
+  // el `false` que el usuario pone al tocar el chevron de un nivel 2 nunca se
+  // leeria: el chevron se dibujaria, el nodo se cerraria y la fila seguiria
+  // abierta. Un control que se ve y no hace nada es peor que no tenerlo.
   function _abierto(node, abiertos) {
     if (!node) return false;
+    if (abiertos && Object.prototype.hasOwnProperty.call(abiertos, node.id)) {
+      return !!abiertos[node.id];
+    }
     if (!node.isLeaf && node.level <= NIVEL_ABIERTO_POR_DEFECTO) return true;
-    return !!abiertos[node.id];
+    return false;
   }
 
   // ==========================================================================
@@ -199,20 +207,29 @@
     var esc = opts.esc || function (s) { return String(s == null ? '' : s); };
     var abiertos = opts.abiertos || {};
 
-    if (!res || !res.node) {
-      return '<div style="padding:16px;color:var(--tx-3);font-size:0.78rem;">' +
-        'No se pudo construir el arbol de este item.</div>';
-    }
-
+    // EL ORDEN DE ESTAS DOS GUARDAS ES LO QUE IMPORTA
+    // `build()` devuelve `node: null` con `needsPrecursors: true` cuando faltan
+    // los precursores. Si la guarda de `!res.node` corriera primero, el estado
+    // "cargando" caeria en el mensaje de ERROR y el usuario leeria "no se pudo
+    // construir el arbol" de algo que todavia no se intento construir. Por eso
+    // `needsPrecursors` se mira PRIMERO: es un estado conocido, no un fallo.
+    //
     // Sin los precursores NO se dibuja un arbol de un solo nivel. Se verian
     // 4 hijos y el usuario concluiria que la legendaria se hace con eso, que
     // es la lectura FALSA mas caro que puede tener esta pantalla.
-    if (res.needsPrecursors) {
+    if (res && res.needsPrecursors) {
       return '<div style="padding:16px;color:var(--tx-3);font-size:0.78rem;" data-lt-pending="1">' +
         '<div style="margin-bottom:8px;">Cargando las recetas completas…</div>' +
         '<button type="button" data-lt-retry="1" style="padding:6px 12px;border-radius:20px;' +
         'font-size:0.7rem;cursor:pointer;border:1px solid var(--bd-1);background:var(--bg-1);' +
         'color:var(--tx-2);">Reintentar</button></div>';
+    }
+
+    // Aca si: sin motor, o con algo que no es un resultado, no hay nada que
+    // dibujar y hay que decirlo.
+    if (!res || !res.node) {
+      return '<div style="padding:16px;color:var(--tx-3);font-size:0.78rem;">' +
+        'No se pudo construir el arbol de este item.</div>';
     }
 
     var html = '<div class="lt-arbol" data-lt-tree="1">';

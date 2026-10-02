@@ -91,7 +91,7 @@ ok((html[538] || '').includes('legendaryArmoryPanel'), 'index.html:539 es el pan
 ok((html[1011] || '').includes('legendary-tracker.js'), 'index.html:1012 es el <script> del tracker');
 ok((html[1012] || '').includes('legendary-data.js'), 'index.html:1013 es legendary-data.js');
 ok((html[1013] || '').includes('legendary-recipes.js'), 'index.html:1014 es legendary-recipes.js (contrato, HB#122)');
-ok((html[1014] || '').includes('render-catologo.js'), 'index.html:1015 es render-catologo.js');
+ok((html[1016] || '').includes('render-catologo.js'), 'index.html:1017 es render-catologo.js');
 ok((fs.readFileSync(path.join(ROOT, 'js/router.js'), 'utf8').split('\n')[124] || '').includes('legendary-armory'),
   'router.js:125 sigue siendo la ruta (esta NO se movio: el off-by-11 es solo del HTML)');
 
