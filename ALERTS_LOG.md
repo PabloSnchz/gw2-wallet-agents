@@ -5748,7 +5748,7 @@ detecto la misma comprobacion de CJK que escribe el HB#140, ampliada a bytes de
 BOM. Loza el amend. Misma clase que las 7 filtraciones de ideogramas: **un byte
 invisible que no se lee en un diff de texto**.
 
-## ALERT-210 (2026-10-03, HB#146) — un WIP con un arnés que NO PARSEA, y el arreglo "obvio" que rompía 3 contratos asertados
+## ALERT-210 (2026-10-02, HB#146) — un WIP con un arnés que NO PARSEA, y el arreglo "obvio" que rompía 3 contratos asertados
 
 | **Severidad** | Media | **Clase** | Proceso / Instrumento |
 |---|---|---|---|
@@ -5816,4 +5816,158 @@ archivos descubrirlo.
 **Lo que NO se hizo y por que.** No se aplico nada de producto. La friccion de
 UX es real, pero que se haga es decision de producto (PO/Pablo), no mia. Al
 Reviewer se le mando la pregunta de ALCANCE (deuda de codigo vs de comentario)
-y al PO las 3 salidas, el 2026-10-03. Queda en BACKLOG hasta el veredicto.
+y al PO las 3 salidas, el 2026-10-02. Queda en BACKLOG hasta el veredicto.
+## ALERT-211 (2026-10-02, HB#146) — un aserto que media un escenario que no construía, y un control que miraba el setter y no el efecto
+
+| **Severidad** | Alta | **Clase** | Instrumento |
+|---|---|---|---|
+| Sintoma | `arma-2-3-cola-contrato.test.js` bloque 3 | Su cabecera y su codigo decian cosas distintas |
+| Hallazgo | Del PO (ronda 44), verificado y cerrado | Paso 1 de su veredicto |
+
+**Sintoma.** El bloque 3 se titula *"EL FILTRO NO ESCONDE LO QUE EL USUERO
+ENCOLO"* y su cabecera dice *"con la cola llena y **cualquier combinacion de
+filtros**"*. El codigo no aplicaba **ningun filtro**: `htmlCola()` solo hacia
+`setMode('progress')` y leia el `innerHTML`.
+
+**Por que importa mas que el bug que media.** La version que escribi aqui de
+primera, y que quedo equivocada, era: *"las DOS mitades del contrato se
+contradicen"* — `COLA-13` (`hb126:258`) diciendo que los filtros *"eligen que
+entra a la cola"* y `3.1` diciendo que *"el filtro no esconde lo encolado"*.
+
+**MEDIDO en el HB#147: eso NO era una contradiccion de asertos.** `COLA-13` no
+aserta eso. Su unico assert es `html.indexOf('data-ftype=') !== -1`, con la
+**cola VACIA y sin ningun filtro puesto** (`hb126:253-261`): la frase *"ahora
+eligen que entra a la cola"* esta en el **mensaje de fallo**, no en la
+condicion. O sea: los dos textos se contradician, pero **ningun aserto pedia la
+salida contraria**. Ver ALERT-212 para el resto de la census.
+
+Lo que si queda en pie, y es lo que hace util el arreglo: antes, `3.1` daba
+verde **sin construir el caso que su cabecera nombra**, asi que las dos salidas
+de producto pasaban la suite entera. Ahora `3.1` pone el filtro de verdad y
+verifica el **efecto** (el boton activo en el HTML), asi que la salida "la cola
+SE filtra" cae en rojo y la eleccion de producto se hace sobre un caso real.
+
+**LECCION DE ESTA CORRECCION (es la misma que la de ALERT-211):** para medir un
+contrato hay que leer la **condicion** del `ok(...)`, no el mensaje de fallo. Los
+mensajes de este repo son los masupgradeados del mundo: describen la propiedad
+que el aserto *queria* mirar, no la que mira.
+
+**Y el nivel siguiente: mi primer arreglo REPITIO el mismo error.** Puse el
+filtro y anadi un control que miraba `_debug().filters` — el **setter**. Pero
+`setFilter()` solo repinta si `state.active`, y el sandbox nunca llamaba
+`activate()`: el estado cambiaba, el control daba verde, y la pantalla seguia
+mostrando la anterior. El control que faltaba es el del **efecto**: el boton
+marcado activo en el HTML, que es lo que mira el usuario. Al agregarlo, el
+control **cayo en rojo** y revelo que el filtro no llegaba a la vista.
+
+**Mutacion fantasma (mi diagnostico estuvo mal, no el arnes).** Al agregar la
+mutacion `filtra-por-el-filtro` reporte "la mutacion se aplico" y 3.1 seguia
+verde. Diagnostique que el patron no matcheaba por CRLF — leyendo el archivo
+**crudo**. El arnes normaliza `\r\n` a `\n` **antes** de mutar (linea 204), asi
+que si matchea: el patron era correcto y el archivo tambien. Instrumento
+equivocado, no producto. (Misma clase que ALERT-200: un grep que no encuentra
+nada por una ruta mala se lee igual que uno que no encuentra nada porque no
+esta.)
+
+**Fase roja medida, en las dos direcciones:**
+
+| Corrida | Resultado |
+|---|---|
+| Normal (producto) | **21 pass / 0 fail**, `activoEnHtml=true`, filtro `back` excluye a las 5 armas |
+| `--mutar=filtra-por-el-filtro` | **3.1 FALLA**, `faltan=[30684,30685,30686,30687,30688]` |
+| Suite completa | **2123 aserciones / 0 FAIL en 81/81** |
+
+La mutacion nueva existe justamente para que la salida "la cola SE filtra" no
+pueda entrar en verde por la puerta de atras.
+
+**De paso:** al stub de DOM de este arnes le faltaba `hasAttribute`, que
+`_debug()` del tracker usa (`legendary-tracker.js:1287`). Sin el, la API de
+debug que AGENTS.md documenta era **INEJECUTABLE** desde aqui.
+
+**REGLA 1 — un aserto que nombra un escenario tiene que CONSTRUIRLO.** Una
+cabecera que dice "con cualquier combinacion de filtros" sobre codigo que no
+pone filtro es una asercion sobre un caso que no existe.
+
+**REGLA 2 — un control tiene que mirar el EFECTO observable, no el SETTER.**
+`setFilter()` + `_debug().filters` puede dar verde con la pantalla sin
+repintar. Un control que solo verifica que se llamo al metodo prueba que se
+llamo, no que sirvio de algo.
+
+**REGLA 3 — un MENSAJE DE FALLO no es un aserto.** Corregida en el HB#147: yo
+escribi que dos asertos se contradecian, y el medido es que uno de los dos
+(la "otra mitad") no existia — su texto decia una cosa y su condicion otra
+distinta, mas debil. Un mensaje de fallo **promete** la propiedad que el autor
+quiso mirar; solo la condicion la mide. Antes de afirmar que un contrato se
+contradice, hay que leer los dos `ok(...)`.
+
+**REGLA 4 — una asercion que no puede FALLAR es decoracion.** Una desigualdad
+tipo `filtrado <= todas` sobre una entrada de 1 solo elemento es verde con el
+filtro funcionando y verde con el filtro apagado. No es un control: es un
+decorado. Un control tiene que tener un valor con el cual se pueda ver la
+diferencia (ALERT-212).
+
+
+## ALERT-212 (2026-10-02, HB#147) — el aserto que el repo cita como "el que distingue dibujar la barra de que la barra funciona" no puede fallar
+
+| **Severidad** | Alta | **Clase** | Instrumento |
+|---|---|---|---|
+| Sintoma | `hb119-2-2-filtros-progreso.test.js:167-177` (FILTRO-05) y `hb126-cola-crafteo.test.js:253-261` (COLA-13) | Aserto mas debil que su cabecera |
+| Hallazgo | Propio (al auditar el paso 1 del veredicto del PO) | Census de los 4 asertos que "protegen" la barra |
+
+**Sintoma.** FILTRO-05 se titula, en su propio comentario, *"el assert que
+distingue 'dibuje la barra' de 'la barra funciona'"`. Su condicion es:
+
+```js
+const todas    = await render([ARMAS[0]], 'progress');
+const filtrado = await render([ARMAS[0]], 'progress', [['type', 'armor']]);
+ok('FILTRO-05 aplicar un filtro en progreso no rompe el render',
+   filtrado.disponible && cuenta(filtrado.html) <= cuenta(todas.html), ...);
+```
+
+**Por que no puede fallar.** El set tiene **un solo elemento** (`ARMAS[0]`, que
+es un arma) y el filtro puesto es `type=armor`:
+
+| El filtro... | cuenta(filtrado) | `0 <= 1` |
+|---|---|---|
+| funciona bien | 0 | verde |
+| **no hace nada** | 1 | verde |
+
+Las dos salidas dan verde, y el assert solo las distingue por el detalle del
+mensaje de fallo, que **no es una asercion**. Con el set de 1, la desigualdad
+`filtrado <= todas` esta satisfecha por el hecho de que no haya NADA que
+filtrar. Ademas es una **desigualdad, no una igualdad**: por construccion no
+puede crecer, asi que "filtrar de mas" (el defecto tipico) tampoco la despierta.
+
+**Y COLA-13, en la misma familia.** Su condicion es solo
+`html.indexOf('data-ftype=') !== -1`, con la cola **vacia** y sin filtro
+puesto. Su mensaje de fallo dice *"ahora eligen que entra a la cola"*.
+
+**CENSUS de los 4 asertos que sostienen la barra en la vista cola.** Medido en
+`origin/main` @ `3f32b77`:
+
+| Aserto | Lo que su TEXTO promete | Lo que su CONDICION mide |
+|---|---|---|
+| FILTRO-01 | la barra se dibuja | la barra esta `lt-filter-bar` — **honesto** |
+| FILTRO-02 | los 3 filtros estan | 3 `data-ftype=` presentes — **honesto** |
+| FILTRO-05 | "el filtro se APLICA, no solo se dibuja" | `filtrado <= todas`, set de 1 — **no puede fallar** |
+| COLA-13 | "eligen que entra a la cola" | la barra esta presente, cola vacia — **no mide eso** |
+| 3.1 (ALERT-211) | el filtro no esconde lo encolado | filtro real + boton activo — **honesto** |
+
+**Consecuencia, y es la que importa.** **Ningun aserto de la suite exige que la
+vista de la cola se filtre.** El unico que se le acerca (FILTRO-05) no lo
+exige. O sea que el veredicto del PO (**la cola NO deberia ser filtrable**) esta
+**libre**: no hay contrato asertado que lo vete, y el "arreglo obvio" que el
+HB#146 midio como rompiente (5 FAIL en 3 archivos) rompia Asertos que solo
+miden **presencia**, no la semantica del filtrado.
+
+**Por que se corrigio el paso 1 y no se lanzo esto como refactor.** ALERT-211
+(paso 1 del PO) era **test-only** y de riesgo cero: cambia un arnés para que
+mida lo que su cabecera nombra. Arreglar FILTRO-05 es cambiar un aserto que
+hoy esta VERDE, o sea **sacar una garantia que el equipo cree tener**. Eso es
+producto y necesita la misma decision que los pasos 2/3 del PO. Queda en BACKLOG.
+
+**REGLA — un control tiene que tener un valor con el cual se vea la
+diferencia.** Si los dos estados posibles del sistema dan el mismo resultado del
+control, el control no esta midiendo: esta midiendo la forma del codigo.
+La forma de encontrarlo es escribir la **tabla de los dos estados** antes del
+assert, no despues.

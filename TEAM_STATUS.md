@@ -1,13 +1,62 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-03 (HB#146) por el Principal.
+> **Actualizado:** 2026-10-02 (HB#146) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `9b5106a` al abrir.
 > **30 refs**, `main` unico, CERO duplicados por refspec. Remoto = `origin`
 > (`gw2-wallet-agents`): la forma correcta aca es `git push origin HEAD:main`.
-> **Suite de base:** **2119 aserciones / 0 FAIL en 81/81 archivos** (exit code).
+> **Suite de base:** **4246 pass / 0 FAIL en 81 archivos** (exit code, linea
+> `TOTAL` del runner; medido en el HB#147). **Ojo:** el TOTAL del runner bouncea
+> entre ~2.100 y ~4.250 entre ciclos con la suite en verde (2041@78, 2123@81,
+> 4145@77, 4246@81). No lo he explicado y queda como observacion, no como
+> conclusion: un detector cuya salida varies 2x en verde merece su propia
+> auditoria.
 > **PASO 3: no se abrio ronda.** Las **17** refs `po/*` siguen en sus rondas
 > 33-44; la ultima (44) ya la atendio el HB#144 y no hay ref nueva.
-> **Ciclo SIN cambio de producto:** se revirtio un fix propio de 2 archivos. Ver abajo.
+> **Ciclo con 1 fix de ARNES (no de producto)**: ALERT-211, paso 1 del veredicto
+> del PO. Ver abajo. El fix de producto se revirtio.
+
+## HB#146 parte 2: el PO respondio, y su paso 1 (test-only) quedo hecho y MEDIDO
+
+**Veredicto del PO** (`task-5d67821e3648`), que es lo mas valioso del ciclo:
+
+1. **La cola NO deberia ser filtrable.** `QUEUE_MAX=5`: filtrar esconderia el
+   boton "Quitar" de lo que el usuario mismo encolo, y `2/5` contaria de otra
+   lista. Es una lista de trabajo, no un catalogo.
+2. **Su punto 2, tal como lo escribo, era FALSO y el HB#147 lo midio.** No hay
+   dos asertos que se contradigan: `COLA-13` (`hb126:253-261`) solo asserta que
+   la barra esta presente, con la cola **vacia** y sin filtro; la frase *"eligen
+   que entra a la cola"* esta en su **mensaje de fallo**, no en su condicion.
+   Detalle en **ALERT-212**.
+3. **`3.1` no aplicaba ningun filtro.** Con el filtro puesto de verdad, el
+   escenario que su cabecera nombra recien existe.
+4. **El boton "Tengo / Me faltan" no tiene tema en la cola**: se encola lo que
+   no tenes, asi que "Tengo" es ~siempre 0; y el de "Me faltan" habla de la
+   legendaria, no de los materiales (que ya responde su propio boton).
+
+**Hecho (ALERT-211), test-only, no toca la app.** El paso 1 que pidio el PO:
+
+| Corrida | Resultado |
+|---|---|
+| Normal | **21 pass / 0 fail**, `activoEnHtml=true` |
+| `--mutar=filtra-por-el-filtro` (nueva) | **3.1 FALLA**, `faltan=[30684,30685,30686,30687,30688]` |
+| Suite completa | **2123 aserciones / 0 FAIL en 81/81** |
+
+Lo que si quedo en pie del paso 1: antes `3.1` daba verde **sin construir el
+caso que su cabecera nombra**, asi que las dos salidas de producto pasaban la
+suite entera. Ahora el filtro se pone de verdad y se verifica el **efecto**
+(el boton activo en el HTML), asi que "la cola SE filtra" cae en rojo. De paso: el stub de DOM de ese arnés no tenia `hasAttribute`, que
+`_debug()` del tracker usa (`legendary-tracker.js:1287`) — la API de debug
+documentada en AGENTS.md era **inejecutable** desde ahi.
+
+**El paso 2 y 3 del PO (🟢 y 🟡) quedan sin aplicar**: son cambio de producto y
+esperan su veredicto final.
+
+**Reviewer: `task-6cc3851b8d15` TERMINO SIN VEREDICTO** — "Max iterations (100)
+reached". Segundo ciclo seguido en que el Reviewer no responde (HB#145 tambien).
+La pregunta que le mande (deuda de codigo vs de comentario) sigue **sin
+respuesta**, y el PO ya la contesto desde el lado de producto: el comentario
+`legendary-tracker.js:858-864` quedo viejo cuando la cola llego en el paso 5, y
+la intencion de producto hoy es que la cola NO se filtre.
 
 ## EL HALLAZGO DEL CICLO (HB#146): un WIP con un arnés que NO PARSEA, y un arreglo "obvio" que rompía 3 contratos asertados
 
@@ -127,7 +176,7 @@ veredicto.
 > deje de ser una pregunta con respuesta, y es la misma clase que el conteo
 > inflado 11x del HB#141: **contar apariciones no es contar filas.**
 
-> **Actualizado:** 2026-10-03 01:2x UTC (HB#144) por el Principal.
+> **Actualizado:** 2026-10-02 01:2x UTC (HB#144) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `45ee93a` (verificado con
 > `ls-remote`; **28 refs, `main` unico, CERO duplicados por refspec**). El remoto
 > del clon DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un

@@ -134,6 +134,12 @@ const MUTACIONES = {
   'filtra-la-cola': (s) => s.replace(
     'function renderQueuePanel() {\n    var items = queueItems();',
     'function renderQueuePanel() {\n    var items = queueItems().slice(3);'),
+  // La que prueba lo que ALERT-211 pedia: si alguien implementa la salida de
+  // "la cola SE filtra", 3.1 tiene que CAER. Antes no se podia comprobar,
+  // porque el escenario de 3.1 no ponia ningun filtro.
+  'filtra-por-el-filtro': (s) => s.replace(
+    'function renderQueuePanel() {\n    var items = queueItems();',
+    'function renderQueuePanel() {\n    var items = queueItems().filter(function (it) { return passesFilters(it, ownedMap()); });'),
   'sin-peso-visual': (s) => s.replace('var top3 = pos < 3;', 'var top3 = false;'),
   'etiqueta-fija': (s) => s.replace(
     "(enCola ? 'Quitar de la cola' : 'Agregar a la cola')",
@@ -147,6 +153,10 @@ function makeDom() {
     id, _h: '', textContent: '', value: null, style: {}, children: [],
     get innerHTML() { return this._h; }, set innerHTML(v) { this._h = v; },
     getAttribute: () => null, setAttribute: () => {}, removeAttribute: () => {},
+    // `hasAttribute` faltaba y `_debug()` del tracker lo usa
+    // (`legendary-tracker.js:1287`, `panelVisible`). Sin el, la API de debug que
+    // AGENTS.md documenta era INEJECUTABLE desde este arnes.
+    hasAttribute: () => false,
     addEventListener: () => {}, appendChild: () => {}, insertAdjacentHTML: () => {},
     querySelector: () => mk(id + '|q'), querySelectorAll: () => [],
     classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} },
@@ -223,6 +233,15 @@ const htmlCola = (t) => {
   if (tr && typeof tr.setMode === 'function') tr.setMode('progress');
   return t.d.el('legendaryModeContent').innerHTML;
 };
+// El tipo de cada item del catalogo, leido del MISMO archivo del que salen
+// CAT_IDS. No se hardcodea: si el catalogo reordena o cambia de generacion, el
+// filtro que este bloque elige tiene que seguir excluyendo a las encoladas.
+const TIPO_DE = (function () {
+  const m = read('js', 'legendary-data.js').match(/"id":\s*(\d+)(?:(?!\n  \{).){0,600}?"type":\s*"([a-z]+)"/gs) || [];
+  const mapa = {};
+  m.forEach((s) => { const p = s.match(/"id":\s*(\d+)/); const q = s.match(/"type":\s*"([a-z]+)"/); if (p && q) mapa[p[1]] = q[1]; });
+  return mapa;
+})();
 // Cada fila de la cola, en orden de pintura.
 const filas = (html) => {
   const out = [];
@@ -337,14 +356,61 @@ const run = async () => {
   // El sintoma de este bug seria "no me acuerdo de la cola", no un error.
   // Con la cola llena y cualquier combinacion de filtros, los cinco tienen que
   // seguir en el HTML.
+  //
+  // ALERT-211: la cabecera decia "cualquier combinacion de filtros" y el codigo
+  // NO aplicaba NINGUNO: `htmlCola()` solo hacia `setMode('progress')` y leia
+  // el innerHTML. El escenario que el bloque nombra no existia, asi que el
+  // aserto daba verde CON y SIN filtrado — y por eso las DOS mitades del
+  // contrato pasaban a la vez: esta (el filtro NO borra la cola) y COLA-13 (los
+  // filtros eligen QUE ENTRA A LA cola). Con las dos verdes no se puede elegir
+  // cual es la buena. Ahora el filtro se pone de verdad, con un tipo que
+  // excluye a las cinco encoladas, y hay controles que lo verifican.
   {
     const t = boot(mut);
     const C = colaDe(t);
+    // `setFilter()` solo repinta si el tracker esta `active` (y en la app lo
+    // esta, porque `activate()` corre al cargar). El sandbox no lo activaba, y
+    // sin esto el filtro cambiaba el estado SIN llegar a la pantalla — que es
+    // exactamente el falso verde que este bloque vino a tapar.
+    if (T(t) && typeof T(t).activate === 'function') T(t).activate();
     for (let i = 0; i < 5; i++) C.toggle(CAT_IDS[i]);
-    const html = htmlCola(t);
+    // Un tipo que NO sea el de las encoladas: si se filtrase, las 5 caerian.
+    const tipoDeLas5 = TIPO_DE[String(CAT_IDS[0])];
+    const excluyente = Object.keys(TIPO_DE)
+      .map((k) => TIPO_DE[k])
+      .filter((v, i, a) => a.indexOf(v) === i && v !== tipoDeLas5)[0];
+
+    const tr = T(t);
+    ok('CONTROL el tracker expone setFilter (sin el, 3.1 no mide nada)',
+      typeof tr.setFilter === 'function');
+    // El filtro se pone DESPUES de entrar en la cola: es el orden que hace el
+    // usuario, y es el unico que no dispara el render del catalogo.
+    htmlCola(t);
+    const puesto = !!(tr && tr.setFilter && tr.setFilter('type', excluyente));
+    const dbg = (tr && typeof tr._debug === 'function') ? tr._debug() : null;
+    ok('CONTROL el filtro quedo PUESTO de verdad (si no se aplico, 3.1 vuelve a ser verde por nada)',
+      puesto && dbg && dbg.filters && dbg.filters.type === excluyente,
+      'puesto=' + puesto + ' filtro=' + JSON.stringify(dbg && dbg.filters));
+
+    // ESTE es el control que de verdad importa, y es el que faltaba: que el
+    // filtro LLEGARA A LA VISTA. Mirar `_debug().filters` verifica el SETTER, y
+    // el setter puede cambiar sin que nada se repinte — o sea, decir "el filtro
+    // esta puesto" mientras la pantalla muestra la de antes. Lo que mira el
+    // usuario es el boton marcado activo.
+    const htmlTrasFiltro = t.d.el('legendaryModeContent').innerHTML;
+    const activo = htmlTrasFiltro.indexOf('class="lt-filter-btn active') !== -1 &&
+      htmlTrasFiltro.indexOf('data-fvalue="' + excluyente + '"') !== -1;
+    ok('CONTROL el filtro LLEGO A LA VISTA (el boton quedo activo); sin esto, 3.1 mira una pantalla vieja',
+      activo,
+      'activoEnHtml=' + activo + ' tipo=' + excluyente);
+    ok('CONTROL el filtro elegido EXCLUYE a las cinco encoladas (si las dejaria pasar, 3.1 no distinguiria nada)',
+      tipoDeLas5 !== excluyente,
+      'tipo5=' + tipoDeLas5 + ' excluyente=' + excluyente);
+
+    const html = htmlTrasFiltro;
     const faltan = CAT_IDS.slice(0, 5).filter(id => html.indexOf('data-queue-id="' + id + '"') === -1);
-    ok('3.1 con la cola llena, los 5 encolados estan pintados (el filtro no borra la cola)',
-      faltan.length === 0, 'faltan=' + JSON.stringify(faltan));
+    ok('3.1 con la cola llena y un filtro PUESTO, los 5 encolados estan pintados (el filtro no borra la cola)',
+      faltan.length === 0, 'faltan=' + JSON.stringify(faltan) + ' filtro=' + excluyente);
 
     const barra = /data-ftype=|data-fgen=|data-fexp=/.test(html);
     ok('3.2 la barra de filtros y la cola conviven en la misma vista',
@@ -359,6 +425,11 @@ const run = async () => {
   {
     const t = boot(mut);
     const C = colaDe(t);
+    // `setFilter()` solo repinta si el tracker esta `active` (y en la app lo
+    // esta, porque `activate()` corre al cargar). El sandbox no lo activaba, y
+    // sin esto el filtro cambiaba el estado SIN llegar a la pantalla — que es
+    // exactamente el falso verde que este bloque vino a tapar.
+    if (T(t) && typeof T(t).activate === 'function') T(t).activate();
     for (let i = 0; i < 5; i++) C.toggle(CAT_IDS[i]);
     const fs = filas(htmlCola(t));
     ok('4.1 la cola pinta las 5 filas encoladas',
