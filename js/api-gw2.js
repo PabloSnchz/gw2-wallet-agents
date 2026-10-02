@@ -516,6 +516,8 @@
   // avisa UNA vez (no una por clave: son cientos de escrituras por carga).
   var __lsQuotaFails = 0;
   var __lsQuotaWarned = false;
+  // Idea 50 Tramo E: purgas REALES de entradas vencidas (ver `getCache`).
+  var __expiredDrops = 0;
   function isQuotaError(e) {
     if (!e) return false;
     return e.name === 'QuotaExceededError' ||
@@ -539,6 +541,12 @@
     }
   }
   function lsDel(key) { try { localStorage.removeItem(key); } catch (_) {} }
+  // Idea 50 Tramo E: "esta la clave?" separado de "borrala". Hace falta
+  // porque `removeItem` no devuelve nada: sin esto, contar una purga seria
+  // contar una INTENCION (P4 del Tramo F, con `removed`). Ademas distingue
+  // "no estaba" de "estaba y se borro", que el codigo que llama necesita para
+  // no afirmar que limpio algo que no existia.
+  function lsHas(key) { try { return localStorage.getItem(key) !== null; } catch (_) { return false; } }
   function now() { return Date.now(); }
   function isFresh(entry, ttl) { return !!entry && typeof entry.ts === 'number' && (now() - entry.ts) <= ttl; }
 
@@ -680,6 +688,27 @@
     return loop();
   }
 
+  // Idea 50 Tramo E: al vencer, la entrada SE BORRA. Antes devolvia null y la
+  // dejaba viva en las dos capas: el TTL dejaba de leer y no liberaba, y con
+  // 27 cuentas x 17 baseKey la cache crecia sin limite.
+  //
+  // POR QUE ES SEGURO, y por que no es "solo un delete". isFresh dice
+  // `age <= ttl`, y el borrado es DIRECCIONAL:
+  //   - TTL corto dice vencida => el TTL largo tambien (mas viejo no se
+  //     arregla con mas tolerancia). Borrar aca no le quita nada a nadie.
+  //   - TTL corto dice vencida => el TTL largo dice FRESCA. Ahi el wrapper
+  //     corto se llevaria la entrada del largo.
+  //
+  // MEDIDO (tests/idea50e.cache-expiry-purge.test.js seccion 3): 18 sitios de
+  // lectura, 17 baseKey, y UNA sola con dos sitios -- `ach_meta_v3:` -- que
+  // usa `TTL.ACH_META` en los dos. Osea que hoy no hay colision. Ese test
+  // congela el numero: si alguien agrega un segundo TTL para una baseKey que
+  // ya tiene uno, el test falla.
+  //
+  // EL ORDEN importa y no es cosmetico: __mem se borra DESPUES de intentar
+  // promover desde localStorage. Ese es el caso "la memoria vencio pero el
+  // disco esta fresco" (una recarga con la cuota llena) y borrando antes se
+  // pierde la promocion que hoy existe.
   function getCache(baseKey, ttl, token, nocache) {
     if (nocache) return null;
     var mkey = kMem(baseKey, token);
@@ -691,6 +720,16 @@
       __mem.set(mkey, { ts: lval.ts, data: lval.data });
       return lval.data;
     }
+    // Las dos capas quedaron vencidas. Se purgan y se CUENTAN.
+    // - __mem: `Map.delete` devuelve booleano, o sea que el numero es un hecho.
+    // - localStorage: `removeItem` no devuelve nada, asi que se pregunta antes
+    //   con `lsHas`; si la clave no estaba, no se cuenta ninguna purga. Un
+    //   contador que sube sin que nada pase es peor que no medir (P4, Tramo F).
+    // NO se purga el `catch` de RED que deja una entrada sin `ts`: esa no es
+    // una entrada vencida, es una malformada, y tratarlas igual seria mezclar
+    // dos cosas en un numero que alguien va a leer para diagnosticar.
+    if (__mem.delete(mkey)) __expiredDrops++;
+    if (lsHas(lkey)) { lsDel(lkey); __expiredDrops++; }
     return null;
   }
   function putCache(baseKey, data, token, ttl) {
@@ -1738,7 +1777,7 @@
   // solo una linea de consola. quotaFails > 0 significa que la cache dejo de
   // persistir entre recargas; mientras siga en 0 el problema no existe.
   function cacheStats() {
-    return { quotaFails: __lsQuotaFails, quotaWarned: __lsQuotaWarned };
+    return { quotaFails: __lsQuotaFails, quotaWarned: __lsQuotaWarned, expiredDrops: __expiredDrops };
   }
   // Idea 50 Tramo F: las claves que ESTA CAPA escribe en localStorage.
   //
