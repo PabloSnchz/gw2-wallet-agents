@@ -1,76 +1,116 @@
-# TEAM_STATUS - Heartbeat #127 (2026-10-02 09:0x UTC)
+# TEAM_STATUS - Heartbeat #128 (2026-10-02 11:0x UTC)
 
-**Corto:** el paso 3 del ciclo **no abrio ronda** — las 9 propuestas del PO estan
-todas aplicadas y las verifique una por una. Y el hallazgo del turno: **dos logs
-del equipo estaban truncados en un worktree y el commit los iba a borrar**, 8500
-lineas de memoria escrita. Recuperados y verificados (ALERT-193).
+**Corto:** el **último paso del plan de noche se cayó porque se lo LGPL midió antes
+de programarlo**, y caerse así es barato. El árbol de fabricación necesita la
+receta de cada *ingrediente*; el contrato declara 567 ingredientes en 236 ids y
+**0** de esos ids tienen receta en el propio contrato. Un árbol recursivo sobre
+esto dibuja siempre un nivel. No le falta la recursión: le faltan los datos.
+
+Y en el camino, **ALERT-193 se reprodujo un ciclo después de cerrarse**, en el
+mismo archivo y con el mismo número. Esa parte es la que más me importa mirar.
 
 ## Tareas en curso
 
-| Que | Quien | Estado |
+| Qué | Quién | Estado |
 |---|---|---|
-| **ARME paso 5 (cola de crafteo)** | default | **TERMINADO y en main** - `ae10e5b` |
-| **Recuperacion de logs (ALERT-193)** | default | **CERRADO** - `4c01b29`, verificado |
-| Armeria, pasos 3 y 4 | default | Pendiente. No arrancados este ciclo. |
-| craftType en la cola | default | Pregunta de ALCANCE esperando al Reviewer. El codigo NO valida craftType a proposito, y el comentario lo dice para que cambiarla sea una linea. |
+| **Armería paso 6 (árbol de fabricación)** | default | **CORTADO con la premisa medida.** Puerta versionada: `tests/armeria-arbol-premisa.test.js` (11/0) |
+| **ALERT-194b — reincidencia de ALERT-193** | default | **CERRADO.** Datos restaurados; mecanismo corregido |
+| craftType en la cola | default | Pregunta de ALCANCE esperando al Reviewer. El código NO valida craftType a propósito |
 
 ## Completadas este ciclo
 
-- **ALERT-193 — 8500 lineas de historial recuperadas.** `ALERTS_LOG.md` (4775 -> 107) y
-  `SESSION_LOG.md` (3675 -> 127) estaban truncados en `hb126`. Reconstruidos por
-  bytes: **73/73 alertas y 7/7 titulos preservados, 0 duplicados**, con control
-  negativo. `+106/-0` y `+130/-0`: los dos pasaron de borrados a **puros aditivos**.
-- **Bloqueante del plan de noche, confirmado resuelto.** `22a6a71` **ya estaba
-  mergeado**; el test `armeria-alert-01-clasificacion` da **121/0** sobre `main`
-  real. Los 93 items con `generation: null` no son un pendiente.
-- **Paso 3: 0 propuestas para el Reviewer.** Conteo sobre la **union de las 13
-  refs `po/*`** leyendo el cuerpo de cada blob: **156 secciones / 113 CUENTA /
-  43 CERRADAS**, control negativo 0. Los 113 son la union (comparten historial):
-  **16 items distintos**, el mas repetido 14 veces. **9 verificados uno por uno
-  contra `origin/main`: 7/7 en verde con su test propio, IDEA 62 y T7 por
-  contenido.** No se abrio ronda.
+- **La premisa del plan de noche, medida antes de codearla.** El plan (paso 6)
+  da por hecho que el contrato sostiene un árbol recursivo. Medido: **567
+  ingredientes declarados, 236 ids distintos, 0 con receta en el propio
+  contrato**. El dato sí existe en la fuente (**86%** de esos ingredientes, con
+  profundidad de hasta **8 niveles**); lo que falta es que la fuente entre al
+  contrato.
+- **El corte quedó como puerta, no como veredicto.** El test afirma el **número**
+  (`cubiertos === 0`), no un «no se puede». El día que alguien amplíe el
+  contrato, ese número deja de ser 0 y **el test falla solo**. Fase roja probada
+  en las dos direcciones: `CONTROL 2` dentro del archivo versionado da 1 con un
+  contrato sintético; `tools/hb128_fase_roja.js` da **10 pass / 1 FAIL** al
+  cambiar el aserto contra el contrato real.
+- **Sizing de la ampliación, para que la decisión de Pablo no sea a ciegas.**
+  206 → **613** entradas (471 componentes), **65.9 KB → 214.3 KB (×3.3)**.
+- **PASO 3: sin ronda.** `ls-remote refs/heads/po/*` = **13 refs, el mismo
+  conjunto que HB#127**. 0 propuestas nuevas. No se mandó nada al Reviewer:
+  mandarle lo ya aplicado es la forma más cara de perder un ciclo (HB#103).
+
+## Lo que se rompió, y por qué importa
+
+**ALERT-194b: ALERT-193 se cerró en HB#127 y se reprodujo en HB#128.** Al escribir
+ALERT-194 usé `write_file` sobre `ALERTS_LOG.md`, que va por **prepend** y la
+herramienta **sobreescribe**:
+
+    1 file changed, 65 insertions(+), 4951 deletions(-)
+    ALERTS_LOG.md   4957 lineas  ->  71
+
+Restaurado con `git checkout` en ~1 segundo. **La única razón de que esto no sea
+otra tragedia: el archivo estaba commiteado.** Si hubiera estado sin commitear, el
+ciclo anterior lo habría perdido.
+
+**Lo que HB#127 aprendió no era lo que había que aprender.** Cerró el alerta sobre
+el *dato* (8500 líneas recuperadas, y una regla útil sobre historial vs. estado).
+Esa regla es cierta y no era el fallo. El fallo es que **el log va por prepend y
+la herramienta disponible sobreescribe** — con un log prependeado, esa herramienta
+es un `rm` con otro nombre. **Recuperar el dato no cierra el bug si lo que falló
+fue la herramienta.**
+
+Corregido: `tools/prepend.cjs` (antepone e imprime el crecimiento de líneas) y,
+porque `tools/` está en `.gitignore` y no se versiona, **la regla además quedó
+escrita en `AGENTS.md`**, que sí está versionado.
 
 ## Pendientes
 
-1. **El Reviewer no lee su inbox (ALERT-188).** 14 consultas vencidas, la mas vieja
-   de **2 dias**. Su heartbeat esta desactivado **por diseno**, asi que nadie lo
-   despierta. **No reactivo su cron**: la verificacion de crons la hace el
-   Arquitecto. Es lo unico que bloquea el paso 3 de verdad.
-2. **Armeria, pasos 3 y 4.**
-3. **`tools/.gitignore`** y **ALERT-41** (Strike Tracker): decision de Pablo.
-4. **51 worktrees** vivos y ramas remotas ya mergeadas sin borrar: decision de Pablo.
+1. **Árbol de fabricación** — bloqueado por decisión de Pablo: versionar
+   `tools/cl_recipes.json` (plan de noche §8). Con eso solo: ampliar el contrato
+   y la puerta se abre sola.
+2. **Reviewer sin despertador** (ALERT-188): 14 consultas vencidas, la más vieja
+   de 2 días. **No reactivo su cron**: la verificación de crons la hace el
+   Arquitecto.
+3. `tools/.gitignore` y **ALERT-41** (Strike Tracker): decisión de Pablo.
+4. 51 worktrees vivos y ramas remotas ya mergeadas sin borrar: decisión de Pablo.
 
 ## Alertas
 
-| # | Que | Estado |
+| # | Qué | Estado |
 |---|---|---|
-| **ALERT-193** | Un overwrite borro 8500 lineas de `ALERTS_LOG`/`SESSION_LOG`; `git status` lo mostraba como `M` | **CERRADO** (`4c01b29`). **Un archivo de historial y uno de estado se escriben igual y solo uno es bug**: lo que los separa es si lo anterior es informacion o archivo muerto. `TEAM_STATUS.md` se sobreescribio entero y esta bien. |
-| ALERT-188 | Inbox del Reviewer: 14 consultas vencidas | Sigue. El Principal resolvio su cola por Capa 3. |
-| ALERT-41 | Strike Tracker no puede marcar un strike | Sigue. Decision de Pablo. |
-| ALERT-187 | La suite da verde o rojo segun un archivo que no esta en git | Sigue. Decision de Pablo. |
+| **ALERT-194b** | `write_file` sobre un log prependeado: 4951 líneas borradas | **CERRADO.** Datos OK; mecanismo corregido en `tools/` + `AGENTS.md` |
+| **ALERT-194** | El paso 6 del plan se apoya en un dato que el contrato no tiene | **ABIERTO como puerta.** El número está congelado en un test |
+| ALERT-193 | Logs truncados por overwrite | Cerrado en HB#127; **reincidente en HB#128**, ver 194b |
+| ALERT-188 | Inbox del Reviewer: 14 consultas vencidas | Sigue. Su heartbeat está desactivado por diseño |
+| ALERT-41 | Strike Tracker no puede marcar un strike | Sigue. Decisión de Pablo |
+| ALERT-187 | La suite da verde o rojo según un archivo que no está en git | Sigue. Decisión de Pablo |
 
 ## Estado de propuestas
 
-**0 propuestas abiertas para el Reviewer.** Las del PO estan aplicadas; las 14
-consultas vencidas son **preguntas de alcance** que el Reviewer no leyo, no
-propuestas nuevas. Al PO le respondi en `20261002T091813Z-add320`.
+**0 propuestas abiertas para el Reviewer.** Sin ronda nueva del PO y con las
+14 consultas vencidas siendo preguntas de alcance que el Reviewer no leyó, no
+hay nada que mandarle.
 
 ## Commits del ciclo
 
-- `4c01b29` - `docs(hb127)`: los 4 logs de HB#126 + la reconstruccion de los dos
-  archivos truncados. Sin cambios de codigo.
+- `8dac6c8` — la puerta del árbol. **Sin cambios en código de producto**: 1 test,
+  166 líneas.
 
 ## Salud de la suite
 
-`node tests/_run-all.js` -> **66 archivos, 1701 pass, 0 FAIL**, por exit code
-(no por texto, que es lo que produjo ALERT-176).
-`armeria-alert-01-clasificacion` aislado: **121/0**. `hb85-ttl-y-fuga`: **23/0**.
+`node tests/_run-all.js` → **67 archivos, 1712 pass, 0 FAIL, exit code 0**.
+(66 archivos / 1701 en HB#127; el test nuevo aporta 11 aserciones.)
+`armeria-alert-01-clasificacion` aislado: **121/0**.
 
-## Una regla que dejo el ciclo
+## Dos reglas que deja el ciclo
 
-**Un nombre de archivo de test no es un hecho.** Para 2 de los 9 items
-verifique "FALTA" porque **me invente el nombre del archivo**, no porque faltara
-el item. Los dos estaban aplicados. Es la regla del detector del PO aplicada a un
-`.js`: *buscar el simbolo por donde uno supone que esta produce el falso; el unico
-detector estable abre el archivo y lee el cuerpo.* Un nombre de test es una
-conjetura con extension `.js`, y por eso se lee como un hecho.
+**Un 0 de un detector nuevo se verifica abriendo el dato, no preguntándole al
+detector.** La primera medición dio 0/567 —el número que casi cacé como
+verdad— por indexar la fuente con `r.output`, clave que no existe (la real es
+`output_id`). Un índice por una clave inexistente da 0 con toda seguridad, y ese
+0 es indistinguible de «el dato no está». Con esa medición el informe habría
+dicho «el árbol es imposible» y habría sido **falso**: el 86% sí tiene receta.
+Lo que distinguished las dos cosas fue imprimir `Object.keys(arr[0])`.
+
+**Recuperar el dato no cierra el bug si lo que falló fue la herramienta.**
+ALERT-193 se cerró sobre el archivo; el archivo volvió a caerse porque la forma
+de escribir no cambió. Una alerta que se reproduce un ciclo después de
+cerrarse no estaba cerrada: estaba **arreglada**.

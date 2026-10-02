@@ -573,6 +573,7 @@ Los demás logs del ecosistema también se mantienen actualizados:
 | Archivo | Mantenedor | Frecuencia | Notas |
 |---------|-----------|-----------|-------|
 | TEAM_STATUS.md | Principal | Cada heartbeat (30 min) | Estado del equipo. **SE SOBREESCRIBE en cada heartbeat** (ver TEAM_STATUS_HB60.md). |
+| ALERTS_LOG.md / SESSION_LOG.md | Principal | Cuando hay algo que anotar | **SE ANTEPONEN, no se sobreescriben.** Van en orden inverso: lo nuevo ARRIBA. **Usar `write_file` sobre ellos BORRA el historial** (ALERT-193 lo registro, HB#127 lo cerro sobre el dato, y HB#128 lo reprodujo igual: 4957 → 71 lineas). Para agregar: escribir el bloque a un archivo aparte y anteponerlo con `node tools/prepend.cjs <log> <bloque>`, que ademas imprime el crecimiento de lineas. **Un archivo de historial y uno de estado se escriben con la misma herramienta; lo que las diferencia es si lo anterior es informacion o archivo muerto.** |
 | TEAM_STATUS_HB60.md | Principal | Cuando se sobreescribe el TEAM_STATUS | **El heartbeat anterior, entero y sin editar.** El HB#61 lo creo: sobreescribir TEAM_STATUS.md producia diffs de 468 lineas por commit de logs, lo que oculta el cambio real. Mover el contenido viejo a un archivo aparte deja el diff limpio y el historico consultable. |
 | SESSION_LOG.md | Principal | Cada heartbeat (30 min) | Mientras el Documentador tenga timeout (bug plataforma). Excepción al flujo normal donde el Documentador lo mantiene. |
 | CRON_SCHEDULE.md | Principal | Cada heartbeat (30 min) | 📌 NUEVO — programa de crons y tareas para el dashboard |

@@ -1,3 +1,115 @@
+## ALERT-194 — el último paso del plan de noche se apoya en un dato que el contrato no tiene
+
+**Fecha:** 2026-10-02 (HB#128)
+**Estado:** el paso 6 (árbol de fabricación) queda **cortado con la premisa
+medida**, que es lo que el propio plan pedía si faltaba tiempo. La puerta que lo
+mide es `tests/armeria-arbol-premisa.test.js` y **se abre sola** cuando el
+contrato se amplíe.
+
+El plan de noche termina en un **árbol de fabricación recursivo**: click en una
+legendaria y ver la receta de *cada* ingrediente, no sólo la de la legendaria.
+Antes de programarlo medí si el contrato puede sostenerlo.
+
+    ingredientes declarados por el contrato  : 567
+    ids de ingredientes distintos           : 236
+    de esos, con receta en el propio contrato: 0
+
+**Cero.** El contrato (`js/legendary-recipes.js`) cubre los 206 ids del catálogo
+como **salidas**, y ningún ingrediente de legendaria está entre ellos. Un árbol
+recursivo sobre este contrato dibujaría **siempre un nivel**: no le falta la
+recursión, le faltan los datos.
+
+**El dato no falta en el mundo, falta en el contrato.** En la fuente
+(`cl_recipes.json`, 634 recetas) el **86%** de esos ingredientes sí tiene receta
+propia (486 de 567) y el árbol llega a **8 niveles**: de 142 legendarias con
+receta, 1 queda en nivel 1, 57 en nivel 4, 5 en nivel 5, 50 en nivel 6, 28 en
+nivel 7 y 1 en nivel 8. Lo que hace falta es que esa fuente entre al contrato.
+
+**Lo que costaría ampliar el contrato:** de 206 a **613** entradas (471
+componentes nuevos), de **65.9 KB a 214.3 KB** — un factor **×3.3** en un
+artefacto de JS que se carga en el cliente.
+
+**Y el bloqueo no es mío.** `tools/cl_recipes.json` está en `.gitignore` con `*`
+y **no está versionado**. Un contrato ampliado que su generador no puede
+reconstruir en un clon limpio es un artefacto que se pudre sin que nadie lo note:
+es el mismo modo de fallo que advierte el header de
+`armeria-alert-01-clasificacion.test.js` cuando dice *«este test no mide el
+catálogo, mide el build»*. Versionar la fuente es la propuesta §8 del plan de
+noche y es **decisión de Pablo**.
+
+**Por qué el test NO usa `cl_recipes.json`:** porque no está en git. Un test que
+necesita un archivo ausente en un clon limpio no mide nada: pasa en mi máquina y
+no en la de nadie. `armeria-arbol-premisa.test.js` se limita a los dos
+artefactos versionados, así que es reproducible en cualquier clon.
+
+**Por qué una puerta es mejor que un «no se puede»:** afirma el **número**
+(`cubiertos === 0`), no una opinión. El día que alguien amplíe el contrato ese
+número deja de ser 0 y **el test falla solo**. Eso convierte el corte en algo
+reversible en vez de en un veredicto.
+
+**Fase roja, en las dos direcciones:**
+
+| Sentido | Qué | Resultado |
+|---|---|---|
+| 0 → no cero | `CONTROL 2` del test versionado: contrato sintético con un match, exige 1 | da **1** |
+| no cero → 0 | `tools/hb128_fase_roja.js`: aserto a 1 sobre una copia, contra el contrato real | **10 pass / 1 FAIL** |
+
+### Un error mío que casi produjo el hallazgo equivocado
+
+La primera medición dio **0 de 567** — el número que después casi cacé como si
+fuera la verdad. Venía de indexar la fuente por `r.output`, **una clave que no
+existe** (la real es `output_id`). Un índice por una clave inexistente da 0 con
+toda seguridad, y ese 0 es **indistinguible** de «el dato no está».
+
+Si me hubiera quedado con la primera medición, el informe habría dicho «el árbol
+es imposible con estos datos» y habría sido **falso**: el 86% sí tiene receta.
+Lo que distinguished las dos cosas fue imprimir `Object.keys(arr[0])` y mirar la
+forma del objeto en vez de seguir creyendo el cero. **Un 0 de un detector nuevo
+se verifica abriendo el dato, no preguntándole al detector.** El control
+negativo quedó escrito en el script (`claves "output" en la fuente = 0`) para
+que el próximo que lo ejecute no lo descubra otra vez.
+
+---
+
+## ALERT-194b — ALERT-193 se Cerró y se reprodujo un ciclo después, en el mismo archivo
+
+**Fecha:** 2026-10-02 (HB#128)
+**Estado:** datos recuperados otra vez (`git checkout`, 4957 líneas, sin pérdida
+esta vez porque el sobreescritor no llegó a commitearse). **MECANISMO:** corregido.
+
+HB#127 cerró ALERT-193: dos logs truncados, 8500 líneas recuperadas, alerta
+cerrada. **HB#128 reprodujo exactamente el mismo fallo, en el mismo archivo, con
+el mismo número**: al escribir ALERT-194 usé `write_file` sobre
+`ALERTS_LOG.md`, que **sobreescribe**. `git diff` dio
+
+    1 file changed, 65 insertions(+), 4951 deletions(-)
+
+y el archivo pasó de **4957 a 71 líneas**.
+
+**Lo que aprendió HB#127 no era lo que había que aprender.** Se archiving que un
+archivo de historial y uno de estado se escriben distinto (preexistente vs. overwrite
+completo). Eso es cierto y útil, y **no era el fallo**: el fallo es que el logs
+van por **prepend** y la herramienta disponible **sobreescribe**. Un archivo de
+historial y uno de estado se escriben igual, sí, pero **la herramienta decide si
+eso destruye algo**, y con un log prependeado esa herramienta es un **`rm`
+con otro nombre**.
+
+**Restaurado en ~1 segundo porque el trabajo estaba commiteado.** Esa es la
+única razón de que esto no sea otra vez una tragedia: el archivo estaba en
+`HEAD`. Si el trabajo hubiera estado sin commitear, el ciclo anterior lo habría
+perdido.
+
+**El arreglo del mecanismo, no del dato:** `tools/prepend.cjs` antepone y
+**verifica el crecimiento de líneas**, para que la pérdida de historial no
+pueda pasar por una escritura más. Vive en `tools/`, que está en `.gitignore`:
+es la red que encuentra bugs y no se versiona (ALERT-187), así que **la regla
+para que sobreviva va también a `AGENTS.md`**, que sí está versionado.
+
+**La regla que sale de acá:** *recuperar el dato no cierra el bug si lo que
+falló fue la herramienta.* ALERT-193 se cerró sobre el archivo; el archivo
+volvió a caerse porque la forma de escribir no cambió.
+
+---
 ## ALERT-193 — un archivo de historial y un archivo de estado se escriben igual, y solo uno de los dos es un bug
 
 **Fecha:** 2026-10-02 (HB#127)

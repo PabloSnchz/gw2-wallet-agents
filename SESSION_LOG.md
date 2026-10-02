@@ -1,3 +1,63 @@
+## HB#128 — 2026-10-02 (09:30–11:0x UTC)
+
+### Qué se hizo
+
+- **Medida la premisa del último paso del plan de noche** (árbol de fabricación
+  recursivo) antes de programarlo. El contrato declara **567 ingredientes en
+  236 ids distintos, y 0 de esos ids tienen receta en el propio contrato**. Un
+  árbol recursivo sobre este contrato dibujaría siempre un nivel.
+- **Congelada la medición como puerta versionada:** `tests/armeria-arbol-premisa.test.js`,
+  11 pass / 0 FAIL, fase roja probada en las dos direcciones. La puerta afirma
+  el número, no una opinión: cuando alguien amplíe el contrato, falla sola.
+- **Cortado el paso 6 con la premisa medida**, que es lo que el propio plan
+  indicaba hacer si faltaba tiempo. El árbol es el más grande de la secuencia y
+  el único que no bloquea a los demás.
+- **Sizing delAmpliación del contrato** para que la decisión no sea a ciegas:
+  206 → **613** entradas (471 componentes nuevos), **65.9 KB → 214.3 KB (×3.3)**.
+  El 86% de los ingredientes sí tiene receta en la fuente, y el árbol llega a
+  8 niveles. El bloqueo es que `tools/cl_recipes.json` no está versionado, y eso
+  es decisión de Pablo (plan §8).
+- **Sin cambios en código de producto.** El commit es un test.
+
+### Qué se rompió
+
+- **ALERT-194b: ALERT-193 se reprodujo un ciclo después.** Escribí ALERT-194 con
+  `write_file` sobre `ALERTS_LOG.md`, que va por **prepend** y la herramienta
+  **sobreescribe**: 4957 → 71 líneas (`+65 / -4951`). Restaurado con
+  `git checkout` en ~1 s, sin pérdida, **porque el archivo estaba commiteado**.
+  HB#127 cerró ALERT-193 sobre el *dato*; el *mecanismo* —que la herramienta no
+  antepone— siguió igual. Corregido con `tools/prepend.cjs` y con una regla en
+  `AGENTS.md` (que sí está versionado; `tools/` no).
+- **Un 0 mío que casi es el hallazgo equivocado.** La primera medición dio
+  0/567 porque indexé la fuente por `r.output`, clave que no existe (la real es
+  `output_id`). Con esa medición el informe habría dicho «el árbol es imposible»
+  y habría sido **falso**: el 86% sí tiene receta. Lo distinguished imprimir
+  `Object.keys(arr[0])`.
+
+### Qué quedó pendiente
+
+1. **Árbol de fabricación (ARME paso 6).** Bloqueado hasta que Pablo versione
+   `tools/cl_recipes.json` (o autorice el `.gitignore` del plan §8). Con eso
+   solo: ampliar el contrato, que la puerta `armeria-arbol-premisa` se abre
+   sola y avisa.
+2. **Reviewer sin despertador** (ALERT-188): 14 consultas vencidas. No reactivo
+   su cron porque la verificación de crons la hace el Arquitecto.
+3. `tools/.gitignore` y ALERT-41 (Strike Tracker): decisión de Pablo.
+4. Los 51 worktrees y las ramas remotas ya mergeadas sin borrar: decisión de Pablo.
+
+### Decisiones que tomé
+
+- **Medir antes de programar el árbol**, aunque el plan lo daba por hecho. La
+  secuencia del plan asumía que el contrato podía sostener un árbol; no puede,
+  y eso se sabe en 5 minutos.
+- **No ampliar el contrato por mi cuenta.** Aguantaría: 214 KB de JS en el
+  cliente, y un artefacto que su generador no puede reconstruir en un clon
+  limpio. Es exactamente el modo de fallo que el header de
+  `armeria-alert-01-clasificacion.test.js` advierte.
+- **Una puerta que afirma un número en vez de un «no se puede»**, para que el
+  corte sea reversible por el que lo levante.
+
+---
 # Heartbeat #126 (2026-10-02 08:0x-08:4x UTC) — main estaba 5 commits atras, y el paso 5 sin un solo test
 
 ## Qué se hizo
