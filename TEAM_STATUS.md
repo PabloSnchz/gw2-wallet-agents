@@ -1,96 +1,157 @@
-# TEAM_STATUS - Heartbeat #130 (2026-10-02 12:1x UTC)
+# TEAM_STATUS - Heartbeat #131 (2026-10-02 11:3x-11:5x UTC)
 
-**Corto:** el backlog bajó de **10 items abiertos a 6**, y el más caro de los diez
-—*"Legendary Armory Phase 3, ~15-20h, AWAITING API connection"*— **no existía
-como trabajo.** Las 5 afirmaciones de la poda del PO se verificaron una por una
-contra `origin/main` @ `32926dd` y contra la API viva antes de mergear nada.
+**Corto:** el PASO 1 devolvio un veredicto del Reviewer que llevaba **dos ciclos sin
+leerse**: T12-b aprobado con cambios, esperando una decision de alcance mia. Y la
+fila del BACKLOG que decia *"Idea 50 Tramo E: NO se hizo este ciclo"* describes
+un fix que **ya estaba mergeado en `f4e35e4`**, dos commits despues del log que
+la escribio abierta. **Cerrada.** Countdown del plan de noche: se cierra el ciclo
+y **no se arranca nada nuevo** (corte 12:00 UTC).
 
 ## Tareas en curso
 
-| Qué | Quién | Estado |
+| Quien | Que | Estado |
 |---|---|---|
-| **Poda de la ronda 41 del PO** | default | **APLICADA y mergeada** (`daeee6f`) |
-| **ALERT-41** (Strike Tracker) | Pablo | **BLOQUEADO.** Una llamada con token real a `/v2/account/raids` |
-| craftType en la cola | default | Pregunta de ALCANCE esperando al Reviewer |
-| Armería paso 6 (árbol) | Pablo | Bloqueado por `tools/cl_recipes.json` sin versionar |
+| **Code-Reviewer** | T12-b (alcance) | **Respuesta enviada** (`task-1f9ee292b9f3`, 11:4x). El Reviewer ya habia contestado: **aprobado con cambios**, esperando que yo eligiera (3a) vs (3b). |
+| **PO** | Ronda 42 | **Sin novedades.** Paso 3 sin ronda nueva (ver abajo). |
+| **Documentador** | — | Sin tarea (regla de no-fallback vigente). |
+| **Pablo** | ALERT-41 | **BLOQUEADO**, unico item que necesita un token real suyo. |
+
+## Lo que salio del PASO 1 (y no estaba en ningun log)
+
+`check_agent_task('task-b79d78e0a389')` devolvio un veredicto **entero y sin
+leer**, de un envio de un ciclo anterior. Contenido util, en corto:
+
+- **T12-b: aprobado con cambios.** Tres condiciones, y el autor hallo una
+  **regresion real** de la opcion (3a) tal como yo la habia enunciado.
+- Su escena 2 (`#/account/strikes` sin pasar por Raids) **hoy funciona** — lo
+  probeo de verdad, no lo leyo.
+
+## La decision que si faltaba, y una correccion que el veredicto trae
+
+Yo habia enunciado (3a) como *"`strike ensurePanelContent()` llama al escritor
+comun"*. **Medido: `ensurePanelContent()` arranca en `strike-tracker.js:558` y el
+call esta en `:1178`, dentro de `activate()` (`:1167`)** — a 620 lineas. Hoy
+`ensurePanelContent()` **no cablea nada**.
+
+Y la regresion del Reviewer queda confirmada con el orden real:
+
+    raid-tracker.js:1122  if (raidsBtn.__viewToggleWired) { pintarSolo(); return; }
+    raid-tracker.js:1123  raidsBtn.__viewToggleWired = true;
+    raid-tracker.js:1128  setActiveView(activeView);        <-- despues del flag
+    raid-tracker.js:1099    window.StrikeTracker.activate();  <-- dentro de setActiveView
+
+**Hoy corren los DOS escritores, y por eso hoy los dos strips andan.** Con un
+escritor comun, la segunda pasada entra al guard y la pareja Strikes nace sin
+listeners.
+
+**Decidido: (3a) con las TRES condiciones en un mismo commit** (guard por pareja,
+idempotencia por pareja, call site en `activate()` y no en `ensurePanelContent()`).
+No son alternativas: sin la 1, (3a) es regresion; sin la 3, (3a) no cablea.
+
+**Rechazado del plan: abrir `.Route`.** El propio Reviewer lo midio — **8
+declaraciones, 0 lectores**, y borrar 1 de 8 es arbitrario. Si se toca, es el
+patron de 8, y es otro item.
+
+## Paso 3: 6 "CUENTA", 0 propuestas nuevas
+
+Criterio `### Tramos` + sin `aplicada|cerrada`, sobre `po/hb130-poda`:
+
+    secciones con "ronda N": 23   |   CUENTA: 6   |   CERRADAS: 8
+
+Las 3 rondas mas nuevas (41, 36, 35) estan **descartadas**. Las 6 que cuentan
+son **viejas** (rondas 16-34) y **las 6 estan ya aplicadas**, verificado una por
+una contra `origin/main`:
+
+| Ronda | Item | Verificacion |
+|---|---|---|
+| 33 (x2) | T12 | `9c93300` **si es ancestro de main** |
+| 34 | T13 | `strike:view` cableado (`strike-tracker.js`) |
+| 19 | IDEA 64 | aplicada (confirmada por el PO en HB#99) |
+| 16 | IDEA 63 | `eb69fb3` **si es ancestro de main** |
+| 18 | ALERT-84 | premisa **medida falsa** en HB#118 |
+| 36/35 | T16-T18 | ya respondidas |
+
+**La leccion del conteo, y por que importa mas que el numero:** un criterio que
+mira *"la seccion dice `aplicada` o `cerrada`?"* **no puede ver que el trabajo
+esta hecho si la seccion no lo dice.** Estas 6 no dicen que estan aplicadas
+porque se escribieron **antes** de que se aplicaran. El conteo mide **el texto de
+la ronda, no el estado del repo** — y el estado del repo es lo que decide si el
+PO investiga. Verificar cada una contra `main` (lo que hace el paso 3) es lo que
+convierte el numero en informacion; sin ese paso, "6 CUENTA" es un falso positivo
+de 6.
 
 ## Completadas este ciclo
 
-- **Legendary Armory Phase 3 CERRADA.** Los 4 scripts (`index.html:1012-1015`),
-  la ruta (`router.js:125`, `:1616-1629`, `:1875-1880`), panel (`:539`), nav
-  (`:761`) y el veredicto del Reviewer entero (`render-catologo.js`) están
-  todos. El "commit 4" es `ed9a126`, **ancestro de main = SI**.
-- **ALERT-89 CERRADA.** Su condición de cierre ("cuando el catálogo traiga el
-  nombre oficial") es **imposible**: contra `/v2/raids?ids=all` hoy (HTTP 200, 6
-  raids, 8 wings, 30 eventos) los 30 eventos traen `{id,type}` y **cero de 30**
-  tienen `name`. Recontado hoy: 30 declarados, 30 en la API, 1 fantasma
-  (`vloxx`), 1 faltante (`camp`), 0 duplicados.
-- **Idea 57: 7 wrappers pedidos, 4 reales.** `luck` ya está hecho
-  (`api-gw2.js:1347`, FORMA v2.27.0). Contado con el arnés, no a mano.
-- **2 filas archivadas con fecha:** estilos inline de `inventory-dashboard.js`
-  (2 `border-radius`, ahora `:764` y `:885`) e Idea 63 T3 (decisión de
-  producto, no trabajo).
+- **Idea 50 Tramo E: fila cerrada.** El fix **ya estaba mergeado** (`f4e35e4`,
+  07:31 -0300), con fase roja de 18 FAIL verificada y 40/0 en verde. Lo que
+  estaba desfasado era la fila.
+- **El desfase tiene una causa medible, y es de proceso:** el orden real de
+  commits es `daeee6f` (poda) -> `2c8c374` (`docs(hb130)`) -> `f4e35e4` (el
+  fix). **El log se escribio antes del producto.** Quien cierra el ciclo escribe
+  la fila abierta y el fix entra despues; el siguiente heartbeat lee su propia
+  fila y la ve abierta.
 
 ## Control
 
-- Conteo **propio** sobre el archivo mergeado, criterio `^- \[ \]`:
-  **10 abiertos -> 6**.
-- Suite: **67 archivos de test, todos exit 0**.
-- `git ls-remote --heads origin`: `main = daeee6f`, **sin branch duplicado**.
+- Suite completa: **1752 aserciones / 0 FAIL (68 de 68 archivos)**.
+- Conteo propio sobre el archivo mergeado, criterio `^- \[ \]`: **6 -> 5 abiertos**.
+- `git remote -v`: `origin` = `gw2-wallet-agents`. Push con
+  `git push origin HEAD:main` desde **worktree fresco** (`hb131`), nunca desde el
+  clon principal (su `main` esta en `docs-hb113-logs`).
+- **BOM y CJK verificados antes del commit**, en `BACKLOG.md` y en el cuerpo del
+  mensaje al Reviewer.
 
-## Lo que se rompió
+## ALERT-196 (nueva) — el detector de BOM que mira la posicion 0 no ve un BOM pegado en medio
 
-Nada en código de producto; el diff es solo `.md`. **La amenaza de la corrida
-era de integridad, y la reporta el PO desde su worktree:** `DASHBOARD_PO_IDEAS.md`
-llegó al disco con **0 BYTES** y `git status` lo reportaba como "modificado", no
-como el HEAD. Sin pérdida en la historia (blob = 156.930 bytes en `32926dd` y en
-los 7 commits anteriores), pero lo que casi pasa es 156 KB reemplazados por un
-párrafo.
+**La cuarta vez que sale un BOM, y esta vez por una via que mis propios controles
+no cubrian.** `write_file` en Windows escribe **UTF-8 con BOM**, y el archivo
+`_new262.txt` lo trae al principio. Yo lo pegue con un splice en la **linea 262**,
+o sea el BOM quedo **en la mitad del archivo**.
 
-## Pendientes
+Mi chequeo de la leccion anterior era:
 
-1. **ALERT-41** — la única llamada que Pablo tiene que hacer con su token real.
-   Si el endpoint trae ids utilizables, se arregla; si no, **se borra el módulo**.
-2. **14 consultas al Reviewer vencidas** (ALERT-188). Su heartbeat sigue apagado
-   **por diseño**; la verificación de crons la hace el Arquitecto.
-3. Decisiones de Pablo: versionar `tools/cl_recipes.json`, si `tools/` debe
-   seguir ignorado, worktrees y ramas remotos ya mergeados.
+    s.charCodeAt(0) === 0xFEFF
+
+que mira **solo el primer caracter**. Con el BOM en la linea 262, `charCodeAt(0)`
+da `45` (la `-`) y el chequeo dice "no hay BOM": **verde sobre un archivo
+contaminado.** El archivo estaba sano salvo por esa linea, y el unico sintoma
+visible era que el regex de verificacion de la fila no matcheaba — o sea, el
+sintoma se manifesto en un control **distinto** del que se buscaba.
+
+**REGLA (corrige la anterior, no la reemplaza):**
+
+> **El chequeo de BOM es `linea.replace(/\uFEFF/g, '')` sobre TODO el archivo, no
+> `charCodeAt(0)`.** El BOM no tiene por que estar en la posicion 0: aparece
+> wherever un `write_file` se pegue dentro de otro archivo.
+
+Ejecutado antes de cada commit, junto con el detector de CJK
+(`/[\u3000-\u9fff]/`), que esta vez **si** atrapo uno — mio, en un `console.log`
+de diagnostico. **Es el cuarto ciclo seguido con ideogramas colados**, y sigue
+siendo un defecto compartido del tooling, no de uno: el PO lo reporto en su
+ronda 38 y el Documentador tambien.
+
+## Pendiente
+
+1. **T12-b: codigo.** La decision de alcance esta tomada y medida; falta el
+   commit con las 3 condiciones y su test (fase roja contra el archivo sin tocar).
+   Toca el ciclo `ensurePanelContent -> wireViewToggle -> setActiveView ->
+   refresh -> loadRaidData`, que ya rompio una vez (HB#101): **primero del
+   proximo ciclo.**
+2. **ALERT-41** — la unica llamada que Pablo tiene que hacer con su token real.
+   Si el endpoint trae ids utilizables, se arregla; si no, **se borra el modulo**.
+   Decision de Pablo.
+3. **`.Route`: 8 declaraciones, 0 lectores.** Muerto, y revisitarlo es trabajo
+   tirado salvo que alguien diga para que existe.
+4. Consultas vencidas al Reviewer (ALERT-188): su heartbeat sigue apagado **por
+   diseno**; la verificacion de crons la hace el Arquitecto.
 
 ## Alertas
 
-| # | Qué | Estado |
-|---|---|---|
-| **ALERT-195 (nueva)** | `.md` truncado a 0 bytes en un worktree nuevo, invisible para `git status` | **ABIERTA como regla.** El control es el tamaño en disco, antes de editar |
-| ALERT-194 | El paso 6 se apoyaba en un dato que el contrato no tiene | ABIERTO como puerta (test versionado) |
-| ALERT-194b | `write_file` sobre un log prependeado | CERRADO |
-| ALERT-188 | Inbox del Reviewer: 14 consultas vencidas | Sigue. Cron apagado **por diseño** |
-| ALERT-41 | Strike Tracker no puede marcar un strike | Sigue. Decisión de Pablo |
-| ALERT-187 | La suite depende de un archivo fuera de git | Sigue. Decisión de Pablo |
-
-## Estado de propuestas
-
-**0 propuestas abiertas para el Reviewer.** El PO entró en MODO PODA (10 abiertos
->= 8), así que la corrida entera fue podar: no hubo web research y no se abrió
-ninguna idea. Mismo criterio que HB#124 y HB#128: sin ronda nueva, no se manda.
-
-## Commits del ciclo
-
-- `daeee6f` — poda del PO aplicada. Solo `BACKLOG.md`, 7+/6-.
-
-## Salud de la suite
-
-**67 archivos, todos exit 0.** El diff es solo `.md`: la suite no se movió, y
-esa es justamente la razón por la que la poda se podía verificar entera antes de
-mergear.
-
-## Dos reglas que deja el ciclo
-
-**Un archivo truncado a 0 se reporta como "modificado".** `git status` no
-distingue "truncado" de "editado a propósito": los dos son `M`. Después de
-`git worktree add`, medir el tamaño de los `.md` que son tuyos **antes** de
-escribirlos.
-
-**Una fila cuya condición de cierre nombra un dato que la fuente no produce, es
-una fila que espera para siempre.** No es trabajo bloqueado: es trabajo muerto, y
-contarlo infla el número que decide si el PO investiga o poda. Archivarla es
-**fecharla**, no borrarla: la medición queda escrita para el que mida después.
+- **ALERT-196 (nueva):** el detector de BOM por `charCodeAt(0)` no ve un BOM
+  pegado en medio del archivo. Verde sobre archivo contaminado.
+- **ALERT-195:** un `.md` truncado a 0 bytes es invisible para `git status`.
+  Vigente: el control es el **tamano en disco**, no el status.
+- **ALERT-188:** consultas al Reviewer vencidas. Su heartbeat apagado por diseno.
+- **ALERT-41:** el Strike Tracker no puede marcar nada. Bloqueado por token real.
+- **ALERT-193/194b:** logs prependeados overwritten. El control es el tamano del
+  blob, no el diff.

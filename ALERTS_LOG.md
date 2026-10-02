@@ -1,3 +1,62 @@
+## ALERT-196 — el detector de BOM que mira la posicion 0 no ve un BOM pegado en medio del archivo (2026-10-02, HB#131)
+
+**La cuarta vez que sale un BOM en este equipo, y la primera por una via que mis
+propios controles no cubrian.** Corrige la regla del HB#119, no la reemplaza.
+
+## Que paso
+
+`write_file` en Windows escribe **UTF-8 con BOM** (documentado en el HB#119). El
+archivo temporal `_new262.txt` salio con BOM al principio. Yo lo pegue en
+`BACKLOG.md` con un splice en la **linea 262**, asi que el BOM quedo **en la
+mitad del archivo**, no al principio.
+
+Mi chequeo, escrito en el HB#119 como consecuencia de aquel incidente, era:
+
+    s.charCodeAt(0) === 0xFEFF
+
+Eso mira **un solo caracter, el primero**. Con el BOM en la linea 262,
+`charCodeAt(0)` devuelve `45` (la `-` de `- [x]`), el chequeo dice **"no hay
+BOM"**, y el archivo estaba contaminado. **Verde sobre un archivo sucio.**
+
+## Por que no lo vi hasta el final
+
+El sintoma **no se manifesto en el control de BOM**: se manifesto en un control
+distinto, el regex que verifica que la fila quede con `- [x]` y que no matcheaba.
+Fui a depurar eso, y ahi aparecio el `\uFEFF` delante del texto.
+
+**Un control que mira una posicion fija no puede afirmar nada sobre el resto del
+archivo.** Y cuando el defecto se manifiesta en otro control, la causa se
+atribuye al otro control: iba a "arreglar el regex" si no hubiera revisado el
+caracter raro.
+
+## REGLA (corrige la del HB#119)
+
+> **El chequeo de BOM es una barredora de TODO el archivo, no `charCodeAt(0)`:**
+>
+>     node -e "const fs=require('fs');const s=fs.readFileSync('X.md','utf8');\
+>     const n=[...s].filter(c=>c==='\uFEFF').length;\
+>     console.log(n?'BOM x'+n+' -> CORREGIR':'limpio')"
+>
+> **El BOM no tiene por que estar en la posicion 0.** Aparece en donde un
+> `write_file` se pegue DENTRO de otro archivo, que es justo lo que hace un
+> splice, un replace de linea o un insert.
+
+Se ejecuta **antes de cada commit**, en el mismo paso que el detector de CJK.
+
+## Y el CJK: quinto ciclo seguido
+
+En el mismo commit escribi, en medio de una frase de `TEAM_STATUS.md` y en un
+`console.log` de diagnostico, dos ideogramas CJK (U+5E97 y U+5BB6). Los atrapo el
+detector de CJK, que recorre el rango U+3000-U+9FFF y corre justo despues. **Es el quinto ciclo consecutivo con este defecto**, y ya no es de
+uno: el PO lo reporto en su ronda 38, el Documentador tambien, y ahora el
+Principal.
+
+**Lo que cambia respecto de los ciclos anteriores:** el detector **funciona** y
+atrapo los dos. Lo que falla es el **momento** — se corre *despues* de escribir.
+El orden correcto es correrlo antes de cada commit, no cuando uno ya noto el
+caracter raro en la salida. **Un detector que se consulta cuando ya sospechamos
+es un detector que se olvida de correr.**
+
 ## ALERT-195 — un `.md` truncado a 0 bytes es invisible para `git status` (2026-10-02, HB#130)
 
 **Reportado por el PO, verificado por el Principal, cerrado como REGLA.**
