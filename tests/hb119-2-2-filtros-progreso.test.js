@@ -1,15 +1,23 @@
 // tests/hb119-2-2-filtros-progreso.test.js — FILTRO-01..07
 // QUE PRUEBA: que "Mi progreso" use los MISMOS filtros que el Catalogo
-// (Tipo, Gen, Expansion) y tenga el switch "Desbloqueadas / Solo faltantes".
+// (Tipo, Gen, Expansion).
 //
-// POR QUE ES UN BUG Y NO UNA FALTANTE DE DISENO: `filters` es estado
-// COMPARTIDO en el tracker (`legendary-tracker.js:99`), y `catalogItems()`
-// lo aplica (`:212-214`). `renderProgress()` lo IGNORA por completo y filtra
-// solo por `owned`. O sea: el filtro existe, se dibuja en el Catalogo, y en
-// Progreso el usuario puede tocarlo y no pasa nada. Un control visible que no
-// hace nada es peor que un control ausente.
+// CONTRATO ACTUALIZADO EN EL HB#126 (paso 5 del plan de noche): el switch
+// "Desbloqueadas / Solo faltantes" y `setScope()` SE CAIERON, porque "Mi
+// progreso" dejo de ser la grilla de las 206 divididas por estado de posesion
+// y paso a ser la cola de crafteo. FILTRO-03, 06 y 07 afirmaban el contrato
+// viejo y se invirtieron; la MECANICA que sigue viva (los 3 filtros
+// compartidos entre Catalogo y la cola) no se toco. Ver
+// `tests/hb126-cola-crafteo.test.js` para el contrato nuevo completo.
 //
-// FASE ROJA: contra los archivos sin el fix, FILTRO-01/02/03 dan FAIL.
+// POR QUE EL FILTRO COMPARTIDO ERA UN BUG Y NO UNA FALTANTE DE DISENO:
+// `filters` es estado COMPARTIDO en el tracker (`legendary-tracker.js:99`), y
+// `catalogItems()` lo aplica. `renderProgress()` lo IGNORA por completo y
+// filtra solo por `owned`. O sea: el filtro existe, se dibuja en el Catalogo,
+// y en Progreso el usuario puede tocarlo y no pasa nada. Un control visible
+// que no hace nada es peor que un control ausente.
+//
+// FASE ROJA: contra los archivos sin el fix, FILTRO-01/02 dan FAIL.
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 let pass = 0, fail = 0;
@@ -125,14 +133,24 @@ const run = async () => {
       ' exp=' + h.indexOf('data-ftype="expansion"'));
   }
 
-  // --- FILTRO-03: el switch Desbloqueadas / Solo faltantes existe ---
+  // --- FILTRO-03: el switch Desbloqueadas / Solo faltantes SE CAYO ---
+  // CONTRATO ACTUALIZADO (HB#126, paso 5 del plan de noche). Este assert
+  // afirmaba lo CONTRARIO y por eso hay que cambiarlo, no borrarlo: el switch
+  // "Desbloqueadas / Solo faltantes" se retiro junto con `setScope()` porque
+  // "Mi progreso" dejo de ser la grilla de las 206 divididas por estado de
+  // posesion y paso a ser la cola de crafteo. Un selector de alcance sobre una
+  // lista que ya no existe es un control que no puede cambiar nada visible.
+  // Lo que se afirma ahora es que NO esta, y con el mismo criterio del test
+  // que ya lo cubria: se lee el HTML que pinto el modulo de verdad.
   {
     const out = await render([ARMAS[0]], 'progress');
     const h = out.html;
-    ok('FILTRO-03 existe el switch Desbloqueadas / Solo faltantes',
-      h.indexOf('data-scope="unlocked"') !== -1 && h.indexOf('data-scope="missing"') !== -1,
+    ok('FILTRO-03 el switch Desbloqueadas / Solo faltantes ya NO existe',
+      h.indexOf('data-scope="unlocked"') === -1 && h.indexOf('data-scope="missing"') === -1 &&
+      h.indexOf('Solo faltantes') === -1,
       'unlocked=' + h.indexOf('data-scope="unlocked"') +
-      ' missing=' + h.indexOf('data-scope="missing"'));
+      ' missing=' + h.indexOf('data-scope="missing"') +
+      ' (el plan dice que se cae; dejarlo es el punto 2.2 vivo)');
   }
 
   // --- FILTRO-04: el switch NO aparece en el Catalogo ---
@@ -158,30 +176,35 @@ const run = async () => {
       'todas=' + cuenta(todas.html) + ' filtrado=' + cuenta(filtrado.html));
   }
 
-  // --- FILTRO-06: alcance=missing muestra lo NO desbloqueado ---
+  // --- FILTRO-06: la vista progreso ya no recorta por estado de posesion ---
+  // CONTRATO ACTUALIZADO (HB#126). El assert viejo afirmaba "el alcance
+  // missing lista las NO desbloqueadas" usando `setScope`, que ya no existe.
+  // No se reemplaza por otro assert sobre `missing`: la pregunta se elimino
+  // junto con la grilla. Lo que queda por affirmar es que la vista progreso
+  // NO depende de esa API y que sigue renderizando (un modulo que se rompio al
+  // retirar el switch es el modo de fallo real que este assert cubre hoy).
   {
     const t = boot();
     t.d.el('keySelectGlobal').value = 'KEY-A';
     t.ctx.GW2Api.getAccountLegendaryArmory = () => Promise.resolve([ARMAS[0]]);
     const T = t.ctx.LegendaryTracker;
     T.activate(); await tick(); T.setMode('progress'); await tick();
-    if (T.setScope) T.setScope('missing');
-    await tick();
     const h = t.d.el('legendaryModeContent').innerHTML;
-    const n = (h.match(/lt-item-card/g) || []).length;
-    ok('FILTRO-06 el alcance "missing" lista las NO desbloqueadas',
-      T.setScope ? n > 1 : false,
-      'n=' + n + ' totalCatalogo=' + CAT.length + ' (sin setScope el assert cae)');
+    ok('FILTRO-06 la vista progreso renderiza SIN setScope (contrato nuevo)',
+      typeof T.setScope !== 'function' && h.length > 0 && h.indexOf('lt-filter-bar') !== -1,
+      'setScope=' + typeof T.setScope + ' html=' + h.slice(0, 160));
   }
 
-  // --- FILTRO-07: la API publica expone setFilter y setScope ---
-  // Sin esto, el wiring de los botones del switch no tiene por donde entrar,
-  // y el test 05/06 pasanariamos false en vez de detectar el problema.
+  // --- FILTRO-07: la API publica expone setFilter y NO expone setScope ---
+  // `setFilter` sigue siendo el contrato: los 3 filtros por categoria se
+  // MANTIENEN (el plan los conserva) y se aplican a lo que entra a la cola.
+  // `setScope` se va con el switch, y el test lo verifica para que no quede
+  // colgando una API que nadie llama y que un consumidor externo usaria.
   {
     const t = boot();
     const T = t.ctx.LegendaryTracker;
-    ok('FILTRO-07 LegendaryTracker expone setFilter y setScope',
-      !!T && typeof T.setFilter === 'function' && typeof T.setScope === 'function',
+    ok('FILTRO-07 LegendaryTracker expone setFilter y ya NO expone setScope',
+      !!T && typeof T.setFilter === 'function' && typeof T.setScope !== 'function',
       'setFilter=' + (T && typeof T.setFilter) + ' setScope=' + (T && typeof T.setScope));
   }
 

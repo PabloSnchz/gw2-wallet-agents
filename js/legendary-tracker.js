@@ -97,7 +97,11 @@
     // que mentir: después de un intento parcial no hay contrato, y la pregunta
     // útil es "que le faltaba", no "que le falta a un contrato que nunca existió".
     _renderMissing: REQUIRED_RENDERERS.slice(),
-    _refreshInFlight: null
+    _refreshInFlight: null,
+    // Cola de crafteo (paso 5). Es un array de ids EN ORDEN DE AGREGADO, no
+    // un Set: el orden es lo que le da el "peso visual" a las 3 primeras y lo
+    // que hace que quitar y volver a agregar la devuelva al final.
+    queue: []
   };
 
   // Filtros activos. Los consume `renderFilterBar(filters, catalog)`; los
@@ -119,8 +123,6 @@
   // No aplica al Catalogo: ahi se ve el catalogo entero, y "solo faltantes"
   // sobre un catalogo completo es "todo", o sea un switch que no cambia nada
   // visible. Por eso vive fuera de `filters` y no se dibuja ahi.
-  var PROGRESS_SCOPES = { UNLOCKED: 'unlocked', MISSING: 'missing' };
-  var scope = PROGRESS_SCOPES.UNLOCKED;
 
   // ========================================================================
   // 2. UTILIDADES
@@ -145,6 +147,80 @@
   }
   function sGet(key) {
     try { var j = localStorage.getItem(STORAGE_PREFIX + key); return j ? JSON.parse(j) : null; } catch (_) { return null; }
+  }
+
+  // Maximo de la cola. El plan lo fija en 5 y aclara que NO es el objetivo de
+  // posesion del PO (16): 5 es foco, 16 es inventario. Son cosas distintas.
+  var QUEUE_MAX = 5;
+  var QUEUE_KEY = 'queue';
+
+  // Normaliza lo que llega de localStorage a un array de ids enteros POSITIVOS,
+  // sin duplicados y con tope. Todo lo que se pueda corregir se corrige solo:
+  // una cola persistida con basura no puede dejar la vista sin pintar, y el
+  // modulo ya decidio que "no pude leer" se muestra en vez de parecerse a vacio.
+  function sanitizeQueue(raw) {
+    var out = [], seen = {};
+    if (!Array.isArray(raw)) return out;
+    for (var i = 0; i < raw.length && out.length < QUEUE_MAX; i++) {
+      var n = Number(raw[i]);
+      if (!isFinite(n) || n <= 0 || Math.floor(n) !== n) continue;
+      if (seen[n]) continue;
+      seen[n] = true;
+      out.push(n);
+    }
+    return out;
+  }
+
+  function loadQueue() {
+    state.queue = sanitizeQueue(sGet(QUEUE_KEY));
+    return state.queue.slice();
+  }
+
+  function saveQueue() {
+    sSet(QUEUE_KEY, state.queue);
+  }
+
+  // Agrega o quita. Devuelve {ok, reason, queue} para que el que llama pueda
+  // distinguir "no se pudo" de "no se quiso": reason es 'llena', 'ya-estaba'
+  // o null en el camino de agregado.
+  //
+  // NO se valida craftType aqui. La pregunta "puede una legendaria SIN receta
+  // estar en la cola" es de ALCANCE y esta enviada al Reviewer; hasta que
+  // responda, la cola acepta cualquiera y el modal muestra el estado real
+  // (craftType none = se puede agregar, no se puede fabricar). Cambiar esta
+  // decision despues es UNA linea, y el test la fija en vez de suponerla.
+  function toggleQueue(itemId) {
+    var id = Number(itemId);
+    // El entero se exige ACA y no solo en `sanitizeQueue`: sin esta linea un
+    // id fraccionario (1.5) entra vivo, se persiste, y desaparece en la
+    // recarga. Dos validadores que no coinciden hacen que la cola pierda items
+    // sola, y "perdio uno" es el bug mas dificil de ver de este modulo.
+    if (!isFinite(id) || id <= 0 || Math.floor(id) !== id) {
+      return { ok: false, reason: 'id-invalido', queue: state.queue.slice() };
+    }
+
+    var at = state.queue.indexOf(id);
+    if (at !== -1) {
+      state.queue.splice(at, 1);
+      saveQueue();
+      return { ok: true, reason: null, added: false, queue: state.queue.slice() };
+    }
+    if (state.queue.length >= QUEUE_MAX) {
+      return { ok: false, reason: 'llena', queue: state.queue.slice() };
+    }
+    state.queue.push(id);
+    saveQueue();
+    return { ok: true, reason: null, added: true, queue: state.queue.slice() };
+  }
+
+  // Los items de la cola, en orden, ya resueltos contra el catalogo.
+  // Un id que ya no esta en el catalogo se SALTA en vez de romper: el
+  // catalogo puede cambiar entre versiones y la cola es del usuario.
+  function queueItems() {
+    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    var byId = {};
+    cat.forEach(function (it) { byId[it.id] = it; });
+    return state.queue.map(function (id) { return byId[id]; }).filter(Boolean);
   }
 
   function toast(msg, type) {
@@ -251,14 +327,6 @@
   // segunda capa sobre un conjunto ya recortado. Al reves, "Solo faltantes" con
   // filtro de Armas traeria las armas que faltan entre TODAS, y el filtro
   // actua como si no se hubiera tocado.
-  function progressItems(owned) {
-    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
-    return cat.filter(function (item) {
-      if (!passesFilters(item)) return false;
-      var isOwned = !!(owned[item.id] && owned[item.id] > 0);
-      return scope === PROGRESS_SCOPES.MISSING ? !isOwned : isOwned;
-    });
-  }
 
   // `owned` es {id: count}. El stub de API no trae nada, asi que hoy es {} y la
   // vista de progreso pinta su estado vacio honesto ("aun no posees ninguna").
@@ -481,10 +549,90 @@
       var target = e.target;
       while (target && target !== content) {
         if (target.classList && target.classList.contains('lt-item-card')) {
-          openItemModal(target.getAttribute('data-id'));
+          onCardTapped(target.getAttribute('data-id'));
           return;
         }
         target = target.parentNode;
+      }
+    });
+  }
+
+  function onCardTapped(rawId) {
+    var res = toggleQueue(rawId);
+    if (!res.ok) {
+      toast(res.reason === 'llena'
+        ? 'La cola de crafteo esta llena (' + QUEUE_MAX + '). Quita una primero.'
+        : 'No se pudo agregar a la cola.', 'warn');
+      return;
+    }
+    if (res.added) {
+      toast('Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').', 'success');
+    } else {
+      toast('Quitada de la cola.', 'info');
+    }
+    renderCurrentMode();
+  }
+
+  // Boton de materiales de una fila de la cola. Ahi vive el modal: el click de
+  // la card ya es "agregar/quitar", y un gesto no puede hacer dos cosas.
+  function queueRowHTML(item, pos) {
+    var nombre = item.nameEs || item.name || ('#' + item.id);
+    // Las 3 primeras llevan el acento: es el "mas peso visual" del plan.
+    var top3 = pos < 3;
+    var borde = top3 ? '3px solid #974EFF' : '3px solid rgba(255,255,255,0.12)';
+    var fondo = top3 ? 'rgba(151,78,255,0.08)' : 'transparent';
+    return '<div class="lt-queue-row" data-queue-id="' + item.id + '" ' +
+      'style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;' +
+      'border-left:' + borde + ';background:' + fondo + ';margin-bottom:7px;">' +
+      '<span style="font-size:0.62rem;color:var(--tx-3);width:14px;flex-shrink:0;' +
+        'font-weight:700;' + (top3 ? 'color:#974EFF;' : '') + '">' + (pos + 1) + '</span>' +
+      '<img src="' + esc(item.icon || '') + '" width="30" height="30" alt="" loading="lazy" ' +
+        'style="border-radius:4px;object-fit:contain;flex-shrink:0;">' +
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        'font-size:0.78rem;color:var(--tx-1);" title="' + esc(nombre) + '">' + esc(nombre) + '</span>' +
+      '<button data-queue-open="' + item.id + '" ' +
+        'style="padding:4px 10px;border-radius:20px;font-size:0.68rem;cursor:pointer;' +
+        'border:1px solid var(--bd-1);background:var(--bg-1);color:var(--tx-2);">Materiales</button>' +
+      '<button data-queue-remove="' + item.id + '" ' +
+        'style="padding:4px 8px;border-radius:20px;font-size:0.68rem;cursor:pointer;' +
+        'border:1px solid var(--bd-1);background:var(--bg-1);color:var(--tx-3);">Quitar</button>' +
+    '</div>';
+  }
+
+  // "Mi progreso" deja de ser la grilla global y pasa a ser la COLA. El
+  // switch de alcance (2.2) se retira con ella: era un selector sobre una
+  // lista que ya no existe, y sin la lista no hay nada que recortar.
+  function renderQueuePanel() {
+    var items = queueItems();
+    var head = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">' +
+      '<span style="font-size:0.72rem;color:var(--tx-2);font-weight:600;">Cola de crafteo</span>' +
+      '<span style="font-size:0.65rem;color:var(--tx-3);">' + items.length + '/' + QUEUE_MAX + '</span></div>';
+
+    if (!items.length) {
+      return head + '<p class="status muted" style="font-size:0.75rem;">' +
+        'Todavia no hay nada en la cola. Toca una legendaria del catalogo para agregarla; ' +
+        'vuelve a tocarla para quitarla.</p>';
+    }
+    var rows = items.map(function (it, i) { return queueRowHTML(it, i); }).join('');
+    return head + '<div data-queue-panel="true">' + rows + '</div>';
+  }
+
+  // Botones de la cola: abrir materiales y quitar. Delegados como los
+  // filtros y las cards: un listener sobre el contenedor, no uno por fila.
+  function wireQueuePanel() {
+    var panel = $('#legendaryModeContent [data-queue-panel="true"]');
+    if (!panel || panel.getAttribute('data-wired') === 'true') return;
+    panel.setAttribute('data-wired', 'true');
+    panel.addEventListener('click', function (e) {
+      var t = e.target;
+      while (t && t !== panel) {
+        if (t.getAttribute) {
+          var open = t.getAttribute('data-queue-open');
+          if (open) { openItemModal(open); return; }
+          var rm = t.getAttribute('data-queue-remove');
+          if (rm) { toggleQueue(rm); toast('Quitada de la cola.', 'info'); renderCurrentMode(); return; }
+        }
+        t = t.parentNode;
       }
     });
   }
@@ -521,55 +669,19 @@
       // filtros viven acá y el render no los tiene. Que el recorte se decida
       // en un solo lado es lo que hace que "Armas" signifique lo mismo en las
       // dos vistas.
-      var pItems = progressItems(owned);
-      content.innerHTML = r.filterBar(filters, all) +
-        '<div class="lt-progress-scope" data-scope-bar="true">' +
-          scopeToggleHTML() +
-        '</div>' +
-        r.progress(
-          { owned: owned, mode: state.mode, items: pItems, scope: scope, filters: filters },
-          catalogStats(pItems, owned)
-        );
+      // En el modo cola NO se llama a `r.progress`: esa funcion RECIBE los
+      // items y los ordena ALFABETICAMENTE, lo que destruye el orden de
+      // agregado que es justamente lo que da peso visual a las 3 primeras.
+      // Y su empty state ("aun no posees ninguna legendaria") seria FALSO con
+      // la cola vacia. Las filas las pone `renderQueuePanel()`.
+      content.innerHTML = r.filterBar(filters, all) + renderQueuePanel();
       wireFilterBar();
-      wireScopeBar();
+      wireQueuePanel();
       wireItemCards();
     }
   }
 
-  // Switch "Desbloqueadas / Solo faltantes".
-  function scopeToggleHTML() {
-    return '<div style="display:inline-flex;gap:4px;align-items:center;margin-bottom:14px;">' +
-      '<span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Mostrar:</span>' +
-      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'active' : '') + '" ' +
-        'data-scope="unlocked" ' +
-        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
-        'border:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '1px solid #68ff9f' : '1px solid var(--bd-1)') + ';' +
-        'background:' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'rgba(104,255,163,0.15)' : 'var(--bg-1)') + ';' +
-        'color:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '#68ff9f' : 'var(--tx-2)') +
-        ';">Desbloqueadas</button>' +
-      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.MISSING ? 'active' : '') + '" ' +
-        'data-scope="missing" ' +
-        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
-        'border:' + (scope === PROGRESS_SCOPES.MISSING ? '1px solid #974EFF' : '1px solid var(--bd-1)') + ';' +
-        'background:' + (scope === PROGRESS_SCOPES.MISSING ? 'rgba(151,78,255,0.2)' : 'var(--bg-1)') + ';' +
-        'color:' + (scope === PROGRESS_SCOPES.MISSING ? '#974EFF' : 'var(--tx-2)') +
-        ';">Solo faltantes</button>' +
-    '</div>';
-  }
 
-  function wireScopeBar() {
-    var bar = $('#legendaryModeContent [data-scope-bar="true"]');
-    if (!bar || bar.getAttribute('data-wired') === 'true') return;
-    bar.setAttribute('data-wired', 'true');
-    bar.addEventListener('click', function (e) {
-      var t = e.target;
-      if (!t || !t.getAttribute) return;
-      var sc = t.getAttribute('data-scope');
-      if (!sc) return;
-      scope = (sc === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
-      renderCurrentMode();
-    });
-  }
 
   // Delegación de eventos: los botones de filtro los genera `render-catologo.js`
   // y no tienen id, solo `data-ftype`/`data-fvalue`. Un listener por cada
@@ -770,6 +882,7 @@
     if (panel) panel.removeAttribute('hidden');
 
     // Cargar modo persistido (o default)
+    loadQueue();
     var savedMode = sGet('mode');
     state.mode = (savedMode === MODES.PROGRESS) ? MODES.PROGRESS : MODES.CATALOG;
 
@@ -929,6 +1042,12 @@
       return true;
     },
     openItemModal: openItemModal,
+    // Cola de crafteo (paso 5). `toggleQueue` es la MISMA funcion que usa el
+    // click de la card: un consumidor externo y un dedo no pueden tener
+    // reglas distintas de las 5.
+    toggleQueue: toggleQueue,
+    getQueue: function () { return state.queue.slice(); },
+    QUEUE_MAX: QUEUE_MAX,
     closeItemModal: closeItemModal,
     computeMaterials: computeMaterials,
     getRenderState: getRenderState,
@@ -941,18 +1060,13 @@
     // deep-link) pueda fijar el recorte sin escribir en el objeto interno.
     // `null` limpia el filtro; el valor se valida contra el propio dato, no
     // contra una lista: un filtro de tipo que no existe en el catalogo es
-    // legitimo (se ve la grilla vacia), uno de scope que no es uno de los dos
+    // legitimo (se ve la grilla vacia)
     // NO lo es y cae al default en vez de dejar la vista sin items.
     setFilter: function (key, value) {
       if (key !== 'type' && key !== 'generation' && key !== 'expansion') return false;
       filters[key] = (value === '' ? null : value);
       if (state.inited && state.active) renderCurrentMode();
       return true;
-    },
-    setScope: function (value) {
-      scope = (value === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
-      if (state.inited && state.active) renderCurrentMode();
-      return scope;
     },
     _debug: function () {
       return {
@@ -966,7 +1080,6 @@
         error: state.error ? String(state.error.message || state.error) : null,
         render: getRenderState(),
         filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion },
-        scope: scope,
         dom: {
           panel: !!el('legendaryArmoryPanel'),
           panelVisible: el('legendaryArmoryPanel') ? !el('legendaryArmoryPanel').hasAttribute('hidden') : false,

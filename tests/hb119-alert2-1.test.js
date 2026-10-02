@@ -151,9 +151,23 @@ const run = async () => {
     // eso el assert se gatea con `tieneSetMode`: lo que se afirma es "el
     // PROGRESO nombra a la legendaria de la key", y sin setMode no hay
     // progreso que afirmar y el assert tiene que caer.
-    ok('ARMF-03b el progreso nombra a la legendaria de la key',
-      tieneSetMode && (html.indexOf('30684') !== -1 || html.indexOf('Frostfang') !== -1 || html.indexOf('Colmilloescarcha') !== -1),
-      'setMode=' + tieneSetMode + ' html=' + html.slice(0, 200));
+    // CONTRATO ACTUALIZADO (HB#126, paso 5): "Mi progreso" ya no es la grilla
+    // de las 206 divididas por estado de posesion, es la COLA de crafteo. La
+    // asercion vieja ("el progreso nombra la legendaria de la key") es FALSA
+    // por diseno ahora: la cola arranca vacia y solo la llena el usuario, tocan
+    // una legendaria del catalogo. Con una key que trae 2 legendarias, el
+    // progreso las nombra si y solo si estan en la cola.
+    // Lo que se sigue afirmando, y es lo que importa: el modulo LEE la
+    // armeria y la tiene en `owned` (ARMF-02 ya lo prueba). Que "Mi progreso"
+    // la muestre es una decision de UI que el plan cambio.
+    const tr = t.ctx.LegendaryTracker;
+    const cat = t.ctx.LegendaryCatalog.items;
+    if (tr.toggleQueue) tr.toggleQueue(cat[0].id);
+    if (typeof tr.setMode === 'function') tr.setMode('progress'); await tick();
+    const html2 = t.d.el('legendaryModeContent').innerHTML;
+    ok('ARMF-03b la legendaria de la cola se nombra en el progreso',
+      tieneSetMode && (html2.indexOf('30684') !== -1 || html2.indexOf('Frostfang') !== -1 || html2.indexOf('Colmilloescarcha') !== -1),
+      'setMode=' + tieneSetMode + ' html=' + html2.slice(0, 200));
   }
 
   // --- ARMF-04: "faltante" = NO esta en legendaryarmory ---
