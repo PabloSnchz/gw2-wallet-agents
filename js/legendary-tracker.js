@@ -62,6 +62,12 @@
   var state = {
     inited: false,
     active: false,
+    // 1.2. El render del modal de materiales entra por una puerta PROPIA y no
+    // como quinta clave de REQUIRED_RENDERERS: ese registro es un candado que
+    // rechaza lo incompleto a proposito (ALERT-84 T4), y agregar una clave
+    // obligaria a un consumidor viejo a registrarla para poder pintar.
+    itemModalRenderer: null,
+    openItemId: null,
     mode: MODES.CATALOG,       // modo activo
     token: null,
     armory: [],               // legendarias desbloqueadas (del API)
@@ -272,6 +278,217 @@
     return { owned: n, total: total, pct: total ? Math.round((n / total) * 100) : 0 };
   }
 
+  // ========================================================================
+  // 1.2 -- MATERIALES DE UNA LEGENDARIA
+  // ========================================================================
+  //
+  // El catalogo decia 206 items y el banco/materiales de la cuenta ya se
+  // pedian (loadLegendaryData) pero NO se leian nunca: dos fuentes a la vista
+  // y un puente sin construir. Esto lo construye.
+  //
+  // Lo que NO se hace aqui, y es deliberado: la cola de crafteo. Esta funcion
+  // responde "de que se hace y que me falta" para UNA legendaria; si la cola
+  // entra, se apoya en esta y no la reimplementa.
+
+  // Inventario agregado de las TRES fuentes de stock de una cuenta.
+  //
+  // Se SUMAN y no se elige una: un material puede estar partido entre el banco
+  // y la bolsa de un personaje, y tomar el maximo (o el primero) rompe justo en
+  // el caso donde el jugador esta mas cerca de poder fabricar. Un id que
+  // aparece en dos fuentes cuenta una sola vez con el total, que es lo que
+  // "tengo" significa para un contador.
+  function stockMap() {
+    var m = {};
+    var meter = function (arr) {
+      (arr || []).forEach(function (it) {
+        if (!it) return;
+        var id = typeof it === 'object' ? (it.id || it.item_id) : it;
+        var c = typeof it === 'object' ? Number(it.count || 0) : 0;
+        if (!id || !(c > 0)) return;
+        m[id] = (m[id] || 0) + c;
+      });
+    };
+    meter(state.bank);
+    meter(state.materials);
+    meter(state.characterItems);
+    return m;
+  }
+
+  // Calcula los materiales de una legendaria. NO toca el DOM: devuelve datos.
+  //
+  // Los cuatro status NO son dos con nombre distinto, y esa es la parte que el
+  // plan de noche pide explicita ("un filtro invisible que un dia deja de
+  // matchear y no dice nada es un bug futuro"):
+  //
+  //   recipe      -- hay receta y materiales que comparar
+  //   no_recipe   -- el id existe y se verifico, la fuente no publica receta
+  //   placeholder -- el 95093, que es el marcador de cuenta y no una pieza
+  //   unknown     -- el id no esta en el contrato. NO es "sin receta": es un
+  //                  dato que no tenemos, y las dos cosas se responden distinto
+  //
+  // Un modal que seccionara estos cuatro a "no hay nada que mostrar" seria el bug.
+  function computeMaterials(itemId) {
+    var id = Number(itemId);
+    var R = root.LegendaryRecipes;
+
+    if (!R || typeof R.get !== 'function') {
+      return { status: 'unknown', itemId: id, craftType: null, rows: [], disciplines: [],
+               note: 'El contrato de fabricacion no esta cargado.' };
+    }
+
+    var e = R.get(id);
+
+    // Ausencia de la clave: id desconocido. Es el unico caso que devuelve
+    // 'unknown', y a proposito NO se fusiona con 'no_recipe'.
+    if (!e) {
+      return { status: 'unknown', itemId: id, craftType: null, rows: [], disciplines: [],
+               note: 'Esta pieza no esta en el catalogo de legendarias.' };
+    }
+
+    var base = {
+      itemId: id,
+      craftType: e.craftType || null,
+      disciplines: (e.disciplines || []).slice(),
+      rows: [],
+      note: null
+    };
+
+    if (e.dataStatus === 'placeholder') {
+      base.status = 'placeholder';
+      // `R.placeholder` es un OBJETO {id, name, note}, no la frase. Asignarlo
+      // directo metia un [object Object] en pantalla: el arnes de este ciclo
+      // lo cazó porque el stub del test es una copia de la forma real.
+      base.note = (R.placeholder && R.placeholder.note) ||
+        'Marcador de cuenta, no una legendaria.';
+      return base;
+    }
+
+    if (e.dataStatus === 'no_recipe') {
+      base.status = 'no_recipe';
+      base.note = R.noRecipeNote || 'La fuente no publica receta para esta pieza.';
+      return base;
+    }
+
+    var stock = stockMap();
+    var ings = e.ingredients || [];
+    var totNeed = 0, totHave = 0, totMissing = 0;
+
+    ings.forEach(function (ing) {
+      var need = Math.max(0, Number(ing.count || 0));
+      // stockMap() ya garantiza > 0, pero el clamp queda porque 'have' se
+      // muestra al lado de 'need' y un negativo ahi se lee como bug del juego.
+      var have = Math.max(0, stock[ing.itemId] || 0);
+      var missing = Math.max(0, need - have);
+      var estado = missing === 0 ? 'ok' : (have > 0 ? 'partial' : 'missing');
+
+      totNeed += need; totHave += Math.min(have, need); totMissing += missing;
+
+      base.rows.push({
+        itemId: ing.itemId,
+        name: ing.name || ('#' + ing.itemId),
+        need: need,
+        have: Math.min(have, need),
+        stock: have,
+        missing: missing,
+        state: estado
+      });
+    });
+
+    base.status = 'recipe';
+    base.totals = { need: totNeed, have: totHave, missing: totMissing };
+    base.allHave = totMissing === 0;
+    return base;
+  }
+
+  // El modal se crea una vez y se reutiliza: el proyecto ya tiene el patron
+  // (`#convModal`, clase `modal` de main.css) y copiarlo es lo que evita
+  // inventar una segunda piel de dialogo que se desincroniza del tema.
+  function ensureItemModal() {
+    var m = document.getElementById('ltItemModal');
+    if (m) return m;
+    m = document.createElement('div');
+    m.id = 'ltItemModal';
+    m.className = 'modal';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-modal', 'true');
+    m.hidden = true;
+    m.innerHTML =
+      '<div class="modal__backdrop" data-close="1"></div>' +
+      '<div class="modal__dialog" style="max-width: 560px;">' +
+        '<header class="modal__header">' +
+          '<h3 id="ltItemModalTitle" style="font-size:0.95rem;color:var(--tx-1);">' +
+            'Materiales</h3>' +
+          '<button type="button" class="modal__close" aria-label="Cerrar" data-close="1">✕</button>' +
+        '</header>' +
+        '<div class="modal__body" id="ltItemModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(m);
+
+    // El cierre se cablea ACÁ, con el nodo recien creado, y no en
+    // wireItemCards: este modal todavia no existe cuando se cablean las cards,
+    // asi que ahi no habria nada a que engancharse. `data-close` es el mismo
+    // atributo que usa el conversor, para que el gesto se lea igual en los dos.
+    m.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.getAttribute && t.getAttribute('data-close') === '1') closeItemModal();
+    });
+
+    return m;
+  }
+
+  function closeItemModal() {
+    var m = document.getElementById('ltItemModal');
+    if (m) m.hidden = true;
+  }
+
+  // Abre el modal de una legendaria. Es API publica a proposito: la cola de
+  // crafteo va a llamarla con el item de la tarjeta, y un deep-link tambien.
+  function openItemModal(itemId) {
+    var m = ensureItemModal();
+    var body = document.getElementById('ltItemModalBody');
+    var datos = computeMaterials(itemId);
+    var item = ((root.LegendaryCatalog && root.LegendaryCatalog.items) || [])
+      .filter(function (x) { return x.id === Number(itemId); })[0];
+
+    var nombre = item ? (item.nameEs || item.name) : ('#' + itemId);
+    var title = document.getElementById('ltItemModalTitle');
+    if (title) title.textContent = nombre;
+
+    if (state.itemModalRenderer) {
+      body.innerHTML = state.itemModalRenderer(datos, item);
+    } else {
+      // Sin render todavia. NO es un estado de carga: el render no depende de
+      // red, depende de que `render-catologo.js` se haya registrado. Decir
+      // "cargando" seria mentir y ademas rompe el invariante de que el tracker
+      // no pinta placeholders (alert84.leyenda-estado-honesto.test.js).
+      body.innerHTML = '<div style="padding:18px;color:var(--tx-3);font-size:0.78rem;">' +
+        'La vista de materiales no esta disponible todavia.</div>';
+    }
+
+    m.hidden = false;
+    state.openItemId = Number(itemId);
+  }
+
+  // Delegacion: un solo listener sobre el contenedor, no uno por card. Con
+  // 206 cards, un listener por card es 206 closures que se reconstruyen en
+  // cada repintado del filtro.
+  function wireItemCards() {
+    var content = $('#legendaryModeContent');
+    if (!content || content._ltCardsWired) return;
+    content._ltCardsWired = true;
+
+    content.addEventListener('click', function (e) {
+      var target = e.target;
+      while (target && target !== content) {
+        if (target.classList && target.classList.contains('lt-item-card')) {
+          openItemModal(target.getAttribute('data-id'));
+          return;
+        }
+        target = target.parentNode;
+      }
+    });
+  }
+
   function renderCurrentMode() {
     var content = $('#legendaryModeContent');
     if (!content) return;
@@ -296,6 +513,7 @@
       var items = catalogItems();
       content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned);
       wireFilterBar();
+      wireItemCards();
     } else {
       // Los items los calcula el tracker, no el render. Antes los elegia
       // `renderProgress()` por su cuenta desde `state.owned`, lo que hacia
@@ -314,6 +532,7 @@
         );
       wireFilterBar();
       wireScopeBar();
+      wireItemCards();
     }
   }
 
@@ -439,7 +658,7 @@
   //
   // La API existe y funciona: `GW2Api.getAccountLegendaryArmory()`
   // (api-gw2.js:1243) ya la consumia `inventory-hub.js:218` desde antes de que
-  // este modulo existiera. Por eso el fix NO es "arreglar la API": es接通 la
+  // este modulo existiera. Por eso el fix NO es "arreglar la API": es conectar la
   // llamada. Y por eso lo que Pablo vio en el Inventario (armeria poblada) y
   // lo que veia aqui (vacio) no se contradician: son dos consumidores del
   // mismo endpoint, y solo uno lo llamaba.
@@ -698,6 +917,20 @@
     refresh: refresh,
     prefetch: prefetch,
     registerRender: registerRender,
+    registerItemModal: function (fn) {
+      if (typeof fn !== 'function') return false;
+      state.itemModalRenderer = fn;
+      // Si hay un modal abierto con el render viejo, se repinta con el nuevo:
+      // el registro puede ocurrir DESPUES del primer click (los <script> van
+      // con defer y el orden solo garantiza tracker -> render-catologo).
+      if (state.openItemId && !document.getElementById('ltItemModal').hidden) {
+        openItemModal(state.openItemId);
+      }
+      return true;
+    },
+    openItemModal: openItemModal,
+    closeItemModal: closeItemModal,
+    computeMaterials: computeMaterials,
     getRenderState: getRenderState,
     getState: getState,
     setMode: setMode,

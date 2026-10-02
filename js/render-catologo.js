@@ -381,6 +381,90 @@
   // =======================================================================
   // RENDER: SKELETON (LOADING)
   // =======================================================================
+  // =======================================================================
+  // RENDER: MODAL DE MATERIALES (ARME 1.2)
+  // =======================================================================
+  //
+  // Recibe lo que calcula `computeMaterials` y lo pinta. El corte es el mismo
+  // que los otros cuatro renders: aqui no se consulta la API ni se decide
+  // nada de negocio, solo se dibuja.
+  //
+  // Los cuatro status se dibujan DISTINTOS a proposito. Un modal que para
+  // 'no_recipe', 'placeholder' y 'unknown' dijera lo mismo seria un filtro
+  // invisible: el dia que GW2 renombre el item 95093, el filtro dejaria de
+  // matchear y nadie lo veria.
+  function renderItemModal(datos, item) {
+    if (!datos) {
+      return '<div style="padding:18px;color:var(--tx-3);font-size:0.78rem;">Sin datos.</div>';
+    }
+
+    // Los tres status "sin fila" muestran el motivo, y el motivo es lo que
+    // dice el contrato (o el tracker si el contrato no esta). No se inventa
+    // texto aca: duplicar el motivo es la forma de que los dos se desincronicen.
+    if (datos.status !== 'recipe') {
+      var icon = datos.status === 'unknown' ? '?' : '!';
+      return '<div style="padding:16px 4px;">' +
+        '<div style="display:flex;gap:10px;align-items:flex-start;">' +
+          '<div style="flex:0 0 22px;height:22px;border-radius:50%;border:1px solid rgba(255,196,84,0.5);' +
+            'color:#ffc454;font-size:0.7rem;font-weight:700;display:flex;align-items:center;' +
+            'justify-content:center;">' + icon + '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:0.7rem;font-weight:700;color:#ffc454;letter-spacing:0.04em;' +
+              'text-transform:uppercase;">' + esc(datos.status) + '</div>' +
+            '<div style="font-size:0.78rem;color:var(--tx-2);margin-top:5px;line-height:1.5;">' +
+              esc(datos.note || '') + '</div>' +
+            (datos.craftType
+              ? '<div style="font-size:0.7rem;color:var(--tx-3);margin-top:6px;">craftType: <code>' +
+                esc(datos.craftType) + '</code></div>'
+              : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var COL = {
+      ok: { l: '#68ff9f', t: 'TENGO' },
+      partial: { l: '#ffc454', t: 'FALTA' },
+      missing: { l: '#ff7a7a', t: 'FALTA' }
+    };
+
+    var filas = datos.rows.map(function (r) {
+      var c = COL[r.state] || COL.missing;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;' +
+          'border-bottom:1px solid var(--bd-1);">' +
+        '<div style="flex:1;min-width:0;font-size:0.78rem;color:var(--tx-1);' +
+          'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.name) + '">' +
+          esc(r.name) + '</div>' +
+        '<div style="font-size:0.72rem;color:var(--tx-3);white-space:nowrap;">' +
+          '<span style="color:' + c.l + ';font-weight:700;">' + esc(c.t) + '</span> ' +
+          fmtInt(r.have) + '/' + fmtInt(r.need) + '</div>' +
+      '</div>';
+    });
+
+    var resumen = datos.allHave
+      ? '<span style="color:#68ff9f;">Tenes todos los materiales.</span>'
+      : '<span style="color:#ffc454;">Te faltan ' + fmtInt(datos.totals.missing) +
+        ' de ' + fmtInt(datos.totals.need) + ' unidades.</span>';
+
+    return '<div style="padding:4px 2px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;' +
+        'padding-bottom:9px;margin-bottom:5px;border-bottom:1px solid var(--bd-1);">' +
+        '<span style="font-size:0.72rem;color:var(--tx-2);">' + resumen + '</span>' +
+        '<span style="font-size:0.65rem;color:var(--tx-3);text-transform:uppercase;' +
+          'letter-spacing:0.04em;">' + esc(datos.craftType || '—') +
+          (datos.disciplines && datos.disciplines.length
+            ? ' · ' + esc(datos.disciplines.join(', ')) : '') +
+        '</span>' +
+      '</div>' +
+      (filas.length ? filas.join('') :
+        '<div style="padding:14px 0;font-size:0.76rem;color:var(--tx-3);">La receta no lista ingredientes.</div>') +
+      (item && item.tpTradeable && item.tpSell
+        ? '<div style="margin-top:10px;font-size:0.68rem;color:var(--tx-3);">' +
+          'En trading post: ' + tpCoinHTML(item.tpSell) + '</div>'
+        : '') +
+    '</div>';
+  }
+
   function renderSkeleton() {
     var skelCard = function () {
       return '<div class="lt-skeleton-card card" style="padding:10px;border-radius:12px;">' +
@@ -430,6 +514,13 @@
       progress: renderProgress
     });
     injectSkeletonStyles();
+    // El modal de materiales (ARME 1.2) se registra por su PUERTA PROPIA, no
+    // como quinta clave del registro de arriba: ese registro rechaza lo
+    // incompleto a proposito, y meterlo ahi haria que el modulo dejara de
+    // pintar el catalogo entero si este render no llegara.
+    if (typeof root.LegendaryTracker.registerItemModal === 'function') {
+      root.LegendaryTracker.registerItemModal(renderItemModal);
+    }
     console.info(LOG, 'render functions registered');
   } else {
     // Retry en próximo tick (el módulo principal puede no estar listo)
@@ -442,6 +533,9 @@
           progress: renderProgress
         });
         injectSkeletonStyles();
+        if (typeof root.LegendaryTracker.registerItemModal === 'function') {
+          root.LegendaryTracker.registerItemModal(renderItemModal);
+        }
         console.info(LOG, 'render functions registered (retry)');
       } else {
         console.warn(LOG, 'LegendaryTracker no disponible, render functions no registradas');
