@@ -1,3 +1,66 @@
+## ACTUALIZACION 2026-10-02 18:00 UTC — Heartbeat PO ronda 45 — PAUSA: 6 items a 4
+
+> **Espejo de la ronda 45 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
+> **6 items abiertos** en `BACKLOG.md` @ `origin/main` `70fd048` = **4-7 = PAUSA**.
+> En PAUSA la corrida entera es podar: **no se investiga y no se traen ideas.**
+> Sin web research esta ronda, por regla del regimen.
+
+### El número que decide
+
+| | items abiertos |
+|---|---|
+| al empezar (medido con `git grep -e "^- \[ \]"`) | **6** |
+| al terminar (propuesto, pendiente de que el Principal lo aplique) | **4** |
+
+**Aviso de método:** el conteo se hizo con `git grep`, no con `findstr`. `findstr /c:"- [ ]"`
+devolvió **9** líneas de las cuales **3** eran `- [x]`: el patrón se estaba comiendo los corchetes.
+Un 9 en vez de un 6 me habría puesto en **MODO PODA**, que es un régimen distinto.
+*Un patrón que matchea más de lo que busca no da un número grande: da un número falso.*
+
+### Las 2 podadas, con su razón
+
+**1. Idea 57 — la REGLA del contrato de FORMA → CERRADA como HECHA.**
+Verificado por ancestría contra `origin/main`: **`0d498b1` y `ae89b8c` los dos MERGEADOS.**
+La fila decía "TRAMO 3 HECHO Y EN REVISION"; la parte de "EN REVISION" estaba vencida.
+Lo que le queda son 4 wrappers por migrar, y eso **ya no es trabajo de esta fila**: la propia
+fila lo dice, y además **un test que corre y pasa ya los nombra con número de línea**
+(`idea57t5-cuenta-medida.test.js`: L967, L1011, L1087, L1198 — 13 pass / 0 FAIL).
+Una fila cuyo pendiente ya está enumerado por una máquina que lo mide no coordina trabajo: lo duplica.
+
+**2. Armería: la barra de filtros de "Mi progreso" → DESCARTADA POR VEREDICTO DE PRODUCTO.**
+Cero contenido ejecutable: paso 1 HECHO (`69a7595`, ALERT-211), pasos 2 y 3 rechazados por el
+veredicto ya dado de que **la cola NO se filtra**, y `FILTRO-05` ya es ALERT-212.
+
+### 🔴 ALERT-41: 13 días bloqueada y la pregunta nunca llegó a Pablo
+
+La única fila cuya condición de cierre es **100% ajena al equipo**: *"Pablo pega el body crudo
+de `/v2/account/raids` con un token real"*. Abierta desde HB#43 (2026-09-30).
+Medido: `TEAM_STATUS.md` la menciona **3 veces** y las 3 son **notas internas de bloqueo**.
+**No hay ni una pregunta dirigida a Pablo.** Un bloqueo cuya única salida es una línea pegada por
+el usuario lleva 13 días circulando por documentos internos, donde el usuario no lee.
+**No se poda** — podarla sería borrar un módulo arreglable con un comando. **Se escala.**
+
+### Lo que queda (3 items de trabajo real)
+
+| fila | item | nota |
+|---:|---|---|
+| 88 | Coberturable account-scoped multicuenta | 12 endpoints sin tocar, el mayor gap medido. Sin bloqueo. |
+| 90 | Dungeon dailies | Premisa ya corregida (ronda 40): los 3 hermanos viven en `meta.js`. |
+| 223 | WvW Borderlands beta tracker | **Deadline 10/11 — a 39 días.** El único con fecha dura. |
+
+**4 es el piso de PAUSA:** la próxima corrida puede **RECOLECTAR** ideas de nuevo.
+
+### Una hipótesis mía que murió en la medición
+
+Vi la firma `DIAGNOSTICADO, NO ARREGLADO` **2 veces** en la fila 60 y concluí que mi poda de la
+ronda 39 había concatenado en vez de reemplazar. **No se sostiene.** El texto viejo **no** es
+subcadena del nuevo (1531 → 2550 chars), y cada frase sustantiva del diagnóstico aparece
+**1 vez**: lo único que se repite es la etiqueta de estado de ~60 chars. Es redundancia de estilo,
+no un defecto — la fila es *encabezado nuevo + medición conservada*.
+*Una subcadena negativa no prueba que no haya duplicación: prueba que no hay duplicación VERBATIM.*
+
+---
+
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
