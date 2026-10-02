@@ -611,15 +611,17 @@
       }
 
       validateImportData(importData);
-      
-      importApiKeys(importData.data.apiKeys);
-      importWVData(importData.data.wv);
-      importWalletData(importData.data.wallet);
-      importActivitiesData(importData.data.activities);
-      importCharactersData(importData.data.characters);
-      importMetaData(importData.data.meta);
-      importGlobalData(importData.data.global);
-      
+
+      // ALERT-179: las 7 escrituras vivian DUPLICADAS acá y en
+      // `applyImportData`, identicas linea por linea y en el mismo orden
+      // (medido: `tools/hb123-alert179.test.js`, 14/0, con control negativo).
+      // Delegar NO cambia el contrato de esta funcion publica porque lo que
+      // la hace distinta de `applyImportData` -- parsear un string, validar,
+      // y devolver `{ success: true }` -- queda TODO adelante y despues.
+      // El orden importa y es lo unico fragile: parsear y validar van PRIMERO
+      // a proposito. Delegar antes de validar escribiria datos sin preguntar.
+      applyImportData(importData);
+
       console.log(LOG, 'Configuración importada desde datos');
       return { success: true };
     } catch (err) {
