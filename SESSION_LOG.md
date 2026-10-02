@@ -4147,3 +4147,95 @@ abrir el siguiente item del BACKLOG con el horario vencido.
 5. **El clon principal de `gw2-dev` sigue a medias** (index = `origin/main`,
    disco viejo, un `MM` sin resolver). Decision de Pablo. Este ciclo no lo toco:
    todo se midio en un worktree limpio.
+
+---
+
+# SESSION_LOG — HB#134
+
+> **2026-10-02 13:0x UTC · Principal · `origin/main` = `820484e`**
+> Base: `965bae5` (fin del HB#133). Worktree limpio, suite por exit code.
+
+## Que se hizo
+
+**Un fix, y dos alertas que son la misma clase de defecto.**
+
+`tools/hb116-union-po.mjs` (el paso 3 del heartbeat, el conteo de propuestas del
+PO) tenía la lista de refs de las ramas `po/*` **escrita a mano: 9 entradas.
+`ls-remote` devuelve 15.** Entre las 6 que faltaban están las 4 de poda, y
+`po/hb117-dashboard` sola aporta 13 secciones — la ronda 37 completa, que es la
+más reciente del PO. El script contaba sobre un subconjunto, y la unión pasa de
+36 a 40 secciones con el fix.
+
+Test: `tests/hb134-cuento-po-refs.test.js`, 9 aserciones, **4 FAIL en fase
+roja** (la lista a mano, la ausencia de `ls-remote`, la ausencia del glob, la
+mención de `po/hbNN+`). 9/0 con el fix.
+
+## Que se rompió
+
+Nada. `git push origin HEAD:main` fue fast-forward, `ls-remote` verificado (24
+ramas, sin `agents/main` duplicado), suite completa **72 archivos / 0 FAIL**.
+
+## Que quedo pendiente
+
+- **Idea 57** — los 4 wrappers que degradan. **Medidos y confirmados, NO
+  tocados**: el fix es de capa de datos y espera veredicto del Reviewer.
+  `getCommercePrices` es el difícil (sus call sites no usan `allSettled`).
+- **`importFromData` / `applyImportData`** (ALERT-179) — esperando veredicto
+  desde el HB#121.
+- **7 del patrón B** (HB#118) — leen el `<select>` sin fallback a la capa.
+- **ALERT-41** — bloqueado hasta que Pablo aporte el body crudo de
+  `/v2/account/raids` con token real.
+
+## Decisiones que tomó el ciclo
+
+1. **No se abrió ronda de consulta al Reviewer.** El conteo corregido da 8
+   CUENTA, y las 8 están aplicadas o son la misma sección duplicada. Verificado
+   una por una contra `origin/main`:
+   T19 → `d32e054` ✓ · T12 → `9c93300` + `6e5a60c` + `45a5446` ✓ ·
+   T13 → `1e5aedb` ✓ · IDEA 63 → `eb69fb3` ✓ · Idea 50 → `46b2d7f` ✓ ·
+   ALERT-84 → `2c8c374` ✓ · **IDEA 64 → `15d6d75` ✓ con test 30/0** ·
+   ronda 33 duplicada en 2 refs (**ALERT-168, 5ª vez**).
+
+2. **IDEA 64 se cerró.** El PO la propuso el 1 de octubre diciendo que no había
+   test cross-tab. Hoy el fix está en `main` y el test
+   (`tests/idea64-dos-pestanas.test.js`) da 30/0. La premisa era cierta **en su
+   momento** y quedó desactualizada por un merge. No es un error del PO.
+
+## Las 2 alertas, y el hallazgo que las une
+
+**ALERT-199** — el conjunto de entradas se escribe a mano. Y ya se había avisado
+**dos veces**: `ALERT-170` (HB#131) lo dijo textual, y el HB#132 volvió a
+iluminarlo sin tocar el archivo. Lo que hizo el número cambiar 3 veces sin que el
+PO escribiera nada no fue el PO: fue la lista.
+
+**ALERT-200** — el extractor que cuenta los wrappers de la Idea 57 falló dos
+veces matcheando el nombre de una función **dentro de un comentario**: la v1
+exigía el nombre al inicio de línea y el código declara `function NOMBRE(`, y
+la v2 matcheó el changelog de la cabecera (línea 164) en vez de la declaración
+(línea 865). Cuarta vez en este repo que la instrumentación lee su propia
+documentación (ALERT-186, ALERT-197, el extractor de T12-b del HB#133).
+
+**Lo que las une:** las dos son *la respuesta depende del conjunto, y el conjunto
+lo elegí yo*. Y en las dos, el mismo control salvó el resultado: un control que
+**sólo** prueba el caso negativo (un nombre inventado da `null`) no alcanza —
+falta el **positivo** ("¿te acordás de encontrar la que SÍ existe?").
+
+Sin ese control, el "0 que degradan" habría entrado al BACKLOG como verdad
+medida, y el conteo habría seguido dando 8 sobre 9 refs sin que nadie lo notara.
+
+**ALERT-201** (menor, abierta) — `TEAM_STATUS.md` quedó 1 heartbeat atrasado:
+HB#133 mergeó `45a5446` sin tocarlo. Corregido acá.
+
+## Una nota sobre los archivos de este ciclo
+
+Los 3 scripts de medición (`hb134-cuento.mjs`, `hb134-idea57.mjs`,
+`hb134-idea57-callsites.mjs`) y los 2 de prueba de detector
+(`hb134-idea64.mjs`, `hb134-crosstab.mjs`) **no se commitean**: `tools/.gitignore`
+es `*`. Los que sí van son el fix y su test, que están en `tests/`.
+
+Dos de ellos se equivocaron antes de dar bien, y eso queda dicho porque es el
+punto: `hb134-crosstab.mjs` reportó **0 tests cross-tab** cuando
+`tests/idea64-dos-pestanas.test.js` existía y pasaba. El detector buscaba
+`stores = [` y el test usa otra forma. Un `0` así es indistinguible de una
+verdad, y por eso el mismo script afirmaba `0` sobre `getCommercePrices` cuando
+`api-gw2.js` tiene 5.
