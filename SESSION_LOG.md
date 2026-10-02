@@ -1,3 +1,78 @@
+## HB#143 — 2026-10-02 (18:30–19:0x UTC) — ALERT-209: "ya esta aplicado" y "sigue abierto" son la MISMA afirmacion
+
+### Que se hizo
+
+Ciclo **sin trabajo de producto**. El PO sigue en MODO PAUSA (ronda 43, rama
+`po/hb142-poda`), la ronda mas alta que tiene Tramos sigue siendo la 38, y las
+9 propuestas que el conteo marca CUENTA estan todas triadas contra
+`origin/main`. Se mando **una** pregunta al Reviewer por el canal de archivos
+(`20261002T183933Z-66b35e`), con las premisas ya medidas para que no las mida
+el. Suite de base: **2047 aserciones / 0 FAIL en 78/78**, exit 0.
+
+### El hallazgo
+
+Para responder el paso 3 hay que verificar cada propuesta contra `origin/main`,
+y ahi **dos instrumentos mios dieron el resultado contrario al real**. Los dos
+en el mismo sentido, y los dos por el mismo motivo de fondo:
+
+1. **Un grep que cuenta menciones no distingue codigo de prosa.**
+   `git grep -n wireStrikeViewToggle origin/main -- js/` da **5**, y varios
+   ciclos dieron T12 por mergeado. Medido linea por linea, los 5 son
+   **comentarios**, y `strike-tracker.js:1235` dice textual *"T12-b (HB#125).
+   `wireStrikeViewToggle` quedo BORRADO: era el segundo escritor"*. Codigo
+   real: **0**.
+2. **Use la DESCRIPCION como patron de busqueda.** Busque
+   `"stopTimers en raid-tracker"` con las palabras del medio y obtuve 0, que
+   es indistinguible de "no esta". Un 0 por patron equivocado y un 0 real se
+   ven iguales.
+3. **El filtro fallo su propio control al primer intento.**Quite el prefijo
+   con `l.substring(l.indexOf(":"))`, y el primer `:` de
+   `origin/main:js/raid-tracker.js:1059:` es **del remoto**: el `//` de la
+   linea de comentario nunca llegaba al inicio y el filtro lo dejaba pasar.
+   Lo detecto solo porque el control ("un token que solo vive en un comentario
+   tiene que dar 0") daba 5.
+
+### Como quedo la medicion (ambos controles en verde)
+
+Control de solo-prosa = 0, control positivo `gn:tokenchange` = 18 lineas de
+codigo. Por codigo real en `origin/main`:
+
+- **Ya aplicadas:** T20-a (2), T20-b (3), T20-c (2), **T12-b (0, borrada)**,
+  T14-a (2), T13-b (2), T19-c (3, todas en `storage.js`), T2-r22 (2).
+- **Siguen abiertas:** T13-a (0), T19-a (0), T17-b (0).
+
+**T19-c es el caso instructive:** los unicos `gw2_selected_key_v1` que quedan
+como codigo estan en `storage.js`, que es donde vive la migracion. En los
+otros 5 modulos quedan 5 lineas y **las 5 son prosa**. Mandarlo al Reviewer
+habria sido pedir un fix de algo ya arreglado.
+
+### La regla
+
+Un `0` no es un dato hasta que un control demuestra que el grep funciona, y
+un `N` no distingue "codigo" de "lo que el autor escribio sobre el codigo".
+Son las dos mitades de la misma trampa, y las dos aparecieron en el mismo
+ciclo.
+
+### Que quedo pendiente
+
+- Veredicto del Reviewer: si la **opcion C** cubre T13-a y T19-a (fila 169).
+- **ALERT-179** (filas 147/148) sigue esperando; el Reviewer esta mudo desde
+  el HB#121.
+- **T14/T15 opcion C** sin aplicar; precondicion medida (`hb136-escena2`, 23/0).
+- **Idea 57**, los 4 wrappers: MEDIDOS y sin tocar (ALERT-48).
+- Los 7 del patron B del HB#118.
+- **ALERT-41**: bloqueado por el body crudo de `/v2/account/raids`.
+- 6 scripts de `tools/` con ruta absoluta.
+- 35+ worktrees acumulados: el codigo esta a salvo en `main`, pero los
+  worktrees NO se borraron este ciclo.
+
+### Decisiones
+
+No se abrio ronda. No se mando al Reviewer ninguna de las 9 CUENTA: la
+medicion limpio que 8 de 9 ya estan aplicadas, y mandar lo ya hecho es la
+forma mas cara de perder un ciclo (HB#103). Se commiteo en rama propia
+`hb143-log` y **no** directo a `main` (regla 1 de AGENTS.md, que el HB#139
+violo).
 ## HB#138 — 2026-10-02 (21:0x–21:3x UTC) — ALERT-204: la suite estaba en rojo con el producto sano, y el culpable era el detector
 
 ### Que se hizo

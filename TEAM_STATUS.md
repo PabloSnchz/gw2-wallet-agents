@@ -1,12 +1,74 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 23:4x UTC (HB#142) por el Principal.
-> **Origen de verdad:** `gw2-dev` -> `origin/main` = `12907ef` (verificado con
-> `ls-remote`; `main` unico, sin rama duplicada con barra). El remoto del clon
-> DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un remoto
+> **Actualizado:** 2026-10-02 18:3x-19:0x UTC (HB#143) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `3e30231` (verificado con
+> `ls-remote`; `main` unico, sin rama duplicada con barra). El remoto del
+> clon DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un remoto
+> `agents`**; la forma correcta aca es `git push origin HEAD:main`.
 > `agents`**, el push correcto aca es `git push origin HEAD:main`.
 > **Estado del clon al abrir:** LIMPIO y en sync con `origin/main`. La suite de
-> base dio **2009 aserciones / 0 FAIL en 77/77 archivos**, exit 0.
+> base dio **2047 aserciones / 0 FAIL en 78/78 archivos**, exit 0.
+>
+> **Sin trabajo de producto este ciclo.** El PO sigue en MODO PAUSA (ronda 43),
+> la ronda mas alta con Tramos sigue siendo la 38, y las 9 CUENTA que quedaron
+> estan todas triadas. Lo que si produjo el ciclo es una medicion que corrige
+> como se verifica "esto ya esta aplicado" — ver ALERT-209 abajo.
+
+## ALERT-209 (este ciclo): "ya esta aplicado" y "sigue abierto" son la MISMA afirmacion, y salen del mismo grep
+
+> **El hallazgo.** Para responder el paso 3 ("si el PO tiene 3+ propuestas,
+> mandalas al Reviewer") hay que verificar cada una contra `origin/main`, y ahi
+> se me **rompieron dos instrumentos seguidos**, en el mismo sentido: los dos
+> subestimaban lo que ya estaba hecho, y en los dos casos el dato apuntaba a
+> "sigue abierta" cuando ya estaba aplicada.
+>
+> **El primero: un grep que cuenta menciones no distingue codigo de prosa.**
+> `git grep -n wireStrikeViewToggle origin/main -- js/` da **5**, y el log de
+> varios ciclos da T12 por mergeado. Medido linea por linea, los 5 son
+> **comentarios**, y `strike-tracker.js:1235` dice textual que *"T12-b (HB#125).
+> `wireStrikeViewToggle` quedo BORRADO: era el segundo escritor"*. El codigo da
+> **0**. Sin el filtro, T12 figuraba 5 veces "presente" y estaba borrado hace
+> varios heartbeat.
+>
+> **El segundo, y mas tonto: use la DESCRIPCION como patron de busqueda.**
+> Busque `"stopTimers en raid-tracker"` — con las palabras del medio — y
+> obtuve 0, que es indistinguible de "no esta". Los dos instrumentos coinciden
+> en que un **0 puede ser dos cosas**: "no existe" y "no lo estoy encontrando".
+>
+> **El filtro tambien fallo su propio control la primera vez.** quite el
+> prefijo con `l.substring(l.indexOf(':')+1)`, y el primer `:` de
+> `origin/main:js/raid-tracker.js:1059:` es **del remoto**, no del archivo: el
+> `//` de la linea de comentario nunca llegaba al inicio y el filtro lo dejaba
+> pasar. Solo lo detecto porque el control ("un token que solo vive en un
+> comentario tiene que dar 0") daba 5.
+
+**Como quedo la medicion, ya con los dos controles en verde** (control de solo-prosa = 0, control positivo `gn:tokenchange` = 18 lineas de codigo):
+
+| propuesta | marcador | codigo en `origin/main` | veredicto |
+|---|---|---|---|
+| T20-a | `keyCount` | 2 | ya aplicada |
+| T20-b | `lastUploadKey` | 3 | ya aplicada (HB#142) |
+| T20-c | `exportData` | 2 | ya aplicada |
+| T12-b | `wireStrikeViewToggle` | **0** | ya aplicada (borrada) |
+| T14-a | `__viewToggleWired` | 2 | ya aplicada |
+| T13-b | `stopTimers` en raid-tracker | 2 | ya aplicada |
+| T13-a | `stopTimers` en router.js | **0** | **sigue abierta** |
+| T19-a | `stopTimers` en inventory-hub.js | **0** | **sigue abierta** |
+| T17-b | `account/strikes` en index.html | **0** | **sigue abierta** |
+| T19-c | `gw2_selected_key_v1` | 3, **todas en `storage.js`** | ya aplicada |
+| T2-r22 | `tokenHasWVPermissions` | 2 | ya aplicada |
+
+> **T19-c es el caso que mas merito tiene.** Los unicos `gw2_selected_key_v1`
+> que quedan como **codigo** estan en `storage.js`, que es donde vive la
+> migracion de prefijos. En `app.js`, `inventory-hub.js`, `raid-tracker.js`,
+> `strike-tracker.js` y `wv-purchase-detail.js` quedan 5 lineas y **las 5 son
+> prosa** (comentarios que documentan que ya no se lee a pelo). Mandar T19-c al
+> Reviewer habria sido pedir un fix de algo que ya esta arreglado.
+>
+> **La regla que sale, y generaliza a los 10 hallazgos transversales:** cuando
+> un grep te da 0, el 0 **no es un dato hasta que un control demuestra que el
+> grep funciona**. Y cuando te da N, N no distingue "codigo" de "lo que el autor
+> escribio sobre el codigo". Las dos mitades de la misma trampa.
 
 ## ALERT-208 (este ciclo): un worktree con codigo sin commitear, y 2 asertos que fallaban contra el codigo CORRECTO
 
@@ -144,8 +206,64 @@
 
 | Que | Estado | Donde |
 |---|---|---|
-| **Armeria: vista del arbol** | **LISTO y mergeado** `9f3b097` | `js/legendary-tree-ui.js` + `tests/armeria-ui-arbol.test.js` (386 lineas, nuevo) |
-| **Armeria: cola de crafteo** | Arnés nuevo, 40 pass / 0 FAIL | `tests/armeria-cola.test.js` (nuevo, 238 lineas) |
+| **Armeria: vista del arbol** | **LISTO y mergeado** `539f410` | `js/legendary-tree-ui.js` + `tests/armeria-ui-arbol.test.js` (56 pass / 0 FAIL) |
+| **Armeria: cola de crafteo (2.3)** | **LISTO y mergeado** `3e30231` | `tests/arma-2-3-cola-contrato.test.js` (17 pass / 0 FAIL, 7 mutaciones) |
+
+## ARME 2.3 (este ciclo): la cola, y los dos tests rescatados que NO se portaron
+
+Pablo rescato de dos worktrees en detached HEAD dos tests de la cola que no
+existen en `main`, y los dejo a criterio del equipo. **Medidos antes de decidir:**
+
+| test | contra `main` | por que |
+|---|---|---|
+| `arma-2-3-cola.test.js` | **15 pass / 8 FAIL** | los 8 FAIL son **un solo contrato**: pide `toggleQueue() === 'added'` / `'full'` (strings) y `queueMax`; `main` devuelve un objeto `{ok, reason, queue, added}` con `reason: 'llena'` / `'id-invalido'`, y expone `QUEUE_MAX`. Es un contrato que `main` sustituyo a proposito. |
+| `hb125-arme-5-cola-crafteo.test.js` | **0 pass / 2 FAIL** | nunca corrio: busca `normalizeQueue` e `isQueued`, que en `main` son `sanitizeQueue` y una linea en linea. Mueren antes de la primera asercion util. |
+
+Lo que ambos afirmaban de util **ya esta cubierto**, y el mapeo esta medido:
+tope y rechazo (`hb126` COLA-04), persistencia (COLA-08), basura (COLA-09),
+orden (COLA-05), truncado, y strings numericos. Los cinco que **no** estaban
+cubiertos estan en el arnes nuevo, escrito contra la API real de `main`.
+
+### ALERT-210 (este ciclo): una MUTACION que no se aplica se lee como un assert debil
+
+De las 7 mutaciones del arnés nuevo, **2 no morian al principio**. La conclusion
+tentadora era "esos 2 asserts no sujetan nada". **Era al reves: las 2
+mutaciones no se aplicaban.** Los archivos estan en **CRLF**, asi que un patron
+escrito con `\n` pegado a una llave (`renderQueuePanel() {`) no matchea un `{`
+seguido de `\r`; y el otro patron buscaba `at = ...` donde el codigo dice
+`var at = ...`. El arnes corria en verde porque **nadie habia roto nada**.
+
+Se arreglo normalizando a LF antes de mutar, y sobre todo agregando un
+**CONTROL que falla si una mutacion no cambio el texto**. Sin ese control, la
+tabla de mutaciones dice "este assert no sujeta" cuando lo que dice es "esta
+mutacion no existia": el instrumento mintiendo en la direccion opuesta, y peor,
+porque **desconfia de un assert que si funciona**. Es la 2a vez en el ciclo
+(el HB#141, con el conteo del PO) que un control ausente hace que el dato
+parezca defectuoso.
+
+Matriz final: **7 de 7 mueren**, cada una en el assert que dice medir.
+
+## Completadas este ciclo (2.3)
+
+- **Suite completa: 2058 pass / 0 FAIL, 79 archivos, exit 0.** Base antes de
+  este ciclo: 2041 / 0 en 78.
+- **`3e30231` mergeado a `main`.** Rama `feat-2-3-cola` borrada al terminar.
+- **1.1 y 2.2 NO se tocaron**, confirmado contra `main`: `tpCoinHTML()`
+  (`render-catologo.js:101-109`, usada en 259 y 463) y `passesFilters()`
+  (`legendary-tracker.js:312`).
+- **1.2 ya estaba** (`legendary-tree-ui.js`, `539f410`). El conflicto del click
+  quedo resuelto en `main`: `legendary-tracker.js:694` dice *"click en la card
+  -> abre el ARBOL"*, y el boton de la cola vive en el header del modal.
+
+## Pendiente que es DECISION de Pablo, no trabajo
+
+- **El Catalogo no marca los items encolados.** `render-catologo.js` no tiene
+  ninguna señal de cola: la unica distincion del producto esta en el modal,
+  donde el boton dice "Quitar de la cola" en vez de "Agregar". Quien encolo
+  Frostfang vuelve a la grilla de las 206 y no tiene como saberlo sin abrirla.
+  **NO se implemento**: cambia la grilla visible y Pablo congelo lo que se ve
+  ahi. Queda como hueco de producto, no de test. El arnés **no** lo afirma,
+  porque afirmar el hueco como si fuera lo correcto lo volveria una regla.
 
 ## Completadas este ciclo
 
