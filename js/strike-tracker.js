@@ -605,6 +605,25 @@
         <div id="strikesGrid" class="raid-wings-grid"></div>
       `;
       console.log(LOG, 'Estructura del panel creada');
+
+      // T12-b (HB#125). El par de Strikes se cablea con el MISMO escritor que
+      // el par de Raids (`raid-tracker.js` `wireViewToggle`), y por eso va ACA:
+      // este es el unico punto donde nace la pareja. Su `wireStrikeViewToggle`
+      // propio queda BORRADO (abajo): no leia ni escribia la preferencia, con lo
+      // que este strip y el de Raids podian mostrar vistas distintas y la
+      // eleccion de Pablo se perdia al recargar uno de los dos.
+      //
+      // El escritor lee la preferencia y la escribe en los clicks, asi que el
+      // orden importa: se cablea DESPUES de inyectar los botones, que es lo que
+      // garantiza el guard por pareja. Si `raid-tracker.js` todavia no se cargo,
+      // la llamada es un no-op y este strip queda sin cablear — el mismo estado
+      // en que estaba antes, sin empeorar nada.
+      var gn = window.__GN__;
+      if (gn && typeof gn.wireViewTogglePair === 'function') {
+        gn.wireViewTogglePair('strikeViewRaidsBtn', 'strikeViewStrikesBtn');
+      } else {
+        console.debug(LOG, 'escritor comun no disponible; toggle sin cablear');
+      }
     }
     return true;
   }
@@ -1175,7 +1194,10 @@
     refresh(false);
     
     // Configurar navegación entre Raids/Strikes
-    wireStrikeViewToggle();
+    // T12-b (HB#125): el cableado se hace en `ensurePanelContent()`, que es
+    // donde NACEN los dos botones de esta pareja. Antes vivia en
+    // `wireStrikeViewToggle()`, aqui, y por eso no sobrevivia a una re-inyeccion
+    // del panel: el boton nuevo quedaba sin listener.
   }
 
   function deactivate() {
@@ -1210,30 +1232,15 @@
     });
   }
 
-  function wireStrikeViewToggle() {
-    var raidsBtn = document.getElementById('strikeViewRaidsBtn');
-    var strikesBtn = document.getElementById('strikeViewStrikesBtn');
-    var raidsPanel = document.getElementById('raidTrackerPanel');
-    var strikesPanel = document.getElementById('strikeTrackerPanel');
-    
-    if (!raidsBtn || !strikesBtn || !raidsPanel || !strikesPanel) return;
-    
-    raidsBtn.addEventListener('click', function() {
-      strikesPanel.setAttribute('hidden', '');
-      raidsPanel.removeAttribute('hidden');
-      if (window.RaidTracker && typeof window.RaidTracker.refresh === 'function') {
-        window.RaidTracker.refresh(false);
-      }
-    });
-    
-    strikesBtn.addEventListener('click', function() {
-      raidsPanel.setAttribute('hidden', '');
-      strikesPanel.removeAttribute('hidden');
-      if (window.StrikeTracker && typeof window.StrikeTracker.refresh === 'function') {
-        window.StrikeTracker.refresh(false);
-      }
-    });
-  }
+  // T12-b (HB#125). `wireStrikeViewToggle` quedo BORRADO: era el segundo
+  // escritor de la misma preferencia, y no la leia ni la escribia — solo
+  // movia los paneles. Con el, los dos strips podian mostrar vistas distintas.
+  // Ahora los dos pares pasan por `raid-tracker.js` `wireViewToggle`, expuesto en
+  // `__GN__.wireViewTogglePair` y llamado desde `ensurePanelContent()`.
+  //
+  // Lo que este NO hacia tampoco lo hacia el otro: la preferencia se decide en
+  // la gn: (STORAGE_KEYS.RAIDS_STRIKE_VIEW), que es la que nombra y migra
+  // storage.js, con la legacy como fallback.
 
   function initOnce() {
     if (state.inited) return;

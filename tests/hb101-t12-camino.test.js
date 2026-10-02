@@ -186,7 +186,17 @@ function montar() {
   // el flag de "ya cableado" va EN EL BOTON (raid-tracker.js), no en el scope
   // del modulo, justamente para que este corte no dependa de como se extraiga.
   vm.runInContext(cuerpo(raid, 'function wireViewToggle('), sandbox, { filename: 'raid-tracker.js#wireViewToggle' });
-  vm.runInContext(cuerpo(strike, 'function wireStrikeViewToggle('), sandbox, { filename: 'strike-tracker.js#wireStrikeViewToggle' });
+  // T12-b (HB#125): `wireStrikeViewToggle` quedo BORRADO — era el segundo
+  // escritor de la misma preferencia y no la leia ni la escribia. El par de
+  // Strikes se cablea ahora con el MISMO `wireViewToggle`, parametrizado por
+  // los ids de la pareja. Este harness se actualiza para seguir probando el
+  // camino de llegada, que es lo que este archivo existe para probar; lo que
+  // deja de existir es el escritor duplicado, no la cobertura.
+  //
+  // `window.__GN__.wireViewTogglePair` se arma aqui con el writer REAL, que ya
+  // se cargo arriba, replicando el publish de raid-tracker.js. Asi el arnés no
+  // depende de que el IIFE completo corra.
+  vm.runInContext('window.__GN__ = window.__GN__ || {}; window.__GN__.wireViewTogglePair = function(a,b){ return wireViewToggle(a,b); };', sandbox, { filename: 'raid-tracker.js#__GN__publish' });
   vm.runInContext('window.__ensureRaids   = ' + cuerpo(raid, 'function ensurePanelContent('), sandbox);
   vm.runInContext('window.__ensureStrikes = ' + cuerpo(strike, 'function ensurePanelContent('), sandbox);
 
@@ -196,6 +206,9 @@ function montar() {
   // escribir el innerHTML: que el body se haya quedado SIN el reloj, o sea un
   // panel recien construido o reconstruido. Es el caso que hace que los
   // botones sean objetos NUEVOS.
+  // T12-b (HB#125): el cableado del par de Strikes esta en el
+  // ensurePanelContent() de strike-tracker, que es donde nacen los botones, y
+  // no en su activate(). Se llama igual para que el harness mida lo que mide.
   vm.runInContext(`
     window.RaidTracker = {
       refresh:  function(){ __llamadas.push('RaidTracker.refresh');  window.__ensureRaids(); },
@@ -209,7 +222,7 @@ function montar() {
     };
     window.StrikeTracker = {
       refresh:  function(){ __llamadas.push('StrikeTracker.refresh');  window.__ensureStrikes(); },
-      activate: function(){ __llamadas.push('StrikeTracker.activate'); window.__ensureStrikes(); wireStrikeViewToggle(); }
+      activate: function(){ __llamadas.push('StrikeTracker.activate'); window.__ensureStrikes(); }
     };
   `, sandbox, { filename: 'harness#modulos' });
 
@@ -341,22 +354,35 @@ section('RECONSTRUCCION: si el panel se rehaga, los botones nuevos se cablean');
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   4. LA FORMA. Los 2 cables y el resaltado estan duplicados, y el segundo par
-      no escribe la preferencia ni cambia las clases. No es un bug: es la deuda
-      que T12-b borra. Se deja MEDIDO, no corregido aqui.
+   4. LA DEUDA, YA BORRADA. Esta seccion media, en el HB#101, la FORMA de la
+      duplicacion: 2 cables, 4 ids sin comun, y el 2o sin pref ni clases. Los
+      3 asertos pasaban porque describian el DEFECTO ("NO lee ni escribe la
+      preferencia", "NO cambia las clases") — o sea, congelaban la deuda.
+
+      T12-b (HB#125) la pago. Ahora los mismos asertos se INVIERTEN: la forma
+      tiene que ser la de UN escritor parametrizado. Un aserto que describia el
+      bug no puede quedarse escribiendo el bug en presente: hay que darlo vuelta
+      o el test sigue verde con el defecto de vuelta.
+      La cobertura no baja: los 3 asertos midieron 3 propiedades y las 3 se
+      miden hoy, con el signo correcto.
    ═════════════════════════════════════════════════════════════════════════ */
-section('FORMA: los 2 strips son copias con 4 ids distintos');
+section('FORMA: la duplicacion quedo borrada (T12-b)');
 {
   const raid = fs.readFileSync(path.join(JS, 'raid-tracker.js'), 'utf8');
   const strike = fs.readFileSync(path.join(JS, 'strike-tracker.js'), 'utf8');
+
+  ok(!/function wireStrikeViewToggle/.test(strike),
+     'ya no hay un 2do cable: solo queda el escritor comun');
+  ok(!/addEventListener\(\s*'click'/.test(cuerpo(strike, 'function ensurePanelContent(')),
+     'strike-tracker no cablea clicks por su cuenta (los cablea el escritor comun)');
+
   const cableA = cuerpo(raid, 'function wireViewToggle(');
-  const cableB = cuerpo(strike, 'function wireStrikeViewToggle(');
-  ok(!/viewRaidsBtn/.test(cableB) || !/strikeViewRaidsBtn/.test(cableA),
-     'los 2 cables no comparten ningun id (4 ids, 0 en comun)');
-  ok(!/prefSet|prefGet/.test(cableB),
-     'wireStrikeViewToggle NO lee ni escribe la preferencia (medido: T12-b lo borra)');
-  ok(!/classList/.test(cableB),
-     'wireStrikeViewToggle NO cambia las clases: el resaltado no se mueve en ese strip (T12-c)');
+  ok(/raidsBtnId\s*\|\|\s*'viewRaidsBtn'/.test(cableA) && /strikesBtnId\s*\|\|\s*'viewStrikesBtn'/.test(cableA),
+     'el unico cable parametriza los ids de la pareja, asi que sirve para las dos');
+  ok(/prefSet|prefGet/.test(cableA),
+     'el unico cable SI lee y escribe la preferencia (lo que el 2o no hacia)');
+  ok(/classList/.test(cableA),
+     'y cambia las clases: el resaltado se mueve en los DOS strips (T12-c)');
 }
 
 console.log(`\nTOTAL: ${pass + fail} aserciones, ${fail} FAIL`);

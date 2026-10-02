@@ -1052,12 +1052,31 @@
   // caso de reconstruir el panel, que es el mas dificil de ver. El elemento que
   // se cablea es el que lleva la marca, asi que el estado sigue siendo cierto
   // aunque el DOM se rehaga. Mismo patron que el `btn.__wired` de mas abajo.
-  function wireViewToggle() {
-    var raidsBtn = document.getElementById('viewRaidsBtn');
-    var strikesBtn = document.getElementById('viewStrikesBtn');
+  //
+  // T12-b (HB#125). Este es el ESCRITOR COMUN de las dos parejas de botones, y
+  // por eso se parametrizan los ids: el par de Raids y el de Strikes son dos
+  // strips distintos que mueven los MISMOS dos paneles, y antes cada uno tenia su
+  // escritor. El de Strikes (que vivia en strike-tracker.js, `wireStrikeViewToggle`)
+  // NO leia ni escribia la preferencia: por eso los dos strips podian mostrar
+  // vistas distintas, y recargar perdia la eleccion de Pablo en uno de los dos.
+  //
+  // El flag sigue siendo POR ELEMENTO, asi que la idempotencia sale POR PAREJA
+  // sin codigo extra: el par de Strikes marca su propio boton, no el de Raids.
+  // Ese detalle es lo que hace viable (3a) — con un flag compartido, la 2da
+  // pareja se apoyaria en la marca de la 1ra y no correria nunca, porque la
+  // pareja de Strikes NACE DENTRO de `setActiveView()` de la 1ra.
+  function wireViewToggle(raidsBtnId, strikesBtnId) {
+    var raidsBtn = document.getElementById(raidsBtnId || 'viewRaidsBtn');
+    var strikesBtn = document.getElementById(strikesBtnId || 'viewStrikesBtn');
     var raidsPanel = document.getElementById('raidTrackerPanel');
     var strikesPanel = document.getElementById('strikeTrackerPanel');
 
+    // Guard POR PAREJA: cada strip se cablea si tiene SUS dos botones. Los dos
+    // paneles son los mismos para las dos parejas y estan en index.html, asi que
+    // no son parte de la identidad del par. Medido: el par de Raids nace en
+    // `ensurePanelContent()` de raid-tracker y el de Strikes en el suyo, y en la
+    // ruta `#/account/strikes` (router.js:1600) solo se construye el segundo: un
+    // guard "todo o nada" sobre los 4 elementos no cablearia ninguno de los dos.
     if (!raidsBtn || !strikesBtn || !raidsPanel || !strikesPanel) return;
 
     // La preferencia vive en la gn: (STORAGE_KEYS.RAIDS_STRIKE_VIEW), que es la
@@ -2005,6 +2024,17 @@
   };
 
   root.RaidTracker = RaidTracker;
+
+  // T12-b (HB#125). Se expone UNA FUNCION DE INTENCION por `__GN__`, no el
+  // modulo entero: `wireViewToggle` necesita el par de Strikes
+  // (strike-tracker.js:1213) para cablearlo con el MISMO escritor que lee y
+  // escribe la preferencia, y ese modulo no importa `RaidTracker` (seria una
+  // dependencia de modulo nueva). Exponer el modulo completo en `RaidTracker`
+  // reabriria justo lo que T1 cerro: la superficie publica como contrato.
+  root.__GN__ = root.__GN__ || {};
+  root.__GN__.wireViewTogglePair = function (raidsBtnId, strikesBtnId) {
+    return wireViewToggle(raidsBtnId, strikesBtnId);
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initOnce);
