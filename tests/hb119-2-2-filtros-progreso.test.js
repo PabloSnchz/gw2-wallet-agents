@@ -125,14 +125,36 @@ const run = async () => {
       ' exp=' + h.indexOf('data-ftype="expansion"'));
   }
 
-  // --- FILTRO-03: el switch Desbloqueadas / Solo faltantes existe ---
+  // --- FILTRO-03: el switch Desbloqueadas / Solo faltantes NO EXISTE MAS ---
+  //
+  // ESTE ASERTO CAMBIO DE SENTIDO, y el cambio es el punto 5 del plan de
+  // noche (Pablo). Antes afirmaba que el switch existia (`!== -1`); ahora
+  // afirma que NO esta (`=== -1`). No se borro el test ni se relajo el
+  // aserto: se lo dio vuelta porque el contrato que fijaba fue retirado a
+  // proposito, y un test que sigue afirmandolo haria imposible hacer el
+  // cambio que Pablopidio.
+  //
+  // Lo que se pierde al retirar el switch, y por que no fue decision mia: los
+  // tres filtros (Tipo/Gen/Exp) SE MANTIENEN. Se van el switch, la barra
+  // "Completado X / 206" y la grilla de las 206 divididas por estado de
+  // posesion, porque respondian "de las 206 legendarias, cuantas tengo", que
+  // no es la pregunta que uno se hace al abrir "Mi progreso" con la cola.
   {
     const out = await render([ARMAS[0]], 'progress');
     const h = out.html;
-    ok('FILTRO-03 existe el switch Desbloqueadas / Solo faltantes',
-      h.indexOf('data-scope="unlocked"') !== -1 && h.indexOf('data-scope="missing"') !== -1,
+    ok('FILTRO-03 el switch de alcance YA NO se dibuja (retirado en el punto 5)',
+      h.indexOf('data-scope=') === -1,
       'unlocked=' + h.indexOf('data-scope="unlocked"') +
       ' missing=' + h.indexOf('data-scope="missing"'));
+    // El segundo aserto del bloque: que la barra "Completado: X / 206" y el
+    // porcentaje global tambien se fueron. Se verifica por TEXTO, porque
+    // "no esta el `div` de la barra" es indistinguible de "esta la barra y no
+    // se ve" -- y es el mismo modo de fallo que ALERT-189 (un aserto sobre el
+    // enum de un estado cuando el estado tambien se pinta por su texto).
+    ok('FILTRO-03b la barra "Completado X / 206" y el porcentaje global se retiraron',
+      h.indexOf('Completado:') === -1 && h.indexOf('lt-progress-summary') === -1,
+      'Completado=' + h.indexOf('Completado:') +
+      ' lt-progress-summary=' + h.indexOf('lt-progress-summary'));
   }
 
   // --- FILTRO-04: el switch NO aparece en el Catalogo ---
@@ -158,31 +180,77 @@ const run = async () => {
       'todas=' + cuenta(todas.html) + ' filtrado=' + cuenta(filtrado.html));
   }
 
-  // --- FILTRO-06: alcance=missing muestra lo NO desbloqueado ---
+  // --- FILTRO-06: la cola, no el alcance ---
+  //
+  // ESTE ASERTO CAMBIO DE PREGUNTA, no de forceje. Antes: "el alcance missing
+  // lista las NO desbloqueadas", que es el contrato retirado. Ahora: "agregar a
+  // la cola la hace aparecer en Mi progreso", que es el contrato nuevo. La
+  // MECANICA probada es la misma -- queMi progreso no es decorativo y su
+  // contenido depende de una accion del usuario -- pero el objeto es otro.
+  //
+  // No se conserva el viejo conmutado: el alcance ya no existe, y un aserto
+  // que fija algo que no esta mide la ausencia de la cosa y no su
+  // comportamiento. Es el mismo error que este repo ya cometio dos veces
+  // (ALERT-84, ALERT-168).
   {
     const t = boot();
     t.d.el('keySelectGlobal').value = 'KEY-A';
     t.ctx.GW2Api.getAccountLegendaryArmory = () => Promise.resolve([ARMAS[0]]);
     const T = t.ctx.LegendaryTracker;
     T.activate(); await tick(); T.setMode('progress'); await tick();
-    if (T.setScope) T.setScope('missing');
+    const antes = (t.d.el('legendaryModeContent').innerHTML.match(/lt-item-card/g) || []).length;
+
+    // `ARMAS` son IDS, no objetos. Escribir `ARMAS[1].id` da `undefined` y el
+    // error mas tonto posible: uno escribe codigo contra una forma y el
+    // arnes dice "no se agrego" sin decir "le pasaste basura".
+    const r = T.toggleQueue(ARMAS[1]);
     await tick();
     const h = t.d.el('legendaryModeContent').innerHTML;
-    const n = (h.match(/lt-item-card/g) || []).length;
-    ok('FILTRO-06 el alcance "missing" lista las NO desbloqueadas',
-      T.setScope ? n > 1 : false,
-      'n=' + n + ' totalCatalogo=' + CAT.length + ' (sin setScope el assert cae)');
+    const despues = (h.match(/lt-item-card/g) || []).length;
+
+    ok('FILTRO-06 agregar a la cola la hace aparecer en Mi progreso',
+      r.ok && r.added && despues === antes + 1,
+      'antes=' + antes + ' despues=' + despues + ' added=' + r.added + ' id=' + ARMAS[1]);
+
+    // Y quitarla la saca. Sin este segundo aserto, una cola que solo crece
+    // pasa el test anterior: el assert del conteo grows es el unico que
+    // distingue "la cola funciona" de "agregar funciona y quitar esta roto".
+    T.toggleQueue(ARMAS[1]);
+    await tick();
+    const vuelta = (t.d.el('legendaryModeContent').innerHTML.match(/lt-item-card/g) || []).length;
+    ok('FILTRO-06b quitar de la cola la saca de Mi progreso',
+      vuelta === antes,
+      'antes=' + antes + ' vuelta=' + vuelta);
   }
 
-  // --- FILTRO-07: la API publica expone setFilter y setScope ---
-  // Sin esto, el wiring de los botones del switch no tiene por donde entrar,
-  // y el test 05/06 pasanariamos false en vez de detectar el problema.
+  // --- FILTRO-07: la API publica expone setFilter, y la de la cola ---
+  //
+  // `setScope` sigue existiendo como FUNCION pero ya no escribe: se dejo
+  // para que un consumidor viejo no rompa al llamar. Lo que se afirma aca es
+  // que la escritura de la cola pasa por la API y no por el array interno --
+  // si el render escribiera `queue` directo, el maximo 5 dejaria de ser una
+  // regla y pasaria a ser una costumbre.
   {
     const t = boot();
     const T = t.ctx.LegendaryTracker;
-    ok('FILTRO-07 LegendaryTracker expone setFilter y setScope',
-      !!T && typeof T.setFilter === 'function' && typeof T.setScope === 'function',
-      'setFilter=' + (T && typeof T.setFilter) + ' setScope=' + (T && typeof T.setScope));
+    ok('FILTRO-07 LegendaryTracker expone setFilter y la API de la cola',
+      !!T && typeof T.setFilter === 'function' &&
+      typeof T.toggleQueue === 'function' &&
+      typeof T.getQueue === 'function' && typeof T.isQueued === 'function',
+      'setFilter=' + (T && typeof T.setFilter) +
+      ' toggleQueue=' + (T && typeof T.toggleQueue) +
+      ' getQueue=' + (T && typeof T.getQueue));
+
+    // `setScope` acepta el argumento y NO cambia el alcance. Se afirma
+    // explicitamente para que la retirada sea visible en el arnes y no
+    // quede como un olvido: si alguien lo "arregla" escribiendo de nuevo,
+    // este assert cae.
+    const t2 = boot();
+    const T2 = t2.ctx.LegendaryTracker;
+    const leido = T2.setScope('missing');
+    ok('FILTRO-07b setScope ya no escribe (quedo como no-op deliberado)',
+      T2.setScope && leido === 'unlocked',
+      'setScope=' + (T2 && typeof T2.setScope) + ' devolvio=' + leido);
   }
 
   console.log('\n  FILTRO: ' + pass + ' pass / ' + fail + ' fail');

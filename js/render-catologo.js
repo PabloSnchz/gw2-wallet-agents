@@ -24,6 +24,15 @@
 
   function fmtInt(n) { n = Number(n || 0); return n.toLocaleString('es-AR'); }
 
+  // Cuantas de la cola llevan mas peso visual. Copia del `QUEUE_TOP_W` del
+  // tracker, y NO se lee de el a proposito: `render-catologo.js` se registra
+  // en `registerRender`, que no pasa configuracion, y meter una lectura del
+  // tracker aca seria el primer punto donde el render depende de un valor
+  // interno del modulo. Si los dos numeros se desincronizan, el arnes de la
+  // cola lo ve: es exactamente el caso que un assert de igualdad de ambos
+  // numeros atrapa, y por eso este valor tiene aserto y no es "copiado y ya".
+  var QUEUE_TOP_W = 3;
+
   // =======================================================================
   // MAPAS DE TRADUCCIÓN + COLORES
   // =======================================================================
@@ -208,7 +217,16 @@
   // =======================================================================
   // RENDER: GRID DEL CATÁLOGO (5 COLUMNAS)
   // =======================================================================
-  function renderCatalogGrid(items, owned) {
+  // QUE CAMBIA (punto 5 del plan de noche): se agrega el TERCER argumento,
+  // `opts.queued` (array de ids). Antes la card no tenia forma de saber si su
+  // item estaba en la cola de crafteo, asi que el Catalogo y la Cola
+  // mostraban cards visualmente identicas para un item elegidoy otro no.
+  //
+  // Es un argumento nuevo y NO un campo obligatorio: si no viene (un consumidor
+  // viejo, o el test del 1.2), se dibuja la card como antes. Agregar el quinto
+  // dato al contrato de `renderProgress` habria roto a esos; agregar un
+  // argumento opcional no los rompe.
+  function renderCatalogGrid(items, owned, opts) {
     if (!items || items.length === 0) {
       return '<div class="lt-empty-state" style="text-align:center;padding:32px;color:var(--tx-3);">' +
         '<div style="font-size:0.8rem;">No se encontraron legendarias con los filtros aplicados.</div>' +
@@ -216,8 +234,9 @@
         '</div>';
     }
 
+    var queued = (opts && Array.isArray(opts.queued)) ? opts.queued : [];
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, owned, idx);
+      return renderItemCard(item, owned, idx, queued.indexOf(item.id) !== -1);
     });
 
     return '<div class="lt-catalog-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
@@ -225,16 +244,39 @@
     '</div>';
   }
 
-  function renderItemCard(item, owned, idx) {
+  function renderItemCard(item, owned, idx, inQueue, heavy) {
     var isOwned = !!(owned[item.id] && owned[item.id] > 0);
     var tColor = typeColor(item);
     var eColor = expansionColor(item);
     var gLabel = genLabel(item);
     var owns = isOwned ? (owned[item.id] || 1) : 0;
 
+    // Peso visual de las primeras de la cola. Se expresa con `flex` y no con
+    // `grid-column: span 2`: en el grid de 5 columnas, ensanchar el primer
+    // elemento lo empuja a una fila nueva y deja un hueco al lado.
+    // `flex-grow` lo ensancha dentro de su celda y no mueve nada.
+    var grow = heavy ? 'flex:1.55;' : 'flex:1;';
+    var pIcon = heavy
+      ? '<span title="Primera de tu cola" style="font-size:0.58rem;color:#c9a0ff;font-weight:700;margin-right:5px;">1ª</span>'
+      : '';
+
     // Overlay de estado
     var statusOverlay;
-    if (isOwned) {
+    // El badge de "en la cola" va ANTES del de poseido y en otro lado: los dos
+    // son estado, pero contestan preguntas distintas ("la puedo fabricar?" y
+    // "ya la tengo?"). Encima del mismo, el segundo tapa al primero y el
+    // usuario ve un check verde en algo que eligio fabricar y todavia no
+    // tiene.
+    if (inQueue) {
+      statusOverlay = '<div class="lt-queue-badge" data-queue-toggle="' + item.id + '" ' +
+        'title="En la cola de crafteo. Click para quitar." ' +
+        'style="position:absolute;top:6px;left:6px;cursor:pointer;' +
+        'background:rgba(151,78,255,0.16);border:1px solid rgba(151,78,255,0.5);' +
+        'border-radius:999px;padding:2px 8px;font-size:0.58rem;color:#c9a0ff;font-weight:700;">EN COLA</div>' +
+        '<div class="lt-status-badge" style="position:absolute;top:6px;right:6px;' +
+        'background:rgba(104,255,163,0.12);border:1px solid rgba(104,255,163,0.4);' +
+        'border-radius:999px;padding:2px 8px;font-size:0.58rem;color:#68ff9f;font-weight:700;">✓</div>';
+    } else if (isOwned) {
       statusOverlay = '<div class="lt-status-badge" style="position:absolute;top:6px;right:6px;' +
         'background:rgba(104,255,163,0.12);border:1px solid rgba(104,255,163,0.4);' +
         'border-radius:999px;padding:2px 8px;font-size:0.58rem;color:#68ff9f;font-weight:700;">✓</div>';
@@ -282,6 +324,7 @@
 
     return '<div class="card lt-item-card" data-id="' + item.id + '" data-type="' + esc(item.type) + '" ' +
       'style="position:relative;cursor:pointer;padding:10px;border-radius:12px;' +
+      grow +
       'border-left:3px solid #974EFF;' +
       'animation-delay:' + (idx * 0.02) + 's">' +
       statusOverlay +
@@ -293,86 +336,94 @@
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:600;font-size:0.8rem;color:var(--tx-1);overflow:hidden;' +
-          'text-overflow:ellipsis;white-space:nowrap;" title="' + esc(displayName) + '">' + esc(displayName) + '</div>' +
+          'text-overflow:ellipsis;white-space:nowrap;" title="' + esc(displayName) + '">' +
+            (pIcon ? pIcon : '') + esc(displayName) + '</div>' +
           badges +
         '</div>' +
       '</div>' +
       (tpBadge ? '<div style="margin-top:6px;">' + tpBadge + '</div>' : '') +
+      (inQueue ? '<div style="margin-top:6px;text-align:right;">' +
+        '<span data-queue-remove="' + item.id + '" title="Quitar de la cola" ' +
+        'style="cursor:pointer;font-size:0.6rem;color:#c9a0ff;border:1px solid rgba(151,78,255,0.4);' +
+        'border-radius:999px;padding:1px 8px;">Quitar</span></div>' : '') +
       '</div>';
   }
 
   // =======================================================================
   // RENDER: PROGRESS VIEW
   // =======================================================================
-  function renderProgress(state, stats) {
+  // QUE CAMBIA (punto 5 del plan de noche): "Mi progreso" deja de ser el
+    // catalogo de desbloqueadas contra el catalogo completo y pasa a ser LA
+    // COLA DE CRAFTEO. Se retiran el switch de alcance (ya no lo dibuja el
+    // tracker), la barra "Completado: X / 206" y el porcentaje global.
+    //
+    // Las dos cosas que quedan y las dos que se van responden a preguntas
+    // distintas, y esa es la razon del cambio:
+    //   - "Completado: 3 / 206" responde "de TODAS las legendarias, cuantas
+    //     tengo". Es un dato que no cambia mientras no compres una, y no dice
+    //     que hacer en el proximo minuto.
+    //   - "2 de las 5 de tu cola las podes fabricar ya" responde "por donde
+    //     empiezo", que es para lo que se abre la pantalla.
+    function renderProgress(state, stats) {
     var catalog = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
 
-    // QUE CAMBIA (punto 2.2, 2026-10-02): antes el render elegia sus propios
-    // items con `catalog.filter(owned)`. Ahora RECIBE la lista ya recortada en
-    // `state.items`, porque el recorte depende de dos cosas que el render no
-    // tiene: los filtros que viven en el tracker y el alcance del switch.
-    // Que el tracker decida el conjunto y el render solo lo pinte es lo que
-    // hace que "Armas" muestre lo mismo en Catalogo y en Mi progreso.
-    //
-    // Se conserva el fallback a `owned` para cuando `state.items` no venga
-    // (un consumidor viejo que llame a `progress()` con la firma anterior).
-    // Sin ese fallback, ese consumidor veria una grilla vacia en vez de un
-    // error: el modo de fallo silencioso.
+    // Fallback a `owned` SOLO si `state.items` no viene. Con la cola, el
+    // fallback es "las que poseo", que es el comportamiento viejo: un
+    // consumidor que llame con la firma anterior sigue viendo algo, en vez
+    // de una grilla vacia sin explicacion.
     var items;
     if (Array.isArray(state.items)) {
+      // NO se reordena. La cola tiene un orden -- el orden en que el usuario
+      // la fue armando -- y ordenar por nombre lo destruye: la primera
+      // legendaria que eligio deja de ser la primera. Este es el cambio que
+      // mas se nota y el mas facil de arruinar por "dejarlo prolijo".
       items = state.items.slice();
     } else {
       items = catalog.filter(function (item) {
         return state.owned[item.id] && state.owned[item.id] > 0;
+      }).sort(function (a, b) {
+        return (a.nameEs || a.name).localeCompare(b.nameEs || b.name, 'es');
       });
     }
 
-    // Ordenar por rareza de progreso (no owned primero en catálogo, owned primero en progreso)
-    items.sort(function (a, b) {
-      return (a.nameEs || a.name).localeCompare(b.nameEs || b.name, 'es');
-    });
-
     if (items.length === 0) {
-      // El mensaje viejo decía SIEMPRE "Aún no poseés ninguna legendaria".
-      // Con el switch y los filtros queda mentira en dos casos reales: si el
-      // alcance es "Solo faltantes" y no falta ninguna, o si un filtro dejó la
-      // lista vacia. Un empty state que afirma algo falso es peor que no
-      // tener ninguno: el usuario cree que la API fallo.
-      var hayFiltro = !!(state.filters && (state.filters.type || state.filters.generation || state.filters.expansion));
-      var soloFaltantes = state.scope === 'missing';
-      var msg, sub;
-      if (hayFiltro) {
-        msg = 'No hay legendarias con los filtros aplicados.';
-        sub = 'Probá limpiar los filtros para ver el progreso completo.';
-      } else if (soloFaltantes) {
-        msg = 'No te falta ninguna legendaria de esta vista.';
-        sub = 'Tenés todas las legendarias desbloqueadas. Cambiá a <strong>Desbloqueadas</strong> para verlas.';
-      } else {
-        msg = 'Aún no poseés ninguna legendaria.';
-        sub = 'Cambiá a la vista <strong>Catálogo</strong> para explorar todas las legendarias.';
-      }
+      // El mensaje viejo ("Aun no posees ninguna legendaria") era FALSO con la
+      // cola: se entra a Mi progreso para ver que falta fabricar, y la
+      // respuesta cuando no hay nada encolado no es "no tenes ninguna", es
+      // "no elegiste ninguna". Son frases distintas y la segunda es la que
+      // dice que hacer.
+      //
+      // Y no hay rama por filtro A PROPOSITO: la cola no se filtra (los
+      // filtros eligen que entra, no que se ve -- ver `progressItems()`), asi
+      // que un filtro activo no puede ser la causa de esta pantalla vacia.
+      // Dejar la rama seria escribir una causa posible que no existe.
       return '<div class="lt-progress-empty" style="text-align:center;padding:40px;color:var(--tx-3);">' +
-        '<div style="font-size:0.85rem;margin-bottom:8px;">' + msg + '</div>' +
-        '<div style="font-size:0.75rem;">' + sub + '</div>' +
+        '<div style="font-size:0.85rem;margin-bottom:8px;">Tu cola de crafteo esta vacia.</div>' +
+        '<div style="font-size:0.75rem;">En el <strong>Catálogo</strong>, click en la legendaria que quieras ' +
+        'fabricar y queda encolada. Se agrega de a una.</div>' +
         '</div>';
     }
 
+    // Las TRES primeras con mas peso visual. No es estetica: el motivo esta
+    // escrito en el tracker (`QUEUE_TOP_W`) y es que con 5 en una grilla de 5
+    // columnas, las 2 ultimas caen fuera del ancho util en pantallas
+    // commonplace. El orden de la cola se conserva; lo que cambia es el peso.
     var cards = items.map(function (item, idx) {
-      return renderItemCard(item, state.owned, idx);
+      return renderItemCard(item, state.owned, idx, true, idx < QUEUE_TOP_W);
     });
 
-    return '<div class="lt-progress-summary" style="margin-bottom:16px;">' +
-      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-        '<div style="display:flex;align-items:center;gap:6px;">' +
-          '<span style="font-size:0.75rem;color:var(--tx-3);">Completado:</span>' +
-          '<strong style="font-size:1rem;color:#974EFF;">' + fmtInt(stats.owned) + ' / ' + fmtInt(stats.total) + '</strong>' +
-        '</div>' +
-        '<div style="width:120px;height:8px;background:var(--bg-1);border-radius:4px;overflow:hidden;">' +
-          '<div style="width:' + stats.pct + '%;height:100%;background:#974EFF;border-radius:4px;"></div>' +
-        '</div>' +
-        '<span style="font-size:0.7rem;color:var(--tx-3);">' + stats.pct + '%</span>' +
-      '</div>' +
-      '</div>' +
+    var resumen = '';
+    if (stats && typeof stats.total === 'number') {
+      var ready = stats.ready || 0;
+      resumen = '<div class="lt-progress-summary" style="margin-bottom:16px;display:flex;gap:12px;' +
+        'align-items:center;flex-wrap:wrap;font-size:0.75rem;color:var(--tx-3);">' +
+        '<span>En la cola: <strong style="color:var(--tx-1);">' + fmtInt(stats.total) + '</strong>' +
+          (stats.max ? ' de ' + fmtInt(stats.max) : '') + '</span>' +
+        '<span>Podés fabricar ya: <strong style="color:#68ff9f;">' + fmtInt(ready) + '</strong></span>' +
+        '</div>';
+    }
+
+    return resumen +
       '<div class="lt-progress-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">' +
         cards.join('') +
       '</div>';
