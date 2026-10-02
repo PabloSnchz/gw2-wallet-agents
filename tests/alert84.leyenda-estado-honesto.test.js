@@ -5,15 +5,27 @@
  * VISIBLE que decia "Cargando catálogo de legendarias..." PARA SIEMPRE.
  *
  * LA CADENA, medida sin suposiciones. Las lineas de `index.html` son de ESTE
- * arbol (post-boton-de-cache, que suma 11 lineas antes de todo lo demas): las
- * de `main@d328969` son 750/528/988, 11 menos. Una cita de linea sin el arbol
- * al que pertenece es una cita SIN UNIDAD (ALERT-84, hallazgo del PO):
+ * arbol. Una cita de linea sin el arbol al que pertenece es una cita SIN UNIDAD
+ * (ALERT-84, hallazgo del PO). El desplazamiento contra `main@d328969` NO es
+ * uniforme, y por eso va medido por par y no como un numero solo:
+ *
+ *   - +11 para el menu y el panel (750->761, 528->539): el boton de cache, que
+ *     esta ANTES de todo lo demas.
+ *   - +24 para el <script> del tracker (988->1012): las +11 de antes, mas las
+ *     +5 de la T3 (2026-09-30) y las +8 de comentario del contrato (HB#122).
+ *     Los dos inserts que lo movieron estan DESPUES de las lineas de arriba, y
+ *     por eso el desplazamiento crece segun donde se mida.
+ *   - `legendary-data.js` y `render-catologo.js` NO EXISTEN en `d328969`
+ *     (los agrego la T3), asi que para ellos no hay un "antes" que citar: se
+ *     citan los de este arbol y se dice cual es el arbol.
+ *
  *     index.html:761  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
  *     router.js:125   ruta registrada;  :1562  la resuelve
  *     index.html:539  el <section id="legendaryArmoryPanel"> existe
- *     index.html:1004  <script legendary-tracker.js> se carga
- *     index.html:1005  <script legendary-data.js> se carga    (T3, 2026-09-30)
- *     index.html:1006  <script render-catologo.js> se carga  (T3, 2026-09-30)
+ *     index.html:1012  <script legendary-tracker.js> se carga
+ *     index.html:1013  <script legendary-data.js> se carga
+ *     index.html:1014  <script legendary-recipes.js> se carga   (HB#122)
+ *     index.html:1015  <script render-catologo.js> se carga
  *     legendary-tracker.js  loadLegendaryData() es un STUB: resuelve []
  *     legendary-tracker.js  renderCatalogSkeleton() escribe "Cargando ..." y
  *                           NADA lo reemplaza

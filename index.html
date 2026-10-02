@@ -1000,9 +1000,18 @@
        ROMPE si se invierte: legendary-tracker.js debe existir antes de que
        render-catologo.js intente registrarse en el. legendary-data.js puede ir
        en cualquier posicion (sus usos de LegendaryCatalog son en tiempo de
-       render, no de registro). -->
+       render, no de registro).
+
+       legendary-recipes.js es el CONTRATO de fabricacion (craftType +
+       dataStatus por cada uno de los 206 ids del catalogo). Va junto al
+       catalogo y por la misma razon: lo consume la cola de crafteo en tiempo
+       de render, no en tiempo de registro, asi que el orden entre los dos no
+       es lo que rompe si se invierte. Lo que NO puede pasar es que falte: sin
+       el, la cola no distingue "se hace en la forja" de "esta pieza no tiene
+       receta publicada". -->
   <script defer src="js/legendary-tracker.js?v=1.1.0"></script>
   <script defer src="js/legendary-data.js?v=1.0.0"></script>
+  <script defer src="js/legendary-recipes.js?v=1.0.0"></script>
   <script defer src="js/render-catologo.js?v=1.0.0"></script>
 
   <!-- Wizard's Vault — UI desacoplada (Fases 1-3) -->

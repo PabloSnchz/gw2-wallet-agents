@@ -73,7 +73,7 @@ const t84 = fs.readFileSync(path.join(ROOT, 'tests/alert84.leyenda-estado-honest
 const lt = fs.readFileSync(path.join(ROOT, 'js/legendary-tracker.js'), 'utf8');
 ok(!/index\.html:750|index\.html:528|index\.html:988/.test(t84),
   'el test ya no cita las lineas de main@d328969');
-ok(/index\.html:761/.test(t84) && /index\.html:539/.test(t84) && /index\.html:1004/.test(t84),
+ok(/index\.html:761/.test(t84) && /index\.html:539/.test(t84) && /index\.html:1012/.test(t84),
   'cita las de ESTE arbol');
 ok(/main@d328969/.test(t84) && /main@d328969/.test(lt),
   'y las dos citas dicen que arbol son: una cita sin unidad es una cita sin unidad');
@@ -82,9 +82,16 @@ ok(/main@d328969/.test(t84) && /main@d328969/.test(lt),
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').split('\n');
 ok((html[760] || '').includes('navLegendaryArmory'), 'index.html:761 es el item de menu');
 ok((html[538] || '').includes('legendaryArmoryPanel'), 'index.html:539 es el panel');
-ok((html[1003] || '').includes('legendary-tracker.js'), 'index.html:1004 es el <script> del tracker (era 999: la T3 inserto 5 lineas de comentario antes)');
-ok((html[1004] || '').includes('legendary-data.js'), 'index.html:1005 es legendary-data.js (T3)');
-ok((html[1005] || '').includes('render-catologo.js'), 'index.html:1006 es render-catologo.js (T3)');
+// Estas tres citas se movieron DOS veces, y las dos las detecto este bloque:
+// la T3 (999 -> 1004, +5 lineas de comentario antes) y el contrato de
+// fabricacion (1004 -> 1012, +9 lineas: 8 de comentario y el <script> nuevo).
+// Lo que las mueve es siempre una linea insertada ANTES, asi que la correccion
+// es medir el numero, no restarlo a ojo. Si vuelve a pasar, este bloque tiene
+// que volver a fallar y decir por que.
+ok((html[1011] || '').includes('legendary-tracker.js'), 'index.html:1012 es el <script> del tracker');
+ok((html[1012] || '').includes('legendary-data.js'), 'index.html:1013 es legendary-data.js');
+ok((html[1013] || '').includes('legendary-recipes.js'), 'index.html:1014 es legendary-recipes.js (contrato, HB#122)');
+ok((html[1014] || '').includes('render-catologo.js'), 'index.html:1015 es render-catologo.js');
 ok((fs.readFileSync(path.join(ROOT, 'js/router.js'), 'utf8').split('\n')[124] || '').includes('legendary-armory'),
   'router.js:125 sigue siendo la ruta (esta NO se movio: el off-by-11 es solo del HTML)');
 
