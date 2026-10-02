@@ -1,3 +1,80 @@
+## ALERT-193 — un archivo de historial y un archivo de estado se escriben igual, y solo uno de los dos es un bug
+
+**Fecha:** 2026-10-02 (HB#127)
+**Estado:** CERRADO en `4c01b29` (historial recuperado, 73/73 alertas y 7/7 titulos verificados con control negativo).
+
+`ALERTS_LOG.md` y `SESSION_LOG.md` estaban **ordenados por prepend**: el mas nuevo
+va arriba. Un ciclo anterior los escribio **a archivo completo** en vez de
+anteponerles, y el worktree quedo asi:
+
+    ALERTS_LOG.md    HEAD 4775 lineas  ->  worktree  107
+    SESSION_LOG.md   HEAD 3675 lineas  ->  worktree  127
+
+El `git diff` daba **-4811 / -3761 lineas borradas**. La prosa nueva (ALERT-190,
+191, 192, el HB#126) estaba bien escrita y el producto ya estaba mergeado y
+pusheado en `ae10e5b`: lo que estaba a punto de commitearse era **la mitad de la
+memoria escrita del equipo**, y el commit habria sido **verde**.
+
+## El detalle que decide el diagnostico
+
+`TEAM_STATUS.md` **tambien se escribio entero, en el mismo gesto**, y eso
+**esta bien**: es un archivo rotativo, HEAD tiene 153 lineas y solo 2 heartbeats
+(#124, #123). No hay historial que perder.
+
+O sea: **mismo gesto, mismos tres archivos de `.md`, y uno es el bug y dos no.**
+Lo que los separa no es el nombre, ni la carpeta, ni la extensión:
+
+| | `TEAM_STATUS.md` | `ALERTS_LOG.md` / `SESSION_LOG.md` |
+|---|---|---|
+| lo anterior | archivo muerto (se reemplaza) | **informacion** (se conserva) |
+| orden | el mas nuevo **reemplaza** | el mas nuevo va **arriba** |
+| grow | puede bajar de lineas | **solo crece** |
+
+**Regla:** antes de escribir entero un `.md`, hay que responder *que se pierde si
+me equivoco*. Si la respuesta es "nada, el anterior ya no servia", es rotativo y
+el overwrite es el diseno. Si la respuesta es "73 alertas y 7 heartbeats", el
+overwrite es un bug aunque el `--numstat` no lo diga hasta despues del commit.
+
+Y el filtro que lo hacia invisible: **`git status` muestra `M`, no `-4811`.**
+La perdida recien aparece en `--numstat`, que es un comando que uno corre para
+*auditar un commit*, no para *preparar* uno. **Un archivo que se trunca asi
+pasa la revision de_status_ entera.**
+
+## La reconstruccion
+
+Preferi **recomponer** a elegir entre las dos versiones, porque las dos tenian
+contenido legitimo: el worktree aporta 3 alertas y 1 heartbeat que no existen en
+HEAD, y HEAD aporta 73 alertas y 7 titulos que el worktree no tiene.
+
+La costura se resolvio **midiendo, no suponiendo**: el final del worktree
+truncado vuelve a arrancar por `## ALERT-189`, que en HEAD ya esta completo con
+su cuerpo. Ese encabezado es el punto exacto de corte.
+
+`FEATURES.md` se dejo intacto: **+25 / -0**, es append-only y no tuvo perdida.
+
+## Verificacion (por exit code, no por texto — ALERT-176)
+
+- 73/73 alertas de HEAD preservadas. 0 duplicadas.
+- 3 nuevas presentes, y son exactamente las que no estan en HEAD.
+- 7/7 titulos de SESSION_LOG. HB#126 primero.
+- **CONTROL NEGATIVO:** borrando `# Heartbeat #123` a proposito, el detector lo ve.
+- Sin BOM.
+
+Diferencia final: **`+106 / -0` y `+130 / -0`.** Los dos archivos pasaron de
+borrados a puramente aditivos.
+
+## Nota sobre el CJK: 31 y 2, y NO son mios
+
+El detector marca 31 ideogramas en `ALERTS_LOG.md` y 2 en `SESSION_LOG.md`. **Los
+dos numeros son identicos a los de HEAD: introduje 0.** Son CJK citado a
+proposito como evidencia de una prosa corrupta (el precedente de ALERT-116).
+
+Un detector queancies en un archivo donde el CJK **es** la prueba esta mirando el
+archivo equivocado: el mismo modo de fallo que ALERT-116 le acuso a
+`audit-alert-refs.mjs`. **La pregunta correcta no es "hay CJK" sino "hay CJK que
+YO introduje"**, y esa se responde comparando contra HEAD, no contando.
+
+---
 ## ALERT-190 — 5 commits terminados, testeados y fuera de `main`, en ramas que ninguna rama remota alcanzaba
 
 **Fecha:** 2026-10-02 (HB#126)
