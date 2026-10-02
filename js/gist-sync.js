@@ -443,9 +443,23 @@
     var configData = JSON.parse(rawText);
     
     // Importar configuración usando SettingsManager
+    // HB#119 T20-a: el confirm del Gist tiene que decir lo mismo que el del
+    // archivo. Antes decia "Esto sobrescribira tu configuracion local" y nada
+    // mas: 0 de las 7 familias, 0 cifras. Lo unico del backup que NO se
+    // regenera con un click son las API keys -- una key de GW2 no se vuelve a
+    // bajar de ArenaNet; si no la guardaste, hay que crear otra. El precedente
+    // es literal y esta 60 lineas mas arriba, en settings-manager.js:594-603.
+    var keyCount = configData?.data?.apiKeys?.list?.length || 0;
     var confirmMsg = '¿Sincronizar desde la nube?\n\n' +
       'Se descargará y aplicará la configuración remota.\n' +
-      'Esto sobrescribirá tu configuración local.\n\n' +
+      'Esto SOBRESCRIBE tu configuración local:\n\n' +
+      '• API Keys (' + keyCount + ' claves)\n' +
+      '• Wizard\'s Vault (pins y marcas)\n' +
+      '• Wallet (pins, snapshots, vista compacta)\n' +
+      '• Activities (toggles, home nodes)\n' +
+      '• Characters (POIs, ubicaciones)\n' +
+      '• Meta (favoritos, hecho hoy)\n' +
+      '• Configuración global\n\n' +
       '¿Continuar?';
     
     if (confirm(confirmMsg)) {
