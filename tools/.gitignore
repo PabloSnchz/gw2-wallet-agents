@@ -1,2 +1,34 @@
+# tools/ — reglas de versionado
+#
+# Por defecto NO se versiona nada de acá: son scripts de trabajo de un solo
+# uso (de 90 archivos, la mayoría `hb116-cjk-attrib.mjs`, `hb92-comms-legible.mjs`,
+# `idea52-icons.py`) que son ruido en el historial de un repo de 45 módulos.
+#
+# Las excepciones de abajo son infraestructura, no scripts de debug.
 *
+
 !.gitignore
+
+# --- INFRAESTRUCTURA: sin esto no hay red anti-bug ---
+# El runner. Ya estaba trackeado, pero la regla lo hacia fragil: si alguien
+# regeneraba tools/, se perdia. Autorizado por Pablo 2026-10-02.
+!run-suite.js
+!run-suite.cmd
+
+# --- FUENTE DE DATOS: sin esto el paso 6 (arbol de fabricacion) no puede existir ---
+# Fuente de las recetas de la Armería Legendaria.
+#   crafty_legend  —  634 recetas (352 crafting, 278 mystic_forge, 4 vendor),
+#                     2.340 ingredientes, 930 items distintos.
+# Medida 2026-10-02. Autorizado por Pablo 2026-10-02.
+#
+# POR QUE esta excepcion es bloqueante, no una comodidad:
+#   `js/legendary-recipes.js` declara 567 ingredientes en 236 ids distintos, y
+#   de esos 236, CERO tienen receta en el propio contrato. Un arbol recursivo
+#   sobre ese contrato dibujaria SIEMPRE un nivel y nada mas.
+#   En ESTA fuente, el 86% de esos ingredientes si tiene receta: el arbol
+#   llega a ~8 niveles.
+#
+#   Sin el archivo en git, el build (`js/_build_legendary_recipes.py`) depende
+#   de una descarga manual que vive solo en el disco de una persona. Un build
+#   que no se puede reproducir no es un build.
+!cl_recipes.json
