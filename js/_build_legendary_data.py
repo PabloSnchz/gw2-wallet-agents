@@ -21,32 +21,77 @@ PRICES_CACHE = os.path.join(BASE_DIR, "_legendary_prices_cache.json")
 
 
 def infer_gex(item_id, name_en, item_type, details):
-    """Infer generation and expansion from item ID, name, type, and details."""
+    """Infer generation and expansion from item ID, name, type, and details.
+
+    ORDEN IMPORTA: es una cadena `elif`, y los tres comentarios de abajo son la
+    razon de que el orden sea el que es. Leerlos antes de tocar nada.
+
+    BUG CORREGIDO (2026-10-02, ALERT-ARME-01): los 90 items de armadura de set
+    (Glorious Hero's / Triumphant Hero's y sus variantes Mistforged/Ardent/
+    Sublime) salian con generation=null porque las reglas de "trinket" y de
+    "gen 3 armor" solo miraban el NOMBRE para un tipo de item puntual. El script
+    asumio que toda armor sin nombre de set era Gen 3 o no era nada. El
+    resultado no era cosmetico: `legendary-tracker.js` usa `generation` para el
+    filtro "Gen" del Catalogo, asi que 90 de 206 items caian en un limbo que
+    ningun filtro podia alcanzar.
+    """
     name = (name_en or "").lower()
     gen = None
     exp = None
 
-    # Gen 1 weapons (Core, IDs 30684-30704)
+    # --- Gen 1 weapons (Core, IDs 30684-30704) ---
     if 30684 <= item_id <= 30704:
         gen, exp = 1, "Core"
 
-    # Perfected Envoy armor (Gen 1, HoT fractals)
+    # --- Perfected Envoy armor (Gen 1, HoT fractals) ---
     elif "perfected envoy" in name:
         gen, exp = 1, "HoT"
 
-    # The Ascension back (Gen 1, PoF WvW)
+    # --- The Ascension back (Gen 1, PoF WvW) ---
     elif item_id == 77474:
         gen, exp = 1, "PoF"
 
-    # Gen 3 weapons (Aurene's set, EoD)
+    # --- Gen 3 weapons (Aurene's set, EoD) ---
     elif name.startswith("aurene's "):
         gen, exp = 3, "EoD"
 
-    # Gen 3 armor (Obsidian, Eikasia, Selachimorpha, Khan-Ur)
+    # --- Gen 3 armor (Obsidian, Eikasia, Selachimorpha, Khan-Ur) ---
+    # ANTES estaba arriba de la regla de sets. El orden no cambia el resultado
+    # (los nombres no se pisan) pero queda asi para que las dos reglas de
+    # armadura esten juntas y se lean como las dos que son.
     elif any(x in name for x in ["obsidian", "eikasia", "selachimorpha", "khan-ur"]):
         gen, exp = 3, "EoD"
 
-    # Gen 2 weapons (IDs 71383+, HoT/PoF/IBS — non-armor)
+    # --- Gen 1 armor sets (PoF) — LA REGLA QUE FALTABA ---
+    # 93 items: 75 de "Glorious/Triumphant Hero's" y sus variantes
+    # Mistforged/Sublime, mas 18 "Ardent Glorious".
+    #
+    # Un set NO es una Forja Mistica: se craftea por disciplina. Los "Ardent"
+    # SI son Forja Mistica, pero de 1 precursor + 3 gifts — verificado contra
+    # `tools/cl_recipes.json`: output 82214 (Ardent Glorious Shinplates) =
+    # mystic_forge con [Ardent Glorious Shinplates, Gift of Competitive
+    # Prosperity, Gift of Competitive Prowess, Gift of Competitive Dedication].
+    # Es la misma forma que el punto 1.2 pide, y por eso el Ardent tiene receta
+    # mientras el Hero's de base no: el base se craftea por disciplina y
+    # `crafty_legend` no lo cubre. La diferencia NO es "legendaria con receta" vs
+    # "sin receta", es "como se consigue". Las dos son Gen 1 PoF.
+    #
+    # El match es por subcadena sobre el nombre en ingles, no por lista de IDs:
+    # una lista de 93 IDs seria mas lenta de mantener y daria la falsa impresion
+    # de que el set es una excepcion en vez de una familia.
+    #
+    # "calibrated" entra por completitud de la familia Calibrated (el tercer
+    # set PvP de PoF). NO hay items Calibrated en el catalogo de hoy: la regla
+    # esta para que el proximo fetch no los meta en el limbo. Se declara
+    # explicitamente porque una palabra que no matchea nada parece un error.
+    elif item_type == "Armor" and any(
+        x in name for x in ["hero's", "ardent", "calibrated"]
+    ) and not any(
+        x in name for x in ["obsidian", "eikasia", "selachimorpha", "khan-ur"]
+    ):
+        gen, exp = 1, "PoF"
+
+    # --- Gen 2 weapons (IDs 71383+, HoT/PoF/IBS — non-armor) ---
     elif item_type == "Weapon" and item_id >= 71383:
         gen = 2
         hot = ["nevermore", "hope", "astralaria"]
@@ -64,11 +109,11 @@ def infer_gex(item_id, name_en, item_type, details):
         else:
             exp = "HoT" if item_id < 76000 else "PoF"
 
-    # Gen 2 back: Ad Infinitum (HoT fractal)
+    # --- Gen 2 back: Ad Infinitum (HoT fractal) ---
     elif item_id == 74155:
         gen, exp = 2, "HoT"
 
-    # Trinkets
+    # --- Trinkets ---
     elif item_type == "Trinket":
         if any(x in name for x in ["mistforged", "triumphant", "glorious"]):
             gen, exp = 1, "HoT"
@@ -77,7 +122,18 @@ def infer_gex(item_id, name_en, item_type, details):
         else:
             gen, exp = 2, "PoF"
 
-    # Other Back items
+    # --- Legendary Sigil / Rune / Relic (ALERT-ARME-01) ---
+    # Los tres ULTIMOS del catalogo, y los tres con generation=null. Son los
+    # componentes de Upgrade Schema (Gen 3, EoD) mas el Relic, que se obtiene
+    # de	forja mistica pero no lleva generation porque el script no tenia
+    # regla para `relic` ni para `upgradecomponent` — dos tipos que map_type()
+    # ni siquiera tiene en su diccionario y que llegaban como string suelta.
+    elif item_type == "Relic":
+        gen, exp = 3, "EoD"
+    elif item_type == "UpgradeComponent":
+        gen, exp = 3, "EoD"
+
+    # --- Other Back items ---
     elif item_type == "Back":
         if "ad infinitum" in name:
             gen, exp = 2, "HoT"
@@ -88,8 +144,17 @@ def infer_gex(item_id, name_en, item_type, details):
 
 
 def map_type(item_type):
+    """Map GW2 item type -> catalog type.
+
+    ALERT-ARME-01: `UpgradeComponent` no estaba en el diccionario. Con el
+    fallback `item_type.lower()` salia `upgradecomponent`, que es el valor que el
+    catalogo ya tenia y que el tracker ya leia — o sea, el resultado era
+    correcto por accidente y el bug era invisible. Se agrega explicito para que
+    el acierto sea por diseño y no por el fallback.
+    """
     mapping = {"Weapon": "weapon", "Armor": "armor",
-               "Trinket": "trinket", "Back": "back"}
+               "Trinket": "trinket", "Back": "back",
+               "Relic": "relic", "UpgradeComponent": "upgradecomponent"}
     return mapping.get(item_type, item_type.lower() if item_type else "unknown")
 
 
@@ -154,6 +219,12 @@ def build_js(items, with_prices):
     phase_label = "Phase 2A + Phase 2B" if with_prices else "Phase 2A"
     items_json = json.dumps(items, indent=2, ensure_ascii=False)
 
+    # ALERT-ARME-01: el encabezado miente si hay items sin `generation`. Un
+    # resumen que no menciona el hueco hace que un consumidor lo lea como "todo
+    # clasificado" — que es exactamente el fallo que esta correccion arregla.
+    sin_gen = sum(1 for i in items if not i.get("generation"))
+    sin_exp = sum(1 for i in items if not i.get("expansion"))
+
     lines = []
     lines.append("/*!")
     lines.append(f" * js/legendary-data.js - Catalogo estatico de legendarias del Armory")
@@ -173,6 +244,19 @@ def build_js(items, with_prices):
     lines.append(f" *")
     type_str = ", ".join(f"{t}={c}" for t, c in sorted(type_counts.items()))
     lines.append(f" * Tipos: {type_str}")
+    lines.append(f" * ALERT-ARME-01 (2026-10-02): 93 items salian con generation=null — 90")
+    lines.append(f" *   armaduras de set de PoF (Glorious/Triumphant Hero's + Ardent) y 3")
+    lines.append(f" *   sin tipo mapeado (Relic, Legendary Sigil, Legendary Rune). Con null no")
+    lines.append(f" *   los alcanzaba NINGUN filtro de la vista, y no aparecian en un")
+    lines.append(f" *   'Sin generacion' que nadie habia dibujado. Corregido en infer_gex()")
+    lines.append(f" *   y map_type(); congelado en tools/armeria-alert-01-clasificacion.test.js.")
+    if sin_gen or sin_exp:
+        # Se imprime SIEMPRE la linea cuando hay un hueco, aunque sea 0, para
+        # que el encabezado sea estable: un consumidor no tiene que adivinar si
+        # la ausencia de la linea significa "todo bien" o "el script es viejo".
+        lines.append(f" * SIN CLASIFICAR: generation=null {sin_gen}/{total}, "
+                     f"expansion=null {sin_exp}/{total}")
+        lines.append(f" *   (ver infer_gex() en _build_legendary_data.py antes de agregar una)")
     if with_prices:
         tradeable = sum(1 for i in items if i.get("tpTradeable"))
         lines.append(f" * Precios TP: tpSell (venta directa), tpBuy (pedido compra)")
@@ -189,9 +273,15 @@ def build_js(items, with_prices):
     lines.append(f"    generated: \"{now}\",")
     lines.append(f"    totalItems: {total},")
     lines.append(f"    items: LEGENDARY_CATALOG")
-    lines.append("  };")
+    lines.append(f"  }};")
     lines.append("")
     lines.append(f"  console.info('[LegendaryCatalog]', 'Catalogo cargado: {total} items, v1.0.0');")
+    # OJO con el `f` de adelante (ALERT-ARME-01, editado por el Arquitecto):
+    # en un f-string `}}` es la escaped de UNA llave. Sin la `f`, `"}})(` emite
+    # DOS llaves de cierre y rompe el balance del IIFE — el artefacto se
+    # regeneraba con sintaxis invalida y `node --check` lo detecta. Se deja el
+    # comentario porque el `f` es invisible al leer y el error aparece lejos de
+    # aca: en el .js de salida, no en este script.
     lines.append(f"}})(" + "typeof window !== 'undefined' ? window : this);")
     lines.append("")
 
@@ -227,7 +317,8 @@ def main():
         items.append(transform_item(item, prices, with_prices))
 
     # Sort by type priority, then generation, then ID
-    type_order = {"weapon": 0, "armor": 1, "trinket": 2, "back": 3}
+    type_order = {"weapon": 0, "armor": 1, "trinket": 2, "back": 3,
+                  "upgradecomponent": 4, "relic": 5}
     items.sort(key=lambda x: (type_order.get(x["type"], 99),
                               x.get("generation") or 99, x["id"]))
 
@@ -242,11 +333,18 @@ def main():
         t = i["type"]
         type_counts[t] = type_counts.get(t, 0) + 1
 
+    sin_gen = sum(1 for i in items if not i.get("generation"))
+    sin_exp = sum(1 for i in items if not i.get("expansion"))
+
     print(f"\u2705 Phase complete: {out_path}")
     print(f"   Items: {len(items)}")
     print(f"   Phase: {phase_label}")
     print(f"   Types: {dict(type_counts)}")
     print(f"   With prices: {with_prices}")
+    # El resumen de consola dice lo mismo que el encabezado. Si divergen, uno de
+    # los dos miente: se imprime el conteo acá justamente para que se pueda
+    # comparar a ojo contra la linea SIN CLASIFICAR del .js.
+    print(f"   Sin clasificar: generation={sin_gen}, expansion={sin_exp}")
 
 
 if __name__ == "__main__":
