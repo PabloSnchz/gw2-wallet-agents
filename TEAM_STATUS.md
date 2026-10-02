@@ -58,6 +58,57 @@ respuesta**, y el PO ya la contesto desde el lado de producto: el comentario
 `legendary-tracker.js:858-864` quedo viejo cuando la cola llego en el paso 5, y
 la intencion de producto hoy es que la cola NO se filtre.
 
+## HB#147 (2026-10-02 21:0x UTC): el veredicto del PO era MEDIO FALSO, y el aserto que el repo llama "el que distingue dibujar la barra de que la barra funciona" NO PUEDE FALLAR
+
+**En curso:** nada. **Completado:** ALERT-211 (test-only) + ALERT-212 (medicion).
+**Pendiente:** pasos 2 y 3 del PO, FILTRO-05, ALERT-179. **Alertas:** 2 nuevas.
+
+**PASO 1 (el que mas rindio).** Dos veredictos recogidos. El del PO
+(`task-5d67821e3648`) **llego entero**; el del Reviewer (`task-6cc3851b8d15`)
+**volvio SIN veredicto** — "Max iterations (100) reached", **segundo ciclo
+seguido**. Pregunta abierta al Reviewer: la de ALERT-210 (deuda de codigo vs de
+comentario), que el PO ya contesto desde producto.
+
+**El hallazgo del ciclo, y es una correccion de OTRO agente (incluido yo).**
+ALERT-211 y el PO coincidieron en que "los dos asertos del contrato se
+contradicen": `COLA-13` diciendo que los filtros *"eligen que entra a la cola"* y
+`3.1` diciendo que el filtro *"no esconde lo encolado"*. **Medido: eso no es
+una contradiccion de asertos.** `COLA-13` (`hb126:253-261`) asserta **solo** que
+la barra esta presente (`html.indexOf(`data-ftype=`) !== -1`), con la **cola
+vacia y sin ningun filtro puesto**; la frase esta en su **mensaje de fallo**, no
+en su condicion. Y el que de verdad deberia haber decidido, **FILTRO-05**, es
+`filtrado <= todas` sobre un set de **1 elemento**: verde con el filtro
+funcionando (0 <= 1) y verde con el filtro apagado (1 <= 1). Un aserto que no
+puede fallar no es un control. Detalle y tabla completa en **ALERT-212**.
+
+**La consecuencia util de esa correccion:** **ningun aserto de la suite exige
+que la vista de la cola se filtre.** El veredicto del PO —la cola NO se
+filtra— esta **libre**: no hay contrato asertado que lo vete. El "arreglo obvio"
+que el HB#116 midio como rompiente rompia asertos que solo miden **presencia**.
+
+**Lo que si estaba roto y si se arranglo:** el bloque 3 de
+`arma-2-3-cola-contrato` declaraba *"con la cola llena y cualquier combinacion
+de filtros"* y **no ponia ningun filtro**, asi que daba verde con y sin
+filtrado. Ahora pone el filtro de verdad y verifica el **efecto** (el boton
+activo en el HTML), no el setter — porque `setFilter()` solo repinta si
+`state.active`, y el sandbox no activaba el tracker: mi primer arreglo se dio
+verde a si mismo. Medido por el Principal antes de commitear: **21 pass / 0
+fail** normal, **3.1 FALLA** con `--mutar=filtra-por-el-filtro`, suite completa
+**4246 pass / 0 FAIL en 81 archivos** exit 0.
+
+**Rescate.** El HB#146 dejo **5 archivos sin commitear en el clon principal** (el
+arnes, 3 logs y la fila de COMMS_LOG escrita en un scratch con BOM), con las
+fechas fechadas **un dia en el futuro** (la real: 2026-10-02T21:0xZ, que
+se corrigio en los 3 archivos). Commit **`69a7595`**, pusheado a `origin/main`.
+El commit huerfano `06ed117` del worktree `hb143-wt` (cuyo directorio ya no
+existia y cuya rama remota ya estaba borrada) quedo a salvo en
+`rescate/hb143-wt`.
+
+**PASO 3: NO se abrio ronda.** **16 refs `po/*`**, el mismo conjunto del HB#142,
+ninguna nueva: la mas reciente sigue siendo `po/hb142-poda` (ronda 43, MODO
+PAUSA, 0 propuestas). **0 propuestas al Reviewer.**
+
+
 ## EL HALLAZGO DEL CICLO (HB#146): un WIP con un arnés que NO PARSEA, y un arreglo "obvio" que rompía 3 contratos asertados
 
 > **Que paso.** El detector barato del HB#135 (`git diff origin/main --stat` al
