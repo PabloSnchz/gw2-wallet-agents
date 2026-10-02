@@ -2,7 +2,7 @@
  * js/legendary-recipes.js - CONTRATO de fabricacion de las 206 legendarias
  * Proyecto: Boveda del Gato Negro (GW2 Wallet Ligero)
  * Version: 1.0.0
- * Generado: 2026-10-02 15:15:24 UTC
+ * Generado: 2026-10-02 15:19:29 UTC
  *
  * Generado por js/_build_legendary_recipes.py desde tools/cl_recipes.json.
  * NO modificar manualmente. El encabezado de ese script explica por que el
@@ -24,12 +24,14 @@
  * PROFUNDIDAD DEL ARBOL -- SE CUENTA INCLUYENDO LA HOJA
  *
  * `depth` es el numero de niveles desde la legendaria hasta un material
- * base, Y LA HOJA CUENTA COMO UN NIVEL. Medido 2026-10-02 sobre las 142
- * con receta: minimo 2, maximo 9, y el reparto es
- *   nivel 2 -> 1     nivel 5 -> 57
- *   nivel 6 -> 5     nivel 7 -> 50     nivel 8 -> 28     nivel 9 -> 1
+ * base, Y LA HOJA CUENTA COMO UN NIVEL. Medido 2026-10-02 contra la
+ * FUENTE (contra este contrato NO se puede; ver la limitacion de abajo)
+ * sobre las 142 con receta:
+ *   nivel 2 ->   1     nivel 6 ->  5     nivel 9 ->  1
+ *   nivel 5 ->  57     nivel 7 -> 50     nivel 8 -> 28
+ *   minimo 2, maximo 9, 0 ciclos
  *
- * Esto NO es cosmetico. Dos personas midiendo lo mismo obtuvieron
+ * Esto NO es cosmetico. Dos personas midieron el mismo dato y obtuvieron
  * 'maximo 8, minimo 1, 57 en nivel 4' y 'maximo 9, minimo 2, 57 en nivel 5'
  * sobre el MISMO dato, y las dos tenian razon: una contaba la hoja como
  * nivel y la otra no. El contrato fija una sola lectura para que la UI y
@@ -42,6 +44,25 @@
  * medias, y la segunda es la que corresponde a 'cosas que tenes que
  * conseguir'.
  *
+ *
+ * LIMITACION CONOCIDA -- ESTE CONTRATO NO ALCANZA PARA EL ARBOL COMPLETO
+ *
+ * Las entradas de este archivo son los 206 items DEL CATALOGO. Los
+ * ingredientes de la Forja Mistica NO son del catalogo, asi que no tienen
+ * entrada aca. Medido: los 236 ingredientes distintos de las 142 con
+ * receta estan 236 de 236 FUERA de este contrato, y de esos 236, 169 tienen
+ * receta en la fuente.
+ *
+ * Consecuencia: recorrido con ESTE contrato, el arbol no baja de 2
+ * niveles, porque todo ingrediente cae como hoja. El arbol de 9 niveles
+ * y 55 nodos sale de leer tools/cl_recipes.json entero, que es lo que
+ * hace el verificador y lo que habra que hacer en el arbol real.
+ *
+ * O sea, este archivo responde 'de que se craftea una legendaria del
+ * catalogo', NO 'de que se hace cada parte'. Para lo segundo hay que
+ * decidir si los precursores entran al contrato o se resuelven en
+ * runtime contra otra fuente. Pendiente de Pablo, no resuelto por
+ * defecto.
  * Fuente: 634 recetas (crafting=352, mystic_forge=278, vendor=4)
  *
  * Verificacion de datos (2026-10-02, tools/hb122-verificar-items.cjs):
@@ -321,7 +342,7 @@
 
   root.LegendaryRecipes = {
     version: '1.0.0',
-    generated: "2026-10-02 15:15:24 UTC",
+    generated: "2026-10-02 15:19:29 UTC",
     totalItems: 206,
     craftType: CRAFT_TYPE,
     dataStatus: DATA_STATUS,
