@@ -5325,3 +5325,91 @@ cuales lo publica desde `raid-tracker.js` y el otro desde `app.js`. El fix
 arregla ESTA destruccion, no el diseño. Es el mismo agujero que `.Route`
 (8 declaraciones, 0 lectores), en otra caja. **No lo abro aqui** — la regla de
 auditorias acotadas dice 1 pregunta por auditoria, y esta ya dio su alerta.
+
+CORRECCION — ALERT-198 FUE FALSA Y LA INVENTE YO
+
+Donde dice "ALERT-198 (nueva): `git worktree list` miente" hay que leer esto.
+
+**`git worktree list` NO miente. Yo lei mal su salida.**
+
+`wt-hb132b` esta registrado como:
+
+    C:/Mis Archivos/GW2 online/wt-hb132b    6e5a60c (detached HEAD)
+
+o sea **fuera** de `gw2-dev`, en el directorio padre. Yo lei esa linea como si
+el worktree estuviera dentro de `gw2-dev/wt-hb132b`, y despues lo "verifique"
+con `if exist "wt-hb132b"` desde dentro de `gw2-dev` — que da `NO` porque la
+ruta relativa no existe, **no** porque el worktree falte. El directorio real
+tiene 2+ entradas y `js/` con el repo dentro.
+
+REVISADO en las dos direcciones, con `git worktree list --porcelain` (que si
+trae una ruta por linea, parseable, al contrario del formato normal que mezcla
+la ruta con el sha): **75 worktrees registrados, 75 con directorio en disco, 0
+inexistentes.**
+
+**Y el primer chequeo que hice fue tan malo como el segundo.** Parsee
+`git worktree list` (formato con columnas) con un regex no-greedy que partia la
+ruta en el primer espacio: `C:/Mis Archivos/GW2 online/...` se cortaba en "Mis
+Archivos" y daba **75 de 75 inexistentes**. Un numero que no puede ser menos
+que el numero real de worktrees no esta midiendo nada — es el mismo
+tautologismo del conteo del HB#132 y del control negativo del HB#131.
+
+**LA REGLA, y generaliza las tres ultimas:**
+
+1. **Un nombre de ruta se copia de la salida de la herramienta, nunca del
+   recuerdo de donde "deberia" estar.** `git worktree list` imprime la ruta
+   ABSOLUTA. Asumir que cae dentro del clon es inventarse una ruta.
+2. **La verificacion tiene que usar la MISMA ruta que se afirmo.** Si digo
+   "esta en X", verifico X. Verificar otra cosa (una relativescua) y
+   reportar el resultado como si fuera de X es fabricar evidencia.
+3. **Antes de escribir una ALERTA nueva sobre una herramienta, probar que la
+   herramienta falla.** Si no hay un caso donde `git worktree list` este
+   equivocado, no hay alerta. Esto aplica a las alertas que se escriben en
+   cualquier ciclo.
+
+Sin costo para el producto: no habia ningun fix de codigo colgado de ALERT-198.
+Solo el texto de `ALERTS_LOG.md`, `TEAM_STATUS.md` y `SESSION_LOG.md`.
+
+CORRECCION — ALERT-198 FUE FALSA Y LA INVENTE YO
+
+Donde dice "ALERT-198 (nueva): `git worktree list` miente" hay que leer esto.
+
+**`git worktree list` NO miente. Yo lei mal su salida.**
+
+`wt-hb132b` esta registrado como:
+
+    C:/Mis Archivos/GW2 online/wt-hb132b    6e5a60c (detached HEAD)
+
+o sea **fuera** de `gw2-dev`, en el directorio padre. Yo lei esa linea como si
+el worktree estuviera dentro de `gw2-dev/wt-hb132b`, y despues lo "verifique"
+con `if exist "wt-hb132b"` desde dentro de `gw2-dev` — que da `NO` porque la
+ruta relativa no existe, **no** porque el worktree falte. El directorio real
+tiene 2+ entradas y `js/` con el repo dentro.
+
+REVISADO en las dos direcciones, con `git worktree list --porcelain` (que si
+trae una ruta por linea, parseable, al contrario del formato normal que mezcla
+la ruta con el sha): **75 worktrees registrados, 75 con directorio en disco, 0
+inexistentes.**
+
+**Y el primer chequeo que hice fue tan malo como el segundo.** Parsee
+`git worktree list` (formato con columnas) con un regex no-greedy que partia la
+ruta en el primer espacio: `C:/Mis Archivos/GW2 online/...` se cortaba en "Mis
+Archivos" y daba **75 de 75 inexistentes**. Un numero que no puede ser menos
+que el numero real de worktrees no esta midiendo nada — es el mismo
+tautologismo del conteo del HB#132 y del control negativo del HB#131.
+
+**LA REGLA, y generaliza las tres ultimas:**
+
+1. **Un nombre de ruta se copia de la salida de la herramienta, nunca del
+   recuerdo de donde "deberia" estar.** `git worktree list` imprime la ruta
+   ABSOLUTA. Asumir que cae dentro del clon es inventarse una ruta.
+2. **La verificacion tiene que usar la MISMA ruta que se afirmo.** Si digo
+   "esta en X", verifico X. Verificar otra cosa (una relativescua) y
+   reportar el resultado como si fuera de X es fabricar evidencia.
+3. **Antes de escribir una ALERTA nueva sobre una herramienta, probar que la
+   herramienta falla.** Si no hay un caso donde `git worktree list` este
+   equivocado, no hay alerta. Esto aplica a las alertas que se escriben en
+   cualquier ciclo.
+
+Sin costo para el producto: no habia ningun fix de codigo colgado de ALERT-198.
+Solo el texto de `ALERTS_LOG.md`, `TEAM_STATUS.md` y `SESSION_LOG.md`.

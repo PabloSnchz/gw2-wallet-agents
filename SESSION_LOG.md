@@ -4090,11 +4090,12 @@ salvo que ejecute los hooks en orden de documento.
   el **diseno**: `__GN__` es un namespace con contrato cero y 2 escritores, uno
   desde `raid-tracker.js` y otro desde `app.js`. El fix arregla esta destruccion,
   no el diseno. Mismo agujero que `.Route`, en otra caja. No lo abro aqui.
-- **ALERT-198 (nueva, conceptual):** **`git worktree list` miente.** Registra
-  `wt-hb132b` en `6e5a60c` y **el directorio no existe en disco**. `git worktree
-  list` no verifica que el directorio siga ahi, asi que un worktree "presente"
-  no es un worktree. Si un un ciclo lo hubiera usado, el `cd` falla y parece un
-  bug de path (que es como se leyo `/d` en ciclos anteriores).
+- **ALERT-198: RETIRADA, era FALSA y la invente yo.** `git worktree list` NO miente: la
+  ruta real de `wt-hb132b` es `C:/Mis Archivos/GW2 online/wt-hb132b`, FUERA de
+  `gw2-dev`, y yo la lei como si estuviera dentro y la verifique con un
+  `if exist` relativo. Medido con `--porcelain`: **75 worktrees, 75 con
+  directorio, 0 inexistentes.** Correccion completa al final de `ALERTS_LOG.md`.
+  Sin costo: no habia ningun fix de codigo colgado de esta alerta.
 - **ALERT-175 (4a vez):** mi fila se numero del MAXIMO real (**160**), no del
   ultimo leido. Y con el control de columnas (**12**, igual que la referencia).
 - **BOM (6a vez, y esta vez bien):** `write_file` lo antepone. Lo detecte
