@@ -12,9 +12,19 @@
  *   Censo con unidad: node tools/idea50-censo-claves.mjs → 8 FAMILIAS de clave
  *   de cache en 3 módulos, fuera del registro, + 1 marcador de frescura.
  * Versión: 2.30.0 (2026-09-30) — Idea 50 P3: el registro de bases de los OTROS módulos
- *   v2.30.0: **NO cambia lo que Pablo ve** (`cacheClear` sigue con 0 callers y el
- *   botón sigue sin existir). Lo que cambia es que el borrado ya puede alcanzar
- *   la cache del Wizard's Vault, que antes era inalcanzable.
+ *   v2.30.0: **NO cambiaba lo que Pablo ve** — MEDIDO EN LA v2.30.0, `cacheClear`
+ *   tenía 0 callers y el botón no existía. Lo que cambiaba es que el borrado ya
+ *   podía alcanzar la cache del Wizard's Vault, que antes era inalcanzable.
+ *
+ *   ACTUALIZADO (HB#125, 2026-10-02): ese paréntesis decía "sigue" y mentía en
+ *   las dos mitades. Re-medido sobre `origin/main` @ `de42a69`:
+ *     - `__cacheClear` tiene **3 llamadas reales**: `settings-manager.js:737`
+ *       (guard de existencia), `:742` (`dryRun` para el confirm) y `:769`
+ *       (borrado). El botón EXISTE y está cableado.
+ *     - Se expone en el return de este mismo archivo (`:2056`).
+ *   Una cabecera que describe mal el código pesa más que un comentario ausente:
+ *   es lo que se lee para decidir si algo está hecho, y durante dos rondas dio
+ *   "no hay nada que hacer" sobre algo que ya estaba.
  *   `wizards-vault.js` tiene su PROPIA `lsSet`/`kLS`, o sea que su cache nunca
  *   pasó por `putCache()`: el botón no la borraba y un grep sobre `putCache`
  *   tampoco la veía, así que el test de la 50F daba verde sin cubrirla.
