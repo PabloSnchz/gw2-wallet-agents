@@ -68,3 +68,19 @@ _(vací)_
 | 2026-09-30 | `57008ae` (Raid Tracker — ala 9 "Nexus of Eternity", boss Vloxx): **AUTORIZADO** en producción. Autorización retroactiva; Pablo lo revisó. No tocar. |
 | 2026-09-30 | `392c3b9` (Solitary Throne CM daily tracker): **EN PRODUCCIÓN, SIN VERIFICAR**. No revertir ni modificar hasta que se verifique. |
 | 2026-09-30 | `07e4c64` (Idea 2 — wallet-dashboard columnas Personajes/AP/Raids): **REVERTIDO** de producción. Autorizado por Pablo y revertido con `a1a53c4`. Sigue en `agents/main`. |
+
+## T20-c - foto local antes de sobrescribir por el Gist
+
+- **Rama:** `hb120` (commiteada en el worktree; el merge a `main` lo hace el Principal)
+- **Commits:** `4413c34`
+- **Estado:** listo, sin probar por Pablo
+- **Por que entra en la lista:** es el unico tramo de la ronda 38 que evita la perdida
+  en vez de contarla. T20-a y T20-b le dicen cuanto va a perder; este le deja de donde
+  volver.
+- **Lo que hay que mirar:** Ajustes → Gist → "Sincronizar desde la nube". El cartel
+  cambio. Ojo: el HB#120 escribio que `GistSync` no esta montado en ningun HTML y es
+  FALSO (ALERT-184: el grep se corrio sobre `js/`). El boton existe, es
+  `#gistDownloadBtn` en `index.html:927`. Si no lo ves, es lo de siempre.
+  Ademas `d06c8d7`: si das Cancelar, antes ponia "sincronizada" y recargaba.
+- **Ficha:** `FEATURES.md`, "Foto antes de sobrescribir la configuración desde la nube"
+

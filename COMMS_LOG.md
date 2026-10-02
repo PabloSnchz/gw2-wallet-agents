@@ -664,3 +664,68 @@ marcas de veredicto), `TEAM_STATUS.md`, `COMMS_LOG.md` y 4 arneses. Suite comple
 | 142 | default | -- | **La regla de "verificar el artefacto, no el resumen" se aplico a mi propia propuesta de este ciclo** | **Resuelto** | -- | -- | 2026-10-02 01:3x | 2026-10-02 01:4x | Es la 2a vez en 2 heartbeats que un detector mio da verde sobre una premisa que no medi (`tools/hb118-medir-po.mjs` dio 7 FAIL la primera vez: 3 premisas sobre `raid-tracker`/`strike-tracker`/ALERT-84/ `cacheClear` que eran falsas, y las medi antes de informar). No lo anoto como error de principle sino como costo de escribir el aserto desde la expectativa en vez de desde la medicion: **el primer harness de cada ciclo tiene que fallar antes de poder decir algo.** |
 | 143 | default | Code-Reviewer | **HB#119 T19-a: la premisa es CIERTA y la conclusion NO (1 pregunta de ALCANCE)** | **Esperando** | 1 | `20261002T022248Z-a26363` | 2026-10-02 02:22 | 2026-10-02 02:2x | Mandada por el **canal de archivos** (no `submit_to_agent`), que es el que llega. Pregunta UNICA y acotada: si se agrega el listener de T19-a al InventoryHub con el patron de raid-tracker, **cuantos refresh(true) con nocache recibe en UN click de Pablo en el desplegable, y de donde sale cada uno**. Contexto que ya medi y que le paso para que discrimine: los dos eventos no son simultaneos (el change se atiende sincrono, el refresh del router va dentro de un `setTimeout` de 35 ms en router.js:1780, y el emit de gn:tokenchange de app.js:836 es sincrono); `InventoryHub.refresh` tiene guardia de in-flight en inventory-hub.js:1445, asi que la deduplicacion depende de que la 1ra carga siga en vuelo 35 ms despues; y `refresh(true)` es lo que fuerza los 2 passes de red. Le pido (a) el numero con el mecanismo o (b) el alcance real y que predicado usaria el listener para no pisar el refresh del router. **NO se escribio ninguna linea de T19-a** y probablemente no se escriba si la respuesta es (a)-con-2. Detalle: el PO la dio por "verde 20 min, no espero a nadie"; el hecho que la sostiene (inventory-hub.js no registra el canal) es cierto y quedo verificado por grep y por censo, pero la consecuencia no, porque router.js:1825 ya refresca el modulo. Ver ALERT-178. |
 | 144 | default | -- | **HB#119: T20-a APLICADO, T19-a NO aplicado (con la razon medida)** | **Resuelto** | -- | `2c53b32`, `ef8ea60` | 2026-10-02 02:2x | 2026-10-02 02:3x | T20-a: el confirm del Gist (`gist-sync.js:446`) decia "esto sobrescribira tu configuracion local" sin una sola familia ni una sola cifra, mientras el de archivo 60 lineas mas abajo si las lista. Medido antes de tocar, con el `gist-sync.js` verbatim: **fase roja 5 pass / 10 FAIL** (el texto capturado decia 0 categorias, 0 cifras), **fase verde 18 pass / 0 FAIL**. El control 27-vs-12 discrimina, asi que la cifra sale del remoto y no es una constante. **Correccion a la premisa del PO:** escribio que ambos caminos ejecutan `applyImportData`; el Gist llama `importFromData` (settings-manager.js:538), que tiene las 7 escrituras DUPLICADAS linea por linea y NO pasa por `applyImportData` (:485). La conclusion se sostiene, el mecanismo no, y abre ALERT-179. T19-a: NO se aplico, por la cadena medida de la fila 143; queda solo el arnes (`tests/hb119-t19a-cadena.test.js`, 15 aserciones) que deja pasar que alguien saque el refresh del router sin reemplazarlo. Suite **57 de 57 archivos exit 0 / 0 FAIL**, por exit code y sin filtro de texto (ALERT-176). Rebase sobre `c8998f4` del Documentador: sin solapamiento de archivos. `origin/main = f1eccea`, verificado con `ls-remote`: sin branch duplicado. |
+| 145 | default | -- | **HB#120 T20-c APLICADO (4413c34). La ronda 38 tenia 3 tramos y el unico que evita la perdida era el que quedaba** | **Resuelto** | -- | `4413c34` | 2026-10-02 03:2x | 2026-10-02 03:4x | El HB#119 aplico T20-a y dejo T20-b/T20-c sin tocar a proposito. **T20-c es el unico que evita la perdida**: T20-a y T20-b le *dicen* a Pablo cuanto va a perder, T20-c le deja de donde volver. Medido: `downloadAndSync` (gist-sync.js:420) iba de leer el remoto a escribir las 7 familias, sin nada en el medio, y **el unico backup era el remoto, que es lo que se estaba sobrescribiendo**. Tres decisiones: el confirm **dice la verdad en los dos sentidos** (foto guardada / "no vas a poder volver atras" si no se pudo guardar, que pasa con cuota llena), **cancelar no deja rastro** (se restaura la pref previa), y **no promete una pantalla que no existe** (`GistSync` no esta montado en ningun HTML: `git grep` = 3 matches, los 3 dentro del propio archivo; saque un "restaurar desde Ajustes -> Gist" que mandaba a una pantalla inexistente). `gn:github:gist_snapshot` bajo el namespace `github:` para que `KNOWN_NAMESPACES` la traiga de vuelta en un restore. **Fase roja 2 FAIL contra `origin/main` -> verde 12/0.** Suite 59 archivos exit 0. **CORREGIDO en el HB#121:** la premisa de que `GistSync` no esta montado en ningun HTML es FALSA (ALERT-184) y la frase quedo desmentida por el fix siguiente (`d06c8d7`). |
+| 146 | default | -- | **ALERT-180/181/182: tres correcciones, y las 3 son del mismo tipo** | **Resuelto** | -- | `tools/hb120-*` | 2026-10-02 03:2x | 2026-10-02 03:5x | (a) **ALERT-180**: la fase roja de T20-c dio verde 2 veces porque `path.join(__dirname,'..')` leia **el archivo del worktree, ya modificado**. Una fase roja que lee el archivo verde es un eco del fix. (b) **ALERT-181**: el patron B son **5, no 7** (9 leen el `<select>`, 4 con fallback, 5 sin el); el arnes del HB#118 mezclaba "usa el select" con "que via gana". Y **NO es "no se recarga"** (ALERT-178): es que esos 5 devuelven null si el `<select>` no tiene valor, aunque la `gn:` este escrita. (c) **ALERT-182**: **ALERT-84 T3 ya NO esta abierta**, la cerro `c8998f4` del Documentador; el HB#119 medico contra `4fe38bc`, que ya no era el tip. **REGLA: toda medicion se ancla al SHA nombrado y se re-verifica que ese SHA es el tip antes de reportar el estado.** |
+| 147 | default | Code-Reviewer | **HB#117 / ALERT-179: `importFromData` tiene las 7 escrituras DUPLICADAS y no pasa por `applyImportData`** | **Esperando** | 1 | (pendiente de envio) | 2026-10-02 03:5x | 2026-10-02 03:5x | **Sin mandar todavia, y por que:** el HB#118 mando `task-debe51c6331f` y la respuesta llego en ~40 min por el canal de archivos. Este pregunta por una API publica (`importFromData:777`) cuya delegacion cambia el contrato, porque `importFromData` **parsea strings** (`:541-547`) y `applyImportData` no. Es 1 pregunta de alcance, no de estilo. Se manda en el proximo ciclo por el **canal de archivos**, que es el que llega. **ENVIADA en el HB#121** (fila 148). |
+| 148 | default | Code-Reviewer | **HB#121: ALERT-179 - delegar `importFromData` en `applyImportData` cambia un contrato publico. 1 pregunta de ALCANCE** | **Esperando** | 1 | `20261002T030431Z-e6775b` | 2026-10-02 04:04 | 2026-10-02 04:04 | Enviado por el **canal de archivos** (no `submit_to_agent`), que es el unico que demonstradamente llega. El contexto: en `origin/main` el camino del archivo pasa por `applyImportData` y el camino del Gist llama directo a `importFromData`, que ademas duplica las 7 escrituras linea por linea. **Consecuencia ya vivida, no teorica:** el HB#120 aplico T20-c ahi, asi que el proximo fix de esa API vuelve a tocar solo la mitad. La pregunta es de contrato y no de estilo: `importFromData` parsea strings (`:541-547`) y `applyImportData` no, asi que delegar cambia lo que ambas aceptan. Si delegar es seguro, cual es el riesgo CONCRETO a preservar. No pregunto como refactorizarlo ni que nombre darle a un helper. |
+
+## HB#120 - T20-c aplicado; 3 cifras corregidas
+
+La ronda 38 del PO tenia 3 tramos. T20-a (contar) y T20-b (la direccion) le dicen a
+Pablo cuanto va a perder; **T20-c (una foto local antes de sobrescribir) es el unico
+que evita la perdida**, y era el que quedaba. Ver la seccion de arriba.
+
+## HB#121 - El ciclo anterior commiteo y no pusheo; al auditarlo, el fix estaba a medio camino
+
+El HB#120 dejo `4413c34` commiteado en `hb120-wt` y **sin pushear**: `origin/main` seguia
+en `4974c81`. Como el ciclo arranco despues, lo audite antes de empujar (la regla de
+`git remote -v` + worktree fresco)[.
+
+**El fix de T20-c estaba bien. El llamador no.** `downloadAndSync` paso a devolver
+`{success:false, cancelled:true}` cuando Pablo dice que no, y el boton de `index.html`
+**ignoraba el return**: ponia "Configuracion sincronizada. Recargando..." y hacia
+`location.reload()` tambien al cancelar. O sea que el cartel de la UI decia exactamente lo
+contrario de lo que pasaba. Aplicado en `d06c8d7` (5 lineas). Fase roja **5 FAIL** contra
+`origin/main` -> verde **10/0**. Suite **58 archivos exit 0** (`tools/hb121-exit.js`,
+juzgada por exit code: ALERT-176).
+
+**La premisa que lo causaba era mia y del ciclo anterior:**
+
+> `GistSync` NO esta montado en ningun HTML (`git grep` = 3 matches, los 3 dentro del
+> propio `gist-sync.js`)
+
+**FALSO**: `index.html` tiene **7** referencias, con el boton `#gistDownloadBtn` en `:927`
+y la llamada en `:1377`. El grep se corrio sobre `js/`. Si el boton no existiera, no
+habria quien ignorara el `cancelled` (ALERT-184). Y el pendiente "montar
+`restoreSafetySnapshot()` en una UI" quedo diferido **por un motivo falso**: la pantalla
+del Gist existe. Corregido en `PROMOTIONS.md` y `FEATURES.md`.
+
+**Tres alertas nuevas** (renumeradas a 184/185/186 porque el 183 ya lo uso el HB#120):
+
+1. **ALERT-184** - un `grep` corrido sobre un alcance mas chico que el archivo nombrado.
+2. **ALERT-185** - un camino que cruza archivos se prueba por sus bordes, no por el
+   modulo. La fase roja del HB#120 miraba solo el `.js` que se habia modificado.
+3. **ALERT-186** - un aserto de texto fallo leyendo **el comentario que lo justificaba**.
+
+**Dos errores de tooling mio, que son los que casi mandan la informacion:**
+
+- El parche de `index.html` dio **0 coincidencias** y **aborto sin escribir nada**. La
+  causa: `index.html` esta en **CRLF** y el ancla llevaba `\n`. Un parche que aborta es
+  un parche que no rompe; un parche que escribiera "0 coincidencias" como exito habria
+  dejado el fix sin aplicar y el commit decia lo contrario.
+- El chequeo de idempotencia de las alertas anclo en la palabra "ALERT-183", que ya
+  aparece en otro texto del log, y dijo **"YA ESTAN" sobre un log que no las tenia**.
+  Anclo en la forma de encabezado (`/^## ALERT-184\s+-/m`) y de paso mire el maximo
+  antes de elegir numero: el 183 ya existia.
+
+**Canal de archivos: 10 consultas vencidas y ninguna respondida.** `inbox` vacio,
+`replies` vacio, 8 al Reviewer y 2 al PO vencidas. Dos filas estaban en "Resuelto" sin
+que hubiera respuesta. **La ida funciona y el eco no vuelve**: `ask` reporta exito y eso
+no significa que alguien lo lea. Conviene que Pablo lo sepa, porque un "Enviado" en este
+sistema no es un "entregado" (mismo criterio que ALERT-66).
+
+**PO:** la ronda mas nueva sigue siendo la **38**, que este equipo ya aplico. **No hay
+ronda 39**, asi que este ciclo no abrio ronda. Conteo sobre la union de las 11 refs
+`po/*`: **7 CUENTAN / 31 CERRADAS** sobre 38 secciones. La asertion del arnes que busca
+"ronda 39|40" da FAIL y es correcto que falle: se deja escrita, porque relajar un aserto
+porque molesta es como se vuelve verde una suite que no mide.

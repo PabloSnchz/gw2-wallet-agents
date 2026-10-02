@@ -243,3 +243,30 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 partir de la review de Pablo. Las otras tres son retroactivas: los merges
 pasaron antes de que existiera la regla de la ficha, y el Principal no las
 escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuentas consistentes entre pestañas) la escribió el Principal en el HB#118 y está pendiente de prueba. La sexta (el botón de la nube) la escribió el Principal en el HB#119 y está pendiente de prueba.*
+
+## Foto antes de sobrescribir la configuración desde la nube
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** Ajustes → Gist → "Sincronizar desde la nube". El cartel de
+  confirmación ahora termina con una línea que antes no estaba: dice que se guardó una
+  copia y que se puede restaurar. Si la copia no se pudo guardar (almacenamiento
+  lleno), el cartel lo avisa en rojo en vez de mentir.
+- **Ruta:** —
+- **Descripción:** Antes de bajar la configuración de GitHub, se guarda una copia de la
+  que tenías, así que si el Gist está viejo no perdés nada sin remedy.
+- **Commits:** `4413c34`, `d06c8d7`
+- **Rama:** `hb120`
+- **Si no entra:** no pasa nada. El boton es
+  `#gistDownloadBtn` y SI esta montado (`index.html:927`).
+  ALERT-184: el HB#120 afirmo lo contrario y es falso; el grep se corrio sobre `js/`.
+  Lo que no tiene UI es el RESTAURAR, no el sincronizar: las 7 escrituras siguen
+  pasando exactamente igual.
+- **Si sale mal:** el riesgo real es que `localStorage` esté lleno y la copia no se
+  guarde. Por eso el caso está contemplado y el cartel lo dice, en vez de confirmar en
+  silencio. La copia vive en `gn:github:gist_snapshot` y se borra sola si no hay copia
+  anterior al cancelar. **Restaurar todavía no tiene botón:** la función está expuesta
+  (`SettingsManager.restoreSafetySnapshot()`) pero sin UI que la llame.
+- **Métrica:** el camino del Gist pasa de 0 puntos de retorno a 1. El del archivo ya
+  tenía el suyo desde HB#104 (leer antes de preguntar); este era el hermano que faltaba.
+

@@ -1,3 +1,62 @@
+## ALERT-184 - la premisa "GistSync no esta montado en ningun HTML" se escribio contra un grep corrido sobre `js/` y no sobre el repo
+
+**Fecha:** 2026-10-02 (HB#121)
+**Estado:** ABIERTO. La premisa ya esta desmentida; la regla queda.
+
+El commit `4413c34` (HB#120, T20-c) dice:
+
+> `GistSync` NO esta montado en ningun HTML (medido: `git grep GistSync` = 3 matches, los
+> 3 dentro del propio `gist-sync.js`)
+
+**FALSO.** Medido contra el repo: `index.html` tiene **7** referencias a `GistSync`, entre
+ellas el boton `#gistDownloadBtn` (`:927`) y `window.GistSync.downloadAndSync()` (`:1377`).
+
+El grep se corrio sobre `js/`. Los 3 matches eran ciertos **para el alcance que se busco**
+y falsos para el archivo que la frase nombra. Y el error no fue cosmetico:
+
+- De ahi salio el bug que este ciclo arreglo (`d06c8d7`): si el boton no estuviera
+  montado, no habria quien ignorara el `cancelled`.
+- De ahi salio el pendiente "montar `restoreSafetySnapshot()` en una UI", diferido **por
+  la premisa de que no hay donde montarlo**. La pantalla existe.
+
+**REGLA: un grep se corre sobre el alcance del archivo que la frase nombra, o la frase
+declara su alcance.** Un conteo de matches que no incluye el archivo del que se afirma
+algo no mide ese archivo.
+
+## ALERT-185 - el fix estaba completo en el .js y a medio camino en el .html, y la fase roja solo miro el archivo modificado
+
+**Fecha:** 2026-10-02 (HB#121)
+**Estado:** ABIERTO.
+
+La fase roja de T20-c (HB#120) verifico `js/gist-sync.js`: que la foto sale antes del
+confirm y que el confirm dice como recuperar. Dio verde. Lo que no miro es **quien consume
+el return**. Resultado: el codigo nuevo devolvia `{cancelled:true}` y el llamador lo
+ignoraba, ponia "Configuracion sincronizada" y recargaba tambien cuando Pablo cancelaba.
+
+**REGLA: un camino de codigo que cruza archivos se prueba por sus BORDES, no por el
+modulo.** Si el fix cambia lo que devuelve una funcion, hay un aserto sobre el que la
+llama. `d06c8d7` es el primer test del repo que abre `index.html`; antes el "camino del
+Gist" se probaba entero adentro de `gist-sync.js`.
+
+## ALERT-186 - un aserto de texto puede fallar por leer el comentario que lo justifica
+
+**Fecha:** 2026-10-02 (HB#121)
+**Estado:** CERRADA en el mismo ciclo (arreglo aplicado).
+
+`tests/hb121-gist-cancel.test.js` fallo con 9 pass / 1 FAIL con el codigo **correcto**. El
+aserto pedia que el cartel de "sincronizada" estuviera despues del chequeo de cancelacion, y
+lo buscaba en una ventana de 40 lineas **sin quitar los comentarios**. La palabra
+"sincronizada" aparecia **dentro del comentario del propio fix**, que explica por que el
+cartel mintiente es un bug.
+
+Un aserto que lee el texto que lo rodea no mide el codigo: mide su propia justificacion. Se
+quitan los comentarios antes de buscar las cadenas.
+
+**Corolario:** un arnes que pasa por coincidencia de palabras no es un arnes. Es el mismo
+modo de fallo que ALERT-176 (filtro de texto en vez de exit code) y que el `/si/i` que
+matcheaba "Sincronizar" del HB#120: un detector que pasa por coincidencia no es un
+detector que pasa por razon.
+
 ## ALERT-179 - `importFromData` DUPLICA las 7 escrituras de `applyImportData`, linea por linea
 
 **Fecha:** 2026-10-02 (HB#119)
@@ -4453,3 +4512,121 @@ el detector que leia prosa (ALERT-91/ALERT-167) y que el runner que filtraba con
 (ALERT-172): **una red que no puede fallar no es una red.** Las 8 filas viejas **no se tocan en
 este ciclo** - arreglar el formato del registro de comunicaciones de otros heartbeats es
 trabajo que no aporta nada y es el modo de fallo de reescribir archivos enteros.
+
+## ALERT-180 - una fase roja que lee el archivo YA MODIFICADO da verde siempre
+
+**Estado:** ABIERTO (metodo, no codigo)
+
+El arnes de T20-c dio **verde 12/0 DOS veces seguidas contra el archivo sin el fix**.
+No era el aserto: era la ruta. El arnes vivia en `hb120-red/h.cjs` y hacia
+
+```js
+fs.readFileSync(path.join(__dirname, '..', 'js', 'gist-sync.js'))
+```
+
+desde ahi `__dirname/..` sube a `hb120-wt/`, o sea **al worktree con el fix ya
+aplicado**. La "fase roja" estaba leyendo el archivo verde.
+
+Los dos intentos de arreglarlo tambien fallaron, y cada uno por una razon distinta:
+
+1. `HB120_TARGET=js/gist-sync.js` con la variable exportada desde el `cmd` de
+   afuera: la ruta relativa se resolvia contra el cwd equivocado.
+2. Recortar el `confirmMsg` por parentesis y despues por `';'`: los comentarios
+   del bloque tienen `;` y las concatenaciones (`'API Keys (' + keyCount +
+   ' claves)'`) desbalancean cualquier conteo de parentesis. El recorte cortaba a
+   la mitad del mensaje y daba un FAIL **que era del arnes**.
+
+**Lo unico que funciono:** dejar el arnes en `hb120-red/tools/` (misma
+estructura de directorios que el repo) y recorte por el fin de la rama del
+ternario.
+
+**La regla que sale, y es la mas importante de este ciclo:**
+
+> **Una fase roja tiene que probar que lo que lee es lo que CREEE leer.**
+> `identicos? false` tiene que aparecer en la salida, como aserto, no como
+>Locker.
+
+Un detector que no puede fallar no es un detector. Es el mismo modo de fallo que
+ALERT-172 (el runner que filtraba por texto y no podia distinguir "este runner
+fallo" de "este runner hablo de un fallo") y que ALERT-176 (el filtro `/\bFAIL\b/`
+que matcheaba el "0 FAIL" del propio recuento). **Tres veces distintas en dos
+ciclos: la red se rompio del lado de la red, no del lado del codigo.**
+
+Corolario para T20-c: el aserto de "dice COMO se recupera" dio verde con un
+regex `/si/i` que matcheaba **"SIncronizar"**. Un detector que pasa por
+coincidencia no es un detector que pasa por razon.
+
+## ALERT-181 - los 5 del patron B, no 7: el conteo del HB#118 mezclaba dos cosas
+
+**Estado:** ABIERTO (correccion de una cifra que se esta propagando)
+
+El HB#118 dejo escrito "7 modulos leen el `<select>` SIN fallback". **Son 5:**
+
+| Modulo | Fallback a la capa |
+|---|---|
+| `inventory-hub.js` | si |
+| `raid-tracker.js` | si |
+| `strike-tracker.js` | si |
+| `wv-purchase-detail.js` | si |
+| `converter-modal.js` | **NO** |
+| `homestead-tracker.js` | **NO** |
+| `wizards-vault.js` | **NO** |
+| `wv-objectives-ui.js` | **NO** |
+| `wv-shop-ui.js` | **NO** |
+
+**9 leen el `<select>`; 4 con fallback (los de T19-c), 5 sin el.**
+
+El error del HB#118: su arnes mezclaba "usa `keySelectGlobal`" con "que via
+GANA", y el criterio de "sin fallback" salia de un `indexOf` que comparaba
+posiciones entre archivos distintos. Un archivo que usa el `<select>` en un
+contexto y la capa en otro no es "sin fallback" por el hecho de tener las dos
+menciones.
+
+**Lo que el patron B significa, y NO significa** (ALERT-178):
+
+- **NO** es "no se recarga". `router.js:1826` refresca `InventoryHub` en el click.
+- **SI** es: si el `<select>` todavia no tiene valor (arranque, antes de que el
+  DOM se llene, o si otro codigo lo limpia), esos 5 tienen `null` aunque la
+  `gn:` este escrita. No es una recarga rota, es un origen de verdad que falta.
+
+**Ninguno de los 5 sin try/catch.** Verificado archivo por archivo. Y `wizards-vault.js:198`
+es el unico que **no** tiene try/catch en el bloque de la lectura cruda (los
+otros envuelven la funcion entera). No lo rompo: es el mismo patron y el mismo
+riesgo que los demas, asi que tratarlo solo seria arbitrario.
+
+## ALERT-182 - ALERT-84 T3 ya NO esta abierta: la cerro el Documentador
+
+**Estado:** CERRADO (correccion de un estado propagado)
+
+El HB#118 y el HB#119 declararon **ALERT-84 T3 ABIERTA**, con la misma evidencia:
+"`loadLegendaryData` dice literalmente `not implemented (Phase 2)`". **Medido hoy:**
+
+- `4fe38bc` (base del HB#119): `legendary-tracker.js:334` **SI** decia
+  `console.warn(LOG, 'loadLegendaryData() - not implemented (Phase 2)')`.
+- `4974c81` (main de hoy): **ya no esta**. La funcion llama
+  `api.getAccountLegendaryArmory(token, opts)` + `getAccountBank` + `getAccountMaterials`.
+
+**La cerro `c8998f4` (Documentador, "bug 2.1 - leer /v2/account/legendaryarmory de verdad"),**
+que entro entre los dos heartbeats. **El HB#119 medico contra `4fe38bc` y declaro el
+estado de un commit que ya no era el de main.**
+
+**Es el tercer caso del mismo modo de fallo en 3 ciclos** (ALERT-84: el simbolo no
+esta donde yo decia; ALERT-168: la ronda esta en 2 refs; y ahora: el commit base
+no es el de main).
+
+**LA REGLA:** *toda medicion se ancla al SHA que se nombra, y se vuelve a verificar
+que ese SHA sigue siendo el tip de la rama antes de reportar el estado.* Un estado
+medido contra una base vieja es un estado que describes, no el que existe.
+
+## ALERT-183 - el "censo de 7" del patron B y la cifra del HB#118 no son lo mismo
+
+**Estado:** merged en ALERT-181
+
+Lo dejo anotado porque es lo que me costo el primer arnés: el conteo de "modulos
+que leen la cuenta seleccionada" dio **11** (incluyendo `app.js` y
+`settings-manager.js`, que no leen el `<select>`), y el de "sin fallback" dio
+**10**. Los dos numeros son de **criterios distintos** escritos sin declarar. Un
+censo sin criterio declarado es un numero sin unidad.
+
+---
+
