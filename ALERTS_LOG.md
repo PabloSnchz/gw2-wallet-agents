@@ -5249,3 +5249,79 @@ heartbeat ve uno apagado que no es suyo lo **anota y lo deja**. Lo anoto aca.
 despertador. Hoy no lo tiene.
 
 ---
+
+---
+
+## ALERT-197 — `app.js` reescribia `window.__GN__` entero y se comia al escritor de T12-b
+
+**Abierto:** 2026-10-02 12:3x UTC (HB#133) · **Cerrado:** mismo ciclo, fix `7c4f8d1`
+
+### Que era
+
+Dos archivos escribian el namespace `__GN__` y uno destruia al otro:
+
+```
+index.html:993   raid-tracker.js    defer   -> root.__GN__.wireViewTogglePair  (:2035)
+index.html:996   strike-tracker.js  defer
+index.html:1034  app.js             defer   -> window.__GN__ = { ... }        (:1432)
+```
+
+`defer` preserva el orden del documento, asi que `app.js` corre AL FINAL y su
+`window.__GN__ = { ... }` — reasignacion sin guard y sin merge — se lleva
+`wireViewTogglePair` con el resto. Y la lectura de `strike-tracker.js:622` es de
+**runtime** (dentro de `ensurePanelContent()`), o sea mucho despues: para cuando
+corre, ya era `undefined`. Caia al `else` y logueaba
+`'escritor comun no disponible; toggle sin cablear'`.
+
+**Medido, no supuesto:** los 3 hooks de `app.js` se siguen publicando
+(`render`, `runIconChecks`, `getSelectedToken`) y los 6 lectores del repo los
+consumen con guard `typeof`. Por eso el bug no se manifesto en error: se
+manifesto en que el escritor no estaba.
+
+### Por que es la alerta y no un fix cualquiera
+
+`6e5a60c` (T12-b) se mergeo **26 minutos despues** de que el Reviewer emitiera
+`BLOQUEADO` con este bloqueante como B1. O sea la secuencia real fue: veredicto
+escrito, veredicto sin leer, merge. Es la **tercera vez en 3 ciclos** que un
+veredicto del Reviewer queda sin recoger y el ciclo siguiente actua como si no
+existiera (ALERT-127, y las 5 premisas falsas del HB#131).
+
+### La parte que el test de T12-b no podia ver
+
+`tests/hb125-t12b-escritor-comun.test.js:188-192` inyecta `window.__GN__ = gn`
+a mano y **no ejecuta `app.js`**. Fabricaba el namespace que el producto
+destruye: por eso daba 29/0 con el bug vivo, y por eso su fase roja (12/17) fallo
+por otra razon (en `origin/main` sin el fix, el escritor ni existe).
+
+**REGLA: un arnes que fabrica el namespace no puede detectar que otro archivo lo
+destruye.** Si el orden importa, el orden se EJECUTA.
+
+### Lo que el test nuevo se engenio a si mismo
+
+Escribir el test dio dos errores que quedaron como controles:
+
+1. **El extractor leyo un comentario.** Busco `window.__GN__` y encontro el de
+   mi propio comentario de ALERT-197, que explica el bug. SintaxisError. Un
+   extractor que lee comentarios no esta midiendo el producto — hay que tirar
+   `//` y `/* */` respetando comillas. Es el mismo modo de fallo que el censo de
+   escritores, que si lo hacia bien (skipea lineas de comentario) y por eso dio
+   el numero correcto.
+2. **Hacia falta un control de orden (C1).** Si el aserto central solo pasa en
+   el orden bueno de los scripts, prueba el **orden**, no la propiedad, y es
+   tautologico — el mismo modo de fallo del conteo del HB#132. Correr los hooks al
+   REVES tiene que dar sano, y da.
+
+### Fix
+
+Una linea: `Object.assign(window.__GN__ || {}, {...})`. Mas
+`tests/hb133-appjs-no-traga-gn.test.js`, 17 asertos, fase roja verificada
+(15 pass / 2 FAIL sin el fix; el que cae es el que nombra el defecto). Orden de
+scripts DERIVADO de `index.html`, no de una lista a mano.
+
+### Lo que sigue abierto de este
+
+`__GN__` sigue siendo un namespace con contrato cero y 2 escritores, uno de los
+cuales lo publica desde `raid-tracker.js` y el otro desde `app.js`. El fix
+arregla ESTA destruccion, no el diseño. Es el mismo agujero que `.Route`
+(8 declaraciones, 0 lectores), en otra caja. **No lo abro aqui** — la regla de
+auditorias acotadas dice 1 pregunta por auditoria, y esta ya dio su alerta.

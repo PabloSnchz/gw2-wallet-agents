@@ -4037,3 +4037,112 @@ lo hago cuando ya sospecho.
   urgente.
 - Los **7 del patron B** (modulos que leen el `<select>` sin fallback) siguen
   abiertos del HB#118, y `T12-b` sigue esperando veredicto del Reviewer.
+
+
+---
+
+# HB#133 (2026-10-02 12:30-13:0x UTC) — ALERT-197: T12-b estaba muerto en main
+
+**Corto:** corte de las 12:00 UTC ya pasado, y el ciclo lo paso completo. En vez
+de arrancar el siguiente item del BACKLOG, aparecio esto: **T12-b estaba MUERTO
+en `main` desde hacia 26 minutos y enterado nadie.** Arreglado y verificado.
+
+## Tareas en curso
+
+| Quien | Que | Estado |
+|-------|-----|--------|
+| default | T12-b: escritor comun de la pref Raids/Strikes | **APLICADO** `6e5a60c` (no por mi: cherry-pick de `52ba8c2`, rama del HB#125 sin mergear) |
+| default | **ALERT-197: `app.js` se come el escritor de T12-b** | **RESUELTO** `7c4f8d1` (este ciclo) |
+| default | BACKLOG, siguiente item | **NO ARRANCADO.** Corte de horario. Ver "Por que no_avance el BACKLOG". |
+| Code-Reviewer | veredictos | Operativo. Recogido 1 este ciclo (ver abajo). |
+| product-owner | ronda 42 (`po/hb132-poda` @ `9ad2ced`) | **SI se movio** (25 h de silencio era de `po/hb99-dota`, no del PO) |
+| documenter | heartbeat 4h | Sin Novedades. No le mande nada (no-fallback vigente). |
+
+## Completadas este ciclo
+
+- **ALERT-197, fixa y con test.** `app.js:1432` hacia `window.__GN__ = { ... }`,
+  o sea una reasignacion del objeto entero. Como `app.js` es el script 1034 con
+  `defer`, corre AL FINAL y se lleva `__GN__.wireViewTogglePair` que
+  `raid-tracker.js:2035` publica en carga. La lectura de `strike-tracker.js:622`
+  es de **runtime**, o sea tarde: caia al `else` y logueaba un `console.debug`.
+  Fix de 1 linea: `Object.assign(window.__GN__ || {}, {...})`.
+  Test nuevo de 17 asertos, **fase roja verificada 15/2**.
+  Suite: **70 archivos, 0 caidas, control negativo discrimina.**
+
+## El hallazgo que importa mas que el fix
+
+**El veredicto del Reviewer estaba SIN LEER y el codigo se mergeo DESPUES.**
+
+`task-1f9ee292b9f3` (fila #158) esta `finished` y dice **BLOQUEADO**, con B1
+exactamente este defecto. `6e5a60c` se mergeo 26 minutos despues de ese
+veredicto. O sea: veredicto escrito, veredicto sin recoger, merge. Es la
+**tercera vez en 3 ciclos** (ALERT-127, y las 5 premisas falsas del HB#131).
+
+**La leccion mecanica, y es la que hay que aplicar:** el commit de `6e5a60c` trae
+un mensaje de 45 lineas con 6 mediciones y **esta en verde**. Habria que
+auditarlo igual, porque verde no es lo mismo que correcto: el runner de suite no
+puede ver un problema de orden de carga, y ningun arnes de aserciones lo hace
+salvo que ejecute los hooks en orden de documento.
+
+## Alertas
+
+- **ALERT-197 (nueva, resuelta):** el detalle en `ALERTS_LOG.md`. Queda abierto
+  el **diseno**: `__GN__` es un namespace con contrato cero y 2 escritores, uno
+  desde `raid-tracker.js` y otro desde `app.js`. El fix arregla esta destruccion,
+  no el diseno. Mismo agujero que `.Route`, en otra caja. No lo abro aqui.
+- **ALERT-198 (nueva, conceptual):** **`git worktree list` miente.** Registra
+  `wt-hb132b` en `6e5a60c` y **el directorio no existe en disco**. `git worktree
+  list` no verifica que el directorio siga ahi, asi que un worktree "presente"
+  no es un worktree. Si un un ciclo lo hubiera usado, el `cd` falla y parece un
+  bug de path (que es como se leyo `/d` en ciclos anteriores).
+- **ALERT-175 (4a vez):** mi fila se numero del MAXIMO real (**160**), no del
+  ultimo leido. Y con el control de columnas (**12**, igual que la referencia).
+- **BOM (6a vez, y esta vez bien):** `write_file` lo antepone. Lo detecte
+  **antes** del commit —que es lo que faltaba en los ciclos anteriores— y lo
+  verifique **sobre el commit ya escrito** (`git log -1 --format=%B` = 0).
+- **Preservacion de otro agente:** casi borro los 4 BOM y 31 CJK
+  preexistentes de `ALERTS_LOG.md` (copie un `.replace(/\uFEFF/g,'')` de mi
+  propia memoria sin pensar). Detectado por comparar contra `HEAD`,
+  revertido con `git checkout`, rehecho. **4 -> 4, 31 -> 31.** Borrarlos habria
+  destruido la evidencia citada en ALERT-122.
+- **CJK:** 2 ideogramas en este mismo `TEAM_STATUS.md`, los metio el splice.
+  Detectados **antes** del commit. `ALERTS_LOG.md` y `SESSION_LOG.md` conservan
+  los suyos.
+
+## Propuestas al Reviewer: 0
+
+**PASO 3 SI se ejecuto, y el conteo dio 7 CUENTA / 2 CERRADAS** sobre 37
+secciones, control negativo 0, ronda 42. **Pero no mande ninguna**, por dos
+motivos medidos:
+
+1. Las 7 son rondas **16-34**, y el HB#132 ya verifico una por una que 4 estan
+   aplicadas. El conteo mide el **texto** de la ronda, no el estado del repo.
+2. **La fuente que manda HEARTBEAT.md esta congelada.** Dice leer
+   `origin/po/hb99-dashboard:DASHBOARD_PO_IDEAS.md`, y esa rama sigue en
+   **ronda 33**. El PO escribe en una rama nueva por ronda; la 42 esta en
+   `po/hb132-poda`. Si hubiera obeyedido la instruccion al pie de la letra,
+   el conteo de este ciclo habria sido el del HB#118.
+
+**Esa es la accion pendiente real del paso 3:** `HEARTBEAT.md` manda leer una
+ref que el PO no toca. Es ALERT-170 de nuevo, ahora en la instruccion misma.
+
+## Por que NO_avance el BACKLOG
+
+El corte era 12:00 UTC y son las 12:30. `HEARTBEAT.md`: "a las 11:30 UTC cerra
+lo que tengas con la suite en verde y actualiza TEAM_STATUS.md. No arranques
+nada nuevo." Lo que me encontre al abrir el ciclo era una regresion viva en
+`main`, y cerrarla es literalmente lo que la regla pide. Lo que **no** hago es
+abrir el siguiente item del BACKLOG con el horario vencido.
+
+## Pendiente
+
+1. **`HEARTBEAT.md` paso 3: la ref que manda leer esta congelada.** Decidir si
+   se cambia la instruccion o se deja, y por que. Es de Pablo.
+2. **52 filas de COMMS_LOG con estado pendiente** (De=default, control negativo
+   0). Son casi todas envios viejos por canal de archivos que nunca se
+   marcaron. No las toco: cerrarlas en lote seria un conteo sin evidencia.
+3. **`__GN__`: el namespace con contrato cero y 2 escritores.** Diseno, no bug.
+4. **ALERT-41:** unica llamada que Pablo tiene que hacer con su token real.
+5. **El clon principal de `gw2-dev` sigue a medias** (index = `origin/main`,
+   disco viejo, un `MM` sin resolver). Decision de Pablo. Este ciclo no lo toco:
+   todo se midio en un worktree limpio.
