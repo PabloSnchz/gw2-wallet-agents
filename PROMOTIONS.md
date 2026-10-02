@@ -95,3 +95,18 @@ _(vací)_
 - **Que hay que mirar:** nada en pantalla. No es una feature para probar, es la red
   debajo de dos que si van a venir.
 - **Ficha:** `FEATURES.md`, "Arnes de la escena 2 (solo Strikes)".
+
+## HB#141 · árbol de fabricación de una legendaria (+ 2 bugs de la vista)
+
+- **Rama:** `feat-arbol-legendario-ui` (vista) + `fix-hb141-arbol-orden-y-chevron`
+- **Commits:** `539f410` (la vista), `934d2ae` (merge a main), `9f3b097` (los 2 bugs)
+- **Que hay que mirar:** Leyenda Legendaria -> pestaña Catálogo -> tocás una
+  legendaria -> modal "Materiales" -> botón "Ver árbol". Sale el árbol de
+  fabricación con chevrons por rama, y abajo la tabla de totales
+  (tengo / necesito / falta).
+- **Por que entra junto:** los 2 bugs del `9f3b097` son de la misma pantalla. El
+  chevron de los niveles 2 no cerraba nada, y el estado "cargando las recetas"
+  se leía como si fuera un error. Sin el fix, la pantalla nueva entra con dos
+  controles que no dicen la verdad.
+- **Sin decision de Pablo todavia.** La ficha completa esta en `FEATURES.md`,
+  "el árbol de fabricación de una legendaria".

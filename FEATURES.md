@@ -350,3 +350,18 @@ escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuen
   da 16/7 FAIL (exit 1) y con el producto sano 23/0 (exit 0): el arnés
   detecta la regresión en las dos direcciones. La suite completa queda en
   1840/0 sobre 72 archivos (la base sin este archivo es 1817/71).
+
+---
+
+## Ficha de la pieza: el árbol de fabricación de una legendaria
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Leyenda Legendaria -> pestaña "Catálogo" -> tocás una legendaria (se pinta de morado) -> modal "Materiales" -> botón "Ver árbol". Se abre el árbol de fabricación completo: la legendaria arriba y debajo sus materiales, y con los chevrons ‸/▾ abrís y cerrás cada rama. Abajo, la tabla de totales con tengo / necesito / falta. Si los precursores (268 KB) todavía no se descargaron, sale "Cargando las recetas completas…" con un botón "Reintentar", en vez de un árbol de un solo nivel. En la cabecera del modal hay 2 botones: "Ver árbol" y "Ver totales", que ya no se van de pantalla.
+- **Ruta:** `#/account/legendary-armory` (modal de un item)
+- **Descripción:** Ves cómo se hace una legendaria paso a paso,Materials y piezas, y cuánto te falta de cada cosa.
+- **Commits:** `539f410` (la vista), `934d2ae` (merge a main), `9f3b097` (los 2 bugs)
+- **Rama:** `feat-arbol-legendario-ui` -> main; fixes en `fix-hb141-arbol-orden-y-chevron`
+- **Si no entra:** el modal "Materiales" vuelve a la lista de materiales de antes, sin árbol ni totales. La cola de crafteo y el catálogo no cambian. No se rompe.
+- **Si sale mal:** el modal del item es el que falla. El resto de la Leyenda Legendaria (catálogo, cola, Mi progreso) no depende de él: los 3 call sites están guardados y sin la vista el tracker degrada honestamente en vez de romper.
+- **Métrica:** 386 líneas de arnés nuevo (`tests/armeria-ui-arbol.test.js`, 56 pass / 0 FAIL) + 238 de la cola (`tests/armeria-cola.test.js`, 40/0). Sin el fix de `9f3b097` el arnés de la vista da 49 pass / **7 FAIL**. Suite completa 4145/0 sobre 77 archivos.

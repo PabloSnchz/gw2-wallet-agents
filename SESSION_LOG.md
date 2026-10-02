@@ -4468,3 +4468,81 @@ mutado y con restauracion en `finally`.
   abierta, y este ciclo fue su **quinta manifestacion** (buscar por la cadena
   que uno recuerda, en vez de por la propiedad). El detector para el proximo
   ciclo: `git diff origin/main --stat` sobre los trackeados del clon, al abrir.
+
+## 2026-10-02 — Heartbeat #141 (Principal)
+
+### Que se hizo
+
+Ciclo sin ronda al Reviewer, con la prioridad cambiada por un rojo real de
+suite. La primera corrida de `tools/hb100-suite.mjs` dio **4144 pass / 2 FAIL**:
+`alert86.censo-clasificacion` y `hb124-arme-1-2-modal-materiales`. Los dos,
+corridos sueltos y 6 veces cada uno, dan **0 FAIL**.
+
+El diagnostico: el working tree cambio **durante** el ciclo (mtime 17:33:43 y
+17:33:47, la suite corria sobre el estado intermedio). Habia un WIP sin
+commitear con 3 modificados y 2 archivos nuevos. Debajo del rojo, dos bugs de
+producto reales, los dos de la misma forma — *un control que el usuario ve y
+que no dice la verdad*:
+
+1. **El chevron de los niveles 2 no hacia nada.** `_abierto()` preguntaba
+   primero "¿esta en el nivel que sale abierto por defecto?" y solo despues
+   miraba el mapa `abiertos`. Un nodo de nivel 2 cumple la primera, asi que el
+   `false` del usuario nunca se leia: el chevron se dibujaba, el nodo se
+   cerraba y la fila seguia abierta.
+2. **"Cargando las recetas..." se mostraba como ERROR.** `build()` devuelve
+   `node: null` con `needsPrecursors: true`; como la guarda de `!res.node`
+   corria primera, un estado conocido caia en el mensaje de fallo.
+
+Ademas, `renderItemModal` paso a `pintarModalLegendaria` en
+`legendary-tracker.js` (8 call sites): el nombre era del renderer que registra
+`render-catologo.js`, y el invariante de hb124 afirma que el tracker CALCULA y
+ese archivo PINTA.
+
+Commit `9f3b097`, rama `fix-hb141-arbol-orden-y-chevron`, merge FF a `main`,
+pusheado, rama borrada local y remoto. Suite final **4145 pass / 0 FAIL, 77
+archivos, exit 0**.
+
+### Que se rompio
+
+Nada de producto. Se corrigieron 2 bugs y se knocked 0 cosas.
+
+Un **BOM** (`EF BB BF`) entro en el mensaje de `9f3b097` y hubo que hacer
+amend. Misma clase que ALERT-79: un byte invisible que no se ve en un diff.
+
+### Lo que se corrigio, aunque no haya roto codigo
+
+1. **El conteo de propuestas del PO estaba inflado 11x.** El conteo crudo dio
+   **92 CUENTA**; deduplicando por numero de ronda sobre las 16 refs `po/*`,
+   son **24 rondas distintas, 8 CUENTA, 1 CERRADA**, con control negativo en 0.
+   Ronda maxima **44**, y las 41/42/44 son `sin-tramos` (MODO PODA). De las 8
+   CUENTA, **6 ya estan aplicadas**. No se abrio ronda.
+2. **Mi verificador daba 0/10 AUSENTE y la conclusion era falsa.** Grepeaba
+   `src/`, que no existe (los paths son `js/`), y bajo cmd.exe el redirect
+   `2>/dev/null` rompia el comando. **Los dos controles tambien fallaron**:
+   un control que falla es el primer bug. Corregido: 6 de 8 aplicadas, con
+   negativo en 0 y positivo en 3 archivos.
+
+### Decisiones
+
+- **El WIP se commiteo a rama propia, no directo a `main`.** Es la regla 1 y
+  tambien lo que evita que el proximo ciclo lo encuentre a medias otra vez.
+- **Fase roja medida antes de commitear**, con el WIP en un stash: sin el fix,
+  `armeria-ui-arbol` da 49 pass / **7 FAIL**. 5 de ellos son "colapsar A saca
+  filas (21 < 21)", o sea *sacar filas no saca filas*, y 2 del estado pending.
+  El control negativo del archivo sigue verde.
+- **Sin ronda al Reviewer.** Mandarle lo ya aplicado es la forma mas cara de
+  perder un ciclo (HB#103).
+
+### Que quedo pendiente
+
+- **ALERT-179** (filas 147/148): fix mergeado, esperando veredicto. El Reviewer
+  esta mudo desde el HB#121.
+- **T14/T15**: veredicto = **opcion C** (una sola pareja de botones en
+  `index.html`). Precondicion MEDIDA (`hb136-escena2`, 23/0). Sin aplicar.
+- **Idea 57 — los 4 wrappers**: medidos, NO tocados (ALERT-48).
+- **Los 7 del patron B** (HB#118).
+- **ALERT-41**: bloqueado por el body crudo de `/v2/account/raids` con token
+  real de Pablo.
+- **Los 6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.
+- **Armeria**: la vista del arbol ya esta; lo que sigue es el tramo de datos
+  (los items sin receta publicable) y la revision del Reviewer.

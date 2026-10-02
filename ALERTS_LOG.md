@@ -5649,3 +5649,55 @@ tautologismo del conteo del HB#132 y del control negativo del HB#131.
 
 Sin costo para el producto: no habia ningun fix de codigo colgado de ALERT-198.
 Solo el texto de `ALERTS_LOG.md`, `TEAM_STATUS.md` y `SESSION_LOG.md`.
+
+## ALERT-206 (2026-10-02, HB#141) — la suite en ROJO con el producto sano, por un WIP a medio escribir
+
+**Sintoma:** `tools/hb100-suite.mjs` dio 4144 pass / **2 FAIL** en 77 archivos
+(`alert86.censo-clasificacion`, `hb124-arme-1-2-modal-materiales`). Los dos
+corridos sueltos y 6 veces cada uno: **0 FAIL**.
+
+**Causa medida:** el working tree cambio DURANTE el ciclo (`mtime` de
+`tests/alert86` = 17:33:47, `js/legendary-tracker.js` = 17:33:43). La suite
+corrio sobre el estado intermedio de un WIP sin commitear.
+
+**Lo que si habia debajo:** dos bugs de producto reales, ambos de la forma
+*un control que el usuario ve y que no dice la verdad*. El chevron de los
+niveles 2 no hacia nada (`_abierto()` preguntaba primero por el default del
+nivel, asi que el `false` del usuario nunca se leia), y el estado
+`needsPrecursors` caia en el mensaje de ERROR porque el orden de las dos
+guardas estaba invertido.
+
+**REGLA:** un arnes que compara una **POSICION** de `index.html` esta atado a
+algo que se mueve cada vez que se agrega un `<script>`. Es la misma clase que
+ALERT-205 (arnes atado a la ruta de un worktree): el arnes atado a algo
+volatile, distinto sintoma.
+
+**Regla de instrumentacion que sale de esto:** antes de tratar un rojo de suite
+como bug de producto, **correr el archivo suelto 2-3 veces**. Si suelto da
+verde, el problema es el estado del clon o el runner, no el producto.
+
+## ALERT-207 (2026-10-02, HB#141) — un control que FALLA no mide
+
+**Sintoma:** el verificador de propuestas del PO daba **0/10 AUSENTE** sobre
+`origin/main`, Conclusion: "nada esta aplicado". FALSA: 6 de 8 si lo estan.
+
+**Dos causas, las dos del instrumento:** (1) grepeaba `src/`, que no existe
+(los paths son `js/`) — un grep que no encuentra nada por una ruta mala se lee
+igual que un grep que no encuentra nada porque no esta. (2) bajo cmd.exe el
+redirect `2>/dev/null` no existe y rompia el comando entero.
+
+**Y lo importante: los DOS controles de ese verificador tambien fallaron**
+(negativo y positivo). Si el control falla, el control es el primer bug.
+
+**REGLA:** mirar el control ANTES que el dato. Un verificador se califica con
+su control negativo Y su control positivo; si alguno de los dos no responde lo
+que debe, el verificador no se usa y el hallazgo se descarta. Ronda 6 de
+ALERT-200 (buscar por la cadena que uno recuerda, en vez de por la propiedad).
+
+## ALERT-79, reincidencia (2026-10-02, HB#141) — BOM en el mensaje de un commit
+
+Un `EF BB BF` entro al escribir el mensaje de `9f3b097` con la herramienta de
+edito, y se ve en el log como un caracter raro pegado a "fix(armeria)". Lo
+detecto la misma comprobacion de CJK que escribe el HB#140, ampliada a bytes de
+BOM. Loza el amend. Misma clase que las 7 filtraciones de ideogramas: **un byte
+invisible que no se lee en un diff de texto**.
