@@ -1,5 +1,211 @@
 # TEAM_STATUS — Heartbeat Principal
 
+> **Actualizado:** 2026-10-03 02:0x UTC (HB#145) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `45ee93a` al abrir.
+> **29 refs**, `main` unico, CERO duplicados por refspec. Remoto = `origin`
+> (`gw2-wallet-agents`): la forma correcta aca es `git push origin HEAD:main`.
+> **Suite de base:** **2077 aserciones / 0 FAIL en 80/80 archivos** (exit code).
+> **PASO 3: no se abrio ronda.** Control de carga **5 items `- [ ]`** = banda 4-7
+> = **MODO PAUSA**. El PO no escribio: las 12 refs `po/*` siguen en sus rondas
+> 33-44, y la ultima (44) ya la atendio el HB#144.
+
+## EL HALLAZGO DEL CICLO: un veredicto BLOQUEANTE sobre algo que YA esta en main
+
+> **Que paso.** `check_agent_task(task-1f9ee292b9f3)` — el veredicto del Reviewer
+> sobre T12-b, enviado en el HB#131 — estaba **`finished` y SIN LEER**. Es la 4a
+> vez del ALERT-127. Su recomendacion literal era: **"Bloqueado. No mergear
+> `52ba8c2` en su estado actual."**
+>
+> **Y `52ba8c2` ya esta en `main`, con otro hash.** Medido, no supuesto:
+>
+> | Medicion | Resultado |
+> |---|---|
+> | `git merge-base --is-ancestor 52ba8c2 origin/main` | **FALSO** |
+> | `git log -S wireViewTogglePair -- js/raid-tracker.js` en main | **`6e5a60c`**, mismo mensaje |
+> | `git merge-base --is-ancestor 6e5a60c origin/main` | **VERDADERO** |
+> | `git diff --stat 52ba8c2 origin/main` sobre los 3 archivos de T12-b | **VACIO** |
+>
+> Los 3 archivos (`raid-tracker.js`, `strike-tracker.js`,
+> `hb125-t12b-escritor-comun.test.js`) son **byte a byte iguales** entre la rama
+> y `main`. La rama no esta "pendiente de mergear": esta **desactualizada**.
+>
+> **Sus 4 objeciones, contra `main`:**
+> - **B1** (`app.js` reemplaza el namespace) — **CADUCADO.** `main:app.js:1447`
+>   es `Object.assign(window.__GN__ || {}, {...})`, con un comentario que cita
+>   textual este mismo sintoma (ALERT-197).
+> - **B2** ("el test fabrica el namespace, no ejecuta `app.js`") — **YA
+>   CUBIERTO.** `tests/hb133-appjs-no-traga-gn.test.js:186` aserta *"ALERT-197:
+>   `__GN__.wireViewTogglePair` SOBREVIVE a `app.js` en el orden real del
+>   documento"*, que es literalmente el caso que el Reviewer pide.
+> - **B3** (el call site) — **el Reviewer mismo lo resuelve a favor del commit**
+>   ("la del commit es la mejor"), y `main` tiene la version del commit.
+> - **B4** ("la pref manda sobre la ruta", "no esta discutido en ninguna parte
+>   del item") — **YA DECIDIDO Y ASERTADO.** `tests/hb136-escena2-solo-strikes.test.js:199`
+>   dice *"el panel de Strikes queda VISIBLE (la pref manda)"*, con control
+>   negativo en `:254`. La politica existe, esta escrita, y esta probada.
+>
+> **Las 4 objeciones eran ciertas contra la RAMA y falsas contra `main`.** No se
+> aplico ninguna: hacerlo habria revertido el fix de ALERT-197.
+
+## ALERT-212 (este ciclo): un veredicto que pide "no mergear" algo ya mergeado
+
+> **La forma general.** Un veredicto llega con una recomendacion ACCIONABLE
+> ("bloqueado, no mergear X") y un sha. Si el sha **cayo en main por otra
+> ruta**, la accion literal es **deshacer lo ya hecho**. El Reviewer midi su
+> rama con honestidad —el bloqueante B1 es real en esa rama— y por eso mismo el
+> veredicto era **correcto e inaccionable a la vez**.
+>
+> **REGLA: un veredicto se verifica contra `main` ANTES de aplicarse, y no por
+> el texto sino por el diff.** `git diff --stat <rama> origin/main -- <los
+> archivos que el veredicto nombra>` da **vacio** = la rama ya esta. Da lineas =
+> hay trabajo real. Un veredicto que nombra lineas de un archivo que `main` ya
+> cambio **no se aplica: se responde** (ALERT-88, misma familia).
+>
+> **Y el orden del ciclo importa:** el paso 1 es el que lo revelo. Si este
+> heartbeat hubiera arrancado por el backlog, la accion pendiente del ciclo
+> habria sido leer ese veredicto y ejecutarlo tal cual.
+
+## Lo que se cerro: el HB#144 estaba terminado y sin mergear
+
+> Al abrir, la rama `fix-hb144-cuenta-viva` tenia **2 commits sin pushear** y
+> `TEAM_STATUS.md` **sin commitear**. El trabajo estaba bien (test nuevo
+> `idea57t5-cuenta-medida.test.js` da **13 pass / 0 FAIL** contra el codigo, y
+> su premise —que la cifra escrita coincida con el codigo— se cumple), pero sin
+> merge la Pages de test no lo muestra y el siguiente ciclo lo vuelve a mirar.
+> Mergeado a `main` y pusheado en este ciclo.
+>
+> **REGLA reinforced: un commit local no es trabajo terminado.** Es trabajo
+> terminado **y visible**. La diferencia la nota el Pablo, no el agente.
+
+## ALERT-213 (menor): una fila de COMMS_LOG duplicada con el mismo numero
+
+> La fila **158** (T12-b) esta escrita **DOS veces** en `COMMS_LOG.md`, con el
+> mismo numero, el mismo task id y las mismas 12 celdas. La segunda es la que
+> mi parser leyo primero por orden de archivo. No rompio nada porque las dos
+> dicen lo mismo — pero un identificador duplicado hace que "cuantas filas hay"
+> deje de ser una pregunta con respuesta, y es la misma clase que el conteo
+> inflado 11x del HB#141: **contar apariciones no es contar filas.**
+
+> **Actualizado:** 2026-10-03 01:2x UTC (HB#144) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `45ee93a` (verificado con
+> `ls-remote`; **28 refs, `main` unico, CERO duplicados por refspec**). El remoto
+> del clon DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un
+> remoto `agents`**; la forma correcta aca es `git push origin HEAD:main`.
+> **Estado del clon al abrir:** LIMPIO y en sync con `origin/main` (`git diff
+> origin/main --stat` vacio, el detector del HB#135). Suite de base **81/81
+> archivos exit 0**.
+>
+> **Trabajo de producto este ciclo: SI.** El PO escribio la **ronda 44** en una
+> **rama nueva** (`po/hb136-poda`, `4462441`, NO mergeada). Salieron sus 3
+> pedidos: cerrar la ultima cuenta escrita a mano de la Idea 57. Ramas nuevas:
+> `fix-hb144-cuenta-viva`. Commits `ae89b8c` + `b8f7bdc`.
+>
+> **PASO 3: no se abrio ronda.** El control de carga da **5 items `- [ ]`** =
+> banda 4-7 = **MODO PAUSA**. Las rondas altas (41-44) son todas poda: 0
+> propuestas nuevas. Lo que si se hizo es atender la ronda 44, que no era una
+> propuesta sino una correccion de una fila ya abierta.
+
+## EL HALLAZGO DEL CICLO: el "nueve" de la Idea 57 nunca fue un conteo de sitios
+
+> **Lo que el PO pidio y tenia razon.** La fila 107 de `BACKLOG.md` se llama
+> *"la REGLA del contrato de FORMA, no el fix del caso N"*, y tenia **regla para
+> la DEGRADACION pero numero escrito a mano para la CUENTA**. Son los dos
+> verbos del nombre de la fila, y solo uno estaba cubierto.
+>
+> **Medido, no supuesto:**
+> - El `"5 wrappers que faltan migrar"` de la cabecera **nacio viejo**: en
+>   `a3d0b5b`, el commit que lo escribio, la marca `Migracion = Tramo 2` ya
+>   estaba en **7 sitios reales**. `0d498b1` lo bajo a 4 sin tocar la linea.
+> - El `"es la unica de las nueve"` (`:1174`) era un conteo de **MENCIONES**:
+>   la marca vivia en inline y en JSDoc, y varios JSDoc contaban el mismo sitio
+>   que ya contaba su inline. Hoy son **4 sitios**.
+> - La PROPIEDAD de esa linea (que es la unica que exige tocar el `catch`) **sigue
+>   cierta**, medida sitio por sitio: los otros 3 propagan el error de red.
+>
+> **La decision que importa mas que el fix: NO se cambio el "5" por "4".** Se
+> borro la cifra y se escribio que la cuenta la hace
+> `tests/idea57t5-cuenta-medida.test.js`. Es la v2.25.0 del propio archivo
+> aplicada a la cuenta: *"acertar el numero no era la tarea; que no se pueda
+> mentir sin que algo lo note, si"*.
+>
+> **La tercera mutacion es la que prueba que funciona:** con un wrapper migrado
+> de verdad, el conteo baja solo y el arnes pide actualizar el comentario. El
+> numero sigue al codigo, no al reves. Las otras dos (cifra falsa en cabecera,
+> cifra falsa en el "de las N") caen en rojo por la razon correcta.
+> **Fase roja medida en las dos direcciones:** contra `origin/main` **12 pass /
+> 2 FAIL exit 1**; con el fix **13 pass / 0 FAIL exit 0**. Suite **81/81 exit 0**.
+
+## ALERT-210 (este ciclo): un control que se aplica a medias no mide, y se lee como que midio
+
+> **Dos casos, y los dos producen el mismo falso VERDE.** Un control de rojo mal
+> escrito no es un control que no se ejecuto: es un control que ejecuto y no
+> midio, y eso es peor, porque el archivo queda en verde.
+>
+> **(a) La tercera mutacion cayo en verde la primera vez.** El `replace` del
+> script de instrumentacion no habia matcheado — el `\n` de un `node -e` en
+> cmd.exe no es un salto de linea real. La conclusion fue "el test no detecta
+> una migracion", cuando la verdad era "no habia pasado nada". **Regla: un
+> control que no se aplica se verifica APLICADO antes de leer el resultado.**
+> Rehecha con `join(String.fromCharCode(10))` a proposito, dio lo que debia.
+>
+> **(b) El control del extractor media una forma que el archivo NO tiene.** El
+> control de "de las N" usaba `...de las nueve\ncuya decision...` (sin el `//`
+> del comentario), mientras que el archivo real tiene `...de las nueve\n // cuya
+> decision...`. Con `\s+` en vez de `[\s\S]{0,40}?` el detector **no ve el
+> numero que existe**, y el control pasaba mientras el detector real no
+> encontraba nada. **Regla: un control de extractor copia la forma REAL del
+> archivo, con su particion de linea. Una forma inventada mas limpia es un
+> control que prueba otra cosa.**
+
+## ALERT-211 (este ciclo): el detector mas especifico puede ser el que no encuentra nada
+
+> **Sintoma:** el extractor de `"de las N"` daba **0 matches** sobre el archivo,
+> y el test que lo usaba pasaba en verde. Con la conclusion inverse de la
+> correcta: "el numero se borro".
+>
+> **Por que:** el archivo parte la frase en dos lineas y la segunda arranca con
+> el `//` del comentario, asi que el texto entre el numero y `cuya` es
+> `"\n              // "`. Un `\s+` no cubre el `//`. Ademas, un detector laxo de
+> `"de las N"` encuentra **8 lugares** en el archivo y **7 no son contadores**
+> ("las 27 cuentas", "de las sisters de commerce", "de las que mas cuota gasta"):
+> hay que anclarlo a `"unica de las N cuya"` y darle **3 controles negativos con
+> esas frases reales**, no inventadas.
+>
+> **Y el error de lectura:** `0 matches` se leyo como "el codigo no dice eso",
+> cuando era "el detector no lo encuentra". **Un detector mas especifico que no
+> encuentra nada es el que mas se confunde con una verdad, porque el 0 se ve
+> igual en los dos casos.** Solo se distinguishue con un control POSITIVO de la
+> forma real.
+
+## Lo que el test atrapo en la escritura de su propio fix
+
+> La nota de la v2.29.0 en `:1181` se escribio **primero** entre la marca
+> `Migracion = Tramo 2` y su `Array.isArray`, y eso empujo el sitio fuera de la
+> ventana de 6 lineas del detector: **el conteo bajo solo a 3 sin que nadie
+> hubiera migrado nada.** Lo mostro la primera corrida del test. Sin el arnes,
+> ese error iba a `main` y la cuenta quedaba mal desde el dia uno.
+>
+> **La nota quedo antes de la marca, con la regla escrita al lado** — porque el
+> orden de esas dos lineas ES la invariante. Es la misma clase que los 2
+> tests atados a una posicion de `index.html` (ALERT-205): un arnes atado a la
+> distancia entre dos lineas es un arnes atado a algo volatil.
+
+## ALERTS ABIERTAS (sin cambio de estado)
+
+- **ALERT-179** — fix mergeado, esperando el veredicto del Reviewer. Mudo desde
+  el HB#121. `check_agent_task` da **404** (TTL vencido), que por regla NO es
+  fallo: se busca en el canal de archivos.
+- **Idea 57, los 4 wrappers** — MEDIDOS (4 reales: `:957` `:1001` `:1077`
+  `:1177`) y **NO tocados**. Es capa de datos con veredicto del Reviewer
+  (ALERT-48). El Tramo 3 de este ciclo **no los migra**, solo los cuenta.
+- **T14/T15** — veredicto **opcion C**, precondicion MEDIDA (`hb136-escena2`),
+  sin aplicar.
+- **Los 7 del patron B** del HB#118; **ALERT-41** (bloqueado por el body crudo
+  de `/v2/account/raids` con token real); **los 6 scripts de `tools/`** con ruta
+  absoluta.
+
+> ---
+>
 > **Actualizado:** 2026-10-02 18:3x-19:0x UTC (HB#143) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `3e30231` (verificado con
 > `ls-remote`; `main` unico, sin rama duplicada con barra). El remoto del
