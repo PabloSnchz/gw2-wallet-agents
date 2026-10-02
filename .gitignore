@@ -34,3 +34,31 @@ _teamstatus*.md
 # Los que valen como instrumento quedan en tools/ con nombre sin prefijo _.
 tools/_eol.mjs
 tools/_fix.mjs
+
+# --- MUGRE-LOCAL-2026-10-02 ---
+# Worktrees que cuelgan del clon. Cada uno es un directorio completo con su
+# propio .git. Sin esta regla VSCode los lista como entradas sin trackear:
+# 24 de las 95 que Pablo ve en Source Control.
+#
+# No es comodidad. Son 24 entradas que tapan las 5 que SI son trabajo. Con
+# la regla puesta, Source Control baja de 95 a ~5, y esas 5 son reales.
+#
+# El clon canonico es gw2-dev; esto aplica a los worktrees que cuelgan
+# DENTRO de el (hb*--wt/, wt-*/, po-*/).
+*-wt/
+wt-*/
+po-*/
+
+# Scratch de un heartbeat en la RAIZ. Los archivos legitimos viven en js/,
+# tests/ y tools/. En la raiz, un `_hb112_api.js` es siempre de un solo uso:
+# una medicion que alguien tiro a disco y nadie va a volver a abrir.
+/_hb1*
+/_ts*.md
+/_al.md
+/_bl.md
+/_cl.md
+/_m*.txt
+
+# Backup de antes de una reescritura. Se conservan localmente; en git solo
+# viven los archivos buenos.
+*.bak-*
