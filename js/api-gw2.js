@@ -1149,13 +1149,13 @@
    * @returns {Promise<Array>} - Array de items en el banco (null = slot vacío)
    * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
    *
-   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
-   * aca. El codigo de abajo degrada a `[]` en el camino de FORMA, sin aviso.
-   * `[]` aqui es indistinguible entre "banco vacio" y "no supe leer tu
-   * banco". Los call sites (inventory-hub.js:216, inventory-dashboard.js:331)
-   * ya usan allSettled y arman `state.readErrors`, asi que pueden
-   * distinguir: migrar al guard de la v2.24.0 es seguro.
-   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
+   * CONTRATO REAL (Idea 57 Tramo 2, HB#113) — CUMPLE DESDE ACA. Este `@throws`
+   * mentia hasta aca: el codigo de abajo degradaba a `[]` en el camino de FORMA,
+   * sin aviso, y `[]` era indistinguible entre "banco vacio" y "no supe leer tu
+   * banco". Ahora hay un guard de FORMA explicito. Los call sites
+   * (inventory-hub.js:216, inventory-dashboard.js:331) usan allSettled y arman
+   * `state.readErrors`, asi que la superficie de error se enciende de verdad.
+   * Un [] VACIO legitimo sigue resolviendo como [], a proposito.
    */
   function getAccountBank(token, opts) {
     opts = opts || {};
@@ -1170,16 +1170,26 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
-        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
-        // no. El call site (inventory-hub.js:216, inventory-dashboard.js:331)
-        // usa Promise.allSettled y ya arma `state.readErrors` con
-        // "banco": migrar al guard no rompe nada y enciende la superficie de
-        // error que hoy solo se enciende por RED.
-        // Migracion = Tramo 2 de la Idea 57.
-        var bank = Array.isArray(data) ? data : [];
-        putCache(key, bank, token, TTL.BANK);
-        return bank;
+        // Guard de FORMA (Idea 57 Tramo 2, HB#113). El guard de red de abajo ya
+        // propagaba, pero una respuesta con una forma que no soportamos degradaba
+        // a [] en silencio. En Inventario eso es 0 slots con la MISMA tipografia
+        // que una cuenta vacia: indistinguible de "no tenes nada". Los 2 call
+        // sites (inventory-hub.js:216, inventory-dashboard.js:331) ya usan
+        // allSettled y arman `state.readErrors` / `unread`, verificado uno por uno
+        // antes de tocar esta linea.
+        //
+        // OJO: un [] VACIO sigue siendo una respuesta valida y NO entra por aca.
+        // "Banco vacio" y "no supe leer tu banco" tienen que quedar como dos
+        // estados distintos; este guard existe para eso.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/bank: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de items del banco.'
+          );
+        }
+        putCache(key, data, token, TTL.BANK);
+        return data;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting account bank:', error);
         throw error;
@@ -1194,11 +1204,10 @@
    * @returns {Promise<Array>} - Array de { id: number, category: number, binding: string, count: number }
    * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
    *
-   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
-   * aca. Mismo caso que getAccountBank, una funcion mas arriba: RED
-   * propaga, FORMA degrada a `[]` en silencio. Call site con allSettled y
-   * `readErrors` ya armados.
-   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
+   * CONTRATO REAL (Idea 57 Tramo 2, HB#113) — CUMPLE DESDE ACA. Mismo caso que
+   * getAccountBank, una funcion mas arriba: RED propaga, y ahora FORMA tambien
+   * (habia un guard que degradaba a `[]` en silencio). Call site con allSettled
+   * y `readErrors` ya armados. Un [] VACIO legitimo sigue resolviendo como [].
    */
   function getAccountMaterials(token, opts) {
     opts = opts || {};
@@ -1213,13 +1222,22 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
-        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
-        // no. Call sites con allSettled y `readErrors` ya armados, igual que
-        // el banco. Migracion = Tramo 2 de la Idea 57.
-        var materials = Array.isArray(data) ? data : [];
-        putCache(key, materials, token, TTL.MATERIALS);
-        return materials;
+        // Guard de FORMA (Idea 57 Tramo 2, HB#113). Mismo caso que el banco, una
+        // funcion mas arriba: la red propaga, la forma degradaba a `[]`.
+        // `[]` aqui es indistinguible entre "materiales vacios" y "no supe leer
+        // tus materiales". Call site con allSettled y `readErrors` ya armados
+        // (inventory-hub.js:217, inventory-dashboard.js:332).
+        //
+        // OJO: un [] VACIO sigue siendo una respuesta valida y NO entra por aca.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/materials: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de materiales.'
+          );
+        }
+        putCache(key, data, token, TTL.MATERIALS);
+        return data;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting account materials:', error);
         throw error;
@@ -1234,11 +1252,11 @@
    * @returns {Promise<Array>} - Array de items en la armería legendaria
    * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
    *
-   * CONTRATO REAL (Idea 57 Tramo 3, v2.26.0) — este `@throws` mentia hasta
-   * aca. Mismo caso que getAccountBank y getAccountMaterials: RED propaga,
-   * FORMA degrada a `[]` en silencio. Call site con allSettled y `readErrors`
-   * ya armados (inventory-hub.js:218).
-   * Migracion = Tramo 2 de la Idea 57 (va al Reviewer).
+   * CONTRATO REAL (Idea 57 Tramo 2, HB#113) — CUMPLE DESDE ACA. Mismo caso que
+   * getAccountBank y getAccountMaterials: RED propaga, y ahora FORMA tambien
+   * (habia un guard que degradaba a `[]` en silencio). Call site con allSettled
+   * y `readErrors` ya armados (inventory-hub.js:218). Un [] VACIO legitimo
+   * sigue resolviendo como [].
    */
   function getAccountLegendaryArmory(token, opts) {
     opts = opts || {};
@@ -1253,13 +1271,22 @@
     
     return inflightOnce(ikey, function () {
       return fetchWithRetry(url, opts).then(function (data) {
-        // FORMA: degrada. El JSDoc de arriba dice "propaga, no degrada a []"
-        // y ACA NO SE CUMPLE: el `catch` de RED propaga, el camino de FORMA
-        // no. Call site con allSettled y `readErrors` ya armados
-        // (inventory-hub.js:218). Migracion = Tramo 2 de la Idea 57.
-        var armory = Array.isArray(data) ? data : [];
-        putCache(key, armory, token, TTL.ARMORY);
-        return armory;
+        // Guard de FORMA (Idea 57 Tramo 2, HB#113). Mismo caso que el banco y los
+        // materiales: la red propaga, la forma degradaba a `[]`. Un `[]` en la
+        // armeria legendaria es "no tenes legendarias" y "no supe leerlas" al
+        // mismo tiempo. Call site con allSettled y `readErrors` ya armados
+        // (inventory-hub.js:218).
+        //
+        // OJO: un [] VACIO sigue siendo una respuesta valida y NO entra por aca.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/legendaryarmory: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de items de la armeria legendaria.'
+          );
+        }
+        putCache(key, data, token, TTL.ARMORY);
+        return data;
       }).catch(function (error) {
         console.warn(LOGP, 'Error getting legendary armory:', error);
         throw error;

@@ -2,7 +2,8 @@
  * tests/idea57.forma-contracts.test.js  —  Tramo 1 de la Idea 57 (PO, HB#12)
  *
  * Que NO resuelve, y por que existe igual:
- *   Diez wrappers de js/api-gw2.js convierten una respuesta con una forma que
+ *   Siete wrappers de js/api-gw2.js (sobre 13 funciones de inventario/comercio
+ *   revisadas; las demas ya propagan) convierten una respuesta con una forma
  *   no soportamos en un valor VÁCIDO (o en 0). El patron
  *   `Array.isArray(data) ? data : []` es el mas viejo del archivo y el mas
  *   repetido: la v2.24.0 lo corrigio en getAccountRaids, la v2.24.1 en
@@ -182,9 +183,14 @@ ok(src.indexOf("'characters: forma no soportada ('") !== -1,
 section('4. la regla no se cumple a si misma por accidente');
 
 // Si el test se encontrara sin sitios, pasaria sin comprobar nada. Ya se cubre
-// arriba, pero se hace explicito el umbral: un barrido que baje de 8 sitios es
+// arriba, pero se hace explicito el umbral: un barrido que baje de 7 sitios es
 // un cambio de alcance y tiene que ser deliberado, no accidental.
-ok(todos.length >= 8, 'el alcance de la regla no se achico sin querer (>= 8 sitios)',
+//
+// 8 -> 7 en el HB#113, DELIBERADO: el Tramo 2 de la Idea 57 aplico el guard de
+// FORMA a getAccountBank y getAccountMaterials. Los 2 dejaron de degradar, o
+// sea que este numero BAJO porque el codigo mejoro, no porque el barrido se
+// achico. Ese es el unico motivo por el que se acepta un numero menor.
+ok(todos.length >= 7, 'el alcance de la regla no se achico sin querer (>= 7 sitios)',
    'quedan ' + todos.length + ': si es a proposito, actualiza este numero y el porque en el header');
 
 // --------------------------------------------------------------------------
