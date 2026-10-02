@@ -11,6 +11,7 @@
 
 | Columna | Qué significa |
 |---------|---------------|
+| **Cuentas consistentes entre pestañas** (T19-c) | `feat-t19c-lectores-capa` (ya borrada, estaba en `main`) | `d32e054` | **Listo para probar.** 4 modulos dejan de leer la cuenta vieja a mano. El Gist puede subir una cuenta distinta de la de la pantalla. **Si entra:** el respaldo queda coherente. **Si sale mal:** solo afecta el camino sin `<select>` con valor; el test `t19c` cubre el caso "solo la clave nueva", que antes devolvia vacio. **No tocar `MIGRATION_MODE`**: pasarlo a `move` dejaria mudos a los 4 a la vez. |
 | **Feat** | Nombre del feature |
 | **Rama** | Rama donde vive |
 | **Commits** | SHAs en `agents/main` |
