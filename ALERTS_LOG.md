@@ -6216,6 +6216,132 @@ por eso uno deja de preguntar. Lo que si se aprovecha es su **estructura**:
 clasificar, y esa sigue valiendo.
 --- LIMPIEZA-HB149-2026-10-02 ---
 
+## ALERT-220 (2026-10-02, HB#150) — la allowlist de `cacheClear` tiene DOS fuentes de verdad, y la segunda es un test
+
+**Lo que paso, medido.** Agrego `getAccountSkins` (`/v2/account/skins`, Idea del PO
+de las 18:00 UTC, Coberturable Tramo 1). El wrapper es el patron de siempre: `putCache(key,
+"account_skins", ...)`. La suite se puso **ROJA con 4 FAIL en 3 archivos**, y 2 de los 3
+no tenian nada que ver con skins:
+
+- `idea47-commit2.propagate` (30/1) y `idea47-commit4.converter` (36/1):
+  `api-gw2.js?v=` **desalineado** del header del archivo, porque sube la version a 2.32.0.
+- `idea50f.cacheclear-real` (66/2): la allowlist `CACHE_KEYS_EXACT` de `api-gw2.js`
+  declara 14 exactas y la capa escribe 15: falta `account_skins`.
+
+**Por que la segunda es la interesante.** La de `api-gw2.js` no es la unica: el test
+`idea50f.cacheclear-real.test.js` tiene **su propia copia** de la lista esperada
+(`EXACT`, linea 74) **y 4 cifras escritas a mano** (18, 23, 18, 22). Agregar una clave de
+cache obliga a tocar 2 archivos y 4 numeros, y el desbarate se repartio en dos
+reparos que parecian bugs distintos y eran el mismo.
+
+**Y el que NO es cosmetica:** sin esa linea en `CACHE_KEYS_EXACT`, el boton de cache
+**no borra la clave de skins**. No es "el test se queja": el boton que Pablo puede
+apretar deja de liberar la cuota de esa clave. El fallo es de producto y el test lo
+atrapo porque la allowlist se verificaba por barrido, no por copia.
+
+**REGLA.** La lista de `CACHE_KEYS_EXACT` tiene **dos** lugares que hay que mover juntos
+(la fuente y la especificacion del test), y las 4 cifras del test son un **resumen
+declarado**, no un dato derivado. Cuando una lista aparece en un `.js` de producto y en
+un `.test.js`, el `.test.js` es la especificacion y el `.js` la implementacion: se
+tocan los dos o ninguno. Un numero que se puede desincronizar sin que nadie lo note es
+un numero que no esta midiendo (misma clase que el "7" de la v2.24.1).
+
+**Lo que se hizo:** `account_skins` agregado a `CACHE_KEYS_EXACT` con el porque escrito
+al lado; el conteo de "las 18 claves" del header de la v2.29.0 subido a 19 (2 sitios); y
+las 4 cifras + `EXACT` del test actualizados. **Suite: 2146 / 0 FAIL en 83 de 83.**
+
+**Lo que NO se hizo y por que:** no se metio un helper que derive la lista del fuente
+para que haya una sola fuente. El test **debe** tener la lista propia: si lee la del
+producto, "la allowlist esta completa" pasa a ser tautologico, y una asercion que no
+puede fallar es exactamente el ALERT-216 que este repo ya tiene registrado.
+La solucion correcta (derivar la lista en un unico lugar y que el test verifique el
+contrato, no la lista) es un item propio, no un cambio de paso.
+
+---
+
+## ALERT-221 (2026-10-02, HB#150) — "agregar un endpoint" NO es un cambio de 1 archivo, y el backlog lo vende como "data + columnas"
+
+**Lo medido, de punta a punta.** Un endpoint nuevo, el mas simple posible (una funcion,
+un guard, un export, sin UI) costo tocar **3 archivos** y **6 lugares**:
+
+| # | lugar | por que es obligatorio |
+|---|---|---|
+| 1 | `api-gw2.js` TTL | sin TTL no hay entrada de cache que registrar |
+| 2 | `api-gw2.js` la funcion | el wrapper |
+| 3 | `api-gw2.js` `CACHE_KEYS_EXACT` | **sin esto el boton de cache no la borra** (ALERT-220) |
+| 4 | `api-gw2.js` export | si no, no es alcanzable desde la pagina |
+| 5 | `api-gw2.js` header de version | la version es la que se verifica contra el `?v=` |
+| 6 | `index.html` `?v=` | **desalineado = 2 tests en rojo** |
+
+**Por que importa.** La fila del backlog dice, textualmente, del resto de los 11
+endpoints: *"el resto es data + columnas"*. Medido: **0 de 6 de esos lugares son data o
+columnas.** Son mantenimiento de plumbing, y el que se olvida (el 3 y el 6) falla en
+silencio o en rojo segun cual se haya olvidado. Un estimado que promete "data +
+columnas" para 11 endpoints subestima el trabajo en un factor que todavia no medi.
+
+**REGLA.** Antes de estimar un item por endpoint, contar los **6 lugares**, no los
+archivos: el conteo de archivos (3) hides el de lugares (6), y el que se tiene que
+recordar es el de lugares. Si un item dice "data + columnas", esa palabra tiene que
+significar que **no** hay plumbing nuevo; si hay endpoint nuevo, hay plumbing.
+
+---
+
+## ALERT-222 (2026-10-02, HB#151) — el criterio de conteo del PASO 3 cuenta HISTORIA, no novedades, y por eso nunca puede dar menos de 3
+
+**Lo que paso.** El PASO 3 de `HEARTBEAT.md` dice: *"Contar sobre `main` en vez de la
+rama **subcuenta**... una propuesta cuenta si su seccion trae `### Tramos` y ninguna de
+sus lineas dice `aplicada`/`cerrada`"*, y cerrar con **0 propuestas** es legitimo
+(*"si el conteo da menos de 3, no se fuerza"*). Corri el criterio literal sobre
+`origin/po/hb150-poda` y dio **7 CUENTA / 4 CERRADAS / 14 de control**, o sea
+**"3+ propuestas, mandalas al Reviewer"**. La fila 176 del COMMS_LOG dice **0**.
+
+**Medido, las 7 (y despues 10 con un recorte mio): son todas VIEJAS.** Con su ronda:
+
+| ronda | posicion en el archivo | item |
+|---:|---:|---|
+| 38 | 2 | T20: el boton |
+| 37 | 3 | T19: la app |
+| 34 | 6 | T13 |
+| 33 | 7 y 8 | T12 (dos veces) |
+| 22 | 16 | T1 |
+| 19 | 17 | IDEA 64 |
+| 18 | 19 | ALERT-84 |
+| 16 | 20 | IDEA 63 |
+
+**Ninguna es de las rondas 40-45.** Todas fueron atendidas o descartadas en ciclos
+anteriores. Y la ronda **45** —la unica que manda, la mas nueva— esta en la
+**posicion 0** del archivo: el orden es **inverso**, asi que *"la ultima seccion"*
+es la **mas vieja** (la ronda 13). Un criterio que mira primero el final del archivo
+lee siempre la ronda mas vieja, que es justo la que nunca es nueva.
+
+**Por que la fila 176 dice 0 y tiene razon.** La ronda 45 es **PAUSA por el propio
+regimen del PO**: *"no se investiga y no se traen ideas"*. Trae 2 podas, la escalada
+de ALERT-41 y una hipotesis propia muerta. **0 propuestas nuevas. Medido.**
+
+**El defecto real, que es del INSTRUMENTO y no de nadie.** El criterio tiene el filtro
+de "no cerrada" pero **le falta el filtro de "posterior al ultimo corte"**: cuenta
+todo el historico append-only, asi que su minimo practico es el numero de ideas que
+el PO alguna vez tuvo abiertas, no el de las que tiene hoy. Con 25 secciones y 10
+abiertas historicamente, **el paso 3 casi no puede dar menos de 3**, y un paso que
+casi no puede decir "no" es un paso que empuja a mandar al Reviewer de mas. Ya se
+vio el costo en la otra punta: el Reviewer viene devolviendo **sin veredicto por 4to
+ciclo** ("Max iterations (100) reached"), y mandarle mas es tirar un ciclo.
+
+**REGLA.** El conteo de novedades necesita **las DOS condiciones**, no una: (1) la
+seccion trae `### Tramos` y no esta `aplicada`/`cerrada` (lo que ya esta), y (2) **su
+ronda es MAYOR que la ronda del ultimo corte atendido**, que hay que escribir en el
+ciclo. Sin (2), el conteo es un **censo del historico**, no un conteo de novedades, y
+un censo no abre una ronda. Y el **`Math.max` sobre un array con una seccion sin
+numero de ronda devuelve `NaN`**, o sea que "la ronda que manda" hay que sacarla
+ignorando las secciones sin ronda, no con el max a secas.
+
+**Lo que NO se hizo:** no se toco `HEARTBEAT.md` para cambiar el criterio. El corte por
+ronda necesita el **numero de ronda del ultimo ciclo que atendio al PO**, que hay que llevar a mano, y ese dato no
+existe todavia en ningun archivo. Es un item de instrumentacion para el Arquitecto, no
+un cambio de una linea.
+
+---
+
 ## ALERT-219 (2026-10-02, HB#149) — un working tree sucio NO es un WIP huerfano: puede ser el ciclo ANTERIOR todavia vivo
 
 | **Severidad** | Alta | **Clase** | Ciclo / proceso |

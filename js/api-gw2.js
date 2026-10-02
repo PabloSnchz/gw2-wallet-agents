@@ -1,6 +1,24 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
+ * Versión: 2.32.0 (2026-10-02) — `getAccountSkins(token, opts)`: el primer
+ *   endpoint de la lista "Coberturable account-scoped multicuenta" que pide la
+ *   idea del PO de las 18:00 UTC (12 endpoints `/v2/account/*` sin tocar; el
+ *   primero de la fila era `skins`, 10.632 items). Es SOLO la capa de datos:
+ *   todavia no hay call site ni pantalla, asi que no cambia lo que Pablo ve.
+ *   Lo que aporta el Tramo es el CONTRATO, y el contrato tiene una diferencia
+ *   que NO se podia copiar de los 3 wrappers de arriba: `/v2/account/skins`
+ *   devuelve un array de ESCALARES (ids), no de objetos, asi que el guard de
+ *   FORMA tiene que mirar los elementos y no solo `Array.isArray`. Un array de
+ *   objetos pasa el guard de los otros tres y recien revienta en el `.indexOf`
+ *   del call site. Forma verificada, no supuesta: 401 con token falso contra 404
+ *   de un endpoint inexistente, y la forma contra la documentacion publica de
+ *   GW2Treasures/gw2api (`[ 1, 2, 3, 4, … ]`).
+ *   Recordatorio medido para el proximo tramo: `/v2/skins?ids=all` -> **400**
+ *   (verificado en vivo). El catalogo hay que paginarlo en lotes; el molde
+ *   esta en `meta.js:294` (`chunk = 100`).
+ *   Test: tests/hb150-cuenta-skins.test.js, con control negativo en las DOS
+ *   direcciones (array de objetos tiene que RECHAZAR, no solo no-romperse).
  * Versión: 2.31.0 (2026-09-30) — `keptBytes`: lo que QUEDA, en la misma unidad
  *   que lo que se libera. `cacheClear` ya recorria todas las claves y solo
  *   contaba las de la rama "borrada"; sumar `(localStorage.getItem(k)||'').length`
@@ -57,14 +75,14 @@
  *   deja de mentir: antes `cacheClear()` limpiaba `__mem` y `__inflight`, o sea
  *   la cache de la SESION, y no la de DISCO. La cuota de localStorage (~4.98 MB
  *   medidos) seguia llena, asi que "limpiar cache" no liberaba nada.
- *   Ahora borra de verdad las 18 claves que escribe esta capa y devuelve
+ *   Ahora borra de verdad las 19 claves que escribe esta capa y devuelve
  *   `{removed, kept}`. `kept` es la garantia, no un extra: lo que NO se borra
  *   son `gn:account:keys` y `gw2_keys` (la lista de las 27 cuentas), los pines,
  *   el tema y las caches de otros modulos (`gw2_currencies_cache_v1` la escribe
  *   `app.js:46` y nunca pasa por aca). Un "limpiar cache" que se come la lista
  *   de cuentas es el modo de fallo mas caro que puede tener ese boton.
  *   **El borrado es por allowlist EXACTA y no por prefijos, y es decision de
- *   diseno:** medidas sobre el archivo, las 18 claves no comparten ningun
+ *   diseno:** medidas sobre el archivo, las 19 claves no comparten ningun
  *   prefijo — `wallet` y `luck` son nombres pelados. Un barrido por familias
  *   (`ach_*`, `commerce_*`) dejaria vivas justamente `wallet`, que es de las que
  *   mas cuota gasta. La propuesta del PO era por prefijos; se midio y se
@@ -427,6 +445,7 @@
     ITEMS:        24 * 60 * 60 * 1000,       // 24 h (por id)
     CURR:          7 * 24 * 60 * 60 * 1000,  // 7 días
     WALLET:        2 * 60 * 1000,            // 2 min
+    SKINS:         6 * 60 * 60 * 1000,       // 6 h (el desbloqueo de una skin es una compra)
     LUCK:          10 * 60 * 1000,           // 10 min (la suerte solo sube al consumir esencia)
     ACH_ACC:       2 * 60 * 1000,            // 2 min
     ACH_META:     12 * 60 * 60 * 1000        // 12 h
@@ -1365,6 +1384,89 @@
   }
 
   // ========================================================================
+  // Coleccion / Coberturable — /v2/account/skins  (Idea del PO 18:00 UTC, HB#150)
+  // ========================================================================
+
+  /**
+   * Devuelve los ids de skin desbloqueados de la cuenta: `/v2/account/skins`.
+   * @param {string} token - API Key
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<Array<number>>} Array de ids de skin. `[]` es un valor
+   *   REAL y legitimo: una cuenta sin skins desbloqueadas.
+   * @throws {Error} Capa de RED: 401, 429 o corte de red. Capa de FORMA: si la
+   *   respuesta no es un array de numeros.
+   *
+   * CONTRATO REAL — PROPAGA, no degrada. Mismo contrato que getAccountBank /
+   * getAccountMaterials / getAccountLegendaryArmory (Idea 57 Tramo 2): un `[]`
+   * aqui es indistinguible entre "no tenes skins" y "no supe leer tus skins", y
+   * en una vista de coleccion esa confusion no se autocorrige nunca, porque el
+   * numero chico se lee como un dato y no como un fallo.
+   *
+   * POR QUE ESTE GUARD NO ES EL DE LOS OTROS TRES (esta es la parte que no se
+   * puede copiar): `/v2/account/skins` NO devuelve un array de objetos sino un
+   * array de ESCALARES. Medido, no supuesto:
+   *   - `GET /v2/account/skins` con token falso -> **401** (existe); control
+   *     `/v2/account/bogusendpoint123` -> **404** (no existe). La API no deja
+   *     ver la forma sin un token real, asi que la forma se confirmo contra la
+   *     documentacion publica de una implementacion de referencia
+   *     (GW2Treasures/gw2api, `account()->skins()`): `get():array` con ejemplo
+   *     literal `[ 1, 2, 3, 4, … ]`.
+   * Un `Array.isArray(data)` a secas, el guard de los otros tres, ACIERTA con
+   * un array de objetos: pasaria sin quejarse y recien mas abajo, cuando el
+   * call site haga `skins.indexOf(123)`, fallaria. El guard tiene que mirar la
+   * FORMA DE LOS ELEMENTOS, que es lo que distingue a este endpoint.
+   *
+   * TTL: 6 h. Una skin se desbloquea con una compra o un logro, no por abrir la
+   * aplicacion: 2 min (el TTL de wallet) seria cachear para no ganar nada.
+   */
+  function getAccountSkins(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+
+    var key = 'account_skins';
+    var cached = getCache(key, TTL.SKINS, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withToken(CFG.API_BASE + '/v2/account/skins', token);
+    var ikey = 'if:account_skins:' + fpToken(token);
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        // Guard de FORMA, en DOS pasos. El primero es el de los otros tres; el
+        // segundo es el que hace falta aca y no alla.
+        //
+        // OJO: un [] VACIO sigue siendo una respuesta valida y NO entra por
+        // aca. "Sin skins" y "no supe leer tus skins" tienen que quedar como
+        // dos estados distintos.
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/skins: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de ids de skin.'
+          );
+        }
+        // Un array de OBJETOS es un array: el guard anterior lo deja pasar. Esta
+        // skin no devuelve objetos, asi que si aparece uno, la forma cambio y
+        // hay que enterarse aca y no en el `.indexOf` de un call site.
+        for (var i = 0; i < data.length; i++) {
+          if (typeof data[i] !== 'number' || !isFinite(data[i])) {
+            throw new Error(
+              'account/skins: elemento ' + i + ' no es un id de skin (' +
+              (data[i] === null ? 'null' : typeof data[i]) +
+              '). Se esperaba un array de numeros.'
+            );
+          }
+        }
+        putCache(key, data, token, TTL.SKINS);
+        return data;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting account skins:', error);
+        throw error;
+      });
+    });
+  }
+
+  // ========================================================================
   // Wallet / Currencies (fallback para Astral Acclaim)
   // ========================================================================
   function getAccountWallet(token, opts) {
@@ -1804,7 +1906,7 @@
   //
   // No es una lista de prefijos y esa es la decision, no un detalle de estilo.
   // Medidas sobre el archivo (las dos vias de escritura: `putCache()` y el
-  // `lsSet(lkey, ...)` directo de `getItemsMany`), son 18 y NO comparten
+  // `lsSet(lkey, ...)` directo de `getItemsMany`), son 19 y NO comparten
   // ningun prefijo: `wallet` y `luck` son nombres pelados. Un borrado por
   // familias del tipo `ach_*`/`commerce_*` dejaria vivas justamente `wallet`,
   // que es de las que mas cuota gasta, y la cuota seguiria sin liberarse.
@@ -1816,7 +1918,14 @@
     'tokeninfo', 'account_info', 'char_count', 'account_raids',
     'commerce_transactions_buys', 'commerce_transactions_sells',
     'commerce_delivery', 'commerce_listings', 'account_bank',
-    'account_materials', 'account_armory', 'wallet', 'luck', 'ach_acc'
+    'account_materials', 'account_armory', 'wallet', 'luck', 'ach_acc',
+    // v2.32.0: `account_skins` (Idea del PO 18:00 UTC, Coberturable Tramo 1).
+    // Va ACA y no por prefijo a proposito, con el mismo criterio que el resto:
+    // `account_skins` no comparte prefijo con `account_...` porque esta lista
+    // matchea la clave EXACTA. Sin esta linea el boton de cache NO lo borraria
+    // y su cuota quedaria viva, que es exactamente el fallo que la allowlist
+    // exacta veio a evitar (y que `idea50f.cacheclear-real.test.js` mide).
+    'account_skins'
   ];
   var CACHE_KEYS_PREFIX = [
     'commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:'
@@ -2106,6 +2215,9 @@
     getAccountBank: getAccountBank,
     getAccountMaterials: getAccountMaterials,
     getAccountLegendaryArmory: getAccountLegendaryArmory,
+
+    // Coleccion / Coberturable (NUEVO v2.32.0)
+    getAccountSkins: getAccountSkins,
 
     // Wallet / Currencies (fallback AA)
     getAccountWallet: getAccountWallet,

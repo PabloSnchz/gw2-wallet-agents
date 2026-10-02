@@ -1,5 +1,102 @@
 # TEAM_STATUS — Heartbeat Principal
 
+> **Actualizado:** 2026-10-02 (HB#151) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `3c3af8a` al abrir (commit del
+> HB#149). **18 refs** `po/*`, `main` UNICO, 0 duplicados por refspec; las 7 ramas
+> con barra que no son `po/*` son intencionales (`feat/`, `feature/`, `fix/`,
+> `rescate/` x2, `tools/`). Remoto = `origin` (`gw2-wallet-agents`): la forma
+> correcta aca es `git push origin HEAD:main`.
+>
+> **LO QUE HIZO ESTE CICLO: rescatar el WIP del HB#150, que estaba TERMINADO y sin
+> commitear.** La regla ALERT-219 del HB#149 dice que un arbol sucio puede ser el
+> ciclo anterior VIVO. Aca se cumplio la otra mitad: **muerto, con el trabajo
+> completo**. Las escrituras van de 22:37 a 22:47 UTC y este ciclo abrio 10 minutos
+> despues; `origin/main` seguia en el commit del HB#149 (22:23), o sea el HB#150
+> nunca commiteo. El diff eran 7 archivos: `getAccountSkins` en `api-gw2.js`
+> v2.32.0, el `?v=` de `index.html`, las allowlists de `CACHE_KEYS_EXACT` y del
+> test 50F, un test nuevo, y 4 logs.
+>
+> **VERIFICACION INDEPENDIENTE, no confianza.** (a) **Fase roja reproducida**: el
+> test declara "borrar el guard de elementos -> 13 pass / 4 FAIL". Medido, y son
+> exactamente las secciones **3 y 3c** las que caen mientras **3b y 6 siguen en
+> verde** —o sea que el test distingue "rechaza la forma mala" de "rechaza todo".
+> La mutacion se hizo con backup en disco, **nunca con `git checkout`**: el
+> trabajo del HB#150 no estaba commiteado y se habria perdido. (b) **Suite
+> 2146/0 en 83 de 83**, y el delta contra la base del HB#149 (2129/82) es
+> **exactamente +17**, que es el test nuevo: este ciclo no toco ninguna
+> asercion previa. (c) **4 defectos de edicion corregidos**, todos del HB#150 y
+> ninguno de producto: la linea del historial del header quedo como
+> `Version: 2.31.0` sin tilde y con sangria de continuacion; el comentario del
+> guard de elementos estaba **duplicado (3 lineas x 2)**; una linea en blanco
+> partio el blockquote del HB#148 en `TEAM_STATUS.md`; y `parecianbugs` sin
+> espacio en `ALERTS_LOG.md`.
+>
+> **HALLAZGO PROPIO (ALERT-222): el criterio de conteo del PASO 3 esta ROTO, y por
+> eso no puede decir "0".** Corri el criterio literal de `HEARTBEAT.md` sobre
+> `origin/po/hb150-poda` y dio **7 CUENTA / 4 CERRADAS / 14 de control** = "3+,
+> mandalas al Reviewer". Medidas una por una: **las 7 son de las rondas 16 a 38**,
+> todas atendidas hace ciclos. Ademas el orden del archivo es **inverso**: la
+> ronda **45** esta en la **posicion 0** y la **13** al final, asi que "la ultima
+> seccion" es la mas vieja. Al criterio le falta el filtro de *"ronda posterior
+> al ultimo corte"*: sin el cuenta un **censo del historico**, y un censo no
+> abre una ronda.
+>
+> **PASO 3: no se abrio ronda, y el 0 es correcto.** Verifique la ronda 45 yo
+> mismo: es **PAUSA por el propio regimen del PO** ("no se investiga y no se
+> traen ideas"). Trae 2 podas, la escalada de ALERT-41 y una hipotesis propia
+> muerta. **0 propuestas. Control negativo OK.** La fila 176 del COMMS_LOG acierta.
+> **Ninguna al Reviewer**, que ademas viene devolviendo sin veredicto por 4to
+> ciclo.
+>
+> **LO QUE NO SE HIZO, y por que.** No se arranco el **Tramo 2** de Coberturable
+> (el catalogo `/v2/skins` paginado), aunque es el siguiente paso natural de la fila
+> y tiene el orden ya escrito. Es trabajo de producto con diseño propio (lotes,
+> cache, merge de paginas) y necesita su test con fase roja. Arrancarlo a las
+> 23:00 UTC con un commit de rescate todavia sin pushear es exactamente el estado
+> que ALERT-219 previene: un arbol sucio que el siguiente ciclo tiene que
+> descifrar. Queda para el HB#152 con el repo limpio.
+
+<!-- BLOQUE ANTERIOR (HB#150), preservado para reversibilidad -->
+
+> **Actualizado:** 2026-10-02 (HB#150) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `3c3af8a` al abrir (commit del
+> HB#149). **18 refs** `po/*`, `main` unico, CERO duplicados por refspec. Remoto =
+> `origin` (`gw2-wallet-agents`): la forma correcta aca es `git push origin HEAD:main`.
+> **Suite:** **2146 aserciones / 0 FAIL en 83 de 83 archivos** (linea `TOTAL` del
+> runner, leida y NO recalculada sumando filas — ALERT-217). Base al abrir: 2129 / 0
+> FAIL en 82. **El delta +17 es exactamente el test nuevo**, o sea que este ciclo no
+> toco ninguna asercion previa. Esa igualdad tambien sirve de control: si el +17
+> hubiera salido en otro numero, el cambio habria roto algo.
+>
+> **Ciclo CON CODIGO DE PRODUCTO** (el primero en 2 ciclos): `getAccountSkins(token,
+> opts)` en `api-gw2.js` **v2.32.0** — BACKLOG L88 "Coberturable account-scoped
+> multicuenta", Tramo 1 de 12, el endpoint que la fila nombra para arrancar. Solo
+> capa de datos: **sin call site y sin pantalla**, no cambia lo que Pablo ve.
+> Endpoint medido (401 contra 404 de control) y **forma verificada, no supuesta**:
+> `/v2/account/skins` devuelve un array de **ESCALARES**, no de objetos, asi que el
+> guard de FORMA tiene 2 pasos. Fase roja del test verificada (4 FAIL) antes del fix.
+>
+> **LO QUE ESTO CAMBIO Y NO ES CODIGO (ALERT-220 y ALERT-221).** Agregar 1 endpoint
+> rompio **3 archivos de la suite** por 2 motivos que parecian bugs distintos:
+> (a) `api-gw2.js?v=` de `index.html` quedo desalineado del header al subir la
+> version; (b) la allowlist `CACHE_KEYS_EXACT` no conocia `account_skins`, o sea
+> **el boton de cache no la borraba** — ese es un fallo de producto, no de test, y
+> lo atrapo una asercion que ya existia. De (b) sale la regla: la allowlist tiene
+> **dos fuentes de verdad** (la del `.js` y la especificacion del `.test.js`) y se
+> mueven juntas. De (a) y del conteo salen los **6 lugares** que cuesta un endpoint:
+> **0 de 6** son "data + columnas", que es lo que la fila promete para los otros 11.
+>
+> **PASO 1:** el veredicto del PO (`task-5d67821e3648`) llego entero **pero ya
+> estaba consumido en el HB#147** — "llego" y "es nuevo" son hechos distintos. El
+> del Reviewer (`task-6cc3851b8d15`) vuelve **SIN veredicto por 4to ciclo**
+> ("Max iterations (100) reached").
+>
+> **PASO 3: no se abrio ronda.** **18 refs** `po/*`; la nueva `po/hb150-poda` trae
+> la **ronda 45, que es PAUSA por el propio regimen del PO** ("no se investiga y no
+> se traen ideas"). **0 propuestas**, control negativo OK. **Ninguna al Reviewer.**
+
+<!-- BLOQUE ANTERIOR (HB#148), preservado para reversibilidad -->
+
 > **Actualizado:** 2026-10-02 (HB#148) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `70fd048` al abrir.
 > **17 refs** `po/*`, `main` unico, CERO duplicados por refspec. Remoto = `origin`
