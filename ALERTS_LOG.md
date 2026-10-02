@@ -6342,6 +6342,60 @@ un cambio de una linea.
 
 ---
 
+## ALERT-223 (2026-10-02, HB#151) — el veredicto del Reviewer sobre "los 7 del patron B" sigue valido en 7 de 7, pero UNA de sus lineas quedo desfasada, y mi primer diagnostico del hallazgo fue FALSO
+
+**Contexto.** `task-debe51c6331f` (Reviewer, T19-c) salio `finished` con veredicto
+entero, y el HB#148 ya lo consumio. Entre ese veredicto y hoy pasaron **3 commits**
+(era `origin/main @ 6be9a69`; hoy es `1094c26`). La regla ALERT-218 manda lo que
+propone: *"un veredicto recuperado tarde se mide antes de actuarlo"*. Medido.
+
+**Lo que el veredicto afirmaba, textual:** *"no son los unicos lectores a pelo de la
+seleccion: hay **7** que leen el select y ya no tienen fallback"* —`router.js:165`,
+`wv-objectives-ui.js:29`, `wv-shop-ui.js:71`, `wizards-vault.js:199`,
+`converter-modal.js:1084`, `homestead-tracker.js:76`, `legendary-tracker.js:105`.
+
+**Medido contra `origin/main @ 1094c26`: los 7 siguen haciendo exactamente eso.** Los
+7 leen `keySelectGlobal` y devuelven `.value.trim()`, sin `Storage.get`, sin fallback
+de `ACCOUNT_SELECTED`:
+
+| archivo | linea que dijo el veredicto | linea real HOY |
+|---|---:|---:|
+| `js/router.js` | 165 | **165** |
+| `js/wv-objectives-ui.js` | 29 | **29** |
+| `js/wv-shop-ui.js` | 71 | **71** |
+| `js/wizards-vault.js` | 199 | **199** |
+| `js/converter-modal.js` | 1084 | **1084** |
+| `js/homestead-tracker.js` | 76 | **76** |
+| `js/legendary-tracker.js` | 105 | **150** |
+
+**6 de 7 lineas coinciden al numero. La septima quedo 45 lineas atras**: el archivo
+crecio de ~1065 a **1317 lineas** (el trabajo de los tramos de la Armeria), asi que
+L105 hoy es el cierre de un objeto de estado (`};`) y el lector esta en L149-150. El
+**patron** no cambio: `el('keySelectGlobal')` + `.value`, igual que los otros 6.
+
+**MI DIAGNOSTICO FUE FALSO, y la clase es la de siempre.** Un grep de
+`ACCOUNT_SELECTED` en los 7 archivos dio **0 hits**, y mi conclusion instantanea fue
+*"la migracion ya esta hecha: los 7 ya no leen crudo"*. **FALSO por completo.** No
+habia migracion: **nunca leyeron `ACCOUNT_SELECTED` para nada**, porque no leen el
+almacenamiento en absoluto — leen el **DOM**. Un `0 hits` de una constante significa
+"no la usan", y como el bug ES que no usan nada, el `0 hits` **es el sintoma, no la
+cura**. Lo veo un paso despues, mirando el codigo en vez del conteo.
+
+**REGLA.** Un `0 hits` **no distingue** entre *"ya no lo necesita"* y *"nunca lo
+usaba, y ese es justo el bug"*. Antes de declarar algo arreglado por un grep en
+cero, hay que **mirar la linea que hace el trabajo hoy**. Y la pregunta correcta no
+es *"quedan hits de la constante?"* sino **"que llama esta funcion?"** — el patron se
+reconoce por la llamada (`getElementById('keySelectGlobal')`), no por el nombre de la
+constante. Es el mismo criterio que ya aplico cuando el PO cita una linea: **buscar
+la PROPIEDAD (que lee el DOM directo) y no la cadena que uno recuerda**.
+
+**Lo que NO se hizo.** No se toco ninguno de los 7: es un ciclo de migracion con su
+propio test, y el veredicto del Reviewer es de T19-c (los 4 con fallback), no del
+patron B. Se deja el **censo con las lineas de hoy** para que el proximo ciclo que lo
+aborde no arranque sobre numeros que ya vencieron.
+
+---
+
 ## ALERT-219 (2026-10-02, HB#149) — un working tree sucio NO es un WIP huerfano: puede ser el ciclo ANTERIOR todavia vivo
 
 | **Severidad** | Alta | **Clase** | Ciclo / proceso |

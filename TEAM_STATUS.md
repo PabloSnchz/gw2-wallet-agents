@@ -48,6 +48,22 @@
 > **Ninguna al Reviewer**, que ademas viene devolviendo sin veredicto por 4to
 > ciclo.
 >
+> **PASO 1, con `check_agent_task` explicito (ALERT-223).** `task-debe51c6331f`
+> (Reviewer) salio **finished con veredicto entero**; `task-6cc3851b8d15` (cola)
+> salio **finished SIN veredicto** ("Max iterations (100) reached"), **4to ciclo**.
+> Las **23 filas con `task_id` abierto** del COMMS_LOG son todas de **HB#30 a
+> HB#117** y su contenido ya se proceso en su ciclo: es deuda de bookkeeping, no
+> tareas vivas. Al veredicto del Reviewer le apliqué **ALERT-218** (un veredicto
+> recuperado tarde se mide antes de actuarlo): cito `legendary-tracker.js:105`, y
+> ese archivo hoy tiene **1317 lineas** y **L105 es el cierre de un objeto de
+> estado** — el lector esta en **L149-150**. Los otros 6 coinciden al numero.
+> **Los 7 siguen leyendo `keySelectGlobal` + `.value.trim()`, sin `Storage.get` ni
+> fallback:** el veredicto sigue valido en su alcance, solo vencieron los numeros de
+> linea. Queda el censo con las lineas de hoy en ALERT-223. Y **mi primer
+> diagnostico fue FALSO**: el grep de `ACCOUNT_SELECTED` dio 0 hits y concluí
+> "ya esta migrado" — no, **nunca leyeron esa constante**, leen el DOM; el 0 hits
+> **es el sintoma del bug, no la cura**.
+>
 > **LO QUE NO SE HIZO, y por que.** No se arranco el **Tramo 2** de Coberturable
 > (el catalogo `/v2/skins` paginado), aunque es el siguiente paso natural de la fila
 > y tiene el orden ya escrito. Es trabajo de producto con diseño propio (lotes,
