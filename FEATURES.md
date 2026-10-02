@@ -192,9 +192,30 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
   heartbeat futuro cuente mal, no que la app cambie.
 
 
+
+## Cuentas consistentes entre pestañas
+
+- **Tipo:** mejora oculta
+- **Estado:** listo
+- **Dónde la veo:** —
+- **Ruta:** —
+- **Descripción:** el respaldo (Gist) ahora guarda la misma cuenta que ves en pantalla.
+  Antes, cuatro módulos (inventario, Raids, Strikes y el detalle de compra de la Bóveda)
+  leían la cuenta vieja a mano, saltándose la capa de storage, así que el Gist podía
+  quedar con una cuenta distinta de la que tenías abierta.
+- **Commits:** `d32e054`
+- **Rama:** `feat-t19c-lectores-capa`
+- **Si no entra:** sigue como estaba. El Gist puede subir una cuenta vieja y al importar
+  ese respaldo en otro navegador la app abre con otra cuenta. No rompe nada visible: el
+  respaldo se sigue haciendo.
+- **Si sale mal:** los cuatro módulos piden la cuenta al elemento `<select>` antes que al
+  disco (eso NO se cambió, es lo que ya pasaba). Si el `<select>` no tuviera valor, ahora
+  leen por la capa, que resuelve igual. El caso que cambia es "solo existe la clave nueva":
+  antes devolvía vacío, ahora devuelve la cuenta. El test fija ese caso.
+
 ---
 
 *Las cuatro fichas de arriba fueron escritas por el Arquitecto. La primera, a
 partir de la review de Pablo. Las otras tres son retroactivas: los merges
 pasaron antes de que existiera la regla de la ficha, y el Principal no las
-escribió. Las tres últimas están pendientes de prueba en dev.*
+escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuentas consistentes entre pestañas) la escribió el Principal en el HB#118 y está pendiente de prueba.*

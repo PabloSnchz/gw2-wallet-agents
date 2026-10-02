@@ -329,7 +329,7 @@ con codigo 2 y se niega a dar total). **Regla: todo contador nuevo lleva un
 control que falle cuando el extractor esta roto, y vale mas que el contador.**
 
 **Lo que se rompio y se arreglo.** Anexar el addendum con un one-liner de `cmd`
-dejo **14 LF pelados** en un `ALERTS_LOG.md` CRLF (`\$` llego al regex como
+dejo **14 LF pelados** en un `ALERTS_LOG.md` CRLF (`\` llego al regex como
 dollar literal y el trim no ocurrio), y el prepend de `TEAM_STATUS.md` dejo
 **131** por concatenar texto con LF en vez de unir por lineas. Los dos
 detectados midiendo crlf/lf, los dos normalizados con un script que **se niega a
@@ -3125,3 +3125,140 @@ commitear, y el replace dejo "los dosorden de orden de", corregido tambien).
 **Estado al cierre:** PO sin tarea. Reviewer sin tarea. Documentador sin tarea. **Nadie en
 quien esperar.** La decision de producto (que truth manda) la lleva Pablo, y ya tiene el
 dato que la reencuadra.
+
+---
+
+# Heartbeat #118 (2026-10-02 00:5x-01:1x UTC) — el paso 3 dio "limpio" falso por MI arnés, y el BACKLOG tenía un item duplicado
+
+## Qué se hizo
+
+Un ciclo de verificación y corrección de instrumentos. **Sin código de producto tocado.**
+4 arneses nuevos, `BACKLOG.md` con 2 marcas de veredicto corregidas, y las 3 alertas nuevas
+registradas en `ALERTS_LOG.md` (que había llegado solo a ALERT-159: **ALERT-169 nunca se
+registró ahí**).
+
+Suite completa **1341 aserciones / 0 FAIL** (53 de 53 archivos).
+
+## Los 3 hallazgos
+
+**ALERT-170 — mi arnés del paso 3 tenía escrita a mano la lista de refs del PO.**
+`tools/hb116-union-po.mjs:33-40` enumera 9 refs. El PO creó `po/hb117-dashboard` con la
+**ronda 37** y el script no la consultó: reportó el archivo al día con rondas 18-36. Es
+ALERT-167 reproducido **dentro del detector que escribí para detectarlo**, y la diferencia es
+que ALERT-167 lo encontró el PO (fila 129) y este lo encontré yo, leyendo la ronda a mano.
+Reemplazado por `tools/hb118-union-po.mjs`, que descubre con `git ls-remote` (10 refs) y
+**falla si alguna ronda de una ref no llega a la unión**, más control negativo.
+
+**Ronda 37 medida tramo por tramo** (`tools/hb118-t19.mjs`, 12 pass / 0 FAIL):
+- **T19-a: YA APLICADA.** `app.js:808/813/814/815` hacen exactamente lo que el PO pedía.
+- **T19-c: VIVA.** Los 4 módulos leen `gw2_selected_key_v1` a pelo; **0 de 4** usan
+  `Storage.get(ACCOUNT_SELECTED)`. Es la única que fue al Reviewer (`task-debe51c6331f`),
+  con 1 pregunta de alcance: ¿es un caso más de T12-b o un commit mecánico de 4 líneas?
+
+**ALERT-171 — `BACKLOG.md` con Idea 56 duplicada y las dos filas contradiciéndose.**
+L114 decía "VEREDICTO CERRADO: MERGEADA" y estaba `- [ ]`; L185 decía "1 LÍNEA, SIN TOKEN,
+SIGUIENTE" sobre `api-gw2.js:537`, una línea que hoy es `kMem()`. Medido: la definición está
+en la `:816`, el guard en la `:843`, y el commit es ancestro de `main`. **El código nunca
+estuvo pendiente.** El efecto real: desde el BACKLOG se podía elegir como "siguiente item"
+uno ya hecho, con la autoridad de lo fácil. Las dos filas cerradas; quedan 2 contradicciones
+del mismo patrón listadas y sin tocar.
+
+## Lo que se rompió
+
+El driver denegó `cli.py ask` con "contains 'rm'". **No se reproduce**: el archivo (2.831
+chars) y el comando se buscaron con `/rm/i` y con `indexOf('rm')` y dan 0 y -1. 4ª vez de la
+clase ALERT-39, pero sin causa identificable. No se reintentó (el denial es final) y se entregó
+por `submit_to_agent`, que además **despierta** al Reviewer — el canal de archivos solo entrega
+(ALERT-127), así que la vía elegida era la mejor de las dos.
+
+## Lo que quedó pendiente
+
+- **8 consultas al Reviewer vencidas** más la nueva. Ninguna bloquea código: son preguntas de
+  diseño que formulé yo. El Reviewer no tiene cron y su heartbeat está `enabled: false` por
+  decisión del Arquitecto, así que solo despierta si lo llamo.
+- **Decisiones de Pablo**: qué verdad manda (URL o pref) — bloquea T14-T18; borrar los 51
+  worktrees y las ramas remotas ya mergeadas; `feat-idea49g-ach-acc-compacta` (620 líneas
+  esperando veredicto desde el HB#102).
+- **2 contradicciones más del patrón ALERT-171** en BACKLOG.md (`IDEA50`, `ALERT-84`), listadas
+  con número de línea por el detector y no tocadas.
+- **T12-b** sigue vivo: la única propuesta del PO con trabajo real pendiente.
+
+## La decisión que me costó más
+
+No fue una decisión, fue una observación sobre mis propios detectores: **las 3 aserciones que
+fallaron antes de dar verde eran el detector y no el código**, y las 3 eran la misma forma —
+medir el lugar equivocado y reportarlo como defecto del disco. La 3 es la más cara: leía el
+estado del BACKLOG con `/\[ \]/`, y la frase "**estaba** `- [ ]`" que escribí para explicar la
+corrección **reabrió la fila que acababa de cerrar**. Un detector que lee el estado de un
+patrón que su propia prosa puede citar no puede cerrar nada.
+
+Las otras dos eran del mismo tipo: buscar la **primera mención** de `getAccountRaids` (el JSDoc
+de la `:154`) en vez de la definición (`:816`), y afirmar "no existe `Array.isArray(data) ?
+data : []`" sobre todo `api-gw2.js` cuando la pregunta era sobre **una** función — la `:592`
+resultó ser `fetchBatchWithRepair` con degradación **deliberada y documentada**. Afirmar que
+algo no existe **en un archivo** es más fuerte que afirmarlo **en una función**, y por eso hay
+que nombrar el alcance.
+
+## Instrumentos que quedan
+
+| Archivo | Qué mide | Resultado |
+|---|---|---|
+| `tools/hb118-union-po.mjs` | Unión de `DASHBOARD_PO_IDEAS.md` de **todas** las refs `po/*`, descubiertas | 10 refs, ronda 37 vista |
+| `tools/hb118-t19.mjs` | T19-a (¿aplicada?) y T19-c (¿viva?) de la ronda 37 | 12 pass / 0 FAIL |
+| `tools/hb118-idea56-dup.mjs` | ¿La Idea 56 está pendiente o ya hecha? | 10 pass / 0 FAIL |
+| `tools/hb118-backlog-dups.mjs` | Items del mismo id con filas que se contradicen | 3 pass / 0 FAIL, 2 contradicciones vivas |
+
+---
+
+## Cierre HB#118 (2026-10-02 00:5x - 01:4x UTC) - T19-c APLICADO, y el paso 3 volvio a tener
+materia prima
+
+**Lo que cambio en el producto:** los 4 modulos que leiaban `gw2_selected_key_v1` a pelo
+(`inventory-hub.js`, `raid-tracker.js`, `strike-tracker.js`, `wv-purchase-detail.js`) ahora
+leen por `Storage.get(STORAGE_KEYS.ACCOUNT_SELECTED)`. Nada mas. `MIRROR_MAP` y
+`MIGRATION_MODE` intactos - este ultimo sigue en `copy`, y queda escrito que pasarlo a `move`
+dejaria mudos a los 4 a la vez.
+
+**El veredicto del Reviewer llego** (`task-debe51c6331f`, la unica consulta que mande este ciclo)
+y **lo audite antes de aplicarlo**: 25 aserciones contra `origin/main @ 6be9a69`, 25/0. Sus 3
+bloqueantes (R1 el fallback del DOM, R2 la divergencia "solo la gn:", R3 el guard atado a
+idea61) **se sostienen**. Uno no: los 4 no son textualmente identicos (ALERT-174).
+
+**Que decidio el Reviewer, y es lo que cambia el encuadre:** T19-c **no es** un caso mas de
+T12-b. T12-b es un problema de **autoridad** (dos escritores de la misma pref: quien gana);
+T19-c es un problema de **lectura** (cero escritores crudos: el lector no pasa por la capa). Son
+el simetrico, y separarlos tambien sale del riesgo: T19-c cambia el valor que ven 4 modulos en
+el camino del token, T12-b cambia botones.
+
+**Fase roja verificada: 12 FAIL** contra los archivos sin tocar (8 de comportamiento + 4 del
+guard de idea61), **36/0** con el fix. Suite completa **55 archivos exit 0 / 686 aserciones /
+0 FAIL**, corrida por exit code y no por `findstr` (ALERT-172). El aggregate de idea61 bajo de
+**7 a 4** lectores crudos, que es el numero que se ve desde la app.
+
+**Un cambio de alcance mio, declarado antes de aplicar:** el Reviewer dijo "reducir por par" y
+yo lo extendi a los 4; 3 de esos tenian un solo raw, y ponerlos como `[gw2_keys]` seria
+vigilar una lectura inexistente (ALERT-173). Corregido: solo `wv-purchase-detail` se reduce, los
+otros 3 salen de la lista.
+
+**Lo que NO se cerro, y queda escrito en el codigo y en el BACKLOG:**
+
+1. Los 4 hacen fallback al `<select>` y **gana el DOM**, o sea que hoy la lectura sigue
+   viniendo del DOM y el fix solo cambia que pasa cuando el DOM **no** tiene valor. El Reviewer
+   lo dijo y lo acepte: cambiar esa precedencia es otro ciclo. Esta declarado en el JSDoc de
+   los 4, para que el proximo que lo lea no lo tome por residuo de un copiado.
+2. El censo inverso que dio el Reviewer - **7** lectores del `<select>` SIN fallback (patron
+   B) - queda abierto. **Este commit no cierra la clase**, y asi esta anotado.
+
+**Sin codigo de producto ajeno.** Sin CSS (3 capas intactas). Sin `localStorage` nuevo. Sin
+refactor masivo. Sin tocar `MIRROR_MAP`.
+
+**Harnesses de este ciclo** (todos con control positivo/negativo; `tools/` esta gitignored, asi
+que no se commitean):
+
+| Archivo | Que mide | Resultado |
+|---|---|---|
+| `tools/hb118-suite-exit.js` | La suite entera por EXIT CODE, no por `findstr` | 55 exit 0 / 686 pass / 0 FAIL |
+| `tools/hb118-auditar-veredicto.mjs` | Las afirmaciones del Reviewer, una por una, contra `origin/main` | 25 pass / 0 FAIL |
+| `tools/hb118-cuento-po.mjs` | Propuestas VIVAS del PO sobre la union de sus 10 refs | 8 cuentan / 2 cerradas, control negativo 0 |
+| `tools/hb118-medir-po.mjs` | Las 8 del conteo, medidas contra `origin/main` | 12 pass / 0 FAIL |
+| `tests/t19c-lectores-legacy.test.js` | El fix (red 12 FAIL -> 36/0) | 36 pass / 0 FAIL |

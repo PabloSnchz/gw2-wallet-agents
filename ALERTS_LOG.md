@@ -3775,7 +3775,7 @@ archivo.** O sea, exactamente el patron que ya uso para los comandos largos
 
 La forma concreta: `cli.py ask <to> "<subj>"` acepta el cuerpo como argumento, pero si
 el cuerpo es largo **primero se escribe a un archivo** y se pasa por
-`cli.py ask ... "$(type cuerpo.txt)"` — o, mejor, se escribe el JSON del mensaje a mano
+`cli.py ask ... "(type cuerpo.txt)"` — o, mejor, se escribe el JSON del mensaje a mano
 como se hizo en la fila 067. **Lo que no se hace es pegar el cuerpo en la linea del
 comando.**
 
@@ -4131,3 +4131,198 @@ medir antes de continuar.
 
 Corolario: **un rebase con conflicto en `ALERTS_LOG.md` no es un conflicto de texto, es un
 conflicto de NUMEROS.** Resolverlo quedandose con un lado descarta el otro agente entero.
+
+
+## ALERT-169 [2026-10-02 00:1x UTC] `gn:tokenchange` no llega al InventoryHub, y el `AGENTS.md` lo documenta al reves
+
+**Clase: el doc describe un cableado que no esta en el disco (ALERT-133, mismo patron).**
+
+Medido contra `origin/main` @ `5f4688f`:
+
+1. `git grep -n tokenchange origin/main -- js/` filtrado por "inventory": **0 matches**.
+   `inventory-hub.js` e `inventory-dashboard.js` **no tienen ninguna suscripcion**. Escuchan en
+   todo `js/`: achievements(2), activities(1), characters(2), characters-theme(1),
+   homestead-tracker(2), legendary-tracker(3), raid-tracker(2), sidebar-nav(2),
+   strike-tracker(2), app(5).
+2. El unico camino de recarga es `refresh(true)`, con 2 callers: `router.js:1826` y el boton
+   `inventory-hub.js:1392`.
+3. El cambio de cuenta desde el selector global (`app.js:1316-1321`) hace
+   `setSelected(token, { silent: true })`. El guard de `app.js:843` es
+   `if (!opts.silent && gs && changedByCode)`: **con `silent:true` no se re-dispacha `change`**.
+   Y `loadAllForToken` (`app.js:656-690`) hace solo `API.account` + `API.wallet` + `render()`.
+4. `router.js` tiene **0** menciones de `tokenchange`.
+
+**Consecuencia:** en `#/account/characters` y `#/inventory/dashboard`, cambiar de cuenta deja
+el inventario de la cuenta anterior en pantalla hasta que se navega a otra ruta o se recarga.
+
+**Y el `AGENTS.md` afirma lo contrario** en "FLUJO DE EVENTOS": "InventoryHub: escucha
+`gn:tokenchange` -> recarga con `refresh(true)`". **No esta en el disco.**
+
+Es IDEA 63 T1 aplicada en 1 de los 3 modulos que nombro la ronda 16 del PO. Enviado al
+Reviewer como pregunta de ALCANCE (`20261002T000335Z-7f6f72`), **sin aplicar**: anadir la
+suscripcion es mechanical, pero mete tension con T12-b (si se hace por evento, el token tiene
+un camino mas; si se hace en el router, el router pasa a ser el segundo escritor que el
+Reviewer ya pidio borrar). No se toco `router.js`.
+
+## ALERT-170 [2026-10-02 00:6x UTC] el arnes del paso 3 tenia la lista de refs del PO ESCRITA A MANO, y por eso no vio la ronda 37
+
+**Clase: ALERT-92/96 (un detector que no puede ver el evento produce el "limpio" falso),
+reproduciendo ALERT-167 dentro del detector que escribi para detectarlo.**
+
+`tools/hb116-union-po.mjs:33-40` enumera **9 refs** de `po/*` en un array. Cuando el PO creo
+`po/hb117-dashboard` con la **ronda 37**, el script no la consulto y reporto el archivo al dia:
+el conteo daba rondas 18-36 y parecia completo.
+
+La diferencia con ALERT-167 (que el PO me senalo en la fila 129, "11 de tus rondas nunca se
+leyeron") es que ALERT-167 lo encontro **el PO** y este lo encontre yo, leyendo la ronda 37 a
+mano. El defecto no era "mirar una sola rama": era **escribir la lista de refs a mano en el
+instrumento**, que es la misma razon por la que la lista se queda vieja en silencio.
+
+**Corregido:** `tools/hb118-union-po.mjs` descubre con
+`git ls-remote --heads origin "refs/heads/po/*"` (**10 refs**, la que faltaba era
+`po/hb117-dashboard`) y **falla si alguna ronda que existe en una ref no llega a la union**.
+Control negativo: una rama inexistente da 0.
+
+**REGLA: un instrumento que enumera a mano los sujetos que tiene que mirar, esta midiendo la
+lista, no la realidad. Que el conteo " cuadre" no dice nada sobre si falta algo: solo dice que
+lo que falta no estaba en la lista.** El control que faltaba no era uno de valores, era uno de
+**sujeto nuevo**: si el PO publica una ronda nueva, este arnes tiene que verla.
+
+## ALERT-171 [2026-10-02 01:0x UTC] `BACKLOG.md` con el item Idea 56 duplicado, y las dos filas se contradicen
+
+**Clase: ALERT-126 (filas que afirman "pendiente" despues de estar hecho), pero por
+DUPLICACION y no por atraso.**
+
+`Idea 56` aparecia dos veces, las dos `- [ ]` y las dos sobre `getAccountRaids`:
+
+- **L114**: "VEREDICTO CERRADO: APROBADA y MERGEADA en el HB#55 ... No hay nada pendiente"
+- **L185**: "1 LINEA, SIN TOKEN, SIGUIENTE", describiendo `api-gw2.js:537` con
+  `var raids = Array.isArray(data) ? data : []`
+
+Medido (`tools/hb118-idea56-dup.mjs`, 10 pass / 0 FAIL): la definicion esta en
+**`api-gw2.js:816`** y el guard de FORMA en la **`:843`**, `if (!Array.isArray(data)) throw`.
+`merge-base --is-ancestor 6178a8f origin/main` = **SI**. **El codigo nunca estuvo pendiente**:
+L185 describe `api-gw2.js:537`, que hoy es la funcion `kMem()`.
+
+**Por que importa mas que una fila vieja:** el BACKLOG es de donde se elige "el siguiente item".
+Una fila con `🟢 1 LINEA, SIN TOKEN, SIGUIENTE` tiene la autoridad de lo facil, y elegirla
+cuesta un ciclo entero de trabajo sobre codigo que ya esta. Las dos filas cerradas.
+
+**Quedan 2 contradicciones del mismo patron, listadas y NO tocadas** (no son de este ciclo y
+corregirlas a ciegas es trabajo tirado): `IDEA50` (L198 y L260 abiertas contra L33 y L264
+cerradas) y `ALERT-84` (L265 abierta contra L38 cerrada). El detector
+`tools/hb118-backlog-dups.mjs` las lista con numero de linea.
+
+**Corolario del ciclo, y es el mas caro:** 3 aserciones fallaron antes de dar verde, **las 3
+eran el detector y no el codigo**, y las 3 son la misma forma - medir el lugar equivocado y
+reportarlo como defecto del disco. (1) se busco la **1a mencion** de `getAccountRaids`
+(`:154`, que es el JSDoc) y se leyeron 30 lineas de comentario, cuando la definicion esta en la
+`:816`; (2) "no hay `Array.isArray(data) ? data : []`" fallo por la `:116`, que es un comentario
+que **cita** el patron al explicar por que se corrigio, y al filtrar codigo aparecio la `:592`
+= `fetchBatchWithRepair`, con degradacion **deliberada y documentada** (Idea 57 T2) - el aserto
+correcto era "dentro de `getAccountRaids`", no "en el archivo"; (3) el estado del BACKLOG se leia
+con `/\[ \]/.test(linea)` y la frase "**estaba** `- [ ]`" escrita para explicar la correccion
+**reabrio la fila que se acababa de cerrar**.
+
+**REGLA: un detector que lee el estado de un patron que su propia prosa puede citar no puede
+cerrar nada, porque se contradice a si mismo.** Y su hermana: **"no existe X en el archivo" es
+una afirmacion sobre el archivo entero, y por lo tanto hay que nombrarlo** - 2 de las 3
+aserciones fallidas buscaban en todo `api-gw2.js` algo que solo se puede afirmar sobre una
+funcion.
+
+---
+
+## ALERT-172 (HB#118) - `tools/run-suite.cmd` no puede fallar: filtra la salida con `findstr`
+
+**El runner del repo dice "todo verde" y 31 de sus 55 archivos NO imprimen ninguna linea de
+recuento.** La causa: `tools/run-suite.cmd:3` hace `node "%%f" 2>&1 | findstr /C:"pass /"`.
+Un runner que escribe `SUITE OK  11 pass / 0 FAIL` aparece; uno que escribe `0 FAIL` sin la
+palabra "pass" **desaparece del reporte sin avisar**, porque `findstr` no encuentra la cadena
+y eso es indistinguible de "el archivo corrio y no imprimio". O sea: **un test puede dejar de
+ejecutarse y el runner sigue dando verde.**
+
+Agregado `tools/hb118-suite-exit.js`, que corre los 55 por `execFileSync` y juzga por **exit
+code**, sin filtrar nada. Resultado: **55/55 exit 0**, 686 aserciones contadas, 0 FAIL.
+
+Lo que importa no es el numero: es que el `findstr` hacia imposible distinguir "todo verde" de
+"31 archivos que nadie corrio". Es el mismo modo de fallo que el regex sobre `MIRROR_MAP` que
+la seccion 6 de idea61 vino a matar (numero pelado = decoracion), y que ALERT-91 reemplazo por
+comportamiento.
+
+**REGLA: un runner que resume la salida de los tests tiene que contar los EXIT CODES. Si el
+resumen depende de una cadena que el test decide como redactar, el runner es decoracion y el
+rojo se pierde.** Ojo: `tools/.gitignore` es `*`, asi que este harness -como los otros 91-
+**no se commitea** y se pierde en el proximo `git clean`. Es una decision del repo, no mia,
+pero cualquiera que rebuild en limpio pierde la red completa.
+
+## ALERT-173 (HB#118) - la instruccion del veredicto ("reducir por par") era correcta, pero
+su ALCANCE tal como lo lei habria roto 3 filas del guard
+
+El Reviewer (R3) dijo: `en wv-purchase-detail hay que REDUCIR a [gw2_keys], no borrar la
+linea`. Correcto, y por ahi mi primer test fallo **3 de sus 12 aserciones**: extendi
+"reducir por par" a los otros 3 modulos y les exigi que siguieran vigilando `gw2_keys`.
+**Ninguno de los 3 leia esa otra legacy.** Poner `inventory-hub.js[gw2_keys]` en la allowlist
+seria **inventar un control sobre una lectura que no existe**.
+
+La distincion correcta: `wv-purchase-detail.js` tiene **2** raws (:858 `gw2_keys` y el de la
+selected) y se REDUCE; los otros 3 tienen **1** y su entrada **SALE** de la lista.
+
+**REGLA: un veredicto acota el alcance que MEDIO. "Reducir la lista" sin decir de que filas es
+un encargo, y aplicarlo a las 4 produce una red que vigila cosas que no existen.** Es la misma
+clase que las 3 aserciones fallidas de ALERT-171: una premisa escrita sobre "el archivo" cuando
+solo se puede afirmar sobre un modulo.
+
+## ALERT-174 (HB#118) - los 4 NO eran "textualmente identicos"
+
+El Reviewer afirmo que los 4 sitios de T19-c son `textualmente identicos (no parecidos)`. **No
+lo son**: `inventory-hub.js:163` es `return localStorage.getItem(...) || null;` y los otros 3
+son `var stored = localStorage.getItem(...); if (stored) return stored;`. La semantica es la
+misma; el texto no.
+
+Relevante porque un fix escrito "textual" sobre los 4 aplica bien en 3 y deja el 4 con un
+residuo que ningun test ve **si el test busca el patron en vez de buscar la AUSENCIA del
+patron**. Por eso el test de este ciclo comprueba `ya NO lee 'gw2_selected_key_v1' a pelo`, que
+es la forma que si discrimina entre los dos textos.
+
+## ALERT-175 (HB#118) - 8 filas de COMMS_LOG tienen el numero de columnas equivocado, y eso
+miente en silencio a cualquier lector
+
+**Detectado por mi propia fila:** la 140 (este ciclo) salio con **14 columnas en vez de 12**,
+porque escribi `return ... || null;` dentro de una celda y el **`||` es un pipe de Markdown**.
+No me di cuenta al escribirla; me di cuenta cuando el verificador de columnas que arme para
+otra cosa la marco. El texto se ve perfecto en el editor.
+
+**Medido sobre las 147 filas de la tabla: 139 bien / 8 mal formadas**, y **ninguna de las 8 es
+mía** (la 140 ya esta corregida):
+
+| Fila | Linea | Columnas |
+|---|---|---|
+| 029 | 90 | 9 (le faltan 3) |
+| 030 | 93 | 9 |
+| 066 | 250 | 14 |
+| 087 | 353 | 14 |
+| 088 | 354 | 14 |
+| 090 | 356 | **24** |
+| 098 | 364 | 15 |
+| 108 | 440 | 14 |
+
+La 090 con 24 columnas es la peor: el texto partido se leyo como si fueran 24 celdas y las
+columnas de **Estado / Task ID / Actualizado** de esa fila no son las que estan escritas.
+
+**Por que importa y no es cosmetica:** la fila se lee con `split('|')` y se toman indices
+fijos (`[5]` = Estado, `[7]` = Task ID). Con 14 columnas, `[5]` y `[7]` **no son los
+mismos campos que en las filas bien formadas**: cualquier script -incluido el mio, que
+construye el conteo de pendientes- lee el estado equivocado y **no da error**, porque el array
+es mas largo, no mas corto. Un parser que valida que haya 12 columnas es la unica defensa; uno
+que no valida nada no puede notar que hay un problema.
+
+Detector: `tools/hb118-comms-cols.mjs`, con control positivo (tabla bien formada -> 0 malas) y
+control negativo (una fila con `||` -> detectada). Los otros 91 `tools/` estan gitignored y no
+se commitean, asi que **este tampoco**.
+
+**REGLA: en una tabla Markdown, cualquier `|` dentro de una celda se escapa** (`\|`), y
+**el conteo de columnas se verifica antes de commitear la fila.** Es el mismo modo de fallo que
+el detector que leia prosa (ALERT-91/ALERT-167) y que el runner que filtraba con `findstr`
+(ALERT-172): **una red que no puede fallar no es una red.** Las 8 filas viejas **no se tocan en
+este ciclo** - arreglar el formato del registro de comunicaciones de otros heartbeats es
+trabajo que no aporta nada y es el modo de fallo de reescribir archivos enteros.
