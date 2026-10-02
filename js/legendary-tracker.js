@@ -94,9 +94,27 @@
     _refreshInFlight: null
   };
 
-  // Filtros activos de la vista catálogo (ALERT-84 T3). Los consume
-  // `renderFilterBar(filters, catalog)`; los aplica `applyFilters()`.
+  // Filtros activos. Los consume `renderFilterBar(filters, catalog)`; los
+  // aplica `catalogItems()`.
+  //
+  // QUE CAMBIA (punto 2.2, 2026-10-02): estos tres filtros eran estado
+  // compartido pero los aplicaba SOLO `catalogItems()`, que corre unicamente en
+  // el Catalogo. `renderProgress()` filtraba por `owned` y nada mas. El
+  // resultado era un control visible que en "Mi progreso" no hacia nada: se
+  // podia tocar "Armas" y la vista no cambiaba. Un control visible que no
+  // hace nada es peor que no dibujarlo.
   var filters = { type: null, generation: null, expansion: null };
+
+  // Alcance de "Mi progreso" (punto 2.2). Es estado PROPIO y no un cuarto
+  // filtro, porque responde otra pregunta: los tres de arriba eligen "de que
+  // tipo", este elige "de cuales de esos me interesan".
+  //   'unlocked' -> solo las que ya tengo
+  //   'missing'  -> solo las que me faltan
+  // No aplica al Catalogo: ahi se ve el catalogo entero, y "solo faltantes"
+  // sobre un catalogo completo es "todo", o sea un switch que no cambia nada
+  // visible. Por eso vive fuera de `filters` y no se dibuja ahi.
+  var PROGRESS_SCOPES = { UNLOCKED: 'unlocked', MISSING: 'missing' };
+  var scope = PROGRESS_SCOPES.UNLOCKED;
 
   // ========================================================================
   // 2. UTILIDADES
@@ -205,14 +223,34 @@
   // script no se cargo, o registro a medias y fue rechazado), se vuelve al
   // mensaje honesto — y `state.renderersRegistered` queda en false, que es lo
   // que permite distinguir "el modulo todavia no esta" de "el modulo se rompio".
+  // Predicado de filtro, separado de la fuente, para que Catalogo y Progreso
+  // apliquen EXACTAMENTE la misma regla (punto 2.2). Antes estaba embebido en
+  // `catalogItems()` y por eso el progreso no lo podia reutilizar sin
+  // duplicarlo: duplicar un filtro es como se desincronizan dos filtros.
+  function passesFilters(item) {
+    if (!item) return false;
+    if (filters.type && item.type !== filters.type) return false;
+    if (filters.generation && String(item.generation) !== String(filters.generation)) return false;
+    if (filters.expansion && item.expansion !== filters.expansion) return false;
+    return true;
+  }
+
   function catalogItems() {
     var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
+    return cat.filter(passesFilters);
+  }
+
+  // Que items muestra "Mi progreso": los que pasan los filtros DE PRIMERO, y
+  // despues el alcance. El orden importa y es el correcto: el switch es una
+  // segunda capa sobre un conjunto ya recortado. Al reves, "Solo faltantes" con
+  // filtro de Armas traeria las armas que faltan entre TODAS, y el filtro
+  // actua como si no se hubiera tocado.
+  function progressItems(owned) {
+    var cat = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
     return cat.filter(function (item) {
-      if (!item) return false;
-      if (filters.type && item.type !== filters.type) return false;
-      if (filters.generation && String(item.generation) !== String(filters.generation)) return false;
-      if (filters.expansion && item.expansion !== filters.expansion) return false;
-      return true;
+      if (!passesFilters(item)) return false;
+      var isOwned = !!(owned[item.id] && owned[item.id] > 0);
+      return scope === PROGRESS_SCOPES.MISSING ? !isOwned : isOwned;
     });
   }
 
@@ -259,8 +297,59 @@
       content.innerHTML = r.filterBar(filters, all) + r.catalogGrid(items, owned);
       wireFilterBar();
     } else {
-      content.innerHTML = r.progress({ owned: owned, mode: state.mode }, catalogStats(all, owned));
+      // Los items los calcula el tracker, no el render. Antes los elegia
+      // `renderProgress()` por su cuenta desde `state.owned`, lo que hacia
+      // imposible que los filtros del tracker llegaran a esa vista: los
+      // filtros viven acá y el render no los tiene. Que el recorte se decida
+      // en un solo lado es lo que hace que "Armas" signifique lo mismo en las
+      // dos vistas.
+      var pItems = progressItems(owned);
+      content.innerHTML = r.filterBar(filters, all) +
+        '<div class="lt-progress-scope" data-scope-bar="true">' +
+          scopeToggleHTML() +
+        '</div>' +
+        r.progress(
+          { owned: owned, mode: state.mode, items: pItems, scope: scope, filters: filters },
+          catalogStats(pItems, owned)
+        );
+      wireFilterBar();
+      wireScopeBar();
     }
+  }
+
+  // Switch "Desbloqueadas / Solo faltantes".
+  function scopeToggleHTML() {
+    return '<div style="display:inline-flex;gap:4px;align-items:center;margin-bottom:14px;">' +
+      '<span style="font-size:0.65rem;color:var(--tx-3);padding:4px 8px;">Mostrar:</span>' +
+      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'active' : '') + '" ' +
+        'data-scope="unlocked" ' +
+        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
+        'border:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '1px solid #68ff9f' : '1px solid var(--bd-1)') + ';' +
+        'background:' + (scope === PROGRESS_SCOPES.UNLOCKED ? 'rgba(104,255,163,0.15)' : 'var(--bg-1)') + ';' +
+        'color:' + (scope === PROGRESS_SCOPES.UNLOCKED ? '#68ff9f' : 'var(--tx-2)') +
+        ';">Desbloqueadas</button>' +
+      '<button class="lt-scope-btn ' + (scope === PROGRESS_SCOPES.MISSING ? 'active' : '') + '" ' +
+        'data-scope="missing" ' +
+        'style="padding:4px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;cursor:pointer;' +
+        'border:' + (scope === PROGRESS_SCOPES.MISSING ? '1px solid #974EFF' : '1px solid var(--bd-1)') + ';' +
+        'background:' + (scope === PROGRESS_SCOPES.MISSING ? 'rgba(151,78,255,0.2)' : 'var(--bg-1)') + ';' +
+        'color:' + (scope === PROGRESS_SCOPES.MISSING ? '#974EFF' : 'var(--tx-2)') +
+        ';">Solo faltantes</button>' +
+    '</div>';
+  }
+
+  function wireScopeBar() {
+    var bar = $('#legendaryModeContent [data-scope-bar="true"]');
+    if (!bar || bar.getAttribute('data-wired') === 'true') return;
+    bar.setAttribute('data-wired', 'true');
+    bar.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute) return;
+      var sc = t.getAttribute('data-scope');
+      if (!sc) return;
+      scope = (sc === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
+      renderCurrentMode();
+    });
   }
 
   // Delegación de eventos: los botones de filtro los genera `render-catologo.js`
@@ -612,6 +701,26 @@
     getRenderState: getRenderState,
     getState: getState,
     setMode: setMode,
+
+    // Escritura de filtros y alcance por API publica (punto 2.2). No es
+    // necesaria para los botones — esosvan por delegacion de eventos — pero si
+    // para que un consumidor externo (los modales de 2.3, un test, un
+    // deep-link) pueda fijar el recorte sin escribir en el objeto interno.
+    // `null` limpia el filtro; el valor se valida contra el propio dato, no
+    // contra una lista: un filtro de tipo que no existe en el catalogo es
+    // legitimo (se ve la grilla vacia), uno de scope que no es uno de los dos
+    // NO lo es y cae al default en vez de dejar la vista sin items.
+    setFilter: function (key, value) {
+      if (key !== 'type' && key !== 'generation' && key !== 'expansion') return false;
+      filters[key] = (value === '' ? null : value);
+      if (state.inited && state.active) renderCurrentMode();
+      return true;
+    },
+    setScope: function (value) {
+      scope = (value === PROGRESS_SCOPES.MISSING) ? PROGRESS_SCOPES.MISSING : PROGRESS_SCOPES.UNLOCKED;
+      if (state.inited && state.active) renderCurrentMode();
+      return scope;
+    },
     _debug: function () {
       return {
         version: VER,
@@ -624,6 +733,7 @@
         error: state.error ? String(state.error.message || state.error) : null,
         render: getRenderState(),
         filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion },
+        scope: scope,
         dom: {
           panel: !!el('legendaryArmoryPanel'),
           panelVisible: el('legendaryArmoryPanel') ? !el('legendaryArmoryPanel').hasAttribute('hidden') : false,

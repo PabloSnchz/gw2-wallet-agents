@@ -77,13 +77,36 @@
     if (!item.generation) return '—';
     return GEN_LABELS[item.generation] || ('Gen ' + item.generation);
   }
-  function formatCoinShort(copper) {
-    if (!copper || copper <= 0) return '—';
-    var g = Math.floor(copper / 10000);
-    if (g > 0) return g.toLocaleString('es-AR') + 'g';
-    var s = Math.floor((copper % 10000) / 100);
-    if (s > 0) return s + 's';
-    return (copper % 100) + 'c';
+  // Badge de precio TP.
+  //
+  // QUE CAMBIA (punto 1.1, 2026-10-02): antes era `formatCoinShort()`, que
+  // devolvia texto plano ("1.889g") envuelto en un div con borde. Ahora usa
+  // el MISMO componente que la Cartera (`app.js:162` `badgesHTMLFromCopper`):
+  // las clases `.coin` / `.coin--g` de `main.css:224-232`.
+  //
+  // POR QUE NO SE INVENTA CSS NUEVO: `.coin` ya existe y ya se ve bien en la
+  // Cartera. Lo que faltaba no era el estilo, era que la Armeria no lo
+  // usara. Agregar un `.lt-coin` propio seria el camino corto y el que
+  // diverge: dos clases para el mismo componente, y un cambio de tema futuro
+  // toca una y no la otra.
+  //
+  // POR QUE SE DESCARTA `formatCoinShort` Y NO SE REAPROVECHA: las dos
+  // funciones hacen lo mismo con salidas distintas. `badgesHTMLFromCopper`
+  // emite una pastilla por unidad (oro, plata, cobre) y omite las que valen
+  // cero; `formatCoinShort` colapsa a la unidad mayor. Para un badge chico
+  // en una grilla de 206 cards, la version de una sola pastilla ocupa menos
+  // y no muestra "0 s" al lado de "1 g". Se conservan las dos porque la
+  // columna de stock del modal de materiales (2.3) si va a querer el
+  // desglose completo, y no tiene por que reinventarlo.
+  function tpCoinHTML(copper) {
+    var g = Math.floor((copper || 0) / 10000);
+    var s = Math.floor(((copper || 0) % 10000) / 100);
+    var c = (copper || 0) % 100;
+    var parts = [];
+    if (g > 0) parts.push('<span class="coin coin--g">' + g.toLocaleString('es-AR') + '</span>');
+    if (s > 0) parts.push('<span class="coin coin--s">' + s + '</span>');
+    if (c > 0) parts.push('<span class="coin coin--c">' + c + '</span>');
+    return parts.length ? parts.join('') : '<span class="coin coin--c">0</span>';
   }
 
   // =======================================================================
@@ -222,12 +245,18 @@
     }
 
     // Badge TP (solo si tradeable)
+    //
+    // El wrapper `lt-tp-badge` conservaba su fondo/borde/padding INLINE, y
+    // al meter adentro una pastilla `.coin` (que ya trae fondo, borde y
+    // padding de main.css) quedaban dos cajas anidadas: un borde dentro de
+    // otro borde, con el doble de padding. Por eso el wrapper solo aporta
+    // `gap` entre unidades y el `font-size` chico de la grilla; el resto lo
+    // pone `.coin`. Es el mismo criterio que usa la Cartera.
     var tpBadge = '';
     if (item.tpTradeable && item.tpSell > 0) {
       tpBadge = '<div class="lt-tp-badge" title="Precio TP (venta directa)" ' +
-        'style="display:inline-flex;align-items:center;background:var(--bg-1);' +
-        'border:1px solid var(--bd-1);border-radius:6px;padding:2px 6px;font-size:0.62rem;color:var(--tx-2);">' +
-        formatCoinShort(item.tpSell) + '</div>';
+        'style="display:inline-flex;align-items:center;gap:4px;font-size:0.62rem;">' +
+        tpCoinHTML(item.tpSell) + '</div>';
     }
 
     // Badges de tipo, gen, exp
@@ -277,9 +306,26 @@
   // =======================================================================
   function renderProgress(state, stats) {
     var catalog = (root.LegendaryCatalog && root.LegendaryCatalog.items) || [];
-    var items = catalog.filter(function (item) {
-      return state.owned[item.id] && state.owned[item.id] > 0;
-    });
+
+    // QUE CAMBIA (punto 2.2, 2026-10-02): antes el render elegia sus propios
+    // items con `catalog.filter(owned)`. Ahora RECIBE la lista ya recortada en
+    // `state.items`, porque el recorte depende de dos cosas que el render no
+    // tiene: los filtros que viven en el tracker y el alcance del switch.
+    // Que el tracker decida el conjunto y el render solo lo pinte es lo que
+    // hace que "Armas" muestre lo mismo en Catalogo y en Mi progreso.
+    //
+    // Se conserva el fallback a `owned` para cuando `state.items` no venga
+    // (un consumidor viejo que llame a `progress()` con la firma anterior).
+    // Sin ese fallback, ese consumidor veria una grilla vacia en vez de un
+    // error: el modo de fallo silencioso.
+    var items;
+    if (Array.isArray(state.items)) {
+      items = state.items.slice();
+    } else {
+      items = catalog.filter(function (item) {
+        return state.owned[item.id] && state.owned[item.id] > 0;
+      });
+    }
 
     // Ordenar por rareza de progreso (no owned primero en catálogo, owned primero en progreso)
     items.sort(function (a, b) {
@@ -287,9 +333,27 @@
     });
 
     if (items.length === 0) {
+      // El mensaje viejo decía SIEMPRE "Aún no poseés ninguna legendaria".
+      // Con el switch y los filtros queda mentira en dos casos reales: si el
+      // alcance es "Solo faltantes" y no falta ninguna, o si un filtro dejó la
+      // lista vacia. Un empty state que afirma algo falso es peor que no
+      // tener ninguno: el usuario cree que la API fallo.
+      var hayFiltro = !!(state.filters && (state.filters.type || state.filters.generation || state.filters.expansion));
+      var soloFaltantes = state.scope === 'missing';
+      var msg, sub;
+      if (hayFiltro) {
+        msg = 'No hay legendarias con los filtros aplicados.';
+        sub = 'Probá limpiar los filtros para ver el progreso completo.';
+      } else if (soloFaltantes) {
+        msg = 'No te falta ninguna legendaria de esta vista.';
+        sub = 'Tenés todas las legendarias desbloqueadas. Cambiá a <strong>Desbloqueadas</strong> para verlas.';
+      } else {
+        msg = 'Aún no poseés ninguna legendaria.';
+        sub = 'Cambiá a la vista <strong>Catálogo</strong> para explorar todas las legendarias.';
+      }
       return '<div class="lt-progress-empty" style="text-align:center;padding:40px;color:var(--tx-3);">' +
-        '<div style="font-size:0.85rem;margin-bottom:8px;">Aún no poseés ninguna legendaria.</div>' +
-        '<div style="font-size:0.75rem;">Cambiá a la vista <strong>Catálogo</strong> para explorar todas las legendarias.</div>' +
+        '<div style="font-size:0.85rem;margin-bottom:8px;">' + msg + '</div>' +
+        '<div style="font-size:0.75rem;">' + sub + '</div>' +
         '</div>';
     }
 
