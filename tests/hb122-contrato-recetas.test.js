@@ -13,11 +13,19 @@
 // tres veces en dos ciclos).
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-let pass = 0, fail = 0;
-const FALLOS = [];
+let pass = 0, fail = 0, skip = 0;
+const FALLOS = [], SKIPS = [];
 function ok(name, cond, extra) {
   if (cond) { pass++; console.log('  pass - ' + name); }
   else { fail++; FALLOS.push(name); console.log('  FAIL - ' + name + (extra ? '  [' + extra + ']' : '')); }
+}
+// Un aserto que NO se pudo correr no es un aserto que paso. Contarlo como pass
+// seria un verde falso; contarlo como FAIL seria un rojo que nadie puede
+// arreglar sin un archivo que el repo ignora a proposito. Va en su propia
+// categoria, con el motivo impreso SIEMPRE.
+function omitido(name, motivo) {
+  skip++; SKIPS.push(name);
+  console.log('  skip - ' + name + (motivo ? '  [' + motivo + ']' : ''));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,13 +275,38 @@ console.log('\n[CONTRATO-10] el generador es reproducible');
 // comparan.
 const { execFileSync } = require('child_process');
 const tmp = path.join(require('os').tmpdir(), 'hb122-contrato-' + process.pid + '.js');
-let buildOk = true, buildErr = '';
-try {
-  const py = process.env.HB122_PY || 'python';
-  execFileSync(py, [path.join(ROOT, 'js', '_build_legendary_recipes.py'), '--out', tmp],
-    { stdio: 'pipe', encoding: 'utf8' });
-} catch (e) { buildOk = false; buildErr = (e.stderr || e.message || '').slice(0, 300); }
-ok('CONTRATO-10a: el generador corre sin error', buildOk, buildErr);
+
+// MEDIDO en el HB#125: la fuente del generador es tools/cl_recipes.json, y
+// tools/.gitignore es "*" A PROPOSITO (dump crudo de la API, no es codigo).
+// Desde un clon limpio el generador NO puede abrirla, y este bloque reportaba
+// eso como "el generador esta roto": 1 FAIL en origin/main desde ed9a126, que
+// nadie vio porque el runner por texto leia "49 pass / 1 FAIL" como verde.
+//
+// Son TRES casos y el codigo los trataba como uno:
+//   1) el dump esta y el generador corre -> control de reproducibilidad REAL
+//   2) el dump NO esta                   -> NO EJECUTADO, con el motivo escrito
+//   3) el dump esta y el generador falla -> FAIL real, del generador
+// Fusionar 2 con 3 da un rojo que nadie puede arreglar, y da el otro extremo:
+// si 2 se acepta como verde, 3 pasa desapercibido. Van separados.
+const DUMP = path.join(ROOT, 'tools', 'cl_recipes.json');
+const hayDump = fs.existsSync(DUMP);
+let buildOk = false, buildErr = '';
+if (hayDump) {
+  try {
+    const py = process.env.HB122_PY || 'python';
+    execFileSync(py, [path.join(ROOT, 'js', '_build_legendary_recipes.py'), '--out', tmp],
+      { stdio: 'pipe', encoding: 'utf8' });
+    buildOk = true;
+  } catch (e) { buildErr = (e.stderr || e.message || '').slice(0, 300); }
+}
+
+if (!hayDump) {
+  omitido('CONTRATO-10a: el generador corre sin error',
+    'sin tools/cl_recipes.json, que tools/.gitignore excluye a proposito. Para reproducirlo: ' +
+    'volver a bajar el dump de /v2/recipes?ids=<los 206 del catalogo> y correr el generador.');
+} else {
+  ok('CONTRATO-10a: el generador corre sin error', buildOk, buildErr);
+}
 
 if (buildOk) {
   const ctx2 = { console: { log() {}, warn() {}, error() {}, info() {}, debug() {} } };
@@ -288,16 +321,25 @@ if (buildOk) {
   });
   ok('CONTRATO-10b: regenerar da el MISMO contrato item por item (206/206)',
     iguales === cat.length, iguales + '/' + cat.length + ' distintos: ' + distintos.join(','));
-  ok('CONTRATO-10c: el generador aborta si un craftType de la fuente no esta mapeado',
-    fs.readFileSync(path.join(ROOT, 'js', '_build_legendary_recipes.py'), 'utf8')
-      .indexOf('SOURCE_TYPE_TO_CRAFT.get(src_type)') >= 0 &&
-    fs.readFileSync(path.join(ROOT, 'js', '_build_legendary_recipes.py'), 'utf8')
-      .indexOf('no esta en el mapa del') >= 0);
-  ok('CONTRATO-10d: el generador AVISA si el placeholder desaparece del catalogo',
-    fs.readFileSync(path.join(ROOT, 'js', '_build_legendary_recipes.py'), 'utf8')
-      .indexOf('AVISO: el catalogo ya no tiene el placeholder') >= 0);
   try { fs.unlinkSync(tmp); } catch (e) { /* el tmp se limpia solo */ }
 }
+
+// 10c, 10d y 10e leen el TEXTO del generador, no su salida. Estaban dentro del
+// if (buildOk) de una version anterior, asi que con el dump ausente no se
+// corrian NUNCA: tres invariantes que el test declara vigilar y que en un clon
+// limpio no vigilan nada. Sacarlos del if no los hace mas debiles.
+const GEN = fs.readFileSync(path.join(ROOT, 'js', '_build_legendary_recipes.py'), 'utf8');
+ok('CONTRATO-10c: el generador aborta si un craftType de la fuente no esta mapeado',
+  GEN.indexOf('SOURCE_TYPE_TO_CRAFT.get(src_type)') >= 0 &&
+  GEN.indexOf('no esta en el mapa del') >= 0);
+ok('CONTRATO-10d: el generador AVISA si el placeholder desaparece del catalogo',
+  GEN.indexOf('AVISO: el catalogo ya no tiene el placeholder') >= 0);
+// La limitacion de arriba queda escrita donde se lee, para que el proximo que
+// se pregunte por que 10a no corra no tenga que abrir el .gitignore para
+// descubrirlo.
+ok('CONTRATO-10e: el generador declara su fuente con el path exacto',
+  GEN.indexOf('"tools", "cl_recipes.json"') >= 0 || GEN.indexOf("'tools', 'cl_recipes.json'") >= 0,
+  'no se encontro tools/cl_recipes.json declarado como SOURCE en _build_legendary_recipes.py');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTROL NEGATIVO (2026-10-02, ALERT-180). La fase roja de este test da 2 FAIL
@@ -381,5 +423,9 @@ ok('CONTRATO-11e: un hasRecipe:boolean hace FALLAR el reparto de Obsidian',
 // montaje quedaria sin cubrir justo cuando es lo unico medible.)
 
 console.log('\nRESULTADO: ' + pass + ' pass / ' + fail + ' FAIL');
+if (skip) {
+  console.log('OMITIDOS (no se pudieron correr, con el motivo): ' + skip);
+  SKIPS.forEach(n => console.log('  - ' + n));
+}
 if (fail) { console.log('FALLARON: ' + FALLOS.join(' | ')); process.exit(1); }
 process.exit(0);
