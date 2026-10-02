@@ -5747,3 +5747,73 @@ edito, y se ve en el log como un caracter raro pegado a "fix(armeria)". Lo
 detecto la misma comprobacion de CJK que escribe el HB#140, ampliada a bytes de
 BOM. Loza el amend. Misma clase que las 7 filtraciones de ideogramas: **un byte
 invisible que no se lee en un diff de texto**.
+
+## ALERT-210 (2026-10-03, HB#146) — un WIP con un arnés que NO PARSEA, y el arreglo "obvio" que rompía 3 contratos asertados
+
+| **Severidad** | Media | **Clase** | Proceso / Instrumento |
+|---|---|---|---|
+| Sintoma | El clon principal traia 2 archivos modificados sin commitear, y el arnés **no parseaba** | Que nadie lo noto en el ciclo anterior |
+| Alcance | `js/render-catologo.js` + `tests/armeria-filtros-cola-card.test.js` | Revertido: `origin/main` intacto |
+
+**Sintoma.** Al abrir el ciclo, `git diff origin/main --stat` (el detector barato
+del HB#135) dio 2 modificados. El arnés **no parseaba**:
+
+```
+tests/armeria-filtros-cola-card.test.js:241
+  const enCola = sb.renderFilterBar(...)
+SyntaxError: Identifier 'enCola' has already been declared
+```
+
+El bloque de 20 lineas estaba pegado **DOS VECES** en el mismo `if (fbSrc) {}`:
+una antes del `vm.runInContext` que define `renderFilterBar` (donde la llamada
+daria `TypeError` aunque llegara a ejecutarse) y la otra despues, en el lugar
+correcto. Ademas su aserto afirmaba una falsedad: *"CONTROL: los filtros que SI
+funcionan en las dos vistas siguen pintandose"* sobre `Tipo:`, que **no**
+funciona en la vista de cola.
+
+**Y el mismo defecto lo reproduje yo.** Mi `edit_file` sobre `renderFilterBar`
+**agrego** el bloque en vez de reemplazar el del WIP: quedaron dos `var modo` y
+un `propioDelCatalogo` muerto. No lo vio el test — lo vi mirando el `git diff`.
+Un producto que compila puede tener codigo muerto sin que nada lo note.
+
+**Lo que hay debajo del rojo, y es lo importante.** La premisa del WIP era
+CIERTA: en "Mi progreso" la barra de 4 filtros se pinta y **no recorta nada**,
+porque `legendary-tracker.js:866` hace `r.filterBar(filters, all) +
+renderQueuePanel()` sin pasar por `catalogItems()`. Pero el arreglo obvio
+—**dejar de pintar la barra en la cola**— lo implemente, y dio:
+
+| Direccion | Resultado medido |
+|---|---|
+| Sin la barra en la cola (mi fix) | **43/3, 16/1, 14/1 = 5 FAIL en 3 archivos** |
+| `origin/main` intacto | **2119 aserciones / 0 FAIL en 81/81** |
+
+Y los asertos que caian, en 3 arneses independientes, son un **contrato de
+producto deliberado**, no un descuido:
+
+- `hb119-2-2-filtros-progreso` **FILTRO-01** "Mi progreso dibuja la barra de filtros"
+- `hb126-cola-crafteo` **COLA-13** "los filtros por categoria siguen en Mi progreso"
+- `hb126-cola-crafteo` **COLA-3.1** "el filtro no borra la cola" + **COLA-3.2** "coexisten"
+
+Lo unico que choca es un **comentario** (`legendary-tracker.js:858-864`) que
+declara la intencion contraria: *"Que 'Armas' signifique lo mismo en las dos
+vistas"*. Codigo y arneses coinciden; el comentario quedo viejo cuando la cola
+llego en el paso 5.
+
+**REGLA 1 — un arnés que no parsea no da verde NI rojo.** `node --check` al
+archivo ANTES de culpar al producto. Una guarda que no llega a ejecutarse no
+es una guarda, y su "fase roja" no es evidencia de nada.
+
+**REGLA 2 — si el arnés describe una feature que el producto no tiene, el arnés
+no es evidencia: es una propuesta de diseno disfrazada de bug.** La pregunta
+correcta no es "como hago que el arnés pase" sino "este comportamiento es mio,
+del arnés, o de un contrato que nadie escribio".
+
+**REGLA 3 — implementar el producto hasta que el arnés pase es la trampa.** Se
+sintetiza como "el fix funciona" y esconde que la premisa del fix era una
+suposicion. Aca el diagnostico correcto era al reves, y costo 5 FAIL en 3
+archivos descubrirlo.
+
+**Lo que NO se hizo y por que.** No se aplico nada de producto. La friccion de
+UX es real, pero que se haga es decision de producto (PO/Pablo), no mia. Al
+Reviewer se le mando la pregunta de ALCANCE (deuda de codigo vs de comentario)
+y al PO las 3 salidas, el 2026-10-03. Queda en BACKLOG hasta el veredicto.

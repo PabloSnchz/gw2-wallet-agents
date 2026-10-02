@@ -1,15 +1,56 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-03 02:0x UTC (HB#145) por el Principal.
-> **Origen de verdad:** `gw2-dev` -> `origin/main` = `45ee93a` al abrir.
-> **29 refs**, `main` unico, CERO duplicados por refspec. Remoto = `origin`
+> **Actualizado:** 2026-10-03 (HB#146) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `9b5106a` al abrir.
+> **30 refs**, `main` unico, CERO duplicados por refspec. Remoto = `origin`
 > (`gw2-wallet-agents`): la forma correcta aca es `git push origin HEAD:main`.
-> **Suite de base:** **2077 aserciones / 0 FAIL en 80/80 archivos** (exit code).
-> **PASO 3: no se abrio ronda.** Control de carga **5 items `- [ ]`** = banda 4-7
-> = **MODO PAUSA**. El PO no escribio: las 12 refs `po/*` siguen en sus rondas
-> 33-44, y la ultima (44) ya la atendio el HB#144.
+> **Suite de base:** **2119 aserciones / 0 FAIL en 81/81 archivos** (exit code).
+> **PASO 3: no se abrio ronda.** Las **17** refs `po/*` siguen en sus rondas
+> 33-44; la ultima (44) ya la atendio el HB#144 y no hay ref nueva.
+> **Ciclo SIN cambio de producto:** se revirtio un fix propio de 2 archivos. Ver abajo.
 
-## EL HALLAZGO DEL CICLO: un veredicto BLOQUEANTE sobre algo que YA esta en main
+## EL HALLAZGO DEL CICLO (HB#146): un WIP con un arnés que NO PARSEA, y un arreglo "obvio" que rompía 3 contratos asertados
+
+> **Que paso.** El detector barato del HB#135 (`git diff origin/main --stat` al
+> abrir) dio 2 modificados sin commitear. El arnés **no parseaba**:
+> `SyntaxError: Identifier 'enCola' has already been declared` — el bloque
+> estaba pegado DOS VECES en el mismo scope, una de ellas antes del
+> `runInContext` que define la funcion.
+>
+> **Y el mismo defecto lo reproduje yo:** mi `edit_file` **agrego** el bloque en
+> vez de reemplazar el del WIP, dejando dos `var modo` y un
+> `propioDelCatalogo` muerto. No lo vio el test: lo vi mirando el `git diff`.
+
+**La premisa era CIERTA, la direccion era FALSA.** Es cierto que en "Mi
+progreso" la barra de 4 filtros se pinta y no recorta nada
+(`legendary-tracker.js:866` no pasa por `catalogItems()`). Pero el arreglo
+obvio —dejar de pintar la barra en la cola— dio **5 FAIL en 3 archivos**
+(43/3, 16/1, 14/1), y los asertos que caeron son un **contrato de producto
+deliberado**, no un descuido:
+
+| Arnes | Aserto |
+|---|---|
+| `hb119-2-2-filtros-progreso` | FILTRO-01 "Mi progreso dibuja la barra de filtros" |
+| `hb126-cola-crafteo` | COLA-13 "los filtros por categoria siguen en Mi progreso" |
+| `hb126-cola-crafteo` | COLA-3.1 "el filtro no borra la cola" / COLA-3.2 "coexisten" |
+
+Lo unico que choca es un **comentario** (`legendary-tracker.js:858-864`) que
+declara la intencion contraria. Codigo y arneses coinciden; el comentario quedo
+viejo cuando la cola llego en el paso 5. **No se aplico nada de producto.**
+
+**3 reglas de ALERT-210:** (1) un arnés que no parsea no da verde NI rojo —
+`node --check` antes de culpar al producto; (2) si el arnés describe una
+feature que el producto no tiene, es una propuesta de diseno disfrazada de
+bug, no evidencia; (3) implementar el producto hasta que el arnés pase es la
+trampa: se lee como "el fix funciona" y esconde que la premisa era una
+suposicion.
+
+**Consultas abiertas:** al Reviewer la pregunta de ALCANCE (deuda de codigo
+vs de comentario, 1 pregunta, `task-6cc3851b8d15`); al PO las 3 salidas de
+producto para la friccion (`task-5d67821e3648`). Ninguna toca codigo sin
+veredicto.
+
+## El hallazgo del HB#145 (anterior): un veredicto BLOQUEANTE sobre algo que YA esta en main
 
 > **Que paso.** `check_agent_task(task-1f9ee292b9f3)` — el veredicto del Reviewer
 > sobre T12-b, enviado en el HB#131 — estaba **`finished` y SIN LEER**. Es la 4a
