@@ -225,6 +225,70 @@
   // =======================================================================
   
   /**
+   * HB#120 T20-c. Saca una foto de la configuración ACTUAL antes de que algo la
+   * sobrescriba. Devuelve un veredicto, no un bool, porque el llamador tiene que
+   * poder decirle a Pablo la verdad: si la foto no se pudo guardar (cuota de
+   * localStorage llena, modo privado que no persiste), el confirm tiene que
+   * decir que NO hay red. Decir "se guardó una copia" sin haberla guardado es
+   * peor que no decir nada: Pablo confirmaría pensando que puede volver atrás.
+   */
+  async function createSafetySnapshot() {
+    try {
+      var data = exportData();
+      var key = (root.Storage && root.Storage.STORAGE_KEYS && root.Storage.STORAGE_KEYS.GIST_SAFETY_SNAPSHOT)
+        || 'gn:github:gist_snapshot';
+      var prev = root.Storage ? root.Storage.get(key) : null;
+      root.localStorage.setItem(key, JSON.stringify({ takenAt: new Date().toISOString(), data: data }));
+      return { ok: true, takenAt: data.exportedAt, hadPrevious: !!prev };
+    } catch (err) {
+      // Cuota llena o almacenamiento bloqueado. NO es un caso que "no debería
+      // pasar": pasa con 27 cuentas y muchos snapshots de wallet.
+      return { ok: false, reason: (err && err.name === 'QuotaExceededError')
+        ? 'almacenamiento lleno' : 'no se pudo guardar' };
+    }
+  }
+
+  /**
+   * Devuelve la foto sin aplicarla. `null` si no hay.
+   */
+  function getSafetySnapshot() {
+    try {
+      var key = (root.Storage && root.Storage.STORAGE_KEYS && root.Storage.STORAGE_KEYS.GIST_SAFETY_SNAPSHOT)
+        || 'gn:github:gist_snapshot';
+      var raw = root.Storage ? root.Storage.get(key) : null;
+      if (!raw) return null;
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Restaura la foto. Pide confirmación y usa `applyImportData`, o sea el
+   * MISMO camino que un restore de archivo. Sin confirmación sería el peor bug
+   * posible: el clic que devuelve las cosas a como estaban sería el que las
+   * rompe.
+   */
+  async function restoreSafetySnapshot() {
+    var snap = getSafetySnapshot();
+    if (!snap || !snap.data) {
+      return { ok: false, reason: 'no hay copia guardada' };
+    }
+    var n = ((snap.data.data && snap.data.data.apiKeys &&
+              snap.data.data.apiKeys.list) || []).length;
+    var when = snap.takenAt ? new Date(snap.takenAt).toLocaleString('es-AR') : 'una fecha desconocida';
+    var msg = '¿Restaurar la copia de seguridad?\n\n' +
+      'Se tomó el ' + when + '.\n' +
+      '• API Keys (' + n + ' claves)\n' +
+      '• El resto de la configuración\n\n' +
+      'Esto también sobrescribe tu configuración actual.\n\n' +
+      '¿Continuar?';
+    if (!confirm(msg)) return { ok: false, cancelled: true };
+    applyImportData(snap.data);
+    return { ok: true, takenAt: snap.takenAt };
+  }
+
+  /**
    * Valida la estructura del archivo importado
    */
   function validateImportData(data) {
@@ -775,6 +839,10 @@
     importAll: importAll,
     importFromFile: importFromFile,
     importFromData: importFromData,
+    // HB#120 T20-c
+    createSafetySnapshot: createSafetySnapshot,
+    getSafetySnapshot: getSafetySnapshot,
+    restoreSafetySnapshot: restoreSafetySnapshot,
     _debug: function() {
       return {
         version: EXPORT_VERSION,

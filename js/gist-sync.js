@@ -449,6 +449,26 @@
     // regenera con un click son las API keys -- una key de GW2 no se vuelve a
     // bajar de ArenaNet; si no la guardaste, hay que crear otra. El precedente
     // es literal y esta 60 lineas mas arriba, en settings-manager.js:594-603.
+    // HB#120 T20-c: la foto sale ANTES del confirm, no despues. Sin esto,
+    // confirmar es un acto irreversible y el unico backup es el remoto, que es
+    // justamente lo que se esta a punto de sobrescribir. Si el remoto esta
+    // viejo, no queda nada. El camino del archivo ya resolvio el otro problema
+    // del mismo par ("aplicar antes de preguntar", HB#104); este es el hermano
+    // que faltaba: "no hay de donde volver".
+    //
+    // CANCELAR NO DEJA RASTRO: se guarda el valor previo y se vuelve a poner si
+    // Pablo dice que no. Escribir la foto y dejarla ahi seria cambiar el
+    // almacenamiento por haber mirado un cartel.
+    var snapshotKey = (window.Storage && window.Storage.STORAGE_KEYS &&
+                       window.Storage.STORAGE_KEYS.GIST_SAFETY_SNAPSHOT) || 'gn:github:gist_snapshot';
+    var prevSnapshot = null;
+    try { prevSnapshot = localStorage.getItem(snapshotKey); } catch (_) { prevSnapshot = null; }
+
+    var snap = { ok: false, reason: 'no se pudo guardar' };
+    if (window.SettingsManager && typeof window.SettingsManager.createSafetySnapshot === 'function') {
+      snap = await window.SettingsManager.createSafetySnapshot();
+    }
+
     var keyCount = configData?.data?.apiKeys?.list?.length || 0;
     var confirmMsg = '¿Sincronizar desde la nube?\n\n' +
       'Se descargará y aplicará la configuración remota.\n' +
@@ -460,8 +480,25 @@
       '• Characters (POIs, ubicaciones)\n' +
       '• Meta (favoritos, hecho hoy)\n' +
       '• Configuración global\n\n' +
+      // El mensaje dice la verdad en los DOS sentidos: si la foto esta, se dice
+      // que se puede volver; si NO esta (cuota llena, almacenamiento
+      // bloqueado), se dice que no se puede. "Se guardo una copia" sin haberla
+      // guardado seria peor que no decir nada.
+      //
+      // Y NO promete una pantalla que no existe: `GistSync` todavia no esta
+      // montado en ningun HTML (medido, `git grep GistSync` = 3 matches, los 3
+      // dentro del propio gist-sync.js). Decir "restaurar desde Ajustes" seria
+      // mandarlo a una pantalla inexistente. El destino real es el
+      // `SettingsManager.restoreSafetySnapshot()` que queda expuesto para
+      // cuando ese boton se monte.
+      (snap.ok
+        ? 'Antes se guardó una copia de tu configuración actual.\n' +
+          'Si algo sale mal, se puede restaurar con\n' +
+          'SettingsManager.restoreSafetySnapshot().\n\n'
+        : 'ATENCIÓN: no se pudo guardar una copia de tu configuración actual\n' +
+          '(' + snap.reason + '). Si esto sale mal, no vas a poder volver atrás.\n\n') +
       '¿Continuar?';
-    
+
     if (confirm(confirmMsg)) {
       await window.SettingsManager.importFromData(configData);
       if (window.toast) {
@@ -470,6 +507,14 @@
       setTimeout(function() {
         location.reload();
       }, 500);
+    } else {
+      // Cancelar no deja rastro: se devuelve el almacenamiento al estado previo.
+      // Mirar un cartel no es una accion que deba cambiar nada en disco.
+      try {
+        if (prevSnapshot === null) localStorage.removeItem(snapshotKey);
+        else localStorage.setItem(snapshotKey, prevSnapshot);
+      } catch (_) { /* sin foto no hay nada que deshacer */ }
+      return { success: false, cancelled: true, updatedAt: gist.updated_at };
     }
     
     return { success: true, updatedAt: gist.updated_at };

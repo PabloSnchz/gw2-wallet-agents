@@ -90,6 +90,11 @@
     CONVERTER_STATE:       'gn:converter:state',
     GITHUB_TOKEN:          'gn:github:token',
     GITHUB_GIST_ID:        'gn:github:gist_id',
+    // HB#120 T20-c: la foto local que se saca ANTES de sobrescribir por el Gist.
+    // Vive bajo 'github:' a proposito, asi que KNOWN_NAMESPACES la trae de vuelta
+    // si alguien restaura un backup: una foto de seguridad que se puede perder
+    // con la misma restauracion que pretendia recuperar no es una red.
+    GIST_SAFETY_SNAPSHOT:  'gn:github:gist_snapshot',
     CHARACTERS_ASSIGNMENTS:    'gn:characters:assignments:',
     CHARACTERS_LOCATION_HISTORY: 'gn:characters:location_history:',
     PSNA_CACHE:            'gn:activities:psna:',
