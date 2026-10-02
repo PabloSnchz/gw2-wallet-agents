@@ -4630,3 +4630,86 @@ censo sin criterio declarado es un numero sin unidad.
 
 ---
 
+
+## ALERT-187 - la suite da verde o rojo segun un archivo que NO esta en git
+
+**Estado:** MEDIDO y DOCUMENTADO. La correccion es decision de Pablo.
+
+**El hallazgo.** El FAIL de arranque de este ciclo (`CONTRATO-10a`) **no era un
+bug del codigo: era el entorno.** El aserto regenera `legendary-recipes.js` desde
+`tools/cl_recipes.json`, y **`tools/.gitignore` es `*`**, asi que el dataset
+(371 KB) no esta en ningun clon. El mismo test da:
+
+| worktree | `cl_recipes.json` | resultado |
+|---|---|---|
+| `C:/MisArchivos/hb122` | presente (untracked) | **53 pass / 0 FAIL** |
+| `C:/MisArchivos/hb123` (limpio) | ausente | **49 pass / 1 FAIL** |
+
+**La prueba de que la variable es el archivo y no otra cosa:** copie el dataset
+al worktree limpio y el test paso a **53/0**, **sin tocar una linea de codigo**.
+Un solo archivo, una sola variable.
+
+**Por que importa mas de lo que parece.** Un `FAIL` que depende de la maquina
+hace que el rojo signifique **dos cosas distintas**, y la que NO es "el codigo
+esta roto" es la que hace perder media tarde. Y es peor en un equipo: el que
+hereda el worktree ve el rojo y asume que el ciclo anterior dejo algo roto.
+
+**Lo que NO hice y por que.** `ARME_TRABAJO_NOCHE.md` §8 dice que cambiar
+`tools/.gitignore` es **decision de Pablo** y que mientras no lo confirme no se
+toca. No lo toque. La excepcion propuesta queda escrita ahi:
+
+```
+*
+!.gitignore
+!run-suite.js
+!run-suite.cmd
+!cl_recipes.json
+```
+
+**Dato que reencuadra el problema:** `run-suite.js` y `run-suite.cmd` **SI estan
+trackeados** (`git ls-files tools/` los lista). O sea que **la red anti-bug esta
+a salvo** y **`cl_recipes.json` es lo unico que se perdio**. La excepcion que
+propone el Arquitecto cubre de mas, y lo que hace falta es exactamente una linea.
+
+**Regla que sale de ahi:** *un test que depende de un archivo no trackeado no es
+un test, es una medicion del escritorio.* Antes de dar por bueno un rojo de la
+suite: ¿el aserto lee algo que `git ls-files` puede prometer?
+
+---
+
+## ALERT-188 - el inbox del Reviewer tiene 12 preguntas sin leer desde hace 2 dias
+
+**Estado:** el Principal resolvio su propia cola (Capa 3). El Reviewer no contesto.
+
+**El hecho medido.** `code-reviewer/last_read.json` sigue en
+**2026-09-30T18:55:15Z**, con `reads: 5`. En su inbox hay **12** mensajes mios,
+el mas reciente de las **04:05** de hoy. **Ninguno leido en 2 dias.**
+
+**Lo que produce.** El paso 1 del heartbeat existe para recoger veredictos y
+"nunca reenvies la misma consulta sin leer el resultado anterior". Con el inbox
+sin leer, **no hay resultado anterior que leer** y la regla se cumple sola: no
+reenvio nada. Pero la consecuencia real es que **9 filas de `COMMS_LOG.md`
+quedaron esperando** y el equipo anotaba "timeout" cuando en realidad nadie
+miraba el mensaje.
+
+**Por que no lo diagnostico como "el Reviewer esta caido".** `HEARTBEAT.md` dice
+que tarda 2-15 min en una revision real y que **no hay que declararlo muerto
+antes de los 20 min**. Con 48 h de silencio **si** corresponde, pero la causa
+probable no es que este caido: es que **su heartbeat esta desactivado por diseno**
+(esta en la lista de "por diseño" del propio `HEARTBEAT.md`), o sea que **nadie
+lo despierta para que lea**. Un agente bajo demanda con 12 preguntas en la fila
+y sin nada que lo llame es la combinacion que produce este cuadro.
+
+**Lo que hice, sin esperar.** Resolvi **ALERT-179 yo mismo** (fila 150): la
+pregunta era si delegar `importFromData` en `applyImportData` cambia un contrato
+publico, y la respuesta se **midio sobre el cuerpo** de las dos funciones
+(`tests/hb123-alert179-delegacion.test.js`, 16/0). Commit `029d2e1`.
+
+**Lo que NO hago y por que.** No reactivo su cron: `AGENTS.md` es explicito en
+que **la verificacion de crons la hace el Arquitecto**, no el equipo, y que si un
+heartbeat ve uno apagado que no es suyo lo **anota y lo deja**. Lo anoto aca.
+
+**Decision de Pablo:** si el Reviewer tiene que contestar, necesita un
+despertador. Hoy no lo tiene.
+
+---

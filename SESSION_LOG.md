@@ -1,3 +1,106 @@
+# Heartbeat #123 (2026-10-02 04:3x-05:0x UTC) — el plan de la noche ya estaba obsolete, y el FAIL de arranque no era del codigo
+
+## Que se hizo
+
+**ALERT-179 cerrado. `importFromData` delega en `applyImportData`.** Commit `029d2e1`,
+2 archivos. Test propio `tests/hb123-alert179-delegacion.test.js`, **16/0**, con **2
+controles negativos que discriminan**. Suite **63 archivos / 1635 pass / 0 FAIL**.
+
+**Y tres verificaciones que evitaron hacer trabajo equivocado**, que es lo que
+realmente produce este ciclo.
+
+## 1. El plan de la noche estaba dos pasos atras, y no por error de nadie
+
+`ARME_TRABAJO_NOCHE.md` (escrito 03:16 UTC) marca el paso 1 como **bloqueante**:
+"el fix de los 93 items con `generation=null` NO esta mergeado, mergealo antes de
+tocar nada mas". Lo verifique y **ya estaba mergeado** (`git merge-base --is-ancestor
+22a6a71 origin/main` -> MERGEADO), y el paso 2 tambien: `legendary-recipes.js` esta
+en `index.html:1014` y `craftType`/`dataStatus` reparten **124/18/64** sobre 206.
+
+**Por que paso:** el plan se escribio a las **03:16** y el HB#122 mergeo `ed9a126` a
+las **04:04** y el fix a las **04:04** tambien. **El plan quedo viejo 48 minutos
+despues de escribirse.** Si lo hubiera obeyed sin verificar, el primer trabajo del
+ciclo habria sido un cherry-pick de algo ya integrado.
+
+**La regla:** *un plan que nombra un commit se verifica con `merge-base` antes de
+obedecerlo, porque el plan y el repo pueden quedar desalineados aunque el plan se
+haya escrito bien.* La fecha del commit del plan (`03:16`) era la pista: un plan
+nunca va a mentionar un commit que todavia no existe.
+
+## 2. El FAIL de arranque no era un bug: era un archivo que no esta en git
+
+La suite daba **1619 pass / 1 FAIL**. `CONTRATO-10a` regenera `legendary-recipes.js`
+desde `tools/cl_recipes.json` y **`tools/.gitignore` es `*`**: el dataset no esta en
+ningun clon.
+
+| worktree | `cl_recipes.json` | resultado |
+|---|---|---|
+| `hb122` | presente (untracked) | 53 pass / 0 FAIL |
+| `hb123` (limpio) | ausente | 49 pass / 1 FAIL |
+
+Copie el dataset al worktree limpio: **53/0, sin tocar una linea de codigo**.
+**Una variable, y la prueba de que es esa.** ALERT-187.
+
+**No toque `.gitignore`** porque `ARME_TRABAJO_NOCHE.md` §8 lo marca como decision de
+Pablo. Pero el dato reencuadra el pedido: **`run-suite.js` y `run-suite.cmd` SI estan
+trackeados** (`git ls-files tools/` los lista). La excepcion que propone el Arquitecto
+cubre de mas -- **falta una sola linea**.
+
+## 3. El paso 3 no abrio ronda, y el conteo crudo habria sido 6
+
+Conteo sobre la **union de las 12 refs** del PO, leyendo el **cuerpo** de cada blob:
+**27 secciones** con "ronda N", **6 CUENTA / 10 CERRADAS**, control negativo **0**.
+
+Las 6 CUENTA son **5 items**: la **ronda 33 aparece dos veces** con titulos distintos
+(ALERT-168, 3a vez que cuento el mismo criterio). Y antes de mandarlos: **los 5 ya
+estan aplicados** en `origin/main` con test propio (T13 1/1, T12 2/2, IDEA 63 1/1,
+T19 2/2, ALERT-84 1/1), control negativo **0**.
+
+**Las dos verificaciones que hacen que esto no sea un ritual:** contar **sobre los
+refs individuales con bytes de blob** (la lista de refs escrita a mano fue ALERT-170), y
+**verificar cada una contra `origin/main` antes de mandarla**. La 2 es la que evita
+el error caro: mandarle al Reviewer algo ya hecho.
+
+## Que se rompio
+
+**Nada.** El unico FAIL encontrado era del entorno (arriba) y no del codigo.
+
+**Mi propia arnes, una vez mas.** Escribi el control negativo de ALERT-179Comparer
+`lbInyectado.length === 7`, y la reinyeccion daba **14** (7 + 7), no 7. El control
+fallaba **por la razon equivocada**, que es la peor forma de que un control negativo
+no controle nada. Corregido a `=== la.length * 2`. **Un control negativo que falla por
+la razon que no dice no demuestra nada.**
+
+## Que quedo pendiente
+
+1. **El Reviewer no lee su inbox** (ALERT-188) — `last_read` en **2026-09-30 18:55**,
+   **12 mensajes**, 2 dias. Resolvi mi cola por Capa 3, pero **las 12 siguen ahi**.
+   Su heartbeat esta desactivado **por diseno**, asi que nadie lo despierta para que
+   lea. **No reactivo su cron**: `AGENTS.md` dice que la verificacion de crons la hace
+   el Arquitecto, y un heartbeat solo lo anota y lo deja. **Decision de Pablo.**
+2. **Armeria 1.2** (modal de materiales): arrancable -- `state.bank` y
+   `state.materials` ya se piden en `legendary-tracker.js:481` y **nunca se leyeron**.
+3. **Que se cae el switch 2.2** (`setScope`, `scopeToggleHTML`, `wireScopeBar`, ~40
+   lineas en 2 archivos): **no se puede quitar antes** de que la cola de crafteo este,
+   o "Mi progreso" queda sin selector.
+4. **`tools/.gitignore`**: decision de Pablo; falta **una linea**, no cuatro.
+5. **ALERT-41** (Strike Tracker): sigue vigente. Cierre unico con el body crudo de
+   `/v2/account/raids`. Si el endpoint no trae ids utilizables, **se borra el modulo**.
+
+## Decisiones de esta sesion
+
+- **No tocar `tools/.gitignore`** aunque el dato diga que falta una sola linea: es de
+  Pablo, y por escrito.
+- **No reenviar nada al Reviewer** hasta que lea su inbox. Reenviar sobre unread es
+  tirar trabajo.
+- **No abrir ronda** con 5 propuestas ya aplicadas.
+- **Copiar el dataset al worktree** en vez de cambiar `.gitignore`: restaura el estado
+  conocido sin cambiar la politica del repo.
+
+
+
+---
+
 # Heartbeat #90 (2026-10-01 10:0x-10:4x UTC) — el mutex CANCELABA la carga nueva, y el contador que loIBA a arreglar media siempre 0
 
 ## Que se hizo
