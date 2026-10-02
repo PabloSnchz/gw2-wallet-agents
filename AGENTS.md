@@ -802,3 +802,103 @@ Cuando un agente arranca después de estar caído:
 ### Estructura de la tabla COMMS_LOG
 
 | # | De | A | Pedido | Estado | Attempt | Task ID | Creado | Actualizado | Notas |
+
+---
+
+## WORKTREES — ciclo de vida y limpieza (regla del 2026-10-02)
+
+### Por que esta seccion existe
+
+Se acumularon **55 worktrees (3,1 GB)** en el clon `gw2-dev`, y 7 de ellos
+colgados en carpetas que nadie vigila: uno en `C:\tmp\`, otro en
+`C:\Users\psanc\.qwenpaw\tmp\`, seis en `workspaces\product-owner\`, uno en
+`C:\Users\psanc\`. Dos de los que estaban en carpetas temporales se habrían
+perdido la próxima limpieza de disco de Windows.
+
+No se acumulaban por descuido. Se acumulaban porque **no había ninguna regla
+que dijera qué pasa con un worktree cuando la tarea termina**, y porque
+"borrar un worktree" sonaba a algo que quizá destruye trabajo. Con la regla
+escrita, borrar deja de ser un riesgo y pasa a ser un paso.
+
+Cada worktree pesa ~56 MB, casi todo el repo repetido. 55 de ellos son 3,1 GB
+que no se ven en ningun `git status`, porque `git worktree list` no es un
+`git status`.
+
+### REGLA 1 — Un worktree por tarea, y se borra cuando la tarea termina
+
+Cuando el trabajo llega a `main` **y esta verificado en GitHub**, el worktree
+se elimina en el MISMO ciclo. No en el siguiente, no "cuando me acuerde".
+
+Si al terminar el ciclo tenes un worktree que ya no necesitás, borralo. Es
+parte del trabajo, no una tarea extra.
+
+### REGLA 2 — Todo worktree nuevo vive en UN solo directorio
+
+Rutas prohibidas para worktrees nuevos:
+
+| Prohibida | Por que |
+|---|---|
+| `C:\tmp\`, `%TEMP%`, cualquier carpeta de temp | Windows las limpia y el trabajo se pierde sin avisar |
+| `C:\MisArchivos\` (distinta de `C:\Mis Archivos\`) | duplica `gw2-dev` y su `.git` |
+| La raiz del repo `gw2-dev\` | mezcla el clon con sus copias |
+| Cualquier carpeta fuera de estos dos | queda fuera del mapa: nadie la vigila |
+
+**Unico lugar valido:** `C:\Mis Archivos\GW2 online\gw2-dev\<nombre>\`
+
+Si el worktree es de otro agente, va en su workspace
+(`workspaces\<agente>\<nombre>`), no en el clon.
+
+### REGLA 3 — Nada de trabajo a medio hacer en un worktree abandonado
+
+Un worktree se puede borrar entero **si y solo si no tiene nada que ningun
+commit tenga**. Eso son cuatro preguntas, y las cuatro tienen respuesta
+objetiva:
+
+1. ¿Su `HEAD` ya esta en `origin/main`?  → `git merge-base --is-ancestor`
+2. ¿Su rama tiene commits propios?       → `git cherry origin/main <rama>`
+   (un `+` significa que hay trabajo que main **no** tiene)
+3. ¿Lo que falta por commitear es codigo? (`git status --porcelain`)
+
+   Si hay un `.js` modificado o un test sin commitear, **el worktree se queda**.
+   Ese es trabajo. Se commitea, se pushea, y despues se borra.
+4. ¿Se esta usando ahora mismo?           (tocado en las ultimas 6h)
+
+El caso que de verdad asusta — un worktree con trabajo a medio hacer — es
+exactamente el caso 3, y por eso el script se niega a borrar cuando lo ve.
+
+**Lo que si se borra sin culpa:** archivos sueltos con prefijo `_` (scripts de
+prueba, mensajes, extractos de log). Son Instrumentos, no trabajo. Llevan `_`
+precisamente para que se puedan reconocer.
+
+### REGLA 4 — Para borrar, usa el script, no el pulso
+
+```
+node C:\Users\psanc\.qwenpaw\workspaces\architect\_eco\wt.js
+```
+
+Sin argumentos **solo audita**: no borra nada, e imprime para cada worktree el
+motivo exacto por el que se queda (`código sin commitear: js/legendary-tracker.js`).
+Es el comando que hay que correr cuando uno sospecha que se acumulo basura.
+
+```
+node C:\Users\psanc\.qwenpaw\workspaces\architect\_eco\wt.js --clean
+```
+
+Borra **solo** los que pasan las 4 comprobaciones, y las vuelve a verificar en
+el acto. Si algo cambio entre el listado y el borrado, lo salta.
+
+Nunca `rm -rf` sobre la carpeta de un worktree: eso deja el registro en
+`.git/worktrees/` y el proximo `git worktree list` lo muestra como fantasma.
+Siempre `git worktree remove`.
+
+### Lo que NO es basura
+
+Estos no se tocan sin que lo pida quien los creo:
+
+- Ramas `po/*` — son del Product Owner, no del Principal.
+- `_wt_47` (`rescue-idea47-parallel-wip`) — contiene 2 tests que `main` no tiene.
+- Cualquier worktree donde `git cherry` devuelva un `+`.
+- `media/*.gif` — `confeti.gif` y `burbuja.gif` son el preview animado del drop
+  de los eventos de Meta. **No hay ninguna otra pagina que muestre el efecto
+  de una infusion**, y eso es lo que hace distinta a esta webapp. No son ripeables.
+  Aun si un dia pesaran 300 MB, se quedan.
