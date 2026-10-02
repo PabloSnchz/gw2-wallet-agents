@@ -374,7 +374,7 @@ escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuen
 - **Dónde la veo:** Leyenda Legendaria -> pestana "Catalogo" -> (1) en la barra de filtros, a la derecha, el grupo "Yo:" con dos botones, "Tengo (N)" y "Me faltan (N)"; se aprietan uno por vez y se combinan con Tipo/Gen/Exp. (2) Abajo a la derecha de cada card, un boton "+ Cola"; si el item ya esta encolado dice "+ En la cola" en violeta, sin abrir el modal.
 - **Ruta:** `#/account/legendary-armory`
 - **Descripción:** Filtra el catalogo por si la legendaria la tenes o te falta, y encola sin abrir el arbol.
-- **Commits:** `PENDIENTE`
+- **Commits:** `956f140`
 - **Rama:** `feat-hb144-armeria-filtros-y-boton-cola`
 - **Métrica:** 42 aserciones en `tests/armeria-filtros-cola-card.test.js`. Contra `origin/main` sin el cambio da 8 pass / 21 FAIL (exit 1); con el cambio 42/0 (exit 0). Suite completa 2119 aserciones / 0 FAIL en 81 de 81 archivos.
 - **Si no entra:** no se pierde nada de lo que ya funciona. El catalogo queda como estaba: sin los dos botones de filtro y sin el boton de encolar en la card. Para encolar habria que abrir el modal (el boton de la cabecera), como ahora.
