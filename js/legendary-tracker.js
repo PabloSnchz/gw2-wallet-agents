@@ -67,9 +67,18 @@
     armory: [],               // legendarias desbloqueadas (del API)
     items: {},                // cache de items (id -> detalle)
     prices: {},               // cache de precios TP (itemId -> price)
-    materials: {},            // material storage {itemId: count}
-    bank: {},                 // bank items {itemId: count}
-    characterItems: {},       // items en personajes {itemId: count}
+    // Los tres de abajo los devuelve la API como ARRAY de slots, no como mapa
+    // {id: count}. Antes se declaraban `{}` y el stub nunca los llenaba, asi
+    // que el tipo nunca se Noto. Ahora se llenan de verdad y cualquier
+    // consumidor que los lea tiene que tratar arrays — por eso se corrige el
+    // tipo aca y no se deja que lo descubra el primer `.forEach`.
+    materials: [],            // /v2/account/materials
+    bank: [],                 // /v2/account/bank
+    characterItems: [],       // inventarios de los personajes (aun no se pide)
+    // "No pude leer" != "no tenes". Vacio = todo leido bien. Cada entrada es el
+    // nombre de una fuente que FALLO, y se muestra al usuario en vez de dejar
+    // que una key expirada se vea como una cuenta vacia.
+    readErrors: [],
     loading: false,
     error: null,
     // T4: las funciones de render registradas por `render-catologo.js`. Null
@@ -328,11 +337,83 @@
   // 4. API — stubs para Phase 2
   // ========================================================================
 
+  // ========================================================================
+  // 4. API — /v2/account/legendaryarmory (+ bank/materials para el modal)
+  // ========================================================================
+  //
+  // POR QUE ESTA FUNCION EXISTIA COMO STUB (y por que el bug era invisible):
+  // devuelve `[]` sin preguntar nada. El ciclo `doRefresh -> loadLegendaryData
+  // -> renderCurrentMode` termina en microsegundos, con exito, y pinta "aun no
+  // posees ninguna legendaria". Un modulo que no consulto la API y uno que
+  // consulto y recibio [] pintan EXACTAMENTE lo mismo: no hay forma de
+  // distinguirlos desde la pantalla.
+  //
+  // La API existe y funciona: `GW2Api.getAccountLegendaryArmory()`
+  // (api-gw2.js:1243) ya la consumia `inventory-hub.js:218` desde antes de que
+  // este modulo existiera. Por eso el fix NO es "arreglar la API": es接通 la
+  // llamada. Y por eso lo que Pablo vio en el Inventario (armeria poblada) y
+  // lo que veia aqui (vacio) no se contradician: son dos consumidores del
+  // mismo endpoint, y solo uno lo llamaba.
+  //
+  // `allSettled` y NO `Promise.all`, por la misma razon que inventory-hub.js:210
+  // lo documenta: si un solo origen rechaza, `Promise.all` aborta y el resto
+  // queda con el valor STALE de la carga anterior, que es peor que no tener.
+  // Un fallo de red se muestra como tal (state.readErrors), no como "no tenes
+  // ninguna": son dos hechos distintos y la UI los distingue.
   async function loadLegendaryData(nocache) {
-    // Phase 2: cargar datos de /v2/account/legendaryarmory + /v2/items + /v2/commerce/prices
-    // Phase 2: cargar datos estáticos de legendary-data.js
-    console.log(LOG, 'loadLegendaryData() — not implemented (Phase 2)');
-    return Promise.resolve([]);
+    var token = getSelectedToken();
+    if (!token) {
+      state.armory = [];
+      state.bank = [];
+      state.materials = [];
+      state.readErrors = [];
+      return [];
+    }
+
+    var api = root.GW2Api;
+    if (!api || typeof api.getAccountLegendaryArmory !== 'function') {
+      // No es un caso que "no debería pasar": GW2Api se carga antes que este
+      // modulo (index.html lo incluye con defer, en orden). Si igual no esta,
+      // el modulo no se puede cumplir y decirlo es mejor que pintar vacio.
+      console.warn(LOG, 'GW2Api no disponible: no puedo leer la armería legendaria');
+      state.armory = [];
+      state.readErrors = ['armeria'];
+      return [];
+    }
+
+    var opts = { nocache: !!nocache };
+    var settled = await Promise.allSettled([
+      api.getAccountLegendaryArmory(token, opts),
+      // Los otros dos NO son para el arbol (eso viene del dataset estatico,
+      // `legendary-recipes.js`): son para el modal de materiales, que tiene que
+      // decir cuanto TENES. Un "necesito 500" sin el "tenes 0" es la mitad de
+      // la informacion. Se piden ahora para que el modal no espere un segundo
+      // round-trip cuando el usuario lo abre.
+      typeof api.getAccountBank === 'function' ? api.getAccountBank(token, opts) : Promise.resolve([]),
+      typeof api.getAccountMaterials === 'function' ? api.getAccountMaterials(token, opts) : Promise.resolve([])
+    ]);
+
+    var armoryRes = settled[0], bankRes = settled[1], matRes = settled[2];
+
+    state.armory = (armoryRes.status === 'fulfilled' && Array.isArray(armoryRes.value)) ? armoryRes.value : [];
+    state.bank = (bankRes.status === 'fulfilled' && Array.isArray(bankRes.value)) ? bankRes.value : [];
+    state.materials = (matRes.status === 'fulfilled' && Array.isArray(matRes.value)) ? matRes.value : [];
+
+    // "No pude leer" != "no tenes". Sin esto, una key expirada se ve
+    // exactamente igual que una cuenta nueva.
+    var errs = [];
+    if (armoryRes.status === 'rejected') errs.push('armería');
+    if (bankRes.status === 'rejected') errs.push('banco');
+    if (matRes.status === 'rejected') errs.push('materiales');
+    state.readErrors = errs;
+    if (errs.length) {
+      console.warn(LOG, 'No se pudieron leer:', errs.join(', '),
+        armoryRes.reason || bankRes.reason || matRes.reason);
+    }
+
+    console.log(LOG, 'loadLegendaryData() — armería:', state.armory.length,
+      'banco:', state.bank.length, 'materiales:', state.materials.length);
+    return state.armory;
   }
 
   async function refresh(forceNoCache) {
@@ -496,6 +577,31 @@
     };
   }
 
+  // Estado de la sesion, ya DERIVADO. Es la unica lectura que el render y los
+  // modales necesitan, y expone copias: un consumidor que escribiera en
+  // `owned` mutaria el interno del modulo sin pasar por ningun recalculo.
+  //
+  // `owned` sale de `ownedMap()` y no de `state.armory` directo, porque "tener"
+  // y "estar en la respuesta cruda" no son la misma pregunta: la respuesta
+  // trae slots con `id`, y lo que la UI necesita es un conteo por id.
+  function getState() {
+    return {
+      mode: state.mode,
+      token: state.token,
+      loading: state.loading,
+      error: state.error ? String(state.error.message || state.error) : null,
+      owned: ownedMap(),
+      // `armory` crudo sale en la API publica porque es lo que necesita el
+      // conteo de "faltantes" (Pablo: faltante = NO esta en la armoria).
+      armoryCount: state.armory.length,
+      bank: state.bank.slice(),
+      materials: state.materials.slice(),
+      characterItems: state.characterItems.slice(),
+      readErrors: state.readErrors.slice(),
+      filters: { type: filters.type, generation: filters.generation, expansion: filters.expansion }
+    };
+  }
+
   var LegendaryTracker = {
     initOnce: initOnce,
     activate: activate,
@@ -504,6 +610,8 @@
     prefetch: prefetch,
     registerRender: registerRender,
     getRenderState: getRenderState,
+    getState: getState,
+    setMode: setMode,
     _debug: function () {
       return {
         version: VER,

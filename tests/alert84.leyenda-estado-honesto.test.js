@@ -102,7 +102,7 @@ for (const fn of ['renderCatalogSkeleton', 'renderProgressSkeleton']) {
   // El criterio es la PALABRA, no la frase exacta: "Cargando", "cargando",
   // "Cargando catalogo", "Cargando tu progreso" — todas son el mismo bug.
   ok(!/Cargando/i.test(b),
-    fn + ' NO dice "Cargando": no hay carga, y el stub resuelve en microsegundos');
+    fn + ' NO dice "Cargando": la carga ahora es real y termina sola (bug 2.1, 2026-10-02)');
   ok(!/Cargando/i.test(b) && !/cargando\.\.\./i.test(b),
     fn + ' no promete una carga que no termina (sin elipsis de espera)');
   // Y dice algo que sea un ESTADO, no una accion pendiente.
@@ -152,10 +152,27 @@ console.log('\n--- 4. NO se toco el contrato que render-catologo.js va a usar --
   ok(/id="legendaryProgressList"/.test(pro), 'se conserva #legendaryProgressList (contrato con render-catologo.js)');
   ok(/grid-template-columns:repeat\(5,1fr\)/.test(cat),
     'se conserva el grid de 5 columnas que el modulo ya renderizaba');
-  // Y el stub sigue siendo un stub: T1 NO es T3. Si alguien implementa
-  // loadLegendaryData() aqui, este test tiene que fallar y decir por que.
+  // Y el stub DEJÓ de ser un stub. Este assert se INVIERTE el 2026-10-02
+  // (fix del bug 2.1, "ARMF"): `loadLegendaryData()` consultaba NADA y
+  // devolvía `[]` en microsegundos, así que el módulo pintaba "aun no posees
+  // ninguna legendaria" con el mismo aspecto que una cuenta recién creada.
+  // La API ya existía y ya la consumía `inventory-hub.js:218`: el módulo era
+  // el que no la llamaba.
+  //
+  // Que este assert se invierta NO significa que ALERT-84 deja de importar.
+  // Lo que se cierra es la premisa de que "T1 es el estado, no la
+  // funcionalidad". Lo que sigue vigente es el resto del archivo: los dos
+  // skeletons no prometen una carga que no termina, y el menu sigue
+  // alcanzable. Si alguien reintrodujera la palabra "Cargando" sin una carga
+  // real detras, los asserts de las secciones 2 y 3 lo cazan.
+  //
+  // El test que verifica que la llamada OCURRE y que la armar�� llega al
+  // módulo no es este — es `hb119-alert2-1.test.js`, que mira el efecto
+  // (fase roja de 8 FAIL) en vez de la forma del codigo.
   const stub = srcLT.indexOf("not implemented (Phase 2)");
-  ok(stub > 0, 'loadLegendaryData() SIGUE siendo un stub: T1 es el estado, no la funcionalidad (T3)');
+  ok(stub < 0, 'loadLegendaryData() YA NO es un stub: lee /v2/account/legendaryarmory (bug 2.1, 2026-10-02)');
+  ok(/getAccountLegendaryArmory/.test(srcLT),
+    'loadLegendaryData() consulta la API de armería de verdad');
 }
 
 // ===========================================================================
@@ -229,8 +246,28 @@ console.log('\n--- 6. El modulo sigue funcionando como modulo (carga real en vm)
       'registerRender existe (T4, 2026-09-30): la puerta que render-catologo.js pide');
     ok(typeof api.getRenderState === 'function',
       'getRenderState() existe: el punto de observabilidad del REGISTRO');
-    ok(typeof api.getState !== 'function',
-      'getState ENTERO sigue sin existir, y es deliberado: nadie lo llama');
+    // `getState` ENTERO se INVIERTE el 2026-10-02 (bug 2.1). Antes se
+    //odia que no existiera "a proposito: render-catologo.js tiene 0
+    // invocaciones". Ese razonamiento era correcto para su momento y quedo
+    // viejo en cuanto el modulo dejo de ser un esqueleto: ahora el modal de
+    // materiales (2.3) y el conteo de faltantes necesitan leer `owned`, y la
+    // unica forma de que lo lean SIN mutar el interno del modulo es que
+    // exista una puerta de lectura.
+    //
+    // El razonamiento viejo no era tonto: era un congelamiento de la
+    // frontera, para que un `getState` a medio hacer no pasara inadvertido.
+    // Por eso la version nueva no solo invierte el signo: afirma que la
+    // puerta EXISTE y que devuelve COPIAS, que es la condicion que la hacia
+    // segura de exponer.
+    ok(typeof api.getState === 'function',
+      'getState() existe (bug 2.1, 2026-10-02): la puerta de lectura que necesitan los modales');
+    if (typeof api.getState === 'function') {
+      const st = api.getState();
+      ok(st && typeof st.owned === 'object' && st.owned !== null,
+        'getState().owned es el mapa {id: count} derivado de la armería');
+      ok(Array.isArray(st.readErrors),
+        'getState().readErrors existe: "no pude leer" es un hecho, no una cuenta vacía');
+    }
     for (const m of ['initOnce', 'activate', 'deactivate', 'refresh', 'prefetch']) {
       ok(typeof api[m] === 'function', 'la API publica expone ' + m + '()');
     }
