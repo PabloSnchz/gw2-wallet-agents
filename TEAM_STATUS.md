@@ -699,3 +699,54 @@ Matriz final: **7 de 7 mueren**, cada una en el assert que dice medir.
 - **ALERT-200**: sexta manifestacion, ver arriba.
 - **ALERT-79**: un BOM (`EF BB BF`) entro en el mensaje del commit y losa el
   amend. Es la misma clase: un byte invisible que no se lee en un diff.
+
+---
+
+## HB#149 (2026-10-02 22:0x-22:3x UTC) — poda de 2 filas del PO y ALERT-41 escalada a Pablo
+
+**Que se hizo.** Dos pedidos del PO (ronda 45): podar 2 filas de `BACKLOG.md` y
+escalar ALERT-41 a Pablo. Los dos hechos. Ninguno toco codigo de producto.
+
+**Poda (verificada antes de escribir, no despues).**
+- **Idea 57 (L107) -> HECHA.** Los 3 tramos estan mergeados (`0d498b1` T2 y
+  `ae89b8c` T3, por ancestria contra `origin/main`). El "EN REVISION" estaba
+  vencido. Los 4 wrappers no son de esa fila — lo dice la propia fila (L108) y
+  los cuenta `tests/idea57t5-cuenta-medida.test.js` (13/0), que los NOMBRA por
+  linea.
+- **Armeria, barra de filtros de "Mi progreso" (L350) -> DESCARTADA.** Paso 1
+  hecho (`69a7595`); los pasos 2 y 3 son cambios de producto que dependen de
+  Pablo; `FILTRO-05` ya no es codigo pendiente, es ALERT-212.
+- **Quedan 4 abiertas**: ALERT-41 (L60), Coberturable (L88), Dungeon dailies
+  (L90), WvW Borderlands (L223). Control: 59 `- [x]` + 4 `- [ ]` = 63
+  checkboxes, el total no se movio.
+
+**Escalada de ALERT-41 — HECHA, era lo que mas hacia falta.** Enviada por
+`channel_message` a la sesion interactiva de Pablo (`1790896138537-8kgh5xf`),
+`success: true`. Es la **unica fila abierta cuya condicion de cierre es 100%
+ajena al equipo**, y hasta ahora solo existia como nota interna en tres lugares
+de este archivo. La pregunta es una linea: pegar el body crudo de
+`GET /v2/account/raids` con un token de permiso `progression`. Con eso, o se
+arregla el tracker, o se borra el modulo — y en el segundo caso la decision es
+de Pablo.
+
+**Correccion al PO.** Decia "13 dias abierta". El alta es `148f35c` del
+**30/09 04:07 UTC**: son **2 dias y medio**. El numero que se le mando a Pablo
+es el medido. El PO atinio en todo lo demas, incluso en una cita que yo crei
+inventada.
+
+**ALERT-219, nueva.** Casi commiteo un duplicado: lei el working tree sucio
+(`M ALERTS_LOG.md`, `?? tests/hb148-...`) como WIP huerfano del HB#148, pero su
+commit `0eb87b9` es de las **22:14:09 UTC, 5 minutos despues de que abriera
+este ciclo**. El ciclo anterior estaba vivo y commiteando. **La prueba es la
+FECHA del commit mas nuevo contra la hora de arranque, no el estado del arbol.**
+
+## Pendientes
+
+1. **ALERT-41**: escalado a Pablo. Falta que responda con el body crudo.
+2. **ALERT-179**: fix mergeado, esperando veredicto del Reviewer (mudo desde el
+   HB#121).
+3. **T14/T15**: veredicto = **opcion C**. Precondicion medida (23/0). Sin aplicar.
+4. **Idea 57 — los 4 wrappers**: medidos y NO tocados (ALERT-48). La fila del
+   backlog ya no los coordina; el trabajo vive en ALERT-48.
+5. **Los 7 del patron B** (HB#118).
+6. **Los 6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.

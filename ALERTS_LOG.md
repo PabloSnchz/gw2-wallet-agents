@@ -6214,3 +6214,33 @@ viejo sin re-medir es peor que uno ausente, porque ocupa el lugar de la respuest
 por eso uno deja de preguntar. Lo que si se aprovecha es su **estructura**:
 "problema de autoridad vs problema de lectura" es una distincion que sirve para
 clasificar, y esa sigue valiendo.
+--- LIMPIEZA-HB149-2026-10-02 ---
+
+## ALERT-219 (2026-10-02, HB#149) — un working tree sucio NO es un WIP huerfano: puede ser el ciclo ANTERIOR todavia vivo
+
+| **Severidad** | Alta | **Clase** | Ciclo / proceso |
+|---|---|---|---|
+| Sintoma | `git status` muestra `M ALERTS_LOG.md` (+88) y `?? tests/hb148-filtro05-guardia-cognitiva.test.js` | Un ciclo que diagnoses "trabajo perdido" y commitea sobre el trabajo que otro esta por commitear |
+| Hallazgo | Propio | Deteccion por fecha, no por el estado del arbol |
+
+**Lo que vi al abrir el ciclo (22:07 UTC).** `git status --short` contra `gw2-dev`:
+
+    M ALERTS_LOG.md
+    ?? tests/hb148-filtro05-guardia-cognitiva.test.js
+
+Ese es exactamente la firma que desde el HB#135 vengo tratando como **WIP huerfano de un ciclo muerto**: un archivo modificado y uno nuevo sin trackear, con contenido coherente de una sola autoria. Mi diagnostico fue "el HB#146 dejo esto sin commitear, hay que rescatarlo" (la clase de ALERT-202), y ya estaba preparando el rescate.
+
+**Lo que era en realidad.** El commit del HB#148 es `0eb87b9`, con fecha de autor **2026-10-02 22:14:09 UTC**. Mi ciclo abrio a las **22:08:43 UTC** (`node -e "new Date().toISOString()"`). O sea: **el commit entra 5 minutos DESPUES de que yo abriera.** El ciclo anterior no estaba muerto: **estaba commiteando mientras yo lo leia.**
+
+**Por que la prueba es la FECHA y no el estado.** Verificado con `git ls-tree origin/main tests/` y `git show origin/main:ALERTS_LOG.md`: el test del HB#148 **ya estaba commiteado**, y ALERT-214 a 218 tambien. El arbol de trabajo nunca estuvo atrasado. Si commiteaba, lo que yo iba a escribir **era un duplicado de 88 lineas**, y lo que yo creia **rescate** era en realidad una segunda copia del mismo trabajo. Habria metido en `main` un ALERT duplicado y un test duplicado.
+
+**REGLA (nueva, y complementa a la de ALERT-202):** antes de tratar un arbol sucio como trabajo perdido, **comparar la fecha del commit mas nuevo contra la hora de arranque del ciclo**:
+
+    git log -1 --format="%h %ci %s" origin/main
+    node -e "console.log(new Date().toISOString())"
+
+Si el commit remoto es **MAS NUEVO que el arranque del ciclo**, el otro ciclo esta vivo: no hay nada que rescatar, y commitear encima es duplicar. Si es mas viejo, recien ahi vale la pena buscar el rescate. **El estado del arbol no dice si el otro ciclo murio; la fecha si.**
+
+**Y el corolario, que es el mas util:** el diagnostico "WIP huerfano" tiene una consecuencia DESTRUCTIVA si se equivoca (commitear encima del trabajo de otro), mientras que la consecuencia de esperar 30 segundos a revisar la fecha es ninguna. **Ante la duda entre "rescatar" y "no tocar", la duda se resuelve mirando, no commiteando.**
+
+**Lo que si era verdad, para que no se descarte el metodo:** los dos archivos estaban ahi, eran trabajo real, y habrian sobrevivido. El problema no fue encontrarlos, fue **no preguntar de quien eran antes de escribir encima**.
