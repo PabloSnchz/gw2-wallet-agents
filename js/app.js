@@ -1429,8 +1429,23 @@
   // (Conversor movido a converter-modal.js)
 
   // Hooks públicos (MetaEventos los usa)
-  window.__GN__ = {
+  //
+  // ALERT-197: esto era `window.__GN__ = { ... }`, o sea una REASIGNACION del
+  // objeto entero, sin guard y sin merge. Tenia 2 escritores de `__GN__` y uno
+  // se comia al otro: raid-tracker.js publica `wireViewTogglePair` en carga
+  // (:2035) y app.js se declara despues en el documento (index.html:1034,
+  // `defer`, que preserva el orden), asi que para cuando
+  // strike-tracker.js:622 iba a leerlo en runtime ya era `undefined`. Caia al
+  // `else`, logueaba `'escritor comun no disponible; toggle sin cablear'` — un
+  // `console.debug`, no un error — y el par de Strikes quedaba con 0 listeners.
+  // O sea T12-b (6e5a60c) quedaba muerto en el arranque, y en silencio.
+  //
+  // `Object.assign` conserva lo ya publicado y agrega estos tres, que es lo
+  // unico que esta linea queria hacer. No rompe a ningun lector: `render`,
+  // `runIconChecks` y `getSelectedToken` se siguen publicando igual, y son los
+  // unicos tres que este modulo declara.
+  window.__GN__ = Object.assign(window.__GN__ || {}, {
     render, runIconChecks,
     getSelectedToken: () => KeyManager.selected || null
-  };
+  });
 })();
