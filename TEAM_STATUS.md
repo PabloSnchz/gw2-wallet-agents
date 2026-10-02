@@ -209,6 +209,43 @@
 | **Armeria: vista del arbol** | **LISTO y mergeado** `539f410` | `js/legendary-tree-ui.js` + `tests/armeria-ui-arbol.test.js` (56 pass / 0 FAIL) |
 | **Armeria: cola de crafteo (2.3)** | **LISTO y mergeado** `3e30231` | `tests/arma-2-3-cola-contrato.test.js` (17 pass / 0 FAIL, 7 mutaciones) |
 
+## ALERT-211 (este ciclo): el TOTAL de aserciones de la suite no es reproducible
+
+Medido en el mismo commit (`3e30231`), verde en los dos lados, **mismo numero de
+archivos**:
+
+| donde | TOTAL |
+|---|---|
+| `gw2-dev` (clon principal) | **2064** pass / 0 FAIL, 79/79 |
+| `gw2-wt143` (worktree nuevo) | **2058** pass / 0 FAIL, 79/79 |
+
+Los 6 de diferencia son **un solo archivo**: `idea84-leyenda-pipeline.test.js`
+da **52** en el clon y **46** en el worktree. Y la causa no es el codigo, que es
+identico: el escenario `[e]` necesita el snapshot real de 206 items
+(`js/_legendary_items_full.json`), que **no esta versionado** (el fetcher lo
+regenera desde la API). Cuando no esta, el escenario imprime
+`· (e) OMITIDO: no hay snapshot local de 206` y **no cuenta como FAIL**.
+
+O sea: **la cobertura de la suite depende de que hay en el checkout donde se
+corre, y el numero no lo dice.** Un verde en un worktree nuevo cubre 6
+aserciones menos que un verde en el clon, y el unico aviso es una linea
+`OMITIDO` que el resumen del runner no sube.
+
+Dos cosas que lo hacen peor:
+
+1. **El fallo se lee al reves.** Si uno reporta "2058/0" desde un worktree,
+   Pablo, que corre en el clon, ve 2064 y la diferencia parece un cambio en el
+   producto. No hay cambio: hay una dependencia de archivo sin versionar.
+2. **El mismo archivo tiene una segunda rama igual**: `[f]` (linea 449)
+   tambien imprime `OMITIDO` cuando git no esta disponible. O sea el patron
+   "OMITIDO que no es FAIL" ya esta en dos lugares del mismo arnés.
+
+**No se corrigio en este ciclo** (es un cambio al runner, no a la cola, y el
+runner es compartido). Lo que si se puede hacer sin tocarlo: **reportar
+siempre el TOTAL junto con el hash de commit y el path**, porque un total
+suelto no es comparable entre checkouts. Y regenerar el snapshot antes de
+comparar dos verdes.
+
 ## ARME 2.3 (este ciclo): la cola, y los dos tests rescatados que NO se portaron
 
 Pablo rescato de dos worktrees en detached HEAD dos tests de la cola que no
@@ -224,7 +261,7 @@ tope y rechazo (`hb126` COLA-04), persistencia (COLA-08), basura (COLA-09),
 orden (COLA-05), truncado, y strings numericos. Los cinco que **no** estaban
 cubiertos estan en el arnes nuevo, escrito contra la API real de `main`.
 
-### ALERT-210 (este ciclo): una MUTACION que no se aplica se lee como un assert debil
+## ALERT-210 (este ciclo): una MUTACION que no se aplica se lee como un assert debil
 
 De las 7 mutaciones del arnés nuevo, **2 no morian al principio**. La conclusion
 tentadora era "esos 2 asserts no sujetan nada". **Era al reves: las 2
@@ -243,18 +280,6 @@ parezca defectuoso.
 
 Matriz final: **7 de 7 mueren**, cada una en el assert que dice medir.
 
-## Completadas este ciclo (2.3)
-
-- **Suite completa: 2058 pass / 0 FAIL, 79 archivos, exit 0.** Base antes de
-  este ciclo: 2041 / 0 en 78.
-- **`3e30231` mergeado a `main`.** Rama `feat-2-3-cola` borrada al terminar.
-- **1.1 y 2.2 NO se tocaron**, confirmado contra `main`: `tpCoinHTML()`
-  (`render-catologo.js:101-109`, usada en 259 y 463) y `passesFilters()`
-  (`legendary-tracker.js:312`).
-- **1.2 ya estaba** (`legendary-tree-ui.js`, `539f410`). El conflicto del click
-  quedo resuelto en `main`: `legendary-tracker.js:694` dice *"click en la card
-  -> abre el ARBOL"*, y el boton de la cola vive en el header del modal.
-
 ## Pendiente que es DECISION de Pablo, no trabajo
 
 - **El Catalogo no marca los items encolados.** `render-catologo.js` no tiene
@@ -265,20 +290,21 @@ Matriz final: **7 de 7 mueren**, cada una en el assert que dice medir.
   ahi. Queda como hueco de producto, no de test. El arnés **no** lo afirma,
   porque afirmar el hueco como si fuera lo correcto lo volveria una regla.
 
-## Completadas este ciclo
+## Completadas este ciclo (sustituye al del HB#141, que estaba desactualizado)
 
-- **Suite completa: 4145 pass / 0 FAIL, 77 archivos, exit 0.** Medido con
-  `spawnSync`/`r.status`, nunca con `%ERRORLEVEL%`.
-- **`9f3b097` mergeado a `main` y pusheado.** Rama
-  `fix-hb141-arbol-orden-y-chevron` borrada (local y remoto).
+- **Suite completa: 2064 pass / 0 FAIL, 79 archivos, exit 0** en `gw2-dev`.
+  En un worktree nuevo son **2058**, por ALERT-211.
+- **`3e30231` mergeado a `main`.** Rama `feat-2-3-cola` borrada al terminar.
+- **1.1 y 2.2 NO se tocaron**, confirmado contra `main`: `tpCoinHTML()`
+  (`render-catologo.js:101-109`, usada en 259 y 463) y `passesFilters()`
+  (`legendary-tracker.js:312`).
+- **1.2 ya estaba** (`legendary-tree-ui.js`, `539f410`). El conflicto del click
+  quedo resuelto en `main`: `legendary-tracker.js:694` dice *"click en la card
+  -> abre el ARBOL"*, y el boton de la cola vive en el header del modal.
 - **PASO 1:** inbox **vacio**, replies **vacio**. Las filas 147/148 (ALERT-179)
   siguen `Esperando` al Reviewer, que esta mudo desde el HB#121.
-- **PASO 3: no se abrio ronda.** `po/hb99-dashboard` en `4fe6162`, identico al
-  HB#132/#135/#137/#138/#139/#140. Ronda maxima **44**, y las 41, 42 y 44 son
-  `sin-tramos` (MODO PODA). El conteo crudo daba 92 CUENTA y era **inflado**:
->las mismas rondas repetidas en 16 refs `po/*`. Deduplicando por numero de
-> ronda: **24 rondas distintas, 8 CUENTA, 1 CERRADA, control negativo 0** — y
-> 6 de las 8 ya aplicadas.
+- **PASO 3: no se abrio ronda.** El PO sigue en MODO PAUSA (ronda 43) y no se
+  mando nada al Reviewer.
 
 ## Pendientes
 
