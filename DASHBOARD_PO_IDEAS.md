@@ -1,3 +1,75 @@
+## ACTUALIZACION 2026-10-02 13:00 UTC — Heartbeat PO ronda 44 — PAUSA: 5 items, y el unico que se poda es el que dice "HECHO Y MERGEADO" cuando el codigo tiene 4 pendientes de 5
+
+> **Espejo de la ronda 44 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
+> **5 items abiertos** en `BACKLOG.md` @ `origin/main` `e118c97` = **4–7 = PAUSA**.
+> En PAUSA la corrida entera es podar: **no se investiga y no se traen ideas.**
+> Acá no hay web research, y es deliberado: la fila que se corrige salió de **verificar
+> que las 5 filas abiertas sean reales**, no de buscar una sexta.
+
+### El número que decide
+
+| | items abiertos |
+|---|---|
+| antes de la ronda | **5** |
+| despues | **5** (una se **corrigió**, ninguna se borró) |
+| modo | **PAUSA** (banda 4–7) |
+
+**Por qué no baja el número, y por qué eso es lo correcto:** de las 5 abiertas, **4 son
+reales y verificadas** — `account/dungeons` da **0 referencias** en `js/`, los 12
+endpoints account-scoped de "Coberturable" dan **0 referencias**, y `borderlands` tiene
+1 coincidencia que es una regex de logros, no un tracker. **Borrarlas sería tirar trabajo
+real.** La quinta sí tenía algo que corregir, y la corrección no la cierra: la deja
+abierta con la verdad escrita.
+
+### Lo que se corrigió: fila `BACKLOG.md:107` (Idea 57)
+
+La fila se llama *"la REGLA del contrato de FORMA, no el fix del caso N"* y decía
+**"TRAMO 1 HECHO, TRAMO 2 HECHO Y MERGEADO"**. Medido en `origin/main` @ `e118c97`:
+
+| | estado |
+|---|---|
+| la **regla** (4 tests de la Idea 57) | **62 aserciones, 0 FAIL** — y con anti-vacío (`>= 7 sitios`) |
+| la **cuenta** de los que quedan migrar | **mal, y desde que se escribió** |
+| `api-gw2.js:96` dice | **"Los 5 wrappers que faltan migrar"** |
+| el código tiene marcados | **4** (`buys` :957, `sells` :1001, `delivery` :1077, `prices` :1177) |
+| `api-gw2.js:1174` dice, además | **"la única de las nueve"** |
+
+**El "5" nunca coincidió:** en `a3d0b5b`, el commit que lo escribió, la marca estaba en
+**7** sitios. **No es un número que envejeció — es un número que nació viejo**, y después
+`0d498b1` lo dejó en 4 sin tocar la línea.
+
+**Por qué pesa, y no es cosmético:** `fd8e579` (Pablo, hoy 03:42) ya arregló una cabecera
+que describía en presente lo que ya no era cierto, con el criterio *"una cabecera que
+describe mal el código pesa más que un comentario ausente"*. **Acá el daño es al revés:**
+la línea invita a contar 5 cuando hay 4, así que **un equipo que confíe en el número no
+sabe si le falta migrar uno o ya está**.
+
+### Lo que se pide (3 cosas, todas del Principal — ninguna es código del PO)
+
+1. `api-gw2.js:96` → **"MEDIDO EN `e118c97`: 4"**, con el criterio de `fd8e579`: el
+   paréntesis en su tiempo, sin reescribir la historia de la v2.28.0.
+2. `api-gw2.js:1174` ("las nueve") → corregir o borrar.
+3. 🟢 **El test de la Idea 57 suma la asercion que falta**: que ningún número de *"cuántos
+   faltan"* escrito a mano sobreviva sin equivalente medido. **Es la misma regla de la
+   v2.25.0, aplicada a la cuenta** — la v2.25.0 ya lo dijo textual: *"acertar el número no
+   era la tarea; reemplazar el número por una regla, sí"*, y lo hizo para la degradación.
+
+**Lo que NO se pide:** migrar los 4 wrappers. Es capa de datos con veredicto del Reviewer
+(ALERT-48) y no es de esta fila.
+
+### Regla de la ronda
+
+*Una regla que se instala para **una** de las dos cosas que su nombre nombra deja la otra
+a mano.* El patrón `FORMA: degrada` es regla; el "5 wrappers que faltan" es un número a
+mano **en el mismo archivo, a 70 líneas de la regla**. **Revisar el nombre de un item
+contra sus dos verbos, no contra su historia.**
+
+**Y la corolaria que sale del control de carga:** esta ronda el conteo que decide si
+investigo o podo era **5, y la fila que podaí tenía un número tan poco confiable como el
+que encontré en el código**. **Si mi propio conteo puede mentir, el primer uso del conteo
+es auditarlo.**
+
+---
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
@@ -2196,7 +2268,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO audito los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 

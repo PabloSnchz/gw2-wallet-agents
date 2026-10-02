@@ -8,6 +8,35 @@
 > - Propone al Principal cuando tiene 3+ ideas consolidadas.
 > - Notifica al usuario una vez por semana (o cuando algo sea urgente).
 
+## ⟱ Heartbeat PO 2026-10-02 ~13:00 UTC (ronda 44) — la regla se instaló para la DEGRADACIÓN y no para la CUENTA, y la cuenta se quedó escrita a mano
+
+**Método:** 44ª ronda, y la **segunda vez que NO investigo**: el control de carga (paso 0.5) dio **5 items abiertos** en `BACKLOG.md` de `origin/main` @ `e118c97` — banda **4–7 = PAUSA**. Mi entrega de la corrida es el podado, y el podado no es "borrar filas": es **verificar que las 5 filas abiertas sean reales**. La pregunta de la ronda salió de una fila que estaba abierta y cuya línea de estado mentía, y la forma de verificar un item que se llama "la REGLA" es preguntarse si la regla **mide lo que su nombre dice**.
+
+**El conteo, medido primero (sin esto no hay poda):** `- [ ]` en `origin/main:BACKLOG.md` = **5**. Las 5 son reales: `account/dungeons` → **0 referencias** en `js/`, los 12 endpoints account-scoped de "Coberturable" (`skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `dyes`, `titles`, `mounts/*`, `home/cats`) → **0 referencias**, `borderlands` → 1 coincidencia y es una regex de logros, no un tracker. **Ninguna se poda por estar hecha.** La que sí tenía algo que corregir es la 5ª.
+
+**🔴 EL HALLAZGO — la Idea 57 wrote the rule for one of its two jobs.** La fila se llama, textual, *"la REGLA del contrato de FORMA, no el fix del caso N"*, y su línea de estado decía **"TRAMO 1 HECHO, TRAMO 2 HECHO Y MERGEADO"**.
+
+1. **La regla está y tiene dientes.** Los 4 tests de la Idea 57 corren **62 aserciones, 0 FAIL** (`forma-contracts` 14/0, `jsdoc-honesto` 13/0, `idioma-contrato` 14/0, `t2-forma-propaga` 21/0), y el primero tiene el anti-vacío explícito (*"el alcance de la regla no se achicó sin querer, >= 7 sitios"*). Esto es lo que la Idea 57 se propuso y lo **`✅`**.
+2. **Pero la regla cubre la DEGRADACIÓN, no la CUENTA.** La v2.25.0 de `api-gw2.js` dice, textual: *"Acertar el número no era la tarea; reemplazar el número por una regla, si"*, y lo hizo — reemplazó el conteo de degradados por la etiqueta `FORMA: degrada|propaga`. **La cuenta de los que QUEDAN MIGRAR volvió a ser un número escrito a mano, en el mismo archivo, en la misma versión.** `api-gw2.js:96` dice **"Los 5 wrappers que faltan migrar"**.
+3. **Y el número no coincide nunca — se escribió mal y después quedó mal por un merge.** Instrumento propio `_hb136_forma3.js`, **el mismo extractor corrido sobre dos versiones**: en `a3d0b5b` (el commit que escribió el "5") la marca `Migracion = Tramo 2` estaba en **7** sitios; hoy está en **4** (`getCommerceTransactionsBuys` :957, `getCommerceTransactionsSells` :1001, `getCommerceDelivery` :1077, `getCommercePrices` :1177). **5 ≠ 7 y 5 ≠ 4.** No es que el número envejeciera: nació viejo.
+4. **Y hay un segundo número a mano que se contradice con el primero:** `api-gw2.js:1174` dice que `getCommercePrices` es *"la única de las **nueve**"*. Dos cuentas, mismo archivo, ninguna verificada, y **el único test del item no mira ninguna de las dos**.
+
+**Por qué no es cosmético, y no lo digo por analogy:** el propio Pablo lo arregló **hoy a las 03:42** en `fd8e579`, y el commit dice el motivo: *"una cabecera que describe mal el código pesa más que un comentario ausente"*, porque el *"sigue"* hacía que un item ya hecho pareciera pendiente. **Acá el daño es al revés y peor:** la línea invita a contar **5** cuando hay **4**, así que un equipo que confíe en el número **no sabe si le falta migrar uno o ya está**. Un número que no se puede usar para decidir es peor que un número faltante.
+
+**Lo que propongo (3 cosas, todas del Principal, ninguna mía):** (1) `api-gw2.js:96` → *"MEDIDO EN `e118c97`: 4"*, con el criterio de `fd8e579` (el paréntesis en su tiempo, sin reescribir la historia de la v2.28.0); (2) `api-gw2.js:1174` ("las nueve") se corrige o se borra; (3) 🟢 **el test de la Idea 57 suma la asercion que falta**: que ningún número de *"cuántos faltan"* escrito a mano sobreviva sin equivalente medido — **es la misma regla de la v2.25.0, aplicada a la cuenta**. Los **4 wrappers siguen pendientes** de migrar, y migrarlos es capa de datos con veredicto del Reviewer (ALERT-48): **no es de esta fila y no lo pido.**
+
+**Lo que NO afirmo:** (a) que el "5" haya causado una decisión equivocada — no hay evidencia de que alguien contara sobre él; lo que afirmo es que **no puede usarse**. (b) No propongo tocar `api-gw2.js` ni sus tests: es código del Principal y el cambio (3) es suyo por ALERT-48.
+
+**Dos errores de método, ambos antes de reportar, y el segundo es nuevo:** (a) mi primer arnés dio `null` en la segunda cuenta porque el patrón cruzaba un salto de línea con un `//` en el medio — `la unica de las nueve` está partida en dos líneas. **Un `null` de un extractor no es un "no existe": es un extractor que no matchea**, la misma trampa del `findstr` que me dio un conteo de 63 contra 7 en la ronda 37. Lo detecté porque **imprimí el valor crudo** en vez de convertirlo en un `FAIL` y seguir. (b) El primer intento de correr los tests **falló con ENOENT** porque dejé scratch files en la raíz del clon compartido y los tests resuelven la raíz subiendo directorios; lo resolví creando **worktree propio** (`wt-r44`), que es la práctica correcta igual.
+
+**Estado:** `origin/main` @ **`e118c97`**. Rama **`po/hb136-poda`**, **+1/-1 en `BACKLOG.md` solamente** (corrección de la fila 107; la conteo de abiertas sigue en **5** porque los 4 wrappers siguen reales). **No mergeo.** Worktree `wt-r44` en mi workspace. Instrumentos: `_hb136_forma.js`, `_hb136_forma2.js`, `_hb136_forma3.js`, `_hb136_aplica.js`, `_corr107.txt`.
+
+**Reglas que salen:**
+1. *Una regla que se instala para **una** de las dos cosas que su nombre nombra, deja la otra a mano.* La Idea 57 hizo exactamente eso: el patrón `FORMA: degrada` es regla, y el "5 wrappers que faltan" es un número escrito a mano **en el mismo archivo, a 70 líneas de la regla**. **Revisar el nombre del item contra sus dos verbos, no contra su historia.**
+2. *Un número que se escribió mal y después quedó mal por un merge no es un número que envejeció: es un número que nació viejo.* La distinción importa porque la primera se arregla rethinking y la segunda se arregla midiendo — y las dos se ven iguales en el diff.
+3. *Verificar un item que se llama "la REGLA" es preguntarse qué deja de medir la regla. Acá: la degradación la cubre, la cuenta no.*
+4. **Control de carga, aplicado y no saltada:** la fila que se poda en la ronda 44 no se borró — se **corrigió**, porque "5 items abiertos" era un número que uso para decidir, y resultó ser tan poco confiable como el que encontré en el código. **Si mi propio conteo puede mentir, el primer uso del conteo es auditarlo.**
+
 ## Ideas en bruto
 
 (Acá van las ideas sin filtrar. Se revisan periódicamente.)
