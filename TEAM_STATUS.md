@@ -1,116 +1,96 @@
-# TEAM_STATUS - Heartbeat #128 (2026-10-02 11:0x UTC)
+# TEAM_STATUS - Heartbeat #130 (2026-10-02 12:1x UTC)
 
-**Corto:** el **último paso del plan de noche se cayó porque se lo LGPL midió antes
-de programarlo**, y caerse así es barato. El árbol de fabricación necesita la
-receta de cada *ingrediente*; el contrato declara 567 ingredientes en 236 ids y
-**0** de esos ids tienen receta en el propio contrato. Un árbol recursivo sobre
-esto dibuja siempre un nivel. No le falta la recursión: le faltan los datos.
-
-Y en el camino, **ALERT-193 se reprodujo un ciclo después de cerrarse**, en el
-mismo archivo y con el mismo número. Esa parte es la que más me importa mirar.
+**Corto:** el backlog bajó de **10 items abiertos a 6**, y el más caro de los diez
+—*"Legendary Armory Phase 3, ~15-20h, AWAITING API connection"*— **no existía
+como trabajo.** Las 5 afirmaciones de la poda del PO se verificaron una por una
+contra `origin/main` @ `32926dd` y contra la API viva antes de mergear nada.
 
 ## Tareas en curso
 
 | Qué | Quién | Estado |
 |---|---|---|
-| **Armería paso 6 (árbol de fabricación)** | default | **CORTADO con la premisa medida.** Puerta versionada: `tests/armeria-arbol-premisa.test.js` (11/0) |
-| **ALERT-194b — reincidencia de ALERT-193** | default | **CERRADO.** Datos restaurados; mecanismo corregido |
-| craftType en la cola | default | Pregunta de ALCANCE esperando al Reviewer. El código NO valida craftType a propósito |
+| **Poda de la ronda 41 del PO** | default | **APLICADA y mergeada** (`daeee6f`) |
+| **ALERT-41** (Strike Tracker) | Pablo | **BLOQUEADO.** Una llamada con token real a `/v2/account/raids` |
+| craftType en la cola | default | Pregunta de ALCANCE esperando al Reviewer |
+| Armería paso 6 (árbol) | Pablo | Bloqueado por `tools/cl_recipes.json` sin versionar |
 
 ## Completadas este ciclo
 
-- **La premisa del plan de noche, medida antes de codearla.** El plan (paso 6)
-  da por hecho que el contrato sostiene un árbol recursivo. Medido: **567
-  ingredientes declarados, 236 ids distintos, 0 con receta en el propio
-  contrato**. El dato sí existe en la fuente (**86%** de esos ingredientes, con
-  profundidad de hasta **8 niveles**); lo que falta es que la fuente entre al
-  contrato.
-- **El corte quedó como puerta, no como veredicto.** El test afirma el **número**
-  (`cubiertos === 0`), no un «no se puede». El día que alguien amplíe el
-  contrato, ese número deja de ser 0 y **el test falla solo**. Fase roja probada
-  en las dos direcciones: `CONTROL 2` dentro del archivo versionado da 1 con un
-  contrato sintético; `tools/hb128_fase_roja.js` da **10 pass / 1 FAIL** al
-  cambiar el aserto contra el contrato real.
-- **Sizing de la ampliación, para que la decisión de Pablo no sea a ciegas.**
-  206 → **613** entradas (471 componentes), **65.9 KB → 214.3 KB (×3.3)**.
-- **PASO 3: sin ronda.** `ls-remote refs/heads/po/*` = **13 refs, el mismo
-  conjunto que HB#127**. 0 propuestas nuevas. No se mandó nada al Reviewer:
-  mandarle lo ya aplicado es la forma más cara de perder un ciclo (HB#103).
+- **Legendary Armory Phase 3 CERRADA.** Los 4 scripts (`index.html:1012-1015`),
+  la ruta (`router.js:125`, `:1616-1629`, `:1875-1880`), panel (`:539`), nav
+  (`:761`) y el veredicto del Reviewer entero (`render-catologo.js`) están
+  todos. El "commit 4" es `ed9a126`, **ancestro de main = SI**.
+- **ALERT-89 CERRADA.** Su condición de cierre ("cuando el catálogo traiga el
+  nombre oficial") es **imposible**: contra `/v2/raids?ids=all` hoy (HTTP 200, 6
+  raids, 8 wings, 30 eventos) los 30 eventos traen `{id,type}` y **cero de 30**
+  tienen `name`. Recontado hoy: 30 declarados, 30 en la API, 1 fantasma
+  (`vloxx`), 1 faltante (`camp`), 0 duplicados.
+- **Idea 57: 7 wrappers pedidos, 4 reales.** `luck` ya está hecho
+  (`api-gw2.js:1347`, FORMA v2.27.0). Contado con el arnés, no a mano.
+- **2 filas archivadas con fecha:** estilos inline de `inventory-dashboard.js`
+  (2 `border-radius`, ahora `:764` y `:885`) e Idea 63 T3 (decisión de
+  producto, no trabajo).
 
-## Lo que se rompió, y por qué importa
+## Control
 
-**ALERT-194b: ALERT-193 se cerró en HB#127 y se reprodujo en HB#128.** Al escribir
-ALERT-194 usé `write_file` sobre `ALERTS_LOG.md`, que va por **prepend** y la
-herramienta **sobreescribe**:
+- Conteo **propio** sobre el archivo mergeado, criterio `^- \[ \]`:
+  **10 abiertos -> 6**.
+- Suite: **67 archivos de test, todos exit 0**.
+- `git ls-remote --heads origin`: `main = daeee6f`, **sin branch duplicado**.
 
-    1 file changed, 65 insertions(+), 4951 deletions(-)
-    ALERTS_LOG.md   4957 lineas  ->  71
+## Lo que se rompió
 
-Restaurado con `git checkout` en ~1 segundo. **La única razón de que esto no sea
-otra tragedia: el archivo estaba commiteado.** Si hubiera estado sin commitear, el
-ciclo anterior lo habría perdido.
-
-**Lo que HB#127 aprendió no era lo que había que aprender.** Cerró el alerta sobre
-el *dato* (8500 líneas recuperadas, y una regla útil sobre historial vs. estado).
-Esa regla es cierta y no era el fallo. El fallo es que **el log va por prepend y
-la herramienta disponible sobreescribe** — con un log prependeado, esa herramienta
-es un `rm` con otro nombre. **Recuperar el dato no cierra el bug si lo que falló
-fue la herramienta.**
-
-Corregido: `tools/prepend.cjs` (antepone e imprime el crecimiento de líneas) y,
-porque `tools/` está en `.gitignore` y no se versiona, **la regla además quedó
-escrita en `AGENTS.md`**, que sí está versionado.
+Nada en código de producto; el diff es solo `.md`. **La amenaza de la corrida
+era de integridad, y la reporta el PO desde su worktree:** `DASHBOARD_PO_IDEAS.md`
+llegó al disco con **0 BYTES** y `git status` lo reportaba como "modificado", no
+como el HEAD. Sin pérdida en la historia (blob = 156.930 bytes en `32926dd` y en
+los 7 commits anteriores), pero lo que casi pasa es 156 KB reemplazados por un
+párrafo.
 
 ## Pendientes
 
-1. **Árbol de fabricación** — bloqueado por decisión de Pablo: versionar
-   `tools/cl_recipes.json` (plan de noche §8). Con eso solo: ampliar el contrato
-   y la puerta se abre sola.
-2. **Reviewer sin despertador** (ALERT-188): 14 consultas vencidas, la más vieja
-   de 2 días. **No reactivo su cron**: la verificación de crons la hace el
-   Arquitecto.
-3. `tools/.gitignore` y **ALERT-41** (Strike Tracker): decisión de Pablo.
-4. 51 worktrees vivos y ramas remotas ya mergeadas sin borrar: decisión de Pablo.
+1. **ALERT-41** — la única llamada que Pablo tiene que hacer con su token real.
+   Si el endpoint trae ids utilizables, se arregla; si no, **se borra el módulo**.
+2. **14 consultas al Reviewer vencidas** (ALERT-188). Su heartbeat sigue apagado
+   **por diseño**; la verificación de crons la hace el Arquitecto.
+3. Decisiones de Pablo: versionar `tools/cl_recipes.json`, si `tools/` debe
+   seguir ignorado, worktrees y ramas remotos ya mergeados.
 
 ## Alertas
 
 | # | Qué | Estado |
 |---|---|---|
-| **ALERT-194b** | `write_file` sobre un log prependeado: 4951 líneas borradas | **CERRADO.** Datos OK; mecanismo corregido en `tools/` + `AGENTS.md` |
-| **ALERT-194** | El paso 6 del plan se apoya en un dato que el contrato no tiene | **ABIERTO como puerta.** El número está congelado en un test |
-| ALERT-193 | Logs truncados por overwrite | Cerrado en HB#127; **reincidente en HB#128**, ver 194b |
-| ALERT-188 | Inbox del Reviewer: 14 consultas vencidas | Sigue. Su heartbeat está desactivado por diseño |
+| **ALERT-195 (nueva)** | `.md` truncado a 0 bytes en un worktree nuevo, invisible para `git status` | **ABIERTA como regla.** El control es el tamaño en disco, antes de editar |
+| ALERT-194 | El paso 6 se apoyaba en un dato que el contrato no tiene | ABIERTO como puerta (test versionado) |
+| ALERT-194b | `write_file` sobre un log prependeado | CERRADO |
+| ALERT-188 | Inbox del Reviewer: 14 consultas vencidas | Sigue. Cron apagado **por diseño** |
 | ALERT-41 | Strike Tracker no puede marcar un strike | Sigue. Decisión de Pablo |
-| ALERT-187 | La suite da verde o rojo según un archivo que no está en git | Sigue. Decisión de Pablo |
+| ALERT-187 | La suite depende de un archivo fuera de git | Sigue. Decisión de Pablo |
 
 ## Estado de propuestas
 
-**0 propuestas abiertas para el Reviewer.** Sin ronda nueva del PO y con las
-14 consultas vencidas siendo preguntas de alcance que el Reviewer no leyó, no
-hay nada que mandarle.
+**0 propuestas abiertas para el Reviewer.** El PO entró en MODO PODA (10 abiertos
+>= 8), así que la corrida entera fue podar: no hubo web research y no se abrió
+ninguna idea. Mismo criterio que HB#124 y HB#128: sin ronda nueva, no se manda.
 
 ## Commits del ciclo
 
-- `8dac6c8` — la puerta del árbol. **Sin cambios en código de producto**: 1 test,
-  166 líneas.
+- `daeee6f` — poda del PO aplicada. Solo `BACKLOG.md`, 7+/6-.
 
 ## Salud de la suite
 
-`node tests/_run-all.js` → **67 archivos, 1712 pass, 0 FAIL, exit code 0**.
-(66 archivos / 1701 en HB#127; el test nuevo aporta 11 aserciones.)
-`armeria-alert-01-clasificacion` aislado: **121/0**.
+**67 archivos, todos exit 0.** El diff es solo `.md`: la suite no se movió, y
+esa es justamente la razón por la que la poda se podía verificar entera antes de
+mergear.
 
 ## Dos reglas que deja el ciclo
 
-**Un 0 de un detector nuevo se verifica abriendo el dato, no preguntándole al
-detector.** La primera medición dio 0/567 —el número que casi cacé como
-verdad— por indexar la fuente con `r.output`, clave que no existe (la real es
-`output_id`). Un índice por una clave inexistente da 0 con toda seguridad, y ese
-0 es indistinguible de «el dato no está». Con esa medición el informe habría
-dicho «el árbol es imposible» y habría sido **falso**: el 86% sí tiene receta.
-Lo que distinguished las dos cosas fue imprimir `Object.keys(arr[0])`.
+**Un archivo truncado a 0 se reporta como "modificado".** `git status` no
+distingue "truncado" de "editado a propósito": los dos son `M`. Después de
+`git worktree add`, medir el tamaño de los `.md` que son tuyos **antes** de
+escribirlos.
 
-**Recuperar el dato no cierra el bug si lo que falló fue la herramienta.**
-ALERT-193 se cerró sobre el archivo; el archivo volvió a caerse porque la forma
-de escribir no cambió. Una alerta que se reproduce un ciclo después de
-cerrarse no estaba cerrada: estaba **arreglada**.
+**Una fila cuya condición de cierre nombra un dato que la fuente no produce, es
+una fila que espera para siempre.** No es trabajo bloqueado: es trabajo muerto, y
+contarlo infla el número que decide si el PO investiga o poda. Archivarla es
+**fecharla**, no borrarla: la medición queda escrita para el que mida después.

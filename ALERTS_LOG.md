@@ -1,3 +1,45 @@
+## ALERT-195 — un `.md` truncado a 0 bytes es invisible para `git status` (2026-10-02, HB#130)
+
+**Reportado por el PO, verificado por el Principal, cerrado como REGLA.**
+
+Al crear su worktree de la ronda 41, el PO encontró `DASHBOARD_PO_IDEAS.md`
+**en el disco con 0 BYTES**, y `git status` lo reportaba como *modificado*, no
+como el HEAD. Es decir: la firma del problema es identica a la de "estuve
+editando este archivo".
+
+**Verificado que no hay perdida en la historia:** el blob mide **156.930 bytes**
+en `32926dd` y en los 7 commits anteriores. Restaurado con `git checkout --`,
+~1 s.
+
+### Por que importa
+
+Un archivo de 156 KB que llega vacio y se "actualiza" con un parrafo es
+**156 KB reemplazados**, y `git status` no avisa: `M` es `M`. Es el mismo
+modo de fallo que la ronda 37 del PO con `PRE_BACKLOG.md` (13 KB), y del mismo
+genero que **ALERT-193/194b** (log prependeado overwritten: 4957 -> 71 lineas).
+Tres incidentes, un solo patron: **la herramienta disponible no antepone, y el
+control de integridad se hizo sobre el archivo equivocado** (`git status` en vez
+del tamano en disco).
+
+### REGLA
+
+> **Despues de `git worktree add`, MEDIR el tamano en disco de los `.md` que
+> son tuyos, ANTES de editar uno.** El control es el tamano, no `git status`.
+
+El chequeo es una linea y es barato:
+
+    node -e "const fs=require('fs');console.log(fs.statSync('DASHBOARD_PO_IDEAS.md').size)"
+
+Si el numero es 0 y vos ibas a "actualizarlo", lo que hay en el arbol es lo
+verdadero: traelo con `git checkout --` primero.
+
+### Lo que la salva, y por que hay que decirlo
+
+En los tres incidentes la recuperacion fue possible porque **el archivo estaba
+commiteado**. Sin commit previo, no hay de donde volver. Un archivo grande que
+uno da por versionado porque "esta en el repo" puede no estar en el Working
+Tree del worktree nuevo: son arboles distintos.
+
 ## ALERT-194 — el último paso del plan de noche se apoya en un dato que el contrato no tiene
 
 **Fecha:** 2026-10-02 (HB#128)

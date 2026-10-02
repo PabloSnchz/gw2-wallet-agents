@@ -1,3 +1,82 @@
+## HB#130 — 2026-10-02 (11:30–12:1x UTC)
+
+### Qué se hizo
+
+- **Aplicada la poda de la ronda 41 del PO** (`po/hb130-poda` @ `f797757`).
+  `BACKLOG.md`: 10 items abiertos -> **6**. Mergeada con `daeee6f`, `origin/main`.
+  **La poda NO la mergeé a ciegas: reverifiqué las 5 afirmaciones una por una**
+  contra `origin/main` @ `32926dd` y contra la API viva.
+- **La más cara de la cola no existía.** *Legendary Armory Phase 3, "~15-20h
+  remaining, AWAITING API connection"*. Verificado pieza por pieza: los 4 scripts
+  en `index.html:1012-1015`, la ruta en `router.js:125` / `:1616-1629` /
+  `:1875-1880`, panel `index.html:539`, nav `:761`, y el veredicto del Reviewer
+  cumplido entero en `render-catologo.js` (`registerRender` x2 bloques,
+  `renderFilterBar`/`renderCatalogGrid`/`renderProgress` x3 cada una). El
+  "Phase 3 commit 4" es `ed9a126`, **ancestro de main = SI**. Un item que promete
+  15-20h y cuyo único bloqueo dice *AWAITING* no es trabajo a medias: es trabajo
+  inexistente con la etiqueta del trabajo inexistente.
+- **ALERT-89 CERRADA, y la razón es nueva.** Su condición de cierre decía
+  *"cuando el catálogo traiga el nombre oficial"*. Medido contra
+  `/v2/raids?ids=all` **hoy** (HTTP 200, 6 raids, 8 wings, 30 eventos): **los 30
+  eventos traen `{id,type}` y CERO de 30 tienen `name`**. `camp` no es la
+  excepción, es la norma. **Una fila cuya condición de cierre nombra un dato que
+  la fuente no produce es una fila que espera para siempre.** El fix ya estaba
+  mergeado (`1176be6`, ancestro = SI) y la guarda con allowlist es la protección
+  permanente.
+- **Idea 57: la fila pedía 7 wrappers y quedan 4.** No es poda, es corrección.
+  `getAccountLuck` **ya está hecho** (`api-gw2.js:1347`, bloque FORMA v2.27.0):
+  separa el `null` de forma del `[]` legítimo y propaga solo el primero. O sea
+  que el caso que la fila declaraba *"el peor de los once"* es el único que
+  quedó bien resuelto, y por la razón más difícil. Lo que queda, contado **con el
+  arnés** (`idea57.forma-contracts.test.js`, 14/0) y no a mano: `buys` :918,
+  `sells` :962, `delivery` :1038, `prices` :1138.
+- **2 filas archivadas con fecha, no descartadas:** los estilos inline de
+  `inventory-dashboard.js` (siguen siendo 2 `border-radius`, ahora **:764 y
+  :885** — las cifras se corrieron otra vez — y la fila esperaba un veredicto de
+  una task **muerta**: `task-8408fd859db1` dio 404) e Idea 63 T3 (la fila misma
+  dice "no es del equipo, es preferencia de uso, va a Pablo": es una elección
+  entre dos comportamientos, no trabajo).
+- **Control:** conteo **propio** sobre el archivo mergeado con el criterio del
+  equipo (`^- \[ \]`): **10 antes, 6 después**. No se tomó el conteo del PO.
+  Suite completa: **67 archivos, todos exit 0**.
+
+### Qué se rompió
+
+- Nada en código de producto. **El diff es solo `.md`.**
+- **La amenaza de esta corrida era de integridad, no de código**, y la reporta el
+  PO desde su propio worktree: `DASHBOARD_PO_IDEAS.md` llegó al disco con **0
+  BYTES** y `git status` lo reportaba como "modificado", no como el HEAD.
+  Verificado que **no hay pérdida en la historia** (el blob mide 156.930 bytes en
+  `32926dd` y en los 7 commits anteriores). Lo que casi pasa: 156 KB
+  reemplazados por un párrafo. Es el mismo error que en la ronda 37 con
+  `PRE_BACKLOG.md`.
+
+### Qué quedó pendiente
+
+1. **ALERT-41** — sigue siendo lo único que desbloquea el Strike Tracker entero, y
+   sigue siendo **una llamada de Pablo** con token real a `/v2/account/raids`
+   (permiso `progression`, body crudo). Si el endpoint trae ids utilizables se
+   arregla; si no, **se borra el módulo**: decisión de Pablo.
+2. Los **6 que quedan** en el backlog: ALERT-41, Coberturable account-scoped,
+   Dungeon dailies, Idea 57 (4 wrappers), WvW Borderlands (deadline 10/11),
+   Idea 50 Tramo E (30 min).
+3. **14 consultas al Reviewer vencidas** (ALERT-188). Su heartbeat sigue apagado
+   **por diseño**; la verificación de crons la hace el Arquitecto y no la toco.
+4. Decisiones de Pablo: versionar `tools/cl_recipes.json`, si `tools/` debe
+   seguir ignorado, y borrar los worktrees/ramas remotos ya mergeados.
+
+### Dos reglas que deja el ciclo
+
+**Medir el tamaño del archivo en disco, no mirar `git status`.** Un `.md` que
+llega truncado a 0 bytes se reporta como "modificado", que es exactamente lo que
+se vería si lo hubieras editado a propósito. El control barato es
+`stat` sobre los archivos que son tuyos, después de `git worktree add`, antes de
+escribirles.
+
+**"Cerrada" y "archivada" no son lo mismo, y el backlog necesita las dos.** Una
+fila cuya condición de cierre es imposible no está bloqueada: está muerta, y
+contarla infla el número que decide si el PO investiga o poda. Pero archivar es
+**fecharla**, no borrarla: la medición queda escrita para el que mida después.
 ## HB#128 — 2026-10-02 (09:30–11:0x UTC)
 
 ### Qué se hizo
