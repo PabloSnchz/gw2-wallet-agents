@@ -292,7 +292,16 @@ worktree"*, no pelees con git ni asumas que estas en el estado que creias. El
 worktree ajeno es informacion: puede tener trabajo sin commitear, y ese trabajo es
 de otro ciclo. Se documenta y se sigue en el worktree propio.
 
-- [ ] **T13: el latch de `state.active` no baja nunca** (propuesta del PO, ronda 34).
+- [x] **T13: el latch de `state.active` no baja nunca** (propuesta del PO, ronda 34).
+      **CERRADO (HB#117).** Estaba como `- [ ]` con el fix **ya mergeado**: `router.js:1524`
+      hace `try { m.deactivate(); } catch (_) {}` sobre la lista de modulos, y el fix usa
+      **el panel VISIBLE**, no el hash — que era exactamente la distincion que el Reviewer
+      pidio en la fila 128 (`(a)` con el predicado puesto DESPUES, commit `1e5aedb`).
+      Verificado en este ciclo con `git grep -n "deactivate()" origin/main -- js/router.js`
+      y con `tools/hb117-alert169.mjs`, que lo lee contra `origin/main` @ `5f4688f`.
+      El tripwire de abajo **esta VERDE: 13 pass / 0 FAIL** (corrido en el HB#117 contra este
+      worktree). La nota de mas abajo que dice "11 pass / 1 FAIL a proposito" quedo obsoleta:
+      era el estado con el fix sin mergear, y el arnes ya no puede reproducir ese defecto.
       **5 modulos** tienen `if (state.active) return;` al principio de `activate()` y los 5
       exportan `deactivate()`: `homestead-tracker.js`, `inventory-hub.js`,
       `legendary-tracker.js`, `raid-tracker.js`, `strike-tracker.js`. El router solo
