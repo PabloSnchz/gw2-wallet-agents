@@ -1,3 +1,130 @@
+## ALERT-179 - `importFromData` DUPLICA las 7 escrituras de `applyImportData`, linea por linea
+
+**Fecha:** 2026-10-02 (HB#119)
+**Estado:** ABIERTO. No se toco (fuera del alcance de T20-a).
+**Origen:** T20 de la ronda 38 del PO, re-medido antes de aplicar.
+
+`gist-sync.js:452` llama a `window.SettingsManager.importFromData(configData)`.
+`importFromData` esta en `settings-manager.js:538` y **no llama a `applyImportData`**
+(`:485`): tiene las mismas 7 escrituras escritas de nuevo, una por una
+(`:551-557`).
+
+El PO escribio que "los dos botones ejecutan las MISMAS 7 escrituras
+(`applyImportData`)". La conclusion se sostiene; **el mecanismo, no.** Y la
+diferencia no es de prosa:
+
+**Un fix futuro en `applyImportData` NO alcanzaria al camino del Gist.** Es
+justamente el camino que quedo sin cubrir en T20-a: el que se arregla es el que
+no pasa por la funcion que los otros developers van a leer.
+
+**Por que no lo arreglo aca:** cambiar `importFromData` para que delegue en
+`applyImportData` toca el camino de escritura de las 7 familias, y eso merece su
+propio commit con su arnes. Ademas `importFromData` es API publica
+(`SettingsManager.importFromData`, `:777`) y tiene un manejo extra que
+`applyImportData` no tiene: si el dato llega como **string** lo parsea primero
+(`:541-547`). Delegar sin copiar eso cambia el contrato.
+
+Detector: ninguno todavia. El arnes de T20-a
+(`tests/hb119-t20a-confirm.test.js`) exercise el camino del Gist pero con un
+stub de `SettingsManager`, asi que **no** mira estas 7 escrituras. Queda el
+agujero.
+
+## ALERT-178 - T19-a del PO: el HECHO es cierto y la CONSECUENCIA no se sostiene
+
+**Fecha:** 2026-10-02 (HB#119)
+**Estado:** ABIERTO. NO se aplico el fix. Preguntado al Reviewer
+(`20261002T022248Z-a26363`) antes de escribir una linea.
+**Origen:** T19-a de la ronda 38 del PO (prioridad 1, "verde 20 min").
+
+El PO escribio: *"Verificado en origin/main: inventory-hub.js NO tiene ni un
+`gn:tokenchange`. Es el unico que pido sin esperar a nadie (20 min, verde)."*
+
+El **hecho** es cierto, medido dos veces (grep y censo de 14 archivos). La
+**conclusion** que el PO le pone - "por eso hay que agregarle el listener" - no
+esta probada, porque hay un camino que ya lo refresca:
+
+    router.js:1825   window.InventoryHub.refresh(true)
+    router.js:1783   ...dentro de onKeySelectChange()
+    router.js:1897   onKeySelectChange se registra SOLO en el change del <select>
+    app.js:836       setSelected emite gn:tokenchange SIEMPRE (el flag silent,
+                     :843, solo protege el change programatico, que va despues)
+
+Un click en el desplegable **ya recarga el modulo**. Y el latch lo protege a
+proposito: `barridoLatch()` corre en el `finally` de esa misma funcion
+(`router.js:1778`) con el predicado *"mi panel NO quedo visible"* (`:1521`), y el
+comentario de `:1500` dice que esa condicion existe **para proteger a InventoryHub**.
+
+Agregar el listener, entonces, es en el mejor caso un no-op funcional y en el
+peor un **segundo `refresh(true)` con nocache** sobre una carga en vuelo
+(`refresh(true)` es lo que fuerza los dos passes de red; la deduplicacion si la
+hay depende de `_refreshInFlight`, `inventory-hub.js:1445, mas los 35 ms del
+`setTimeout` de `router.js:1780`).
+
+**Por que importa mas alla de este item:** es el **tercer** caso del mismo modo de
+fallo en tres ciclos: la premisa es verdadera y se apoya en ella una conclusion
+que no se midio. Los otros dos estan en ALERT-84 (`loadLegendaryData` NO esta en
+`router.js`, esta en `legendary-tracker.js:331` y su cuerpo dice `not implemented
+(Phase 2)`; el HB#117 la declaro aplicada) y ALERT-168 (la ronda 33 del PO esta
+en 2 refs y se conto como 2 secciones).
+
+**REGLA, y sale de ahi:** cuando la premisa de un item sea *"el modulo X no
+escucha el canal"*, la pregunta que falta no es *"le falta el listener"* sino
+**"quien lo recarga hoy, y por que no basta"**. El primer item que afirme que
+falta un listener tiene que decir, NOMBRADO, el call site que ya lo hace.
+
+Lo que si queda: `tests/hb119-t19a-cadena.test.js` (15 aserciones) deja pasar que
+alguien saque el `refresh` del router sin reemplazarlo, y que `setSelected` deje
+de emitir el evento (14 archivos dependen del canal).
+
+## ALERT-177 - los mensajes de commit estan saliendo con BOM
+
+**Fecha:** 2026-10-02 (HB#119)
+**Estado:** ABIERTO. El del HB#119 esta corregido con `--amend`; los demas no.
+
+`c8998f4` (Documentador) y mi primer commit de este ciclo **arrancan con un BOM
+UTF-8**: el `git log` muestra `﻿fix(armeria)` y `﻿fix(gist-sync)`. No rompe el
+código, pero ensucia el titulo en el historial y en cualquier comparacion de
+texto.
+
+**Causa:** la herramienta de escritura de archivos de QwenPaw guarda en UTF-8 **con
+BOM** en Windows. El `git commit -F <archivo>` lo arrastra. **No pasa** con
+`git commit -m` en linea.
+
+**Como se detecta:** `git log --oneline | findstr /R /C:"^[ ]*."` no sirve; el
+chequeo barato es `git log -1 --format=%B` y mirar que el primer caracter sea una
+letra, o comparar el hash del titulo contra `git log --format=%s`.
+
+## ALERT-176 - el filtro de texto del runner por exit code falla, y fallo 2 veces antes de que lo entendiera
+
+**Fecha:** 2026-10-02 (HB#119)
+**Estado:** CORREGIDO en `tools/hb118-suite-exit.js` (que no se versiona, ver abajo).
+**Relacion:** ALERT-172, del HB#118.
+
+ALERT-172 dijo que `tools/run-suite.cmd` no puede fallar porque filtra la salida con
+`findstr /C:"pass /"`, y por eso Propuse `tools/hb118-suite-exit.js`, que juzga por
+**exit code**. **Fui y le agregue igual un filtro de texto "por si acaso".** Salio
+mal las dos veces, y las dos por el mismo motivo:
+
+  1. Con `/\bFAIL\b/`: declaro **49 de 54 archivos caidos**, estando los 49 en
+     `exit 0` y todos diciendo "0 FAIL". El `0 FAIL` del propio recuento matchea.
+  2. Con `/(^|[^0-9])([1-9][0-9]*)\s+FAIL\b/`: bajo a **1 de 54**, y ese uno es
+     `hb105-perms-persistidos.test.js`, que imprime **"5 FAIL de 10 aserciones"**
+     porque su **control negativo inyecta el bug a proposito** para probar que el
+     arnés lo detecta. Sale `exit 0` porque pasa.
+
+**Lo que hay que entender:** un filtro de texto **no puede distinguir "este runner
+fallo" de "este runner hablo de un fallo"**, y los runners de este repo *hablan*
+de fallos todo el tiempo, porque varios tienen controles negativos que las
+imprimen a proposito. El exit code si distingue.
+
+**REGLA: el runner de suite juzga por exit code y NADA MAS.** Si se quiere una
+red adicional, tiene que ser un test, no un filtro sobre la salida de los tests.
+
+**Y el detalle operativo que se repite:** `tools/.gitignore` es `*`, asi que
+`hb118-suite-exit.js` **no esta versionado** y hay que reconstruirlo cada ciclo
+(este ciclo, otra vez, desde cero). Es la razon por la que el filtro de texto
+pudo colarse sin que nadie lo viera.
+
 ## ALERT-118 - el mutex de refresh CANCELABA la carga nueva, y habia un contador declarado que media siempre 0
 
 **Fecha:** 2026-10-01 (HB#90)

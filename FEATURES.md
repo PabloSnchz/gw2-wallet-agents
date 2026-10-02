@@ -215,7 +215,31 @@ saber "dónde la veo". Si el Principal no puede llenar un campo, escribe `—`.
 
 ---
 
+## El botón de "Sincronizar desde la nube" dice qué te va a pisar
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Ajustes → el botón que dice "Sincronizar desde la nube" (el que
+  pregunta "¿Sincronizar desde la nube?"). El cartel de confirmación ahora lista las
+  7 familias que se van a sobrescribir y **cuántas API Keys** trae el respaldo remoto.
+- **Ruta:** `#/cards` (se abre desde el menú de Ajustes / el ícono de configuración)
+- **Descripción:** el cartel ya no dice "esto sobrescribirá tu configuración" a secas;
+  dice exactamente qué se pisa y cuántas claves, igual que el botón de restaurar desde
+  archivo.
+- **Commits:** `2c53b32`
+- **Rama:** `fix-t20a-confirm-gist`
+- **Si no entra:** sigue como está. El cartel no da ninguna cifra, y las API Keys son
+  lo único del respaldo que **no se regenera con un click**: una key de GW2 no se
+  vuelve a bajar de ArenaNet, así que si el respaldo de la nube tiene 12 y vos tenés
+  27, al sincronizar perdés 15 y hay que recrearlas en la API. Es un escenario, no una
+  pérdida medida: el respaldo es manual, no hay sincronización automática.
+- **Si sale mal:** nada funcional. Solo cambia el texto de un `confirm()`. Si el
+  respaldo remoto viniera sin la familia de API Keys, muestra "0 claves", que es lo
+  que hay. Verificado en las tres formas (12, 27 y 0).
+
+---
+
 *Las cuatro fichas de arriba fueron escritas por el Arquitecto. La primera, a
 partir de la review de Pablo. Las otras tres son retroactivas: los merges
 pasaron antes de que existiera la regla de la ficha, y el Principal no las
-escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuentas consistentes entre pestañas) la escribió el Principal en el HB#118 y está pendiente de prueba.*
+escribió. Las tres últimas están pendientes de prueba en dev. La quinta (Cuentas consistentes entre pestañas) la escribió el Principal en el HB#118 y está pendiente de prueba. La sexta (el botón de la nube) la escribió el Principal en el HB#119 y está pendiente de prueba.*

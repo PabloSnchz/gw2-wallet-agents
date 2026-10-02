@@ -3262,3 +3262,94 @@ que no se commitean):
 | `tools/hb118-cuento-po.mjs` | Propuestas VIVAS del PO sobre la union de sus 10 refs | 8 cuentan / 2 cerradas, control negativo 0 |
 | `tools/hb118-medir-po.mjs` | Las 8 del conteo, medidas contra `origin/main` | 12 pass / 0 FAIL |
 | `tests/t19c-lectores-legacy.test.js` | El fix (red 12 FAIL -> 36/0) | 36 pass / 0 FAIL |
+
+---
+
+# HB#119 — 2026-10-02 02:2x UTC (ronda 38 del PO)
+
+`origin/main` entro por `4fe38bc`. Salio por `f1eccea`. Dos commits de producto y
+uno de evidencia.
+
+## Lo que se aplico: T20-a
+
+El PO reporto (ronda 38) que los **dos botones de restauracion hacen las mismas 7
+escrituras pero dicen cosas distintas**: el de archivo (`settings-manager.js:594`)
+lista las 7 familias con la cifra de API Keys; el del Gist (`gist-sync.js:446`) decia
+"Esto sobrescribira tu configuracion local" y nada mas — 0 familias, 0 cifras.
+
+Medido con arnes antes de tocar nada, con `gist-sync.js` **verbatim**:
+
+| | pass / FAIL |
+|---|---|
+| Fase roja (sin tocar) | **5 / 10** — el texto capturado decia 0 categorias, 0 cifras |
+| Fase verde (con el fix) | **18 / 0** |
+
+El control discrimina (remoto de 27 dice 27, remoto de 12 dice 12, remoto de 0 dice
+0), asi que la cifra sale del remoto y no es una constante. Commit `2c53b32`.
+
+**Correccion a la premisa del PO:** escribio que ambos caminos ejecutan
+`applyImportData`. No es asi — `gist-sync.js:452` llama a `importFromData`
+(`settings-manager.js:538`), que tiene las 7 escrituras **duplicadas linea por linea**
+y no pasa por `applyImportData` (`:485`). La conclusion se sostiene, el mecanismo no.
+Es **ALERT-179**, y abre un agujero: un fix futuro en `applyImportData` no alcanzaria
+al camino del Gist.
+
+## Lo que NO se aplico: T19-a
+
+El PO la puso de prioridad 1, "verde 20 min, no espero a nadie". **No la escribi.**
+El hecho que la sostiene es cierto (`inventory-hub.js` no registra `gn:tokenchange`,
+verificado por grep y por censo de los 14 que si lo hacen), pero la consecuencia no:
+
+    router.js:1825   window.InventoryHub.refresh(true)   <- el router ya lo refresca
+    router.js:1897   ese handler esta en el change del <select>
+    app.js:836       setSelected emite gn:tokenchange SIEMPRE
+
+Un click en el desplegable **ya recarga el modulo**. Y el latch lo protege a proposito
+(`router.js:1521`, comentario en `:1500`). Agregar el listener es un no-op en el mejor
+caso y un **segundo `refresh(true)` con nocache** en el peor.
+
+Es el **tercer** caso del mismo modo de fallo en tres ciclos (ALERT-84, ALERT-168, y
+este), asi que quedo como **ALERT-178** con la regla: el primer item que afirme que
+falta un listener tiene que decir, nombrado, el call site que ya lo hace.
+
+Preguntado al Reviewer (`20261002T022248Z-a26363`) **antes** de escribir una linea.
+Commit `ef8ea60` = solo el arnés (15 aserciones), que deja pasar que alguien saque el
+`refresh` del router sin reemplazarlo.
+
+## Lo que se rompio
+
+Nada del producto. Dos cosas mias:
+
+- **El filtro de texto del runner de suite** (ALERT-176). Escribi el runner por exit
+  code para arreglar ALERT-172 y le agregue igual un filtro "por si acaso". Declaro
+  49 de 54 archivos caidos con todos en `exit 0`, porque `/\bFAIL\b/` matchea el
+  "0 FAIL" del recuento. Corregido a exit code y nada mas. **Un filtro de texto no
+  puede distinguir "este runner fallo" de "este runner hablo de un fallo"**, y varios
+  runners de este repo imprimen fallos a proposito porque sus controles negativos los
+  inyectan.
+- **BOM en los mensajes de commit** (ALERT-177). La herramienta de escritura de
+  QwenPaw guarda UTF-8 **con BOM** en Windows y `git commit -F` lo arrastra. El mio
+  corregido con `--amend`; el del Documentador (`c8998f4`) sigue asi.
+
+Un detalle de operacion que se repite: `tools/.gitignore` es `*`, asi que
+`hb118-suite-exit.js` no esta versionado y lo reconstrui desde cero otra vez.
+
+## Lo que quedo pendiente
+
+- **T20-c** (foto local antes de sobrescribir) y **T20-b** (la direccion: `exportedAt`
+  se escribe en `settings-manager.js:209` y tiene **0 lecturas en todo el repo**). No
+  los toque: T20-c es el que evita la perdida, asi que merece su propio veredicto.
+- **La respuesta del Reviewer a T19-a** define si el item vuelve como fix o se cierra.
+- **Los 7 del patron B** (leen el `<select>` sin fallback) siguen abiertos desde el
+  HB#118.
+
+**Harnesses de este ciclo** (con control positivo/negativo; `tools/` esta gitignored,
+asi que no se commitean):
+
+| Archivo | Que mide | Resultado |
+|---|---|---|
+| `tools/hb118-suite-exit.js` (reconstruido) | La suite por EXIT CODE, sin filtro de texto | **57 exit 0 / 0 FAIL** |
+| `tests/hb119-t20a-confirm.test.js` | El texto EXACTO del confirm del Gist, 3 formas + control | rojo 5/10 -> **18/0** |
+| `tests/hb119-t19a-cadena.test.js` | La cadena de 5 hechos de T19-a, y que no se rompa el router | **15/0** |
+
+Suite completa: **57 de 57 archivos exit 0, 0 FAIL**.
