@@ -5971,3 +5971,246 @@ diferencia.** Si los dos estados posibles del sistema dan el mismo resultado del
 control, el control no esta midiendo: esta midiendo la forma del codigo.
 La forma de encontrarlo es escribir la **tabla de los dos estados** antes del
 assert, no despues.
+
+--- LIMPIEZA-HB148-2026-10-02 ---
+
+## ALERT-214 (2026-10-02, HB#148) — mi propio edit rompio el archivo, y un numero viejo en pantalla casi lo tapo
+
+| **Severidad** | Alta | **Clase** | Runner / proceso |
+|---|---|---|---|
+| Sintoma | `tests/hb119-2-2-filtros-progreso.test.js` dejo de CORRER (SyntaxError) | Un total de suite que no se move cuando un archivo muere |
+| Hallazgo | Propio (mi edit de este ciclo) | Deteccion por el archivo suelto, no por el aserto |
+
+**Sintoma.** Al reescribir FILTRO-05 deje un bloque huerfano y el archivo
+quedo con `await` en nivel superior (`:265`, codigo de FILTRO-06). Node lo
+rechaza: `SyntaxError: await is only valid in async functions`. El archivo
+**no corre**: no hay 7 pass, no hay 0 fail, no hay linea de resumen.
+
+**Lo importante: como casi pasa, y por que el metodo tambien importa.** El
+runner (`tools/run-suite.js:41-52`) envuelve cada archivo en un `try/catch`. Si
+un archivo crashea, `out` queda con el stderr del SyntaxError, **ningun `RE`
+matchea**, y el archivo cae en `bad[]`, que se imprime como `?????` y hace
+exit 1. O sea que el runner **si** lo detecta. El problema fue mio: estaba
+leyendo una salida de suite **de una corrida anterior** a mi edit, donde el
+archivo si habia corrido y daba `ok ... 7 / 0`. Volvi a mirar ese mismo numero
+y lo lei como confirmacion de que mi edit estaba bien.
+
+**REGLA (2a vez del ciclo, y mas fuerte que la primera): un numero que ya
+esta en pantalla es un dato VIEJO hasta que se vuelve a correr.** La prueba
+de que es viejo no es que el numero no cuadre: es que **la corrida que lo
+produjo no fue la ultima**. Con la suite entera, un archivo mas es un total
+que no se mueve. Un archivo suelto que crashea es un numero que se queda
+igual.
+
+**El metodo que funciona:** correr el archivo **SUELTO**
+(`node tests/hb119-2-2-filtros-progreso.test.js`) en vez de leer el resumen de
+la suite. Un SyntaxError se ve en la salida cruda; un `ok ... 7 / 0` de una
+corrida vieja no se ve nunca. **La suite completa responde "cuantos"; el
+archivo suelto responde "esta corriendo ahora". Son preguntas distintas.**
+
+**Lo que deja el ciclo.** El patch con FILTRO-05 reescrito queda en
+`_hb148-filtro05.patch` (5277 bytes, sin BOM) por si Pablo decide aplicar la
+decision de producto. Y el defecto que el patch midio queda certificate en
+`tests/hb148-filtro05-guardia-cognitiva.test.js`.
+
+> **CORREGIDO en el HB#148 (ALERT-216).** El parrafo original de aqui decia
+> que ese certificado tenia "fase roja **en las dos direcciones**: mutando el
+> render para que la cola SI filtre, el test cae a 5 pass / 1 FAIL". **Eso era
+> FALSO por partida doble:** (a) la v1 del certificado no caia al arreglar la
+> cola en `renderQueuePanel()` — que es el lugar natural —, y (b) la mutacion
+> que se uso como "fase roja" **no arreglaba nada**: `renderQueuePanel()` no
+> recibe parametros, asi que pasarle una lista filtrada es un no-op. Un test
+> que se certifica con una mutacion que no cambia el comportamiento esta
+> midiendo la forma del codigo, no el defecto. La v2 (misma ruta) cuenta las
+> filas pintadas y cae en los dos lugares reales de arreglo.
+
+## ALERT-215 CORREGIDO (2026-10-02, HB#148) — mi veredicto de "no hay endpoint" era FALSO; lo habia escrito y casi pisado el item
+
+| **Severidad** | Baja (queda un dato valido) | **Clase** | Medicion parcial leida como total |
+|---|---|---|---|
+| Mi conclusion | "`/v2/account/dungeons` no existe" | **FALSA.** HTTP **401** = existe, pide token |
+| Fuente correcta | `/v2.json` (184 rutas) | `"/v2/account/dungeons"` con `"active": true` |
+
+**Lo que hice mal, y es la parte que hay que guardar.** Escribi el ALERT-215
+affirmando que el item del BACKLOG era "BLOQUEADO POR DATOS" y fui a
+reescribir la fila del BACKLOG para dejarlo asi. **Iba a pisar la fila que el
+HB#125 ya habia corregido**, que dice literal que `/v2/account/dungeons`
+"**SI existe**, confirmado contra `/v2.json` (184 rutas)". El HB#125 tenia
+razon y mi medicion la contradecia.
+
+**Como me di cuenta, y por que la primera medicion no lo dijo.** Yo medi
+`/v2/achievements/daily` (503), `/v2/account/daily` (404),
+`/v2/account/dailies` (404) y `/v2/daily` (404). **Ninguno de esos cuatro es
+`/v2/account/dungeons`**: probe endpoints que se me parecian al que quiero y
+no probe el que el item nombra. Cuatro 404/503 se leen igual que "esta
+familia no tiene datos" cuando en realidad la frase era "yo probe otros
+endpoints".
+
+**Y el chequeo de que la fila estaba intacta tambien me dio FALSO.** Busque
+`CORRECCION` sin tilde y la fila tiene `CORRECCIÓN` con acento: mi grep dio
+"NO, se perdio" cuando la fila estaba perfectamenta intacta. **Un control que
+busca una cadena mal escrita no mide si el archivo esta bien: mide si mi
+grep esta bien.**
+
+**Lo que QUEDA del ALERT-215 es la parte (1), que es valida:** la "familia
+ya implementada 3/4" **no existe dentro de `activities.js`** — `worldbosses` y
+`mapchests` tienen 0 ocurrencias ahi y viven en `meta.js`. Eso ya lo habia
+dicho el HB#125 y lo confirme de nuevo. El estimado de "~3-4h, patron ya
+probado" sigue sin sustaining, por el motivo que el HB#125 dio: el patron no
+esta en el modulo destino.
+
+**REGLA (la mas transferible del ciclo, y es una generalizacion de ALERT-200):
+cuando el dato que me contradice esta en un archivo que yo iba a editar,
+**leer la fila ANTES de escribir es parte de medir.** No es un detalle de
+cortesia: es que la fila es la hipotESIS del item, y editar sin leerla es
+aplicar un cambio sobre una premisa que alguien ya midio.** Y la forma
+barata: `git checkout` del archivo, leer la fila entera, y recién despues
+decidir si hay algo que corregir.
+
+--- LIMPIEZA-HB148B-2026-10-02 ---
+
+## ALERT-216 (2026-10-02, HB#148) — el certificado del defecto era, el mismo, un aserto que no podia fallar
+
+| **Severidad** | Media | **Clase** | Un control que mide el LUGAR en vez del EFECTO |
+|---|---|---|---|
+| Sintoma | La v1 de `hb148-filtro05-guardia-cognitiva.test.js` daba verde con el defecto YA ARREGLADO | Su unico assert de producto era `indexOf(<una linea de codigo>)` |
+| Descubierto por | Las 3 mutaciones, no la primera | Se reproduce abajo, en 4 lineas |
+
+**El hallazgo.** El certificado v1 afirmaba el defecto (la cola no recorta) y
+era exacto en el diagnostico: la cola no recorta, medido. Lo que no podia era
+detectar que el defecto se ARREGLA. Su unico assert de producto era
+`fs.readFileSync(legendary-tracker.js).indexOf('r.filterBar(filters, all) + renderQueuePanel()') !== -1`:
+la linea de render. **MEDIDO:**
+
+| mutacion | donde | v1 |
+|---|---|---|
+| A | la linea de render pasa la lista ya filtrada | 6/0 (no cae) |
+| B | `renderQueuePanel()` filtra por dentro | **6/0 (NO CAE)** |
+| C | `queueItems()` filtra por dentro | 6/0 (no cae por inspeccion) |
+
+**Y la mutacion A que ALERT-214 llamaba "fase roja" NO ERA UN ARREGLO.**
+`renderQueuePanel()` **no recibe parametros** (`legendary-tracker.js:794`), asi que
+pasarle una lista ya filtrada es un **no-op**: el argumento se descarta y la cola
+sigue mostrando las 5. Medido: 6 pass / 0 fail. Un certificado cuya fase roja es
+una mutacion que no cambia el comportamiento **no tiene fase roja**; tiene una
+afirmacion de que el codigo tiene una forma.
+
+**La v2.** Cuenta las filas **pintadas** (`lt-queue-row`) con 5 armors encolados y
+filtro `type=weapon`. Con el defecto: 5 filas. Arreglado: 0. MEDIDO en las 3
+mutaciones: **B cae (5 pass / 1 FAIL), C cae (5 pass / 1 FAIL), A no cae — y A no
+cae porque no arregla nada, que es lo correcto.** El tracker quedo restaurado
+identico, medido con comparacion de bytes y no a ojo.
+
+**COMO SE REPRODUCE, sin ningun archivo extra.** El certificado esta commiteado;
+basta mutar el tracker a mano y correr el archivo SUELTO (que es lo que hay que
+hacer igual).
+
+```
+node tests/hb148-filtro05-guardia-cognitiva.test.js      # base: 6 pass / 0 fail
+
+# B (el lugar natural) — UNA linea de js/legendary-tracker.js:795
+#   var items = queueItems();
+# -> var items = queueItems().filter(function (i) { return passesFilters(i, {}, true); });
+node tests/hb148-filtro05-guardia-cognitiva.test.js      # 5 pass / 1 FAIL = CAE
+git checkout -- js/legendary-tracker.js                  # restaurar
+```
+
+**El paso que hay que hacer SIEMPRE antes de mutar:** confirmar que
+`renderQueuePanel` **no recibe parametros** (`:794`). Si los recibiera, la
+mutacion "A" seria un arreglo real y tambien tendria que caer. Ese chequeo es el
+que convierte "el certificado no cae" en "el certificado no necesita caer":
+**la diferencia entre una mutacion que no cae porque el certificado es malo y una
+mutacion que no cae porque la mutacion es un no-op, se.finda en si la mutacion
+cambia el comportamiento — y eso se mira en el codigo, no en el test.**
+
+**POR QUE NO HAY UN GUION EN `tools/`:** `tools/.gitignore` ignora todo salvo una
+allowlist de infraestructura que Pablo autorizo archivo por archivo (`run-suite.js`,
+`run-suite.cmd`, `cl_recipes.json`). Este guion no es infraestructura, asi que **no
+se fuerza con `git add -f`**: agregar una excepcion a esa lista es una decision de
+Pablo, no del ciclo. Por eso la receta va escrita aca y no en un archivo.
+
+**La regla, y es la 3a vez que sale en 3 ciclos:**
+
+- un control tiene que mirar el **EFECTO** observable, no el setter ni la ubicacion (ALERT-211).
+- **la fase roja tiene que usar una mutacion que REALMENTE cambie el
+  comportamiento.** Verificar eso es una medicion aparte: si la mutacion no altera
+  lo que el producto hace, no hay fase roja, hay decoracion.
+- **una mutacion que no matchea NO es una mutacion que no rompe.** El guion dio
+  `NO MATCH (0 ocurrencias)` en la C por una linea de mas sangria, y el primer
+  `node -e` dio `NO MATCH B` por lo mismo. Un `NO MATCH` se parece mucho a un `ok`,
+  y por eso el guion tiene que DISTINGUIRLOS en la salida.
+
+## ALERT-217 (2026-10-02, HB#148) — el TOTAL de suite estaba inflado EXACTAMENTE 2x; la observacion de TEAM_STATUS tenia causa
+
+| **Severidad** | Media (record misleading) | **Clase** | Doble conteo al medir |
+|---|---|---|---|
+| Registrado | **4246 aserciones / 0 FAIL en 81 archivos** (HB#147; 4145 en el HB#141) | Medido hoy | **2123 aserciones / 0 FAIL en 81 archivos**, exit 0 |
+| Indicio | 4246 = 2123 x 2 EXACTO | Mecanismo | sumar las lineas por archivo **Y** la linea `TOTAL` |
+
+**Lo que estaba abierto.** `TEAM_STATUS.md` decia, textual: *"el TOTAL del runner
+bouncea entre ~2.100 y ~4.250 entre ciclos con la suite en verde ... No lo he
+explicado y queda como observacion, no como conclusion: un detector cuya salida
+varie 2x en verde merece su propia auditoria."* **Ahora esta explicado, con el
+dato: el runner NO es el problema.**
+
+**Medicion de las 3 formas, sobre el MISMO stdout (82 archivos, con el test de este ciclo):**
+
+| forma | valor |
+|---|---|
+| linea `TOTAL` del runner | 2129 |
+| suma de las lineas `ok <archivo> N / M` | 2129 (82 archivos, 0 ilegibles) |
+| suma + TOTAL | **4258 = 2129 x 2** |
+
+Las dos primeras **coinciden**, asi que el runner es internamente consistente y
+no puede ser la fuente. Y el patron se cierra solo: **4246 = 2123 x 2**, o sea que
+lo que se escribio en el HB#147 (y los 4145 del HB#141) es
+**`suma por archivo + TOTAL`**, que cuenta cada asercion dos veces. Los dos numeros
+chicos (2041@78, 2123@81) son los que se leyeron bien.
+
+**El numero de verdad de este ciclo: 2129 / 0 FAIL en 82 archivos, exit 0.** Y
+**2123 / 0 FAIL en 81 archivos** sin el archivo nuevo, medido sacando el archivo de
+`tests/` y volviendolo a poner: el delta son exactamente sus 6 aserciones.
+
+**REGLA: cuando un detector entrega la fila Y el total, el total se lee de la linea
+del detector; no se recalcula sumando sus filas.** Recalcular un total a mano sobre
+la salida de una herramienta es la forma mas barata de mentir sin querer, y **el
+numero mentiroso era el que pareceria mas holder**: mas aserciones, mas confianza.
+
+## ALERT-218 (2026-10-02, HB#148) — el PASO 1 recupero un veredicto COMPLETO del Reviewer que nadie leyo, y para colmo ya estaba vencido
+
+| **Severidad** | Baja | **Clase** | ALERT-127: un veredicto escrito y sin leer |
+|---|---|---|---|
+| Task | `task-debe51c6331f` | Base del veredicto | `origin/main @ 6be9a69` (mucho mas viejo) |
+| Estado | **finished**, con veredicto entero | Que pedia | T19-c: 4 lectores crudos de `ACCOUNT_SELECTED` |
+
+**El veredicto, resumido.** T19-c es DISTINTO de T12-b: no es un problema de
+*autoridad* (dos escritores) sino de *lectura* (el lector no pasa por la capa). Con
+3 hallazgos: **R1** los 4 hacen `if (sel && sel.value) return sel.value.trim()`
+**antes** del `getItem`, o sea que hay dos fuentes de verdad en el mismo lector y
+gana el DOM; **R2** crudo y `Storage.get` coinciden en 4 de 6 estados de la clave y
+difieren en el caso "solo la gn:" — divergencia real, **alcanzabilidad no probada**;
+**R3** el guard atado esta en `tests/idea61-claves-congeladas.test.js:460-464`, que
+exige los 4 en `LECTORES_LEGACY_ESPERADOS`, y esa lista es **por par** (archivo,
+legacy).
+
+**Lo que hay que guardar de este ciclo: el veredicto esta VENCIDO, y eso se
+comprueba en 30 segundos.** MEDIDO contra `origin/main` de hoy, los 4 lectores **ya
+pasan por la capa**:
+
+| archivo | linea | hoy |
+|---|---|---|
+| `inventory-hub.js` | 178 | `Storage.get(Storage.STORAGE_KEYS.ACCOUNT_SELECTED)` |
+| `raid-tracker.js` | 934 | idem |
+| `strike-tracker.js` | 425 | idem |
+| `wv-purchase-detail.js` | 1854 | idem |
+
+O sea que el alcance principal **ya no aplica**. Lo que **si** sobrevive es R1 (el
+fallback del DOM sigue, y no esta declarado como fallback), y eso es un item del
+BACKLOG, no un arreglo de este ciclo.
+
+**REGLA (extiende ALERT-127): un veredicto recuperado tarde se mide antes de
+actuarlo, y se mide contra el MISMO codigo que el veredicto midio.** Un veredicto
+viejo sin re-medir es peor que uno ausente, porque ocupa el lugar de la respuesta y
+por eso uno deja de preguntar. Lo que si se aprovecha es su **estructura**:
+"problema de autoridad vs problema de lectura" es una distincion que sirve para
+clasificar, y esa sigue valiendo.

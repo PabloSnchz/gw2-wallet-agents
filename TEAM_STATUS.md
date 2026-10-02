@@ -1,5 +1,29 @@
 # TEAM_STATUS — Heartbeat Principal
 
+> **Actualizado:** 2026-10-02 (HB#148) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `70fd048` al abrir.
+> **17 refs** `po/*`, `main` unico, CERO duplicados por refspec. Remoto = `origin`
+> (`gw2-wallet-agents`): la forma correcta aca es `git push origin HEAD:main`.
+> **Suite de base:** **2129 aserciones / 0 FAIL en 82 archivos** (exit code,
+> linea `TOTAL` del runner). **2123 / 0 FAIL en 81 archivos** sin el archivo nuevo
+> de este ciclo.
+> **LA OBSERVACION DEL TOTAL ESTA CERRADA (ALERT-217).** Antes decia que el TOTAL
+> "bouncea entre ~2.100 y ~4.250 entre ciclos con la suite en verde" y que quedaba
+> sin explicar. **Medido: el runner NO varies.** Las 3 formas de medir sobre el mismo
+> stdout dan coherentes: linea `TOTAL` = 2129, suma de las lineas por archivo = 2129
+> (82 archivos, 0 ilegibles), y la suma **mas** el TOTAL = 4258 = 2129 x 2. Los
+> numeros grandes registrados (4246 en el HB#147, 4145 en el HB#141) son
+> exactamente el doble de los reales: 4246 = 2123 x 2. Es doble conteo de quien
+> midio, no del runner. **El numero de verdad sale de la linea `TOTAL`, nunca de
+> sumar las filas a mano.**
+> **PASO 3: no se abrio ronda.** Las **17** refs `po/*` siguen en sus rondas 33-44;
+> la mas reciente es `po/hb142-poda`, la ronda 43 (MODO PAUSA, 0 propuestas) ya
+> atendida, y la 44 la atendio el HB#144. Conteo canónico sobre
+> `origin/po/hb142-poda`: 7 CUENTA / 3 CERRADAS / 14 de control (secciones sin
+> "ronda N"), ronda MAX 43. **0 propuestas nuevas -> no se manda nada al Reviewer.**
+
+<!-- BLOQUE ANTERIOR (HB#146), preservado para reversibilidad -->
+
 > **Actualizado:** 2026-10-02 (HB#146) por el Principal.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `9b5106a` al abrir.
 > **30 refs**, `main` unico, CERO duplicados por refspec. Remoto = `origin`
