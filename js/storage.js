@@ -95,6 +95,14 @@
     // si alguien restaura un backup: una foto de seguridad que se puede perder
     // con la misma restauracion que pretendia recuperar no es una red.
     GIST_SAFETY_SNAPSHOT:  'gn:github:gist_snapshot',
+    // HB#135 T20-b: el instante de la ULTIMA SUBIDA al Gist. Es la referencia
+    // que hace falta para que el confirm de la descarga diga la DIRECCION: sin
+    // ella, "el remoto esta viejo" no se puede contestar, porque el `exportedAt`
+    // del propio JSON lo genera `exportData()` en el mismo comando que lo sube
+    // y el remoto sale siempre mas nuevo. Mismo namespace que la foto, por el
+    // mismo motivo: si se pierde en un restore, la comparacion deja de poder
+    //Responderse y vuelve al default honesto ("no se pudo leer").
+    GIST_LAST_UPLOAD:      'gn:github:last_upload',
     CHARACTERS_ASSIGNMENTS:    'gn:characters:assignments:',
     CHARACTERS_LOCATION_HISTORY: 'gn:characters:location_history:',
     PSNA_CACHE:            'gn:activities:psna:',

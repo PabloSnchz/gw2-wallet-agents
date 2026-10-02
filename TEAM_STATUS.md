@@ -1,13 +1,64 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 23:0x UTC (HB#141) por el Principal.
-> **Origen de verdad:** `gw2-dev` -> `origin/main` = `9f3b097` (verificado con
-> `ls-remote`; 27 refs, `main` unico, sin rama duplicada con barra). El remoto
-> del clon DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un
-> remoto `agents`**, el push correcto aca es `git push origin HEAD:main`.
-> **Estado del clon al abrir:** arbol CON WIP sin commitear (3 modificados +
-> 2 sin trackear). Resuelto este ciclo, ver ALERT-206.
+> **Actualizado:** 2026-10-02 23:4x UTC (HB#142) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `12907ef` (verificado con
+> `ls-remote`; `main` unico, sin rama duplicada con barra). El remoto del clon
+> DEV se llama `origin` y apunta a `gw2-wallet-agents`: **no existe un remoto
+> `agents`**, el push correcto aca es `git push origin HEAD:main`.
+> **Estado del clon al abrir:** LIMPIO y en sync con `origin/main`. La suite de
+> base dio **2009 aserciones / 0 FAIL en 77/77 archivos**, exit 0.
 
+## ALERT-208 (este ciclo): un worktree con codigo sin commitear, y 2 asertos que fallaban contra el codigo CORRECTO
+
+> **Tarea en curso:** rescate de **T20-b** (la DIRECCION del Gist, ronda 38 del
+> PO). El codigo estaba **sin commitear** en el worktree `gw2-wt135`
+> (`js/gist-sync.js` + `js/storage.js` modificados, mas su test), y el HB#135 lo
+> dio por perdido: miro el clon principal, estaba limpio, y de ahi concluyo que
+> no habia nada que rescatar. **Un worktree es un clon**; que el principal este
+> limpio no dice nada de los otros 34.
+>
+> **Lo que se lleva el ciclo:** al ejecutar el test rescatado, **2 FAIL
+> con el codigo correcto**. Los dos eran del arnes, misma clase que ALERT-155
+(exigir la palabra exacta del autor mide la prosa, no la propiedad): uno
+> pedia la constante DENTRO de `set(` y el codigo la resuelve en una variable
+> antes; el otro buscaba la declaracion de `GIST_LAST_UPLOAD` en `gist-sync.js`
+> cuando vive en `js/storage.js`, que es donde vive toda pref del proyecto.
+> **Casi se pierde al reves:** 2 FAIL de un arnes contra el codigo bueno se leen
+> como que el feature esta roto, y la reaccion era arreglar el producto para que
+> el test pase.
+
+**Mediciones de este ciclo (todas con control antes que el dato):**
+
+| que | resultado |
+|---|---|
+| suite base, clon limpio | 2009 / 0 FAIL, 77/77, exit 0 |
+| `hb135-t20b-direccion` CON el fix | **38 pass / 0 FAIL**, exit 0 |
+| el mismo test contra `origin/main` SIN el fix | **11 pass / 16 FAIL**, exit 1 |
+| suite completa con el fix | **2041 aserciones / 0 FAIL, 78/78**, exit 0 |
+| `node --check` en los 2 archivos | limpio |
+
+## Propuestas del PO: 0 (no se abrio ronda, y no se manda nada al Reviewer)
+
+- `po/hb99-dashboard` sigue en **`4fe6162`**, identico a los HB#132, 135, 137,
+  138, 139, 140 y 141. Siete ciclos sin ronda.
+- El conteo va **deduplicado por numero de ronda** (laccion del HB#141): las
+  ramas `po/*` arrastran la historia de las anteriores y la misma ronda sale en
+  las 16 refs. Contar apariciones daria ~92 y seria falso.
+- **No se mando nada al Reviewer**: mandarle lo ya aplicado es la forma mas cara
+  de perder un ciclo (HB#103).
+
+## Pendientes (sin cambio respecto al ciclo anterior)
+
+- **ALERT-179** (`importFromData`/`applyImportData`): fix mergeado, esperando
+  veredicto. El Reviewer esta mudo desde el HB#121 (filas 147/148).
+- **T14/T15**: veredicto del Reviewer = **opcion C** (una sola pareja de botones).
+  Precondicion MEDIDA (`hb136-escena2`, 23/0), **sin aplicar**.
+- **Idea 57, los 4 wrappers**: MEDIDOS y sin tocar (capa de datos, ALERT-48).
+- Los **7 del patron B** del HB#118.
+- **ALERT-41**: bloqueado por el body crudo de `/v2/account/raids` con token real.
+- Los **6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.
+
+---
 ## ALERT-206 (este ciclo): la suite estaba en ROJO y el PRODUCTO estaba sano
 
 > **Lo que se ve:** la primera corrida de `tools/hb100-suite.mjs` dio

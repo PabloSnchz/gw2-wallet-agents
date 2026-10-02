@@ -409,7 +409,19 @@
     
     // Actualizar Gist
     var updated = await updateGist(gistId, content);
-    
+
+    // HB#135 T20-b: queda acordada la INSTANTE de esta subida. Sin esto, el
+    // confirm de la descarga tendria que comparar el remoto contra el remoto y
+    // no podria decir nunca si el remoto tiene lo ultimo (el `exportedAt` del
+    // JSON lo genera `exportData()` en este mismo comando, o sea el remoto es
+    // SIEMPRE mas nuevo que el). Esto es lo que hace la comparacion real.
+    try {
+      var lastUploadKey = (root.Storage && root.Storage.STORAGE_KEYS && root.Storage.STORAGE_KEYS.GIST_LAST_UPLOAD) || 'gn:github:last_upload';
+      var stamped = updated && updated.updated_at ? updated.updated_at : new Date().toISOString();
+      if (root.Storage && typeof root.Storage.set === 'function') root.Storage.set(lastUploadKey, stamped);
+      else root.localStorage.setItem(lastUploadKey, stamped);
+    } catch (_) { /* sin referencia no hay direccion, y la descarga lo dice */ }
+
     console.log(LOG, 'Configuración subida correctamente');
     return { success: true, gistId: gistId, updatedAt: updated.updated_at };
   }
@@ -470,8 +482,52 @@
     }
 
     var keyCount = configData?.data?.apiKeys?.list?.length || 0;
+
+    // HB#135 T20-b — LA DIRECCION. T20-a ya decia CUANTAS claves trae el
+    // remoto, pero no si son LAS MIAS o las 15 que me faltan: "12 claves" es
+    // la misma frase para un backup al dia y para uno de la semana pasada. El
+    // propio PO lo escribio asi: "sin esto, T20-a le muestra 12 claves a Pablo
+    // y aun asi no puede saber si son sus 12 o las 15 que le faltan".
+    //
+    // LA PREMISA QUE YO PRIMERO ESCRIBE ERA FALSA, y la midio el arnés de este
+    // commit al EJECUTAR el fragmento, no al leerlo: la idea era comparar
+    // `gist.updated_at` contra `configData.exportedAt`, los dos "del remoto".
+    // Pero `uploadConfig` arma el JSON con `exportData()` — quepone
+    // `exportedAt = new Date()` (:208) — y lo subeActo seguido. O sea
+    // `updated_at` es SIEMPOSTras `exportedAt` por el tiempo de la red, y la
+    // rama "viejo" no podria dispararse NUNCA. Un confirm con la direccion
+    // siempre en "al dia" es peor que no tener direccion: le dice a Pablo que
+    // no va a perder nada, siempre.
+    //
+    // LA REFERENCIA QUE SÍ SIRVE es local y hay que crearla: cuando subi yo por
+    // ultima vez. Todo cambio local posterior a ese instante es lo que se
+    // pierde al sincronizar, y eso es lo unico que la palabra "viejo" quiere
+    // decir. `gn:github:last_upload` va en el namespace `github:` para que
+    // `KNOWN_NAMESPACES` lo traiga de vuelta en un restore (mismo criterio que
+    // `gn:github:gist_snapshot` en T20-c).
+    //
+    // Y SI NO HAY REFERENCIA no se inventa una direccion: se dice que no se pudo
+    // leer. Un "no se" honesto le sirve; un "el remoto esta al dia" con la
+    // comparacion rota lo hace confirmar un backup viejo creyendo que no.
+    var remotoTs = Date.parse(gist.updated_at || '');
+    var ultimaSubidaTs = Date.parse(
+      (root.Storage && root.Storage.get(root.Storage.STORAGE_KEYS.GIST_LAST_UPLOAD))
+      || 'gn:github:last_upload' || '');
+    var direccion = null;   // 'viejo' | 'al-dia' | null (no se pudo leer)
+    if (!isNaN(remotoTs) && !isNaN(ultimaSubidaTs)) {
+      direccion = remotoTs > ultimaSubidaTs ? 'al-dia' : 'viejo';
+    }
+    var lineaDireccion =
+      direccion === 'viejo'
+        ? 'ATENCIÓN: el remoto es más viejo que tu última subida.\n' +
+          'Si confirmás, vas a perder los cambios que hiciste desde entonces.\n\n'
+        : direccion === 'al-dia'
+          ? 'El remoto tiene lo último que subiste.\n\n'
+          : '';
+
     var confirmMsg = '¿Sincronizar desde la nube?\n\n' +
       'Se descargará y aplicará la configuración remota.\n' +
+      lineaDireccion +
       'Esto SOBRESCRIBE tu configuración local:\n\n' +
       '• API Keys (' + keyCount + ' claves)\n' +
       '• Wizard\'s Vault (pins y marcas)\n' +

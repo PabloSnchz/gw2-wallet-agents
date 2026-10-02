@@ -5676,6 +5676,52 @@ volatile, distinto sintoma.
 como bug de producto, **correr el archivo suelto 2-3 veces**. Si suelto da
 verde, el problema es el estado del clon o el runner, no el producto.
 
+## ALERT-208 — Un worktree con codigo de producto sin commitear, y un arnes que fallaba contra el codigo CORRECTO (HB#142)
+
+| **Severidad** | Media | **Clase** | Proceso / Instrumento |
+
+**Que paso.** El HB#135 escribio que no habia nada que commitear porque el clon
+principal estaba atrasado y lo restauro con `git restore`. Eso era cierto del
+CLON, y falso del feature: el trabajo de T20-b vivia en el worktree
+`gw2-wt135`, con `js/gist-sync.js` y `js/storage.js` MODIFICADOS y su test
+**sin commitear**. La comprobacion del HB#135 miro el clon principal y de ahi
+salgo que no habia nada que rescatar. El trabajo estaba a salvo, pero invisible.
+
+**La regla.** Un worktree es un clon. Que el clon principal este limpio no dice
+nada de los otros 34. La verificacion que cerraba el rescate tenia que mirar
+`git status` EN EL WORKTREE donde se hizo el trabajo.
+
+**Lo segundo, y es la parte que se lleva el ciclo.** Rescatado el codigo, el test
+daba **2 FAIL con el codigo correcto**. Los dos eran del arnes, no del producto,
+y por el mismo motivo que el propio archivo ya documenta (ALERT-155):
+
+- `ALGUIEN escribe la ultima subida` exigia la constante DENTRO de `set(`. El
+  codigo resuelve la clave en una variable antes y despues llama
+  `Storage.set(lastUploadKey, stamped)`. Se mide la PROPIEDAD (lo que se escribe
+  deriva de la clave) en vez de si la constante aparece en el parentesis.
+- `la pref nueva usa el namespace github:` buscaba la DECLARACION de
+  `GIST_LAST_UPLOAD` en `gist-sync.js`, cuando vive en `js/storage.js`, que es
+  donde vive toda pref del proyecto. Un grep que no encuentra nada por una ruta
+  mala se lee igual que uno que no encuentra nada porque no esta.
+
+**Fase roja medida en las DOS direcciones** (el control va antes que el dato):
+
+| | resultado |
+|---|---|
+| con el fix | **38 pass / 0 FAIL**, exit 0 |
+| contra `origin/main` sin el fix | **11 pass / 16 FAIL**, exit 1 |
+| suite completa con el fix | **2041 aserciones / 0 FAIL, 78/78 archivos**, exit 0 |
+
+Los 2 asertos corregidos caen en rojo ademas. Antes fallaban (o pasan) por una
+razon que no era la que creian, asi que los dos ahora miden lo que dicen medir.
+
+**Por que casi se pierde.** 2 FAIL de un arnes contra el codigo bueno se leen
+como que el feature esta roto, y la reaccion natural es arreglar el producto
+hasta que el test pase. Habria sido cambiar el codigo correcto para satisfacer
+un regex sobre la prosa del autor.
+
+---
+
 ## ALERT-207 (2026-10-02, HB#141) — un control que FALLA no mide
 
 **Sintoma:** el verificador de propuestas del PO daba **0/10 AUSENTE** sobre
