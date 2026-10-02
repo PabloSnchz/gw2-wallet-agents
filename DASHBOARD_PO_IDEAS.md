@@ -1,4 +1,123 @@
-## ACTUALIZACION 2026-10-01 22:40 UTC — Heartbeat PO ronda 36 — T16/T17/T18: no hay "un toggle". Hay 2 rutas, 2 toggles y 3 verdades.
+## ACTUALIZACION 2026-10-02 00:40 UTC — Heartbeat PO ronda 37 — T19: la app tiene un mecanismo de multi-pestaña que funciona, cubre 1 clave, y la clave que no cubre es la que Pablo está mirando.
+
+> **Espejo de la ronda 37 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
+> Medido sobre `origin/main` @ `5f4688f`, con `git fetch` primero.
+
+La pregunta **no** es "¿qué feature falta?". Sale de una frase que la **ronda 36
+dejó escrita como caso de uso de Pablo** — *"Pablo copia la URL y la abre en otra
+pestaña"* — y que no seguimos: **si Pablo abre la Bóveda en dos pestañas, ¿la app
+sabe que la otra existe?**
+
+### 🔴 T19 — el filtro del handler es de 1 clave, y el dominio que escribe son 2
+
+**Censo medido:** `git grep -n "addEventListener('storage'" -- js` → **2 listeners
+en 46 módulos**: `app.js:804` y `wv-purchase-detail.js:2168`.
+
+El de cuentas, verbatim (`app.js:798-821`):
+
+```js
+window.addEventListener('storage', (e) => {
+  if (!e || e.key !== Storage.STORAGE_KEYS.ACCOUNT_KEYS) return;   // :805  ← el filtro
+  ...
+  // "Si la seleccion era una cuenta que la otra pestaña borro, se anula"
+  try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}   // :815
+});
+```
+
+**Lo que hay que mirar es la 815 contra la 805.** El handler **escribe**
+`ACCOUNT_SELECTED` y **se niega a observarla**. Y el filtro no es una omisión de
+lista: es una **guarda de igualdad sobre una clave, en un objeto que escribe
+dos** (`app.js:791` y `:827`, a 32 líneas de distancia).
+
+**Y el filtro sale más caro de lo que parece:** `gn:account:selected` está en
+`MIRROR_MAP` (`storage.js:209-214`), así que `Storage.set` hace **2 `setItem`** y
+el navegador emite **2 eventos**. El handler descarta los 2 con la misma línea.
+
+### Arnés `_hb117_t19.mjs` — 3 casos, y el CONTROL discrimina
+
+```
+CONTROL — A agrega una cuenta, B mirando la lista
+   eventos que recibió B : gn:account:keys, gw2_keys
+   reacciones de B       : lista de cuentas actualizada        <- el listener FUNCIONA
+
+CASO REAL — A cambia a CUENTA-14, B abierta al lado
+   eventos que recibió B : gn:account:selected, gw2_selected_key_v1
+   reacciones de B       : (NINGUNA)
+   A muestra CUENTA-14   |   B muestra CUENTA-01   |   en disco: key-13
+
+CASO 2 — F5 a la pestaña B
+   B pasa de CUENTA-01 a CUENTA-14, misma URL
+   -> la cuenta depende de QUÉ pestaña recarga
+
+CASO 3 — A y B en CUENTA-05, A borra esa cuenta
+   reacciones de B   : seleccion anulada  ->  disco: (borrada)
+   eventos que recibió A : gn:account:selected, gw2_selected_key_v1
+   reacciones de A   : (NINGUNA)
+   A sigue pintando  : CUENTA-05          <- cuenta que ya no existe
+```
+
+**Lo que paga Pablo, en orden:**
+
+1. **La segunda pestaña no es copia de la primera.** Misma URL, misma ruta,
+   cuentas distintas — y con 27 cuentas **probablemente eso es lo que quiere**
+   (mirar dos cuentas en paralelo). **Por eso el bug NO es que B no reaccione.**
+2. **El F5 decide qué cuenta ves.** Sin aviso, con la misma URL.
+3. **Caso 3: el mecanismo que SÍ funciona deja un token muerto.** B se protege
+   y borra la clave compartida; A recibe los 2 eventos y no reacciona a ninguno.
+   **Severidad honesta: media**, es transitorio (al recargar, `app.js:744` lo
+   arregla). Lo vendo como **la demostración del contra-producto**, no como
+   rotura de datos.
+
+### ⚠️ 3 cosas que **no** afirmo (descartadas antes de reportar)
+
+1. **"Los módulos siguen a la otra pestaña"** — FALSO. Hay **4** lectores a pelo
+   de `gw2_selected_key_v1` (`inventory-hub.js:163`, `raid-tracker.js:921`,
+   `strike-tracker.js:415`, `wv-purchase-detail.js:1842`) y **los 4 leen primero
+   el `<select>`**, con localStorage de fallback. Casi reporto media app
+   siguiendo a la otra.
+2. **"El handler cubre 0 claves"** — el CONTROL lo desmiente: cubre 1, y bien.
+   El titular honesto es **1 de 2**.
+3. **El censo de "cuántas claves debería mirar"** — mi script dio **7** donde hay
+   **63** literales `gn:`, porque la mayoría va por constante. **No abro idea con
+   ese número.**
+
+### 🔵 Pregunta que va a Pablo y define el tamaño del fix
+
+> *¿La segunda pestaña es "otra cuenta a propósito" o "la misma, y la que no se
+> enteró"?*
+
+Si fuera lo segundo, el arreglo es 🟢 de una línea. Pero con 27 cuentas el caso
+probable es el primero, y ahí **el arreglo no es sincronizar: es no mentir en el
+F5.**
+
+### Tramos
+
+| # | tramo | 🟢/🟡 | tiempo | nota |
+|---|---|---|---|---|
+| 1 | **T19-a** | 🟢 | 20 min | **el único que pido sin esperar a nadie.** Caso 3: cuando el handler anula su selección, que el token muerto no quede en memoria. Guarda después de `this.list = fresh`, + 2 tests del arnés |
+| 2 | **T19-c** | 🟢 | 15 min | los 4 lectores a pelo de `gw2_selected_key_v1` → `Storage.get(ACCOUNT_SELECTED)`. Hoy funcionan **por el espejo**, no por contrato. Otro archivo, otra clase: no se mezcla con T19-a |
+| 3 | **T19-b** | 🟡 | — | **bloqueado por la pregunta a Pablo**, no por código |
+| 4 | **T17-b** | 🟢 | 15 min | **decisión de Pablo:** `#/account/strikes` es una ruta sin botón que la alcance. **La única que cambia el producto** |
+| 5 | **T17-a** | 🟢 | 20 min | el hash se actualiza al cambiar de vista con el toggle |
+| 6 | **T18-a** | 🟡 | 30 min | `showPanel()` y `setActiveView()` no se pisan. Va con (c) |
+| 7 | Opción (c) de T14/T15 | 🟡 | ~1 h | una sola pareja de botones |
+| 8 | T14-b | 🟢 | 20 min | test de unicidad, **después** de (c) |
+| 9 | T11 | 🟢 | — | `accounts-panel.js` `state.view` sin persistir |
+
+Sin novedad externa: **37 de 37 rondas.** Reddit 403, `old.reddit` 302,
+`gw2treasures/feeds/new_items` **307 → 404**, wiki 200.
+**T19 no viene de la web:** sale de leer mi propia ronda 36 y preguntar qué hice
+con una frase que escribí como caso de uso.
+
+### Regla que sale
+
+> *Un mecanismo que cubre 1 de las 2 claves que su propio objeto escribe no está
+> terminado: está escrito a la mitad, y la mitad que falta es la que el comentario
+> de al lado ya nombra.* La línea 815 **borra** `ACCOUNT_SELECTED` desde dentro de
+> un handler que **filtra** `ACCOUNT_KEYS`. La capacidad estaba; faltaba la
+> segunda clave de una guarda.
+
+---## ACTUALIZACION 2026-10-01 22:40 UTC — Heartbeat PO ronda 36 — T16/T17/T18: no hay "un toggle". Hay 2 rutas, 2 toggles y 3 verdades.
 
 > **Espejo de la ronda 36 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
 
@@ -1843,7 +1962,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO auditó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
