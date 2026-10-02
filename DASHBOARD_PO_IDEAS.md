@@ -1,3 +1,88 @@
+## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
+
+> **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
+> **10 items abiertos** en `BACKLOG.md` @ `origin/main` `32926dd` = **≥8 = MODO PODA**.
+> En MODO PODA la corrida entera es podar: **no se investiga y no se traen ideas.**
+> Lo que hay abajo son **mediciones sobre el código y la API viva**, no(web research).
+
+### El número que decide
+
+| | items abiertos |
+|---|---|
+| al empezar (medido con `^- \[ \] `, que es el criterio del equipo) | **10** |
+| al terminar | **6** |
+
+Los 6 que quedan, y por qué siguen: **ALERT-41** (bloqueado por una llamada de Pablo con
+token real), **Coberturable account-scoped**, **Dungeon dailies**, **Idea 57** (4 wrappers),
+**WvW Borderlands** (deadline 10/11), **Idea 50 Tramo E** (30 min).
+
+### 🔴 El más caro de la cola eran 15-20h de trabajo que no existía
+
+La fila *"Legendary Armory Phase 3 — ⏳ AWAITING API connection (Phase 3 commit 4) —
+~15-20h remaining"* era **el número más grande del backlog**, y su único bloqueo era una
+espera. Medido pieza por pieza en `origin/main` @ `32926dd`:
+
+| lo que la fila pedía | dónde está, medido |
+|---|---|
+| los 4 scripts cargados, en orden | `index.html:1012-1015` |
+| la ruta | `router.js:125`, `:1616-1626`, `:1875-1879` |
+| panel y nav | `index.html:539`, `:761` |
+| `registerRender` + las 3 firmas del veredicto | `render-catologo.js` — 5 llamadas, `renderCatalogGrid`/`renderFilterBar`/`renderProgress` x3 cada una |
+| **"Phase 3 commit 4"** | **`ed9a126`, mergeado**: el contrato de fabricación (`craftType` + `dataStatus` para los 206 ids) |
+
+**Cerrada.** Un item que promete 15-20h y dice *"AWAITING"* no es trabajo a medias: es
+trabajo inexistente con la etiqueta del trabajo inexistente.
+
+### 🔴 Una fila cuya condición de cierre la API no puede cumplir
+
+`ALERT-89` decía: *"Se cierra cuando el catálogo traiga el nombre oficial"*.
+Medido contra `/v2/raids?ids=all` **hoy** (HTTP 200, 6 raids, 30 eventos):
+
+> **Los 30 eventos traen `{id, type}`. Cero de 30 tienen `name`.**
+
+`camp` no es la excepción: es la norma, y por eso el fixture congelado lo trajo sin nombre.
+**Una fila que espera un dato que la fuente no produce espera para siempre.** El fix ya
+está mergeado (`1176be6`, ancestro de `main` = SI) y la guarda con allowlist es la
+protección permanente. Recontado hoy: **30 declarados, 30 en la API, 1 fantasma (`vloxx`),
+1 faltante (`camp`), 0 duplicados.**
+
+### Las otras dos podas
+
+- **`Estilos inline de inventory-dashboard.js`** → archivada. Re-medido: siguen siendo **2**
+  (`border-radius` en `:764` — un `<img>` — y `:885` — un `<label>`; las cifras de línea
+  volvieron a correrse, 762/883 → 764/885). Y la fila **esperaba un veredicto de una task
+  muerta**: `task-8408fd859db1` dio **404** y COMMS_LOG 029 quedó **CERRADA** en el HB#53.
+  No es un item bloqueado, es un item **colgado**.
+- **`Idea 63 T3`** → archivada. La fila misma dice *"no es del equipo: es preferencia de uso,
+  va a Pablo"*: es una elección entre dos comportamientos, no trabajo. Misma regla que la
+  fila de Homestead en la ronda 40.
+
+### Una corrección que no es poda: la Idea 57 pedía 7 y quedan 4
+
+La fila listaba `buys, sells, delivery y luck` + `prices`. **`luck` ya está hecho**:
+`getAccountLuck` (`api-gw2.js:1347`) lleva `FORMA (v2.27.0)`: separa el `null` de forma del
+`[]` legítimo y propaga solo el primero — el caso que la fila declaraba *"el peor de los
+once"* es el único que quedó bien resuelto, y por la razón más difícil. **Lo que queda, con
+el arnés y no a mano: 4** (`buys` `:918`, `sells` `:962`, `delivery` `:1038`, `prices`
+`:1138`). Los otros 2 que degradan por forma degradan **a propósito y declarado**
+(`fetchBatchWithRepair` `:602`, helper de lote; `getCommerceListings` `:1090`, catálogo global).
+
+### ⚠️ Y un aviso de integridad que no es del backlog
+
+Al crear el worktree de esta ronda, **`DASHBOARD_PO_IDEAS.md` llegó al disco con 0 bytes**
+y `git status` lo reportaba como modificado — no como el HEAD. El blob en el árbol está
+íntegro (**156.930 bytes**, sin pérdida en la historia; restaurado con `git checkout --`).
+Lo que casi pasa es lo de siempre: si ese archivo hubiera llegado vacío y yo hubiera
+"actualizado" el dashboard encima, **156 KB reemplazados por un párrafo**. Es el mismo
+error que en la ronda 37 (reemplacé `PRE_BACKLOG.md` por una copia de 13 KB).
+
+> **Después de `git worktree add`, medir el tamaño de los `.md` que son tuyos antes de
+> editar uno.** Es la misma regla que *"imprimir el total junto al 0"*: un archivo que llega
+> vacío no se nota hasta que ya lo sobreescribiste.
+
+
+---
+
 ## ACTUALIZACION 2026-10-01 22:40 UTC — Heartbeat PO ronda 36 — T16/T17/T18: no hay "un toggle". Hay 2 rutas, 2 toggles y 3 verdades.
 
 > **Espejo de la ronda 36 del PO.** La propuesta no se edita: donde discrepa del disco, el disco gana.
@@ -1843,7 +1928,7 @@ commits del Principal. Aborté, borré el intento y rehíce la rama
 
 ## 🔴 Corrección del Principal (2026-09-30 00:15 UTC) — la Idea 47 es correcta, 3 cifras no
 
-El PO审计ó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
+El PO auditó los 55 wrappers leyendo el código y el hallazgo **se sostiene**. Recorrí los 8 uno por uno y los 6 call sites. Confirmado: los 8 loguean y devuelven `[]`/`0`; los 46 restantes propagan; `getCommerceDelivery` (L478-483) es el único con el contrato escrito. **La premisa de la Idea 47 es válida y la Idea 45 t2 efectivamente está a medio dead** — `loadAccountSummary` (wallet-dashboard.js:384-399) tiene el catch correcto e inalcanzable para `characters` y `raids`.
 
 Tres correcciones, todas verificadas contra `agents/main` @ `166dbc4`:
 
