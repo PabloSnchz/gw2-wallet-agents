@@ -11,6 +11,36 @@
 
 ---
 
+## Ficha de la pieza: materiales de una legendaria
+
+- **Tipo:** mejora visible
+- **Estado:** listo
+- **Dónde la veo:** Leyenda Legendaria -> pestaña "Catálogo" -> click en cualquier tarjeta de legendaria. Se abre un modal con cada material y si lo TENGO o me FALTA. En "Mi progreso" también, click en la tarjeta.
+- **Ruta:** `#/account/legendary-armory` (pestaña Catálogo)
+- **Descripción:** Al clickear una legendaria se abre qué se necesita para fabricarla y cuánto de eso tenés en el banco, los materiales y la bolsa.
+- **Commits:** `6e6287b`
+- **Rama:** `feat-arme-1-2-modal-materiales` (mergeada a main, rama no borrada todavia)
+- **Si no entra:** la leyenda sigue mostrando lo de antes (precio, tipo, generación) y el catalogo no cambia. No se rompe nada: es una vista nueva, no una modificación de las anteriores.
+- **Si sale mal:** el click deja de abrir el modal (la tarjeta sigue mostrando todo lo de siempre). El caso serio sería que las cifras de TENGO/FALTA fueran incorrectas: **el contador suma banco + materiales + bolsa de personaje, y una parte partido entre las tres ya está cubierto por el test propio.**
+
+### Lo que el modal distingue a proposito
+
+Cuatro estados, cuatro textos distintos. No es decoracion: son datos que se contradicen
+entre si y que el jugador necesita ver por separado.
+
+| | Que dice |
+|---|---|
+| con receta | la lista de materiales, con tengo / falta |
+| sin receta | "la fuente no publica receta para esta pieza" |
+| marcador de cuenta (95093) | "no es una legendaria" |
+| id desconocido | "no está en el catálogo" |
+
+Un modal que dijera lo mismo en los cuatro sería el bug: si GW2 renombra el item 95093,
+el filtro tiene que dejar de matchear **y eso tiene que verse**.
+
+---
+
+
 ## Cómo se escribe una ficha
 
 Una ficha por cosa construida. El encabezado `##` es el **nombre de fantasía**

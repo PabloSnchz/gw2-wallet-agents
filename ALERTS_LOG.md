@@ -1,3 +1,62 @@
+## ALERT-189 - un arnés puede dar verde sobre el bug que dice cazar: el del "unknown" mostraba el motivo equivocado
+
+**Fecha:** 2026-10-02 (HB#124)
+**Estado:** CERRADO en este ciclo (arnes corregido, 32 -> 34 aserciones). La regla queda.
+
+El arnés del ARME 1.2 se escribio para fijar, textual, lo que el plan de noche exige:
+**"un filtro invisible que un dia deja de matchear y no dice nada es un bug futuro"**.
+Aserto del status de los cuatro `dataStatus`, incluido:
+
+```js
+ok(desconocido && desconocido.status === 'unknown',
+   'un id que no esta en el contrato da "unknown", NO "no_recipe" -- son dos huecos distintos');
+```
+
+Eso es cierto. Y no era suficiente.
+
+**La mutacion que sobrevivio.** Cambie en `legendary-tracker.js` el `note` del
+`unknown` por el del `no_recipe` (que es lo que el plan prohibe), dejando el `status`
+intacto:
+
+```js
+// antes
+note: 'Esta pieza no esta en el catalogo de legendarias.'
+// mutacion
+note: 'La fuente no publica receta para esta pieza.'
+```
+
+**Resultado: 32 pass / 0 FAIL.** El arnés no lo vio.
+
+**Por que el aserto no discriminaba.** El `status` de los cuatro es correcto en las dos
+versiones: el codigo sigue devolviendo `unknown`. Lo que cambia es el **`note`**, y el
+modal pinta el `note` DEBAJO del status (`render-catologo.js`, rama `status !== 'recipe'`).
+O sea que el aserto miraba la mitad del contrato que el usuario lee y la otra mitad podia
+decir cualquier cosa.
+
+Y lo que la mutacion dejaba en pantalla es **falso**: "la fuente no publica receta" para
+un id que **no existe en el catalogo**. La fuente no publico nada sobre ese id, porque no
+tiene nada. Es el bug exacto que el texto del plan queria evitar, en la forma que el
+propio plan describio: el filtro deja de matchear y no dice nada.
+
+**Corregido:** dos aserciones mas (34 total), una que exige que el `note` del `unknown`
+**no sea** el del `no_recipe`, y otra que exige que el suyo diga la verdad. Reverificado
+con la misma mutacion: **32 pass / 2 FAIL.** Control negativo: el `settings-manager.js`
+sigue dando 0 en los dos asertos de cableado.
+
+**La regla, y sale de la 4a vez que pasa en este repo (ALERT-84, ALERT-168, ALERT-175):**
+
+> **Un aserto sobre el ENUM de un estado no alcanza si el estado tambien se pinta por su
+> TEXTO.** Hay que asertar las dos salidas, porque son dos rutas de codigo y el bug
+> puede estar en cualquiera. La pregunta que falta no es "el estado es correcto" sino
+> **"lo que el usuario lee en pantalla, es verdad"**.
+
+Y la segunda, que es la que mas tiempo costo:
+
+> **Un arnés que nunca se hizo mutar no es un arnés, es una lista de palabras.**
+> Las 32 aserciones originales pasaban todas contra el codigo correcto. **La mitad de
+> los patrones de este repo se matan con una sola mutacion, y el suite sigue verde.**
+> El costo son 2 minutos; el costo de no hacerlo es un suite verde que no mide.
+
 ## ALERT-184 - la premisa "GistSync no esta montado en ningun HTML" se escribio contra un grep corrido sobre `js/` y no sobre el repo
 
 **Fecha:** 2026-10-02 (HB#121)

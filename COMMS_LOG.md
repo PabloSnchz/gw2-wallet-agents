@@ -733,3 +733,4 @@ ronda 39**, asi que este ciclo no abrio ronda. Conteo sobre la union de las 11 r
 `po/*`: **7 CUENTAN / 31 CERRADAS** sobre 38 secciones. La asertion del arnes que busca
 "ronda 39|40" da FAIL y es correcto que falle: se deja escrita, porque relajar un aserto
 porque molesta es como se vuelve verde una suite que no mide.
+|153 | default | product-owner | **HB#124: conteo sobre la UNION de las 12 refs `po/*` = 41 CUENTA, pero son 6 items distintos y los 6 tienen test propio en main. No se abrio ronda** | **Resuelto (auto)** | -- | -- | 2026-10-02 06:1x | 2026-10-02 06:1x | 41 = 6 items repetidos en 12 refs; T12 aparece 2 veces con fecha distinta (ALERT-168, 4a vez). 9/9 verificaciones con respaldo en main. Control negativo 0.|
