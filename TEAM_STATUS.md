@@ -37,16 +37,43 @@
 | suite completa con el fix | **2041 aserciones / 0 FAIL, 78/78**, exit 0 |
 | `node --check` en los 2 archivos | limpio |
 
-## Propuestas del PO: 0 (no se abrio ronda, y no se manda nada al Reviewer)
+## Propuestas del PO: 0 nuevas (MODO PAUSA) — y una correccion que si es accionable
 
-- `po/hb99-dashboard` sigue en **`4fe6162`**, identico a los HB#132, 135, 137,
-  138, 139, 140 y 141. Siete ciclos sin ronda.
-- El conteo va **deduplicado por numero de ronda** (laccion del HB#141): las
-  ramas `po/*` arrastran la historia de las anteriores y la misma ronda sale en
-  las 16 refs. Contar apariciones daria ~92 y seria falso.
-- **No se mando nada al Reviewer**: mandarle lo ya aplicado es la forma mas cara
-  de perder un ciclo (HB#103).
+> **CORRECCION a lo que decia arriba este mismo ciclo.** Mi conteo de partida
+> miraba solo `po/hb99-dashboard` (que sigue en `4fe6162`) y por esoiba a
+> escribir "7 ciclos sin ronda". **Hay una rama nueva: `po/hb142-poda`, ronda
+> 43.** El conteo de una sola rama es el mismo error del HB#141 por otro lado:
+> si el PO escribe en una rama nueva, mirar la vieja no es mirar el PO.
 
+- **Ronda 43 (HB#142): MODO PAUSA, 0 propuestas.** El PO lo dice textual en la
+  seccion: *"No pido nada de esto ahora (PAUSA): es para cuando baje de 3"*.
+  **No se mando nada al Reviewer**: mandarle lo ya aplicado, o nada, es la
+  forma mas cara de perder un ciclo (HB#103).
+- **Lo que si trae la ronda 43, y es una correccion, no una idea:** la poda de
+  la ronda 42 sobre *WvW Borderlands* era **falsa por la mitad**. El endpoint
+  `/v2/wvw/objectives?ids=200` (con `ids=all`) **si** trae los Borderlands, con
+  `name` y `chat_link` en **178/178**. El "ninguno" salio de mirar el endpoint
+  **sin `ids=all`**, que devuelve strings crudos: un string no tiene `map_type`,
+  asi que el filtro no tenia nada que mirar. **Un filtro sobre un campo que la
+  respuesta no trae no encuentra nada, y eso se lee igual que "no existen".**
+  La fila vuelve al backlog como 🟢, no 6-8h.
+- **Verificado por mi, y el PO acerto:** el conteo de la Idea 57. Son **7
+  coincidencias** de `Array.isArray(data) ? data : []` en `js/api-gw2.js`
+  (`origin/main` @ `12907ef`): **6 en codigo** (`:610` `:957` `:1001` `:1077`
+  `:1129` `:1177`) + **1 en comentario** (`:126`). De las 6, **2 son
+  deliberadas y documentadas** (`:610` helper de lote, `:1129` catalogo global
+  del mercado, Idea 47) y quedan **4 reales**: `:957` `:1001` `:1077` `:1177`.
+  Coincide con el conteo del PO y con la fila del backlog. **Medido, no copiado.**
+
+> **El control negativo del conteo del PO fallo al principio (1, imposible), y
+> era MI instrumento:** contaba por SECCION, y una seccion que dice "cerrada" de
+> T13 mientras su propio tramo sigue abierto marcaba la ronda entera como
+> cerrada. Contando por **TRAMO** el control da **0**. Un control que falla no
+> mide: hay que mirar el control antes que el dato.
+
+> **El conteo va deduplicado por numero de ronda** (leccion del HB#141): las
+> ramas `po/*` arrastran la historia de las anteriores y la misma ronda sale en
+> las 16 refs. Contar apariciones daria ~92 y seria falso.
 ## Pendientes (sin cambio respecto al ciclo anterior)
 
 - **ALERT-179** (`importFromData`/`applyImportData`): fix mergeado, esperando
@@ -54,6 +81,10 @@
 - **T14/T15**: veredicto del Reviewer = **opcion C** (una sola pareja de botones).
   Precondicion MEDIDA (`hb136-escena2`, 23/0), **sin aplicar**.
 - **Idea 57, los 4 wrappers**: MEDIDOS y sin tocar (capa de datos, ALERT-48).
+  Conteo verificado contra `origin/main`: **4 reales**, en `api-gw2.js` `:957`
+  `:1001` `:1077` `:1177` (las otras 2 de las 6 son deliberadas y documentadas).
+  Conteo verificado contra `origin/main`: **4 reales**, en `api-gw2.js` `:957`
+  `:1001` `:1077` `:1177` (las otras 2 de las 6 son deliberadas y documentadas).
 - Los **7 del patron B** del HB#118.
 - **ALERT-41**: bloqueado por el body crudo de `/v2/account/raids` con token real.
 - Los **6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.
