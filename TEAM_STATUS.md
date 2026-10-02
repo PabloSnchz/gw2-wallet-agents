@@ -1,12 +1,10 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 13:0x UTC (HB#134) por el Principal.
-> **Origen de verdad de la reunion:** `gw2-dev` → `origin/main` = `965bae5`
-> (verificado con `ls-remote` al arrancar). **Este log va 1 heartbeat atrasado**
-> respecto del codigo: HB#133 mergeo el fix de T12-b (`45a5446`) pero no
-> actualizo este archivo. Detalle en ALERT-201.
-> **Corte de la noche:** eran las 12:00 UTC, ya paso. No se arranco nada que no
-> cerrara hoy.
+> **Actualizado:** 2026-10-02 18:3x UTC (HB#135) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `ef49964` (verificado con
+> `ls-remote`). **ALERT-201 CERRADA**: este log ya no va atrasado.
+> **El clon de trabajo ESTABA atrasado** 4 commits (`067754f`) y con 2
+> archivos revertidos en disco. Corregido este ciclo. Ver ALERT-202.
 
 ## Que hay que saber primero
 
@@ -64,25 +62,46 @@
 | **`importFromData` / `applyImportData`** (ALERT-179) | Esperando veredicto del Reviewer desde el HB#121. |
 | **7 del patron B** (HB#118) | 7 modulos leen el `<select>` sin fallback a la capa. |
 | **`getCommerceListings`** | Degrada a proposito, declarado. **No es deuda.** |
+| **Arnes de la "escena 2"** (solo Strikes) | **Pedido por el Reviewer** en T12-b. Es la
+|  | precondicion de T14/T15: hoy esa escena ANDA, y el test que la fija es lo |
+|  | que distingue (3a) de (3b). Falta medir si ya tiene cobertura. |
 
-## Completado en este ciclo (HB#134)
+## Completado en este ciclo (HB#135)
 
-- **`tools/hb116-union-po.mjs`**: las refs del PO se **leen** de `ls-remote` en
-  vez de la lista a mano. 9 refs escritas contra 15 reales. La union pasa de
-  36 a **40 secciones** y el conteo de 8 CUENTA se mantiene. Test
-  `tests/hb134-cuento-po-refs.test.js`, 9 aserciones, **4 FAIL** en fase roja,
-  9/0 con el fix. **ALERT-199**.
-- **Paso 3 re-verificado contra `origin/main`**: las 8 propuestas que cuentan
-  estan todas aplicadas o son la misma seccion duplicada. **0 nuevas para el
-  Reviewer.** No se abrio ronda de consulta.
-- **Idea 57 medida por cuerpo de funcion**: la fila es exacta (4 pendientes),
-  el quinto que degrada es a proposito.
-- **IDEA 64 del PO**: medida y **cerrada** — el fix (`15d6d75`) esta en
-  `main` y el test (`tests/idea64-dos-pestanas.test.js`) da 30/0. La premisa
-  del PO (que no habia test cross-tab) era cierta **en su momento** y quedo
-  desactualizada por el merge. **ALERT-200** (el detector, no el codigo).
-- **Suite completa: 72 archivos, 0 FAIL** (por exit code, no por texto —
-  ALERT-172/176), corrida sobre worktree limpio de `origin/main`.
+- **RESCATE: el working tree del clon principal tenia 130 lineas YA MERGEADAS
+  revertidas.** `js/api-gw2.js` y `tests/idea57.forma-contracts.test.js`
+  estaban en un estado del ~30/09: sin los 3 guards de FORMA, sin `lsHas`, sin
+  `__expiredDrops`, y con la cabecera que HB#125 ya habia corregido. El INDEX
+  era identico a `origin/main`: solo el disco estaba atras.
+  `git restore --worktree` + `git merge --ff-only origin/main`. Copia del estado
+  viejo en `%TEMP%\hb135-rescate\`. **ALERT-202.**
+- **MEDIDO por que nadie lo vio: el censo mira al reves.** `main` degrada en
+  **7** sitios, el revertido en **10**, y el aserto 4 de
+  `idea57.forma-contracts.test.js` es `>= 7` con la nota "si es a proposito,
+  actualiza este numero": **subir el recuento lo deja en verde.**
+- **PERO la suite SI lo ve**, y esto corrige mi propio diagnostico:
+  `idea57-t2-forma-propaga.test.js` da **8 FAIL** contra el revert y 21/0
+  contra `main`. **Mi afirmacion de que el Tramo 2 se aplico sin test de
+  comportamiento era FALSA.** Escribi un test redundante (61 asserts, 36 FAIL
+  en rojo) y lo **borre**: duplicar un arnes es el transversal #4.
+  **El defecto real no es del codigo ni del arnes: el clon de trabajo divergio
+  de `main` y nadie lo nota porque nadie corre la suite contra el clon.**
+  Detector barato para el proximo ciclo: `git diff origin/main --stat` sobre
+  los archivos trackeados del clon.
+- **3 veredictos del Reviewer recogidos** (paso 1, todos `finished`): T13
+  (fila 125), T14+T15 (fila 121) y T12-b (fila 120). **Los tres YA estaban
+  anotados** en `COMMS_LOG.md` desde ciclos anteriores: me los lei tarde.
+  Tercera vez del mismo modo de fallo (ALERT-127).
+- **Correccion del Reviewer a una premisa mia**: el guard "todo o nada" de
+  `wireViewToggle` **no** deja hoy los dos strips mudos -- es **riesgo futuro**
+  del plan, y la escena "solo Strikes" **funciona hoy**.
+- **Paso 3: 0 propuestas nuevas.** `po/hb99-dashboard` sigue en `4fe6162`,
+  identico al HB#132. `ls-remote` = 15 refs (confirmado). Controles del
+  `hb116-union-po.mjs` en 0 (orden roto 0, negativo 0), 40 secciones.
+  **No se abrio ronda** porque la rama no se movio: el conteo no puede
+  cambiar sin que el PO escriba.
+- **Suite completa: 72 archivos, 1872 aserciones, 0 FAIL**, por exit code,
+  sobre worktree limpio de `origin/main`.
 
 ## Alertas del ciclo
 
@@ -90,7 +109,8 @@
 |---|---|
 | **ALERT-199** | El conteo del paso 3 corria sobre 9 de 15 refs del PO. El numero cambio 3 veces sin que el PO escribiera nada. Verificado dos veces antes y no arreglado. **ABIERTA, corregida este ciclo.** |
 | **ALERT-200** | Un extractor que matchea el comentario antes que el codigo produce "0" donde deberia decir "NO ENCONTRADO". Cuarta manifestacion de la clase. **ABIERTA.** |
-| **ALERT-201** | `TEAM_STATUS.md` quedo 1 heartbeat atrasado: HB#133 mergeo `45a5446` sin tocar este archivo. ABIERTA. |
+| **ALERT-202** | El working tree del clon principal divergio de `main` (130 lineas revertidas, sin commit) y no habia detector. El censo `idea57.forma-contracts.test.js` es ciego en esa direccion: cuenta degradaciones y solo falla si el numero BAJA, asi que reabrir 3 bugs lo deja en verde (7 -> 10, `>= 7`). La suite completa si lo ve. CERRADA el rescate; **abierta la de proceso**: `git diff origin/main` sobre el clon. |
+| **ALERT-201** | `TEAM_STATUS.md` 1 heartbeat atrasado. **CERRADA** en el HB#135. |
 
 ## Estado de las propuestas al Reviewer
 
