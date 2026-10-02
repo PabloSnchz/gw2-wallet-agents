@@ -482,10 +482,22 @@
     m.hidden = true;
     m.innerHTML =
       '<div class="modal__backdrop" data-close="1"></div>' +
-      '<div class="modal__dialog" style="max-width: 560px;">' +
-        '<header class="modal__header">' +
-          '<h3 id="ltItemModalTitle" style="font-size:0.95rem;color:var(--tx-1);">' +
-            'Materiales</h3>' +
+      '<div class="modal__dialog" style="max-width: 680px;">' +
+        // El header va STICKY, y va por estilo en linea y NO por una regla de
+        // theme-polish.css: `.modal__header` es compartido con el conversor y
+        // con los demas dialogos, y hacer sticky el de todos cambiaria el
+        // scroll de pantallas que no son de la Armeria. Acotado a este id, el
+        // radio de impacto es este modal y nada mas.
+        //
+        // Y es sticky PORQUE `.modal__dialog` tiene `overflow:auto`: sin esto,
+        // con un arbol de 55 nodos el boton de "Agregar a la cola" se va de
+        // pantalla y agregar pasa a ser un trabajo de cuatro clics.
+        '<header class="modal__header" style="position:sticky;top:0;z-index:2;' +
+          'background:var(--panel);">' +
+          '<h3 id="ltItemModalTitle" style="font-size:0.95rem;color:var(--tx-1);flex:1;' +
+            'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Legendaria</h3>' +
+          '<div id="ltItemModalActions" style="display:flex;align-items:center;gap:6px;' +
+            'flex-shrink:0;"></div>' +
           '<button type="button" class="modal__close" aria-label="Cerrar" data-close="1">✕</button>' +
         '</header>' +
         '<div class="modal__body" id="ltItemModalBody"></div>' +
@@ -498,7 +510,60 @@
     // atributo que usa el conversor, para que el gesto se lea igual en los dos.
     m.addEventListener('click', function (e) {
       var t = e.target;
-      if (t && t.getAttribute && t.getAttribute('data-close') === '1') closeItemModal();
+      if (!t || !t.getAttribute) return;
+
+      if (t.getAttribute('data-close') === '1') { closeItemModal(); return; }
+
+      // Cabecera. Cambiar de vista y mover el item en la cola son DOS
+      // acciones, y por eso son DOS botones: uno que hace las dos cosas es un
+      // gesto que el usuario no puede predecir.
+      var v = t.getAttribute('data-lt-view');
+      if (v) { vistaModal = v; renderItemModal(); return; }
+
+      var q = t.getAttribute('data-lt-queue');
+      if (q) {
+        var res = toggleQueue(q);
+        if (!res.ok) {
+          toast(res.reason === 'llena'
+            ? 'La cola de crafteo esta llena (' + QUEUE_MAX + '). Quita una primero.'
+            : 'No se pudo agregar a la cola.', 'warn');
+          return;
+        }
+        toast(res.added
+          ? 'Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').'
+          : 'Quitada de la cola.', res.added ? 'success' : 'info');
+        renderItemModal();
+        // El contador de la cabecera dice "3/5" y la cola se ve en Mi progreso:
+        // sin este repintado el modal queda diciendo la verdad y la pantalla
+        // de al lado queda mintiendo.
+        renderCurrentMode();
+        return;
+      }
+
+      if (t.getAttribute('data-lt-retry') === '1') {
+        var UI = root.LegendaryTreeUI;
+        if (UI) {
+          UI._resetCache();
+          UI.ensurePrecursors(function () { renderItemModal(); });
+        }
+        renderItemModal();
+        return;
+      }
+
+      // Nodos del arbol. Un listener sobre el modal, no uno por nodo: con 55
+      // nodos abiertos a la vez, 55 closures por repintado es una fuga que se
+      // nota en el scroll.
+      var walk = t;
+      while (walk && walk !== m) {
+        var nid = walk.getAttribute && walk.getAttribute('data-lt-toggle');
+        if (nid) {
+          var k = Number(nid);
+          if (abiertosArbol[k]) delete abiertosArbol[k]; else abiertosArbol[k] = true;
+          renderItemModal();
+          return;
+        }
+        walk = walk.parentNode;
+      }
     });
 
     return m;
@@ -509,32 +574,88 @@
     if (m) m.hidden = true;
   }
 
+  // Que vista esta abierta dentro del modal. El arbol es la de entrada porque
+  // responde "¿como se hace?", que es la primera pregunta; los totales
+  // responden "¿que me falta?", que es la siguiente.
+  var vistaModal = 'arbol';
+
+  // Que nodos estan abiertos. Vive FUERA del HTML a proposito: si viviera en
+  // el DOM, abrir tres niveles, cerrar el modal y volver a abrirlo arrancaria
+  // de nuevo, y el usuario tendria que recorrer el mismo camino cada vez.
+  var abiertosArbol = {};
+
+  function renderItemModal() {
+    var body = document.getElementById('ltItemModalBody');
+    var actions = document.getElementById('ltItemModalActions');
+    if (!body) return;
+    var id = state.openItemId;
+    var UI = root.LegendaryTreeUI;
+    var T = root.LegendaryTree;
+
+    // Sin motor o sin vista: NO es un estado de carga. Decir "cargando" seria
+    // mentir y ademas rompe el invariante de que el tracker no pinta
+    // placeholders (alert84.leyenda-estado-honesto.test.js).
+    if (!UI || !T) {
+      body.innerHTML = '<div style="padding:16px;color:var(--tx-3);font-size:0.78rem;">' +
+        'La vista de materiales no esta disponible todavia.</div>';
+      return;
+    }
+
+    var res = T.build(id);
+    var opts = { esc: esc, abiertos: abiertosArbol };
+
+    body.innerHTML = (vistaModal === 'totales')
+      ? UI.renderTotalsHTML(res, ownedMap(), opts)
+      : UI.renderTreeHTML(res, opts);
+
+    // El boton de la cola va en el HEADER. No en el pie: Frostfang son 55
+    // nodos, y con el boton abajo agregar a la cola seria un trabajo de cuatro
+    // clics, o sea la Armeria mas lenta y no mas rapida.
+    if (actions) {
+      var enCola = state.queue.indexOf(Number(id)) !== -1;
+      var btn = 'padding:5px 11px;border-radius:20px;font-size:0.68rem;cursor:pointer;' +
+        'border:1px solid var(--bd-1);white-space:nowrap;';
+      actions.innerHTML =
+        '<button type="button" data-lt-view="' + (vistaModal === 'totales' ? 'arbol' : 'totales') +
+          '" style="' + btn + 'background:var(--bg-1);color:var(--tx-2);">' +
+          (vistaModal === 'totales' ? 'Ver árbol' : 'Materiales totales') + '</button>' +
+        '<button type="button" data-lt-queue="' + Number(id) + '" style="' + btn +
+          'background:var(--bg-2);color:var(--tx-1);">' +
+          (enCola ? 'Quitar de la cola' : 'Agregar a la cola') + '</button>';
+    }
+  }
+
   // Abre el modal de una legendaria. Es API publica a proposito: la cola de
   // crafteo va a llamarla con el item de la tarjeta, y un deep-link tambien.
   function openItemModal(itemId) {
     var m = ensureItemModal();
-    var body = document.getElementById('ltItemModalBody');
-    var datos = computeMaterials(itemId);
+    var id = Number(itemId);
     var item = ((root.LegendaryCatalog && root.LegendaryCatalog.items) || [])
-      .filter(function (x) { return x.id === Number(itemId); })[0];
+      .filter(function (x) { return x.id === id; })[0];
 
-    var nombre = item ? (item.nameEs || item.name) : ('#' + itemId);
+    var nombre = item ? (item.nameEs || item.name) : ('#' + id);
     var title = document.getElementById('ltItemModalTitle');
     if (title) title.textContent = nombre;
 
-    if (state.itemModalRenderer) {
-      body.innerHTML = state.itemModalRenderer(datos, item);
-    } else {
-      // Sin render todavia. NO es un estado de carga: el render no depende de
-      // red, depende de que `render-catologo.js` se haya registrado. Decir
-      // "cargando" seria mentir y ademas rompe el invariante de que el tracker
-      // no pinta placeholders (alert84.leyenda-estado-honesto.test.js).
-      body.innerHTML = '<div style="padding:18px;color:var(--tx-3);font-size:0.78rem;">' +
-        'La vista de materiales no esta disponible todavia.</div>';
-    }
-
+    state.openItemId = id;
+    vistaModal = 'arbol';
+    abiertosArbol = {};
     m.hidden = false;
-    state.openItemId = Number(itemId);
+    renderItemModal();
+
+    // Los precursores son 268 KB y se piden la PRIMERA vez que se abre un
+    // arbol, no al arrancar la app. `ensurePrecursors` es idempotente: si ya
+    // estan, responde al instante sin tocar el DOM.
+    var UI = root.LegendaryTreeUI;
+    if (UI) {
+      UI.ensurePrecursors(function () {
+        // Solo se repinta si el modal sigue abierto. Volver a pintar un modal
+        // cerrado no se ve, pero puede pisar lo que el usuario esta mirando si
+        // abrio otra cosa mientras cargaba.
+        var mm = document.getElementById('ltItemModal');
+        if (mm && !mm.hidden && state.openItemId === id) renderItemModal();
+      });
+    }
   }
 
   // Delegacion: un solo listener sobre el contenedor, no uno por card. Con
@@ -557,20 +678,22 @@
     });
   }
 
+  // DECISION DE PABLO, 2026-10-02, y esta REVOCA el comentario que estaba aca.
+  // Antes decia: "el click de la card ya es agregar/quitar, y un gesto no puede
+  // hacer dos cosas". La primera mitad era cierta y la segunda estaba mal
+  // aplicada: el problema no era que el gesto hiciera dos cosas, era que el
+  // MISMO gesto significaba "agregar" en el catalogo y "mirar" en la cola. La
+  //solution no era Prohibition, era separar el gesto de la intention:
+  //
+  //     click en la card   -> abre el ARBOL (mirar como se hace)
+  //     boton del header   -> agrega o quita de la cola (decidir que hago)
+  //
+  // El boton va en el header y no en el pie porque el arbol de Frostfang son 55
+  // nodos: abajo seria un trabajo de cuatro clics, y la Armeria tiene que ser
+  // mas rapida, no mas lenta. La fila de la cola conserva su boton de
+  // Materiales, que es una tercera accion distinta y va en su propio lugar.
   function onCardTapped(rawId) {
-    var res = toggleQueue(rawId);
-    if (!res.ok) {
-      toast(res.reason === 'llena'
-        ? 'La cola de crafteo esta llena (' + QUEUE_MAX + '). Quita una primero.'
-        : 'No se pudo agregar a la cola.', 'warn');
-      return;
-    }
-    if (res.added) {
-      toast('Agregada a la cola (' + state.queue.length + '/' + QUEUE_MAX + ').', 'success');
-    } else {
-      toast('Quitada de la cola.', 'info');
-    }
-    renderCurrentMode();
+    openItemModal(rawId);
   }
 
   // Boton de materiales de una fila de la cola. Ahi vive el modal: el click de
@@ -610,8 +733,8 @@
 
     if (!items.length) {
       return head + '<p class="status muted" style="font-size:0.75rem;">' +
-        'Todavia no hay nada en la cola. Toca una legendaria del catalogo para agregarla; ' +
-        'vuelve a tocarla para quitarla.</p>';
+        'Todavia no hay nada en la cola. Abri una legendaria del catalogo y ' +
+        'agregala con el boton de arriba.</p>';
     }
     var rows = items.map(function (it, i) { return queueRowHTML(it, i); }).join('');
     return head + '<div data-queue-panel="true">' + rows + '</div>';
