@@ -1,4 +1,109 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#165 - 2026-10-03 08:00-08:5x UTC - EL RESCATE DEL HB#164 ESTABA ROTO, Y EL CONTROL QUE EL MISMO HB#164 CONSTRUYO LE DABIA VERDE
+
+> **Actualizado:** 2026-10-03 (HB#165) por el Principal.
+> **Base:** `origin/main` = `128cfbe` (06:43:39 UTC) al abrir. Arranque **08:00:07 UTC**.
+> **Rescate (PASO -1):** `origin/main..main` y `main..origin/main` **ambos vacios**. `origin/main` @ **06:43:39 UTC es ANTERIOR** al arranque, pero el arbol **SUCIO**: `HEARTBEAT.md` y `tools/.gitignore` (mtime 04:41:12) y `tools/hb164-espejo.mjs` (04:39:09), **los 3 anteriores** al arranque, y `qwenpaw chats list` **sin sesion `running`**. Regla 3 de PASO -1: escritor **MUERTO, trabajo TERMINADO** -> es trabajo para rescatar, no WIP para descartar. **El rescate era el ciclo HB#164, que murio antes del commit.**
+> **Y EL RESCATE ESTABA ROTO.** No se rescuedo tal cual: al leerlo aparecio la frase partida a la mitad de una oracion, una comilla huerfana y la afirmacion original **duplicada**. Ver ALERT-234.
+> **Banner canonico/espejo:** los 3 chequeos dan **VERDE** (`for-each-ref` presente en los 2 archivos, 13 = 13 secciones, `hb163-canales.mjs` y `hb164-espejo.mjs` en verde). Espejo **regenerado desde el canonico** este ciclo: 136/136 en los 2, 78 lineas desnudas, todas en sangria 0/3/6.
+
+## HALLAZGO DEL CICLO: UN CONTROL DE PARIDAD DIO VERDE CON EL ARCHIVO PARTIDO A LA MITAD DE UNA FRASE
+
+El HB#164 escribio en el banner, con todas las letras, la regla de ALERT-232: *"el ancla de una linea con delimitador tiene que ser la LINEA COMPLETA"*. **Y en esa misma edicion hizo justo eso.**
+
+El ancla matcheo el **texto** de la linea `<!-- ... -->` **sin los delimitadores**, asi que al reemplazar `ancla+bloque`:
+
+- el `<!--` de apertura quedo a un lado y el `-->` al otro;
+- **5 lineas de prosa quedaron FUERA del comentario**, o sea visibles para quien lee el archivo;
+- empezo con `IMPORTA"` (comilla huerfana, frase partida);
+- y la afirmacion original **quedo DUPLICADA** una linea mas abajo.
+
+**Lo caro: el control que el propio HB#164 construyo dio VERDE.** La paridad `<!--`/`-->` era **132/132, parejo**, y el archivo estaba roto.
+
+### ALERT-234: la paridad de delimitadores es NECESARIA y NO SUFICIENTE
+
+La razon, medida: **mover texto fuera de un comentario no cambia el conteo de delimitadores.** El ancla se llevo el texto y dejo los `<!--`/`-->` en su sitio, asi que `abre === cierra` sigue dando verde sobre un archivo partido. El control de ALERT-232 **no alcanza** para la clase de defecto que ALERT-232 describe: detecta el delimitador sin cerrar, no el texto sin comentario.
+
+### El control que faltaba, medido contra el blob intacto
+
+Dentro del banner, una linea **desnuda** (que no empieza con `<!--`) y que tiene contenido solo puede estar en **sangria 0, 3 o 6**. Cualquier otra sangria es texto que se movio de lugar. Medido sobre `origin/main:HEARTBEAT.md`:
+
+| archivo | lineas desnudas | sangria 3 | sangria 6 | vacias | otras |
+|---|---|---|---|---|---|
+| blob (intacto) | 29 | 14 | 12 | 3 | **0** |
+| roto (HB#164) | 83 | 15 | 52 | 11 | **5 en sangria 21** |
+
+Las 5 lineas en sangria 21 son **exactamente** las 5 lineas partidas. Agregado a `tools/hb164-espejo.mjs` con **fase roja aplicada contra el archivo roto real** (detecta 5/5) y **control negativo** (un banner sano con lineas legitimas en 3 y 6 no dispara).
+
+**Mi primer version del control.markaba las 3 lineas `>` vacias como violacion.** No es un defecto del criterio: el blob las tiene legitimas. Se corrigio a `[-1, 0, 3, 6]` **despues de medir el blob**, no antes.
+
+## LO QUE SE HIZO
+
+- **Reparado `HEARTBEAT.md` (canonico).** Las 6 lineas rotas pasaron a 5 lineas `<!-- ... -->` con el MATIZ medido (ALERT-233) dentro del comentario, **sin la comilla huerfana y sin duplicacion**. Queda `136/136` = los `131/131` del blob + las 5 lineas del MATIZ.
+- **Agregado el control de sangria imposible** a `tools/hb164-espejo.mjs`, con su control negativo y su fase roja.
+- **`tools/.gitignore`**: la excepcion `!hb164-espejo.mjs` (del HB#164) es necesaria: el punto 5 del banner lo cita por nombre, y sin el archivo el chequeo apunta a un comando inexistente.
+- **Espejo regenerado** desde el canonico: 45274 bytes, LF, sin BOM, identico al canonico modulo EOL.
+
+## PASOS DEL CICLO
+
+| paso | resultado |
+|---|---|
+| -1 rescate | 3 archivos sucios, mtimes anteriores al arranque, sin escritor vivo -> **HB#164 muerto, rescatado y reparado** |
+| 0 canal | `inbox` **vacio**, `replies` sin novedades, **23 `overdue`** (HB#91 a HB#147, todos de ciclos anteriores) |
+| 1 Reviewer | `task-6cc3851b8d15` -> **404**, **4o ciclo seguido**. Terminal: no se reenvia, no hay tarea viva |
+| 3 PO | 3 canales medidos, **desacuerdo reportado**: `47` / `47` / `45`. Gana el mas alto. **0 items abiertos** -> **nada al Reviewer** |
+| 4 BACKLOG | 4 filas abiertas, **ninguna se arranca** (motivo re-derivado, ver abajo) |
+| 5 suite | **2307 aserciones / 0 FAIL en 86 de 86** (leido de la linea `TOTAL`, nunca recalculado) |
+
+## Estado de las propuestas (PO): 0, y NO se mando nada al Reviewer
+
+`tools/hb163-canales.mjs` con control negativo en 0:
+
+- `origin/po/hb160-poda` (mas nueva por fecha) -> ronda **42**
+- `origin/po/hb150-poda` (mayor `MAX(ronda)`) -> ronda **45**
+- `BACKLOG.md` en `origin/main` -> **0 encabezados**, 46 en prosa, maximo **47**, **4 items abiertos**
+- `PRE_BACKLOG.md` del workspace del PO -> ronda **47**, **0 items abiertos**
+
+**0 propuestas vivas en los tres canales.** La 47 fue una poda y la 45 es PAUSA por el regimen propio del PO. **5to ciclo seguido de "correcto por la razon equivocada"** (ALERT-103, 227, y las 3 previas).
+
+## BACKLOG: 4 filas abiertas, y por que NO se arranca ninguna
+
+El motivo se **re-deriva**, no se hereda (una justificacion puede caducar sin que nadie lo note):
+
+- **L60 ALERT-41** - espera el body crudo de `/v2/account/raids` con token real de Pablo: bloqueo externo.
+- **L88 Coberturable** - decision de producto, no codigo. Y un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio, que es justo lo que el PASO -1 existe para impedir (lo pagaron HB#150, 151 y 154).
+- **L174 dailies** - la premisa "~3-4h, patron ya probado" es **FALSA**: los 3 hermanos viven en `meta.js` y `dailycrafting` esta dentro del bloque de Ecto. No es una familia de tracker.
+- **L307 WvW** - el plazo no se puede escribir: no es un item, es una fila.
+
+## Alertas
+
+**Nueva: ALERT-234** - la paridad de delimitadores `<!--`/`-->` dio VERDE (132/132) sobre un archivo con una frase partida a la mitad, 5 lineas de prosa fuera del comentario y la afirmacion duplicada. **Mover texto fuera de un comentario no altera el conteo de delimitadores.** El control de ALERT-232 es necesario y no suficiente. Agregado el control de sangria (0/3/6), con fase roja contra el archivo roto real.
+
+Sin cambio de estado: **ALERT-41** (esperando a Pablo), **ALERT-179**, **T14/T15**, **los 7 del patron B**, **Idea 57 (los 4 wrappers)**, **FILTRO-05**.
+
+## Errores de instrumento PROPIOS de este ciclo (4, familia ALERT-79)
+
+1. Un `node -e` con una rama ternaria a la que le faltaba el `:` -> `SyntaxError`. **Regla: el one-liner con contenido embebido no es compacto, es fragil.**
+2. `node tools\hb164-espejo.mjs;` -> el `;` entro en el nombre del modulo (quirk de cmd.exe).
+3. Un probe de "lineas `>` que no abren bloque" marco **160 lineas de todo el archivo**, porque el archivo usa `>` legitimamente en casi todo. **Inutil: un control escrito sin medir el blanco de comparacion.**
+4. El primer control de sangria dio **falso positivo** sobre las lineas `>` vacias. Lo detecte porque el numero de malas era 13 en vez de 5.
+
+Ninguno llego al commit. El 3 y el 4 son el mismo error: **escribir el criterio antes de medir el caso sano**.
+
+## Archivos de este commit
+
+Un solo commit. El SHA es el de la linea que contiene este parrafo, asi que no se puede citar aqui sin inventarlo.
+
+- `HEARTBEAT.md` - reparacion de las 5 lineas partidas (+55 / -1: el -1 es la linea duplicada que se reemplaza)
+- `TEAM_STATUS.md` - esta seccion (+97 / -0)
+- `ALERTS_LOG.md` - ALERT-233 (rescatada del HB#164) y ALERT-234 (+89 / -0)
+- `tools/hb164-espejo.mjs` - nuevo, rescatado del HB#164 y ampliado con el control de sangria
+- `tools/.gitignore` - excepcion `!hb164-espejo.mjs` (+8 / -0)
+
+**Verificaciones:** suite **2307 aserciones / 0 FAIL en 86 de 86** (leido de la linea `TOTAL`); `hb164-espejo.mjs` **13 controles OK**; `audit-alert-refs.mjs` **CONTROL ok, 178 ALERTs** (era 177); los 3 chequeos del banner en verde; espejo regenerado y verificado byte a byte contra el canonico modulo EOL.
+
+---
+
 # HB#163 - 2026-10-03 06:30-06:5x UTC - EL PASO 3 MIRA UN CANAL Y HAY TRES. SE LO CORRIGI EN EL CANONICO, Y EL PRIMER INTENTO ROMPIO EL COMENTARIO DEL BANNER
 
 > **Actualizado:** 2026-10-03 (HB#163) por el Principal.

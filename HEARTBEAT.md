@@ -67,7 +67,11 @@
 <!--   `for-each-ref` .... el paso 3 RESUELVE la rama del PO. Un paso 3 pineado-->
 <!--                     a un nombre fijo no lo tiene, y por ahi se leo la      -->
 <!--                     ronda 33 en vez de la 45. ESTE ES EL CHEQUEO QUE       -->
-<!--                     IMPORTA: es el que habria parado este bug.              -->
+<!--                     IMPORTA: es el que habria parado este bug.  MATIZ -->
+<!--                     MEDIDO 2026-10-03 (ALERT-233): **no puede fallar** - -->
+<!--                     con dos archivos `findstr` es un OR, asi que con el -->
+<!--                     espejo en la version vencida del paso 3 da VERDE. El -->
+<!--                     que es un AND de verdad es el punto 5. Ver abajo. -->
 <!--   los 2 numeros .... paridad de secciones `### `. Si no coinciden, falta  -->
 <!--                     o sobra un paso en una de las dos copias.              -->
 <!--                                                                          -->
@@ -101,6 +105,56 @@
 >   workspace se borra, el canal se cae **y el paso 3 sigue dando verde**,
 >   porque las otras dos dimensiones no lo miran. Es la misma razon por la que
 >   el canonico de ESTE archivo tiene que estar en git y no en el workspace. -->
+
+>   5. **`node tools\hb164-espejo.mjs` corre y da 0.** Es el unico chequeo
+>      que es un **AND**: mide el canonico y el espejo POR SEPARADO y falla si
+>      cualquiera de los dos no cumple.
+>
+>      **Por que hace falta, medido 2026-10-03 (ALERT-233).** El chequeo 1 de
+>      arriba dice, con todas las letras, *"ESTE ES EL CHEQUEO QUE IMPORTA: es
+>      el que habria parado este bug"*. Y **no puede fallar**: `findstr` con
+>      VARIOS archivos es un **OR**, no un AND — sale 0 si encuentra la cadena
+>      en ALGUNO de ellos. Medido con 4 espejos distintos y el canonico
+>      presente y correcto:
+>
+>      | espejo | exit | lineas |
+>      |---|---|---|
+>      | con la senal del paso 3 | **0** | 7 |
+>      | SIN la senal | **0** | 7 |
+>      | vacio | **0** | 7 |
+>      | (solo el canonico) | **0** | 7 |
+>
+>      Los cuatro son **indistinguibles**. O sea: **con el espejo en la version
+>      VENCIDA del paso 3, el chequeo 1 da VERDE.** El numero de lineas lo
+>      delata — 7 es el canonico solo, 14 serian los dos — pero el `exit` que es
+>      lo que uno mira no lo ve.
+>
+>      Y hay una segunda capa en el mismo hallazgo: el comando esta escrito con
+>      la **ruta partida en dos lineas** por el hard-wrap. Copiado VERBATIM tal
+>      como aparece arriba, el espacio del corte entra en la ruta: `exit=0`, 7
+>      lineas, **no lee el espejo**. O sea que el unico caso en que el chequeo 1
+>      falla es el **accidental** (ruta truncada), nunca el que pretende detectar.
+>
+>      El chequeo 2 (paridad de secciones) no tiene ese defecto de fondo — son
+>      dos comandos separados, uno por archivo — pero si el hard-wrap: verbatim
+>      da `exit=1` con `FINDSTR: No se puede abrir`, o sea que se ve rojo por un
+>      motivo que no es una divergencia real.
+>
+>      `hb164-espejo.mjs` mide ademas la **paridad `<!--` / `-->`** en los dos
+>      archivos, que es el control que faltaba de ALERT-232: un ancla de una
+>      linea con delimitador dejo el bloque nuevo entero DENTRO del comentario,
+>      invisible para quien lee el archivo, con el `git diff` pareciendo
+>      normal. **Un `1 borrado` en un diff es una señal de inspeccion, no un
+>      veredicto**: hay que ver cual.
+>
+>      Trae **control negativo** (un espejo con el paso 3 vencido tiene que dar
+>      ROJO) y **fase roja** aplicada: 3 roturas medidas — la senal ausente, una
+>      seccion de menos, y el comentario sin cerrar — y las 3 dan ROJO.
+>
+>      ```
+>      cd /d "C:\Mis Archivos\GW2 online\gw2-dev"
+>      node tools\hb164-espejo.mjs
+>      ```
 <!-- Si alguno falla, el canonico (este archivo) gana y el espejo se regenera.  -->
 <!-- Ojo: este banner NO imprime el marcador vencido de la version vieja del   -->
 <!-- paso 3 a proposito, porque un chequeo que se puede disparar con el        -->

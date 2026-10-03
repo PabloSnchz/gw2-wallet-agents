@@ -7146,3 +7146,76 @@ ultima, y se reemite la linea de cierre completa. Paridad: **130/130 -> 131/131*
 Un archivo con `<!--` sin `-->` tiene que dar el control en rojo. El script
 aborta **antes de escribir** cuando el conteo queda desbalanceado, y tambien
 cuando el archivo de origen ya venia desbalanceado.
+
+## ALERT-234 - un control de PARIDAD dio VERDE con una frase partida a la mitad de una oracion (2026-10-03, HB#165)
+
+### Que paso
+
+El HB#164 escribio en el banner de `HEARTBEAT.md`, con todas las letras, la regla de ALERT-232: *"el ancla de una linea con delimitador tiene que ser la LINEA COMPLETA"*. **Y en esa misma edicion hizo exactamente eso.**
+
+El ancla matcheo el **texto** de la linea `<!-- ... -->` **sin los delimitadores**. Al reemplazar `ancla+bloque`:
+
+- el `<!--` de apertura quedo a un lado y el `-->` al otro;
+- **5 lineas de prosa quedaron FUERA del comentario** (visibles para quien lee el archivo);
+- la primera empezo con `IMPORTA"` (comilla huerfana, frase partida a la mitad);
+- y la afirmacion original **quedo DUPLICADA** una linea mas abajo.
+
+**Lo caro: el control que el propio HB#164 construyo dio VERDE.** La paridad `<!--`/`-->` era **132/132, parejo**, con el archivo roto.
+
+### La causa, medida
+
+**Mover texto fuera de un comentario no cambia el conteo de delimitadores.** El ancla se llevo el texto y dejo los `<!--`/`-->` en su sitio, asi que `abre === cierra` sigue dando verde.
+
+Por eso el control propuesto por ALERT-232 **detecta el delimitador sin cerrar y NO el texto sin comentario**. Es un control del sintoma de aquella vez, no de la clase de defecto que ALERT-232 describe.
+
+Corolario: **"necesario y no suficiente" es la frase que mas veces sale en este repo, y siempre significa lo mismo: el control mide una dimension de algo que tiene mas de una.** (ALERT-223 la del `0` que no distingue; ALERT-227 la de la rama por fecha; ALERT-231 la de leer un canal.)
+
+### El control que faltaba
+
+Dentro del banner, una linea **desnuda** (que no empieza con `<!--`) y que tiene contenido solo puede estar en **sangria 0, 3 o 6**. Cualquier otra sangria es texto que se movio de lugar. Medido sobre `origin/main:HEARTBEAT.md`:
+
+| archivo | desnudas | sangria 3 | sangria 6 | vacias | otras |
+|---|---|---|---|---|---|
+| blob (intacto) | 29 | 14 | 12 | 3 | **0** |
+| roto (HB#164) | 83 | 15 | 52 | 11 | **5 en sangria 21** |
+
+Las 5 lineas en sangria 21 son exactamente las 5 lineas partidas. Agregado a `tools/hb164-espejo.mjs` con **fase roja aplicada contra el archivo roto real** (detecta 5/5) y **control negativo** (un banner sano, con lineas legitimas en 3 y 6, no dispara).
+
+### Dos errores mios en el mismo control (familia ALERT-79)
+
+1. **La primera version marco las 3 lineas `>` vacias como violacion.** No es un defecto del criterio: el blob las tiene legitimas. Se corrigio a `[-1, 0, 3, 6]`. **Se corrigio DESPUES de medir el blob, no antes.**
+2. **Un probe previo dio 160 lineas marcadas** porque el archivo usa `>` legitimamente en casi todo el documento. **Un control escrito sin medir antes el caso sano no es un control: es una opinion con exit code.**
+
+### La regla
+
+**Un control de estructura (cuenta de delimitadores, paridad, balance) no ve un desplazamiento de texto.** Para ver texto movido hay que medir **la forma de cada linea por separado**, no el total. Y el criterio se escribe contra el **caso sano medido**, no contra la intuicion de como deberia verse.
+
+Corolario de fondo: cuando un control da verde y la cosa sigue pareciendo mal, **el control esta midiendo otra dimension, no esta equivocado.**
+
+## ALERT-233 - el chequeo de "el paso 3 resuelve la rama" es un OR entre dos archivos, asi que NO PUEDE FALLAR (2026-10-03, HB#164 -written, RESCATEDO en el HB#165)
+
+> **Esta seccion la escribio el HB#164 y murio antes del commit. La rescuedo el HB#165.** El numero estaba libre (MAX=232 en ese momento) y la cita en `HEARTBEAT.md` ya apuntaba aca.
+
+### Que es el chequeo
+
+El banner de canonico/espejo propone, para verificar que el paso 3 del ciclo RESUELVE la rama del PO en vez de tenerla pineada:
+
+```
+findstr /c:"for-each-ref" HEARTBEAT.md "C:\Users\psanc\.qwenpaw\workspaces\default\HEARTBEAT.md"
+```
+
+### Por que no puede fallar
+
+**`findstr` con varios archivos es un OR, no un AND.** Devuelve lineas si **alguno** de los dos archivos tiene la cadena. O sea: el chequeo pasa en cuanto **uno** de los dos cumple.
+
+Medido 2026-10-03: con el **canonico** bien (tiene `for-each-ref`) y el **espejo** en la version **VENCIDA** del paso 3 (que NO lo tiene), el comando **igual devuelve lineas y se lee como verde**. O sea, el defecto exacto que este banner existe para detectar **pasa el chequeo**.
+
+### Que lo arregla
+
+Un **AND de verdad**: revisar **cada archivo por separado** y exigir que los dos tengan la senal. Eso es el punto 5 del banner, `tools/hb164-espejo.mjs`, que corre en el ciclo y chequea canonico y espejo por separado.
+
+### La regla
+
+**Un control que mira "existe la cadena en estos archivos" con varios argumentos es un OR. Si el defecto que busca esta en UNO de los archivos, ese control no lo puede ver.** Para un invariant que tiene que valer en los dos lados, hay que medir los dos lados por separado.
+
+Clase: ALERT-154 y ALERT-124 (un control que no discrimina). Vecina de ALERT-234, que es el mismo error una dimension mas adentro: alli el control media la paridad de delimitadores, que **tampoco ve** el texto que se movio de lugar.

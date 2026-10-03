@@ -44,3 +44,11 @@
 # que apunta a un comando inexistente, que es la mitad exacta del defecto que el
 # punto 4 existe para detectar.
 !hb163-canales.mjs
+
+# --- INFRAESTRUCTURA: el punto 5 del heartbeat la ejecuta ------------------------
+# `node tools\hb164-espejo.mjs` es el unico chequeo del banner que es un AND de
+# verdad: mide el canonico y el espejo POR SEPARADO. Los 4 anteriores son de FORMA,
+# y el punto 1 tiene un defecto medido (ALERT-233): `findstr` con varios archivos
+# es un OR, asi que con el espejo en la version vencida del paso 3 da VERDE.
+# Sin este archivo aca, el paso 5 apunta a un comando inexistente.
+!hb164-espejo.mjs
