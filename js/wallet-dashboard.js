@@ -815,6 +815,7 @@
 
     // Cabecera con ordenamiento
     var hcells = ['<th class="wd-account-header">Cuenta</th>'];
+    hcells.push('<th class="right">Suerte (MF)</th>');
     selectedCurrencies.forEach(function(cur) {
       var iconHtml = getCurrencyIconHtml(cur);
       var sortIndicator = '';
@@ -866,6 +867,9 @@
               errorIndicator +
             '</td>'
           );
+      var s = acc.summary || {};
+      var fieldErr = (s._errors && s._errors.luck) || null;
+      cells.push(fieldErr ? unreadableCell(fieldErr) : renderLuckCell(s));
       selectedCurrencies.forEach(function(cur) {
         var value = acc.wallet[cur.id] || 0;
         var displayValue = formatValueForDisplay(cur.id, value);
@@ -876,6 +880,7 @@
 
     // Fila de totales
     var totalCells = ['<td class="total-label"><strong><img src="assets/icons/578844.png" width="14" height="14" alt="" style="vertical-align: middle; margin-right: 6px;">TOTAL</strong></td>'];
+    totalCells.push('<td class="right total-cell"></td>');
     selectedCurrencies.forEach(function(cur) {
       var totalValue = totals[cur.id];
       var displayTotal = formatValueForDisplay(cur.id, totalValue);
