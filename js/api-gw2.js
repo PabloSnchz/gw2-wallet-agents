@@ -1781,7 +1781,17 @@
     ids = Array.isArray(ids) ? Array.from(new Set(ids)).filter(function (x) { return x != null; }) : [];
     if (!ids.length) return Promise.resolve([]);
 
-    var lkey = 'items_cache_v1:' + CFG.LANG;
+    // El presupuesto del cache de items es parametrizable, y por DEFECTO
+    // reproduce byte a byte lo que hacia antes de existir esta linea: la clave
+    // `items_cache_v1:<lang>` con el 500/400 del recorte de mas abajo. Los 9
+    // call sites que ya usaban `getItemsMany` no pasan ninguna de estas tres
+    // opciones, asi que no tienen ni forma de cambiarse por accidente.
+    //
+    // OJO con el `':' + CFG.LANG`: no es decorativo y va SIEMPRE, con o sin
+    // `cacheKey`. La clave completa lo arma el sufijo de idioma, y las dos
+    // familias (`v1` y `armory`) lo llevan igual. Sacarlo fusionaria el es de
+    // las dos y las volveria el mismo cache.
+    var lkey = (opts.cacheKey || 'items_cache_v1') + ':' + CFG.LANG;
     var bag = lsGet(lkey) || { ts: 0, data: {} };
     var per = bag.data || {};
 
@@ -1845,11 +1855,23 @@
       var perNow = Object.assign({}, per, fresh);
 
       var keys = Object.keys(perNow);
-      if (keys.length > 500) {
+      // Hay DOS numeros y estan en la MISMA linea: el umbral que dispara el
+      // recorte (500) y lo que deja cuando dispara (400). Por eso "subir el
+      // tope" no es mover una constante, son dos. Ahora son defaults, con
+      // exactamente los mismos valores que tenian las dos literales.
+      //
+      // El recorte se calcula sobre `perNow` (la union de lo leido + lo que
+      // trajo esta llamada) y NO mira `lkey`: cambiar solo `cacheKey` no
+      // cambiaria nada, porque `per` se leeria vacio y `fresh` traeria los ids
+      // nuevos, y el cap los recortaria igual. Por eso las tres opciones van
+      // juntas.
+      var trim = typeof opts.cacheTrim === 'number' ? opts.cacheTrim : 500;
+      var cap  = typeof opts.cacheCap  === 'number' ? opts.cacheCap  : 400;
+      if (keys.length > trim) {
         var sorted = keys.sort(function (a, b) {
           return (perNow[a]?.ts || 0) - (perNow[b]?.ts || 0);
         });
-        sorted.slice(0, keys.length - 400).forEach(function (k) { delete perNow[k]; });
+        sorted.slice(0, keys.length - cap).forEach(function (k) { delete perNow[k]; });
       }
       lsSet(lkey, { ts: now(), data: perNow });
 
@@ -1927,8 +1949,24 @@
     // exacta veio a evitar (y que `idea50f.cacheclear-real.test.js` mide).
     'account_skins'
   ];
+  // Idea 50 Tramo F: HAY UN SEGUNDO PRESUPUESTO DE ITEMS, y por eso esta en la
+  // lista y no se deduce de ningun lado.
+  //
+  // `items_cache_v1:` (arriba, en CACHE_KEYS_PREFIX) es el que usan los 9 call
+  // sites de `getItemsMany` y no se toco. `items_cache_armory_v1:` es el mismo
+  // cliente con otro presupuesto: `cacheKey` distinto + `cacheTrim:1000` /
+  // `cacheCap:906`, desde item-icons.js. Existe porque el cap por defecto (500
+  // que dispara, 400 que deja) esta dimensado para una tanda corta de ids, y
+  // la Armeria pide 906 de una vez: con el default el cache se recortaba a si
+  // mismo y de los 906 ids solo 400 quedaban pintados al recargar.
+  //
+  // OJO con lo que significa "misma clave que otro": si un call site futuro pasa
+  // `cacheKey` y OLVIDA `cacheTrim`/`cacheCap`, lee los defaults 500/400 bajo
+  // una clave nueva. Funciona, pero con el cap viejo y sin avisar. Las tres
+  // opciones son un paquete; por eso viven juntas en la misma firma.
   var CACHE_KEYS_PREFIX = [
-    'commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:'
+    'commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:',
+    'items_cache_armory_v1:'
   ];
   // Idea 50 P3 (Code-Reviewer): lo que escriben los OTROS modulos.
   //

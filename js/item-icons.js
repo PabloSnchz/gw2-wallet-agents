@@ -35,11 +35,30 @@
  * porque ninguno de los cuatro estaba en el alcance de este trabajo.
  * Si `window.RARITY_COLORS` aparece algun dia, esta copia se apaga sola.
  *
- * SIN CACHE PROPIO, A PROPOSITO
- * El cache persistente ya lo tiene `getItemsMany`. Este mapa vive en memoria de
- * la sesion y se arma con UNA llamada por tanda de ids: el batch de 200, el cache
- * por id y la deduplicacion son de `getItemsMany`, no de aca. Un segundo cache
- * seria una segunda fuente de verdad sobre los mismos ids.
+ * PRESUPUESTO PROPIO DE PERSISTENCIA, NO SEGUNDO CLIENTE
+ * El cliente sigue siendo UNO: `getItemsMany`. Lo que cambia es DONDE guarda.
+ * Este mapa es de memoria de sesion (se pierde al recargar), y ademas se le
+ * pide a `getItemsMany` un presupuesto propio en disco: `cacheKey:
+ * 'items_cache_armory_v1'` con `cacheTrim:1000` y `cacheCap:906`.
+ *
+ * POR QUE EXISTE. El cap por defecto esta dimensado para una tanda corta de
+ * ids: en api-gw2.js el recorte son DOS numeros en la MISMA linea, el umbral
+ * que dispara (500) y lo que deja cuando dispara (400). La Armeria pide 906
+ * ids de una vez, y con el default el cache se recortaba a si mismo: de los 906
+ * quedaban 400 con icono y color para la sesion siguiente, y los 506 restantes
+ * se perdian al recargar. Por eso "subir el tope" no era una constante sino
+ * dos, y por eso van los tres numeros juntos.
+ *
+ * LO QUE ESTO NO ES. Sigue sin haber batching aca, ni cache por id, ni
+ * reintento del 206 parcial, ni degradacion por lote: todo eso es de
+ * `getItemsMany`, y no se reimplementa. Un segundo cache EN MEMORIA sobre los
+ * mismos ids si seria una segunda fuente de verdad; darle a un cliente una
+ * clave distinta, no.
+ *
+ * Y los otros 9 call sites no se mueven: no pasan ninguna de las tres opciones,
+ * asi que leen los defaults y hacen byte a byte lo que hacen hoy. Eso esta
+ * afirmado como comportamiento en tests/armeria-item-icons.test.js, en la
+ * seccion [5], y es el candado de este cambio.
  *
  * CUANDO FALLA LA RED
  * `getItemsMany` ya degrada: cada lote va con su propio `.catch`, asi que un
@@ -126,7 +145,19 @@
 
     if (_vuelo) return _vuelo.then(function () { return cargar(ids); });
 
-    _vuelo = api.getItemsMany(faltan, { nocache: false })
+    // Presupuesto propio de disco (ver el encabezado). 906 es la cantidad de ids
+    // distintos que puede pedir un arbol completo, asi que el cap tiene que
+    // quedar POR ENCIMA de eso: si el cap fuera menor que el lote, el recorte
+    // se comeria ids que este mismo render esta por traer. `cacheTrim` va mas
+    // arriba que el cap a proposito — es el umbral que dispara el recorte, no
+    // un tope de contenido — y los dosDefaults (500/400) quedan intactos para
+    // los 9 call sites que no pasan nada de esto.
+    _vuelo = api.getItemsMany(faltan, {
+      nocache: false,
+      cacheKey: 'items_cache_armory_v1',
+      cacheTrim: 1000,
+      cacheCap: 906
+    })
       .then(function (items) {
         (items || []).forEach(function (it) {
           if (!it || it.id == null) return;

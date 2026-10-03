@@ -81,7 +81,14 @@ const EXACT = [
 ];
 // Las 4 con sufijo proprio. El sufijo incluye ':', asi que `commerce_prices:`
 // no puede pisar `commerce_pricesfoo`.
-const PREFIX = ['commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:'];
+const PREFIX = ['commerce_prices:', 'currencies_all:', 'ach_meta_v3:', 'items_cache_v1:',
+  // 2026-10-03: la Armeria pide su propio presupuesto de items a `getItemsMany`
+  // (`cacheKey:'items_cache_armory_v1'`). La escribe item-icons.js, NO esta
+  // capa, asi que el recorrido de escrituras de mas abajo no la va a ver — y
+  // por eso esta DECLARADA ACA a mano: sin esta linea el borrado no la alcanza
+  // y su cuota (~140 KB) queda viva sin que nadie entienda por que. Al estar
+  // en PREFIX, la seccion 2 la siembra y la borra de verdad, sola.
+  'items_cache_armory_v1:'];
 
 // Claves que NO son de esta capa y que un borrado descuidado se comeria.
 const PRESERVE = [
@@ -151,7 +158,7 @@ const after = m.store.size;
 const cacheLeft = Array.from(m.store.keys()).filter(
   k => EXACT.indexOf(k.split(':')[0]) !== -1 || PREFIX.some(p => k.indexOf(p) === 0)
 );
-eq(cacheLeft.length, 0, 'no queda ninguna clave de cache de las 19 (quedaron: ' + JSON.stringify(cacheLeft) + ')');
+eq(cacheLeft.length, 0, 'no queda ninguna clave de cache de las ' + (EXACT.length + PREFIX.length) + ' (quedaron: ' + JSON.stringify(cacheLeft) + ')');
 ok(before > after, 'la cache persistente desaparecio de localStorage (' + before + ' -> ' + after + ')');
 ok(res && typeof res.removed === 'number', 'devuelve un conteo {removed}');
 ok(res && typeof res.kept === 'number', 'devuelve tambien {kept}: lo que NO toco, que es la garantia');
@@ -199,10 +206,28 @@ const literals = [];
 const reKey = /var (?:l?key) = '([^']+)/g;
 let mm;
 while ((mm = reKey.exec(src)) !== null) literals.push(mm[1]);
+// Y la via PARAMETRIZADA (2026-10-03, Armeria):
+//   var lkey = (opts.cacheKey || 'items_cache_v1') + ':' + CFG.LANG;
+// `reKey` exige una comilla PEGADA al `=`, y aca hay un `(`, asi que sin esta
+// linea la clave de items desaparece del inventario y el `faltan: []` de mas
+// abajo sigue dando 0 mientras la cobertura real no existe. Es el mismo falso
+// negativo que este test ya corrigio una vez (17 vs 18): una lectura
+// incompleta se disculpa como "no existe", y en un inventario esa es la forma
+// mas cara de equivocarse. El `':'` se agrega porque en la forma parametrizada
+// la literal sola NO es la clave: la clave es la literal mas el separador.
+const reKeyParam = /opts\.cacheKey\s*\|\|\s*'([^']+)'/g;
+while ((mm = reKeyParam.exec(src)) !== null) literals.push(mm[1] + ':');
 // Deduplicar: `ach_meta_v3` esta declarado en las dos ramas del shard.
 const uniq = Array.from(new Set(literals));
-eq(uniq.length, EXACT.length + PREFIX.length,
-  'la allowlist declara las ' + (EXACT.length + PREFIX.length) + ' claves que escribe la capa (encontradas: ' + uniq.length + ')');
+// La igualdad de conteos NO se sostiene mas, y no es un defecto: la allowlist
+// declara 20 claves y la capa escribe 19. La que sobra es
+// `items_cache_armory_v1:`, que escribe item-icons.js (otro modulo) y esta
+// DECLARADA A PROPOSITO para que el borrado la alcance. Lo que tiene que
+// seguir valiendo es la garantia de la linea siguiente — toda clave escrita
+// esta cubierta — y esa no depende de que los numeros coincidan.
+eq(uniq.length, EXACT.length + PREFIX.length - 1,
+  'la capa escribe ' + uniq.length + ' claves y la allowlist declara ' + (EXACT.length + PREFIX.length) +
+  ': la que sobra es items_cache_armory_v1:, de item-icons.js, declarada a mano');
 const missing = uniq.filter(l => EXACT.indexOf(l) === -1 && !PREFIX.some(p => l.indexOf(p) === 0));
 eq(missing.length, 0, 'ninguna clave queda fuera de la allowlist (faltan: ' + JSON.stringify(missing) + ')');
 ok(uniq.indexOf('items_cache_v1:') !== -1,
@@ -370,10 +395,12 @@ const bases = (typeof p3.sandbox.GW2Api.__cacheBases === 'function')
   ? p3.sandbox.GW2Api.__cacheBases()
   : { exact: [], prefix: [] };
 eq(bases.exact.length, 19, 'el registro tiene 19 exactas (15 de la capa + 4 del WV)');
-eq(bases.prefix.length, 5, 'el registro tiene 5 prefijos (4 de la capa + 1 del WV)');
-eq(bases.exact.length + bases.prefix.length, 24, 'el alcance total son 24 bases, no 23');
+eq(bases.prefix.length, 6, 'el registro tiene 6 prefijos (5 de la capa + 1 del WV)');
+eq(bases.exact.length + bases.prefix.length, 25, 'el alcance total son 25 bases, no 23');
 ok(bases.prefix.indexOf('items_cache_v1:') !== -1,
   'items_cache_v1: sigue en el registro: getItemsMany escribe con lsSet directo y no pasa por putCache');
+ok(bases.prefix.indexOf('items_cache_armory_v1:') !== -1,
+  'items_cache_armory_v1: tambien esta en el registro: si se saca, la cuota de la Armeria (~140 KB) queda viva sin que nadie lo vea');
 
 // (f) LA RED: la persistencia de temporada no es cache. Hoy ningun prefijo la
 // alcanza, asi que esta seccion verifica el ORIGEN del peligro y no un

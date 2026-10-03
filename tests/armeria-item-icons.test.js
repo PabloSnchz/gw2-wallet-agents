@@ -311,44 +311,89 @@ const FROSTFANG = 30684;
   });
 
   // ==========================================================================
-  // 5. EL TOPE DE 400
+  // 5. EL PRESUPUESTO PROPIO: 906 CON PINTAR, Y 400 SIN
   // ==========================================================================
-  // ESTO NO ES LO QUE SE PIDIO, Y ESTA MEDIDO.
-  // `getItemsMany` recorta su cache a 400 entradas cuando pasa de 500
-  // (api-gw2.js:1843-1849). Con 906 ids los 5 lotes salen completos de la red y
-  // despues el cap borra 506. O sea: 5 llamadas, 400 items de vuelta.
-  // El modulo no puede evitarlo sin duplicar el cliente, que es lo prohibido.
-  // Lo que se afirma aca es el COMPORTAMIENTO OBSERVADO, para que el numero
-  // 400 quede escrito y no vuelva a sorprender:
-  await seccion('[5] El tope de 400 del cache de getItemsMany (MEDIDO, no pedido)', async () => {
+  // ACA SE AFIRMAN LAS DOS COSAS, Y LAS DOS IMPORTAN.
+  //
+  // (a) CON presupuesto propio el modulo trae 906 de 906. Es el numero que
+  //     todavia no existia: `cargar` pasa `cacheKey:'items_cache_armory_v1'`,
+  //     `cacheTrim:1000` y `cacheCap:906`, y el recorte ya no se come la mitad
+  //     del arbol al recargar. Sigue siendo UN cliente (`getItemsMany`) y siguen
+  //     siendo 5 llamadas: no se agrego ninguna.
+  //
+  // (b) SIN opciones el cap sigue siendo 400. Esto NO es una prueba de que
+  //     "el tope no existe": es EL CANDADO de los 9 call sites que usan
+  //     `getItemsMany` sin pasar nada. Si alguien mueve uno de los defaults,
+  //     este assert cae y el cambio se ve. Si el cap se hubiera tocado en
+  //     `api-gw2.js` en vez de parametrizarse, los 9 modulos habrian cambiado
+  //     de comportamiento sin haberlo pedido, y este es el que lo detecta.
+  //
+  // (c) CONTRASTE. El MISMO `cargar(906)` tiene que dar numeros distintos segun
+  //     le lleguen o no las tres opciones: 906 contra 400. Si los dos dieran
+  //     lo mismo, el `cacheKey` no estaria llegando a la capa y el test pasaria
+  //     por casualidad en vez de por merito.
+  await seccion('[5] Presupuesto propio: 906 con opciones, 400 sin ellas', async () => {
     const m = montar({});
     const ids = Object.keys(m.Prec.byItem).map(Number);
     const validos = ids.filter((i) => i > 0);
 
-    // Directo a la capa, sin item-icons de por medio: el recorte es de ella.
-    const directo = await m.sb.GW2Api.getItemsMany(validos, { nocache: false });
-    eq(m.c.netas, 5, 'getItemsMany directo: 5 llamadas para 906 ids');
-    eq(directo.length, 400, 'pero devuelve 400: el cap de 400 le come 506');
+    // La premisa, fijada: si el contrato de precursores cambia, este numero
+    // avisa en vez de dejar que las aserciones de abajo midan otra cosa.
+    eq(validos.length, 906, 'la premisa: 906 ids validos en el contrato de precursores');
 
-    // Y el modulo ve lo mismo, porque el recorte pasa por el cache.
-    // Sandbox NUEVO para el cargar solo. Medir las dos cosas en el mismo
-    // sandbox daria 8 y no 5, porque la segunda llamada finds los 400 del
-    // cache y pide solo los 506 que faltan (3 lotes mas). Son dos mediciones
-    // distintas y mezclarlas daria un numero que no mide nada.
-    const m2 = montar({});
-    await m2.Icons.cargar(ids);
-    const conIcon = validos.filter((i) => m2.Icons.iconDe(i)).length;
-    eq(conIcon, 400, 'el modulo obtiene 400 de 906 con icono (mismo cap, misma cuenta)');
-    eq(m2.c.netas, 5, 'y lo pide en 5 llamadas: el recorte es del cache, no de la red');
+    // ---------------------------------------------------------------------
+    // (a) CON LAS TRES OPCIONES
+    // ---------------------------------------------------------------------
+    // Sandbox NUEVO solo para el `cargar`: mezclar mediciones en el mismo
+    // sandbox daria numeros que no miden nada, porque la segunda llamada
+    // encontraria en el cache lo que escribio la primera.
+    const ma = montar({});
+    await ma.Icons.cargar(ids);
+    const conIcono = validos.filter((i) => ma.Icons.iconDe(i)).length;
+    eq(conIcono, 906, '(a) con presupuesto propio: 906 de 906 con icono');
+    eq(ma.c.netas, 5, '(a) y siguen siendo 5 llamadas: no se agrego ninguna');
+
+    // El presupuesto propio esta SEPARADO del de los 9 call sites: las dos
+    // claves conviven y ninguna pisa a la otra.
+    const conPropio = ma.sb.localStorage.getItem('items_cache_armory_v1:es');
+    ok(conPropio, '(a) se escribio items_cache_armory_v1:es, que no es la clave por defecto');
+    ok(!ma.sb.localStorage.getItem('items_cache_v1:es'),
+      '(a) y la clave por defecto NO se toco: son dos presupuestos, no uno movido');
+
+    // ---------------------------------------------------------------------
+    // (b) SIN OPCIONES — EL CANDADO DE LOS 9 CALL SITES
+    // ---------------------------------------------------------------------
+    // Directo a la capa, sin item-icons de por medio: el recorte es de ella.
+    const mb = montar({});
+    const directo = await mb.sb.GW2Api.getItemsMany(validos, { nocache: false });
+    eq(mb.c.netas, 5, '(b) sin opciones: 5 llamadas para 906 ids');
+    eq(directo.length, 400, '(b) y devuelve 400: el cap por defecto sigue siendo 400');
+    ok(!mb.sb.localStorage.getItem('items_cache_armory_v1:es'),
+      '(b) sin opciones no se toca la clave de la Armeria');
+
+    // ---------------------------------------------------------------------
+    // (c) CONTRASTE: EL MISMO `cargar`, CON Y SIN EL PRESUPUESTO
+    // ---------------------------------------------------------------------
+    // Se envuelve `getItemsMany` para que se trague las tres opciones. No es un
+    // modulo nuevo ni una copia del cliente: es la misma llamada con el
+    // plumbing caido, que es exactamente lo que este test tiene que separar
+    // del azar.
+    const mc = montar({});
+    const real = mc.sb.GW2Api.getItemsMany.bind(mc.sb.GW2Api);
+    mc.sb.GW2Api.getItemsMany = function (ids2, opts) {
+      return real(ids2, { nocache: false });
+    };
+    await mc.Icons.cargar(ids);
+    const sinIcono = validos.filter((i) => mc.Icons.iconDe(i)).length;
+    eq(sinIcono, 400, '(c) contraste: el MISMO cargar sin las opciones da 400');
+    ok(conIcono !== sinIcono,
+      '(c) y los dos numeros son distintos: el cacheKey si esta llegando a la capa',
+      'con presupuesto: ' + conIcono + ' / sin presupuesto: ' + sinIcono);
 
     // Lo que NO puede pasar: que el recorte haga algo peor que dejar sin pintar.
-    const res5 = m.T.build(FROSTFANG);
-    const html = m.UI.renderTreeHTML(res5,
-      { esc: esc, de: function (i) { return m.Icons.de(i); } });
-    // Lo que hay que afirmar aca es que el recorte NO ROMPE, no que el arbol
-    // quede completo: con el cap en 400, el arbol de Frostfang puede caer entero
-    // en la parte que se borro. Afirmar "tiene iconos" aca seria afirmar que
-    // el cap no existe.
+    const res5 = mc.T.build(FROSTFANG);
+    const html = mc.UI.renderTreeHTML(res5,
+      { esc: esc, de: function (i) { return mc.Icons.de(i); } });
     ok(html.length > 0, 'el arbol se dibuja igual con 400 de 906');
     ok(html.indexOf('undefined') === -1 && html.indexOf('NaN') === -1,
       'sin undefined ni NaN: las filas sin icono no rompen el render');
