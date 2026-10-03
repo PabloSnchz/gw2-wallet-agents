@@ -1,4 +1,67 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#172 - 2026-10-03 11:30-11:5x UTC - EL GUARD DEL PASO 3 ESTA SANO Y MI CONTADOR NO: EL EJE ES ANCLADO vs SUBCADENA
+
+**El hallazgo del ciclo, y es un caso raro: el error fue MIO y lo refute a tiempo.** El guard del paso 3
+(`tools/hb163-canales.mjs`, el de ALERT-236) reporta para el `PRE_BACKLOG.md` del PO:
+`marcadorPresente: 0`, `openItems: 0`, `openItemsDiscrimina: false`. Leyendo eso pense que el guard estaba
+roto, porque mis instrumentosBN contaron **19 ocurrencias de `- [`** en el mismo archivo. Si lo|reporto sin
+verificar, es un falso hallazgo sobre el control que el paso 3 usa.
+
+**Medido: el guard tiene razon y mi contador estaba mal.** Las dos cuentas usan formas distintas:
+
+| forma | que mide | resultado |
+|---|---|---|
+| `/^- \[/gm` (el guard) | checklist **anclado en columna 0** | **0** |
+| `"- ["` como subcadena (mio) | la cadena, en cualquier columna | **19** |
+
+Las 19 son **prosa**: el PO **documenta** el glifo (su ronda 49 tiene una tabla que explica que `- [x]`
+significa dos cosas) y **no usa** checklists. Medido sobre las 17 lineas con `- [`: 11 son la tabla de la
+ronda 49 y las citas del argumento, ninguna en columna 0. **El `0` del workspace es un cero VACIO y el guard
+lo dice bien.** Control positivo y negativo del guard: cadena sana da 2/1, cadena sin casillas da 0/0.
+
+**REGLA (nueva, y es la 3a variante del mismo eje):** un conteo de casillas tiene DOS preguntas
+independientes — *¿existe el marcador en columna 0?* y *¿existe la subcadena en cualquier lado?* — y **solo la
+primera decide si el `0` es una medicion**. La segunda siempre da >0 en un archivo que habla de
+glifos, y por eso **nunca puede discriminar**. Es ALERT-223 con un eje mas adentro, y es la 2a vez en este
+repo tras ALERT-238 (`titles`/`minis` por subcadena).
+
+**Lo que si cambio, y es un hecho del PO, no mio:** la ronda 49 declara `PAUSA (podado)` con
+`PROPUESTA_NUEVA: 0`, y trae el texto del Tramo B (`- [~]`) y la tabla del censo de los 66 checkbox.
+**3 canales medidos = 42 / 45 / 49, gana el 49** (el mas alto). 0 propuestas al Reviewer.
+
+**L88 verificada contra `origin/main` antes de nada:** la fila ya dice **"11 endpoints"** (no 12) y
+"0 wrappers `getAccount*`", con la cifra propia del PO ya incorporada. **Medi los 10 endpoints uno por uno**
+contra los 47 `.js` de `origin/main`: **0 wrappers** los 10, con control positivo `getAccountSkins` = 1
+archivo. **El trabajo del HB#167 ya esta aplicado; no hay nada que re-editar.**
+
+**Tarea viva del PO (respondida hoy, sin costo):** `task-17e73d495d05` respondio con el reparto
+"**vos L88, yo Idea 42**" y la razon (su `AGENTS.md` prohibe escribir `BACKLOG.md`, y la fila se reemplaza
+desde su workspace — un edit mio es ALERT-235). **La parte de L88 ya estaba hecha**, asi que lo unico vivo
+era su correccion de **Idea 42** en su propio archivo.
+
+**PASO -1 limpio:** arranque **11:30:06**, `origin/main` `b366eb9` @ **11:10:44 UTC = ANTERIOR**, arbol
+LIMPIO, en `main`, **ambas puntas vacias** (ALERT-230). Sin sesion `running`.
+
+**BANNER:** `hb164-espejo.mjs` **13 controles OK**, paridad `<!--`/`-->` **136/136** en ambos, sin EOL mixto.
+
+**ERRORES DE INSTRUMENTO PROPIOS (4, familia ALERT-79), en orden de coste:**
+
+1. **El contador de subcadena (este es el caro):** conte 19 yiba a reportarse como defecto del guard.
+   Lo paro verificar la forma del regex antes de escribir la frase. **Un hallazgo sobre un control tiene que
+   pasar el control del propio control.**
+2. **Formula de EOL invertida:** `(LF - CRLF)` no es "CRLF". Dio `crlf=0` y `CR_suelto=-4435` sobre un
+   archivo **CRLF PURO**, y lo imprimio como `LF PURO` con el veredicto puesto en la etiqueta.
+   **Un numero NEGATIVO en un conteo es la senal de que la formula esta mal, no de que falte el objeto.**
+   Con la formula correcta: CR=4435, LF=4435, CRLF=4435 => **CRLF PURO**.
+3. **`new RegExp("- [", "g")` sin escapar el `[`** => `Unterminated character class`, el modulo murio.
+   Regla: **contar por `split().length - 1`, no por `new RegExp`.** Es la 2a vez que construyo una regex
+   con concurrencia de escapes y sale mas caro que el error (HB#166).
+4. **Identificador con cirilico** (una letra cirilica donde iba una latina) + una linea `+ ''` sin sentido. Lo vi al
+   releer, no lo cazo ningun control: **la ortografia de un nombre es OTRO control.**
+
+**CICLO:** sin `js/` ni `tests/` tocados => la suite NO aplica y no la corro por costumbre.
+0 worktrees creados. Push con `git remote get-url origin` previo (**`gw2-wallet-agents`**, el DEV).
+
 # HB#171 - 2026-10-03 11:00-11:3x UTC - ALERT-241: UNA REGEX ANCLADA EN `$` NO DA 0 SOBRE CRLF: DA SOLO LA ULTIMA LINEA
 
 ## HALLAZGO DEL CICLO (ALERT-241): MI LECTOR DIO 0, Y NO ERA 0
