@@ -1,4 +1,73 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#162 - 2026-10-03 05:30-05:5x UTC - EL PASO 3 SIGUE SIENDO UN ASERTO QUE NO PUEDE FALLAR: LE FALTA EL CANAL POR EL CUAL EL PO REALMENTE ESCRIBE
+
+> **Actualizado:** 2026-10-03 (HB#162) por el Principal.
+> **Base:** `origin/main` = `0138fb1` al abrir. Arranque **05:30:06 UTC**.
+> **Rescate (PASO -1, las DOS puntas, ALERT-230):** `origin/main..main` **vacio** y `main..origin/main` **vacio**. No hay commit local sin pushear. Arbol limpio. Remoto mas viejo que el arranque. Re-medido a mitad de ciclo: **sigue en `0138fb1`, sin escritor**.
+> **Banner canonico/espejo:** los 2 chequeos dan **VERDE** (`for-each-ref` presente en los 2 archivos, 13 = 13 secciones). El espejo esta al dia.
+
+## HALLAZGO DEL CICLO: LAS TRES DIMENSIONES DE "CUAL ES LA RAMA VIVA" SE CONTRADICEN, Y LA MAS NUEVA NO SALE POR NINGUNA
+
+ALERT-227 fijo "ordenar por fecha". ALERT-229 lo corrigio a "`MAX(ronda)` sobre todas las ramas". **Los dos estan escritos, los dos dan una respuesta distinta, y el mas alto de los dos no es el mas nuevo:**
+
+| criterio | rama que gana | ronda que lee | fecha del tip |
+|---|---|---|---|
+| por **fecha** (ALERT-227) | `origin/po/hb160-poda` | **42** | 2026-10-03 01:11 |
+| por **MAX(ronda)** (ALERT-229) | `origin/po/hb150-poda` | **45** | 2026-10-02 19:07 |
+| **segundo canal** (`BACKLOG.md`) | ya en `origin/main` (`7bfd8f4`) | **47** | 2026-10-03 01:43 |
+
+**La ronda 47 es la mas nueva del PO y no la ve ninguno de los dos criterios.** La causa es una forma nueva de la misma trampa: **el PO tiene DOS canales de salida y el paso 3 mira UNO, y el segundo canal no usa la FORMA que el criterio sabe leer.** En `DASHBOARD_PO_IDEAS.md` cada ronda es un encabezado `## ACTUALIZACION ... ronda N` (34 en `hb150-poda`, lo que matchea el regex de encabezado). En `BACKLOG.md` **la ronda esta en prosa dentro de la fila** - *"PODADO y reencuadrado en la ronda 47 del PO (HB#160)"* - y la misma regex da **0 en las 19 ramas**.
+
+**Un `0` que no distingue "no existe" de "no lo se buscar" es ALERT-223 una dimension mas adentro**, y aca es invisible porque el ganador no cambia: los dos criterios siguen leyendo una ronda vieja. Detalle completo en **ALERT-231**.
+
+**El `MAX(ronda)=45` del HB#161 es cierto y esta incompleto: es el maximo de UN canal.**
+
+### Por que hoy el resultado igual da bien (3a vez de "correcto por la razon equivocada")
+
+Las 3 rondas dan **0 propuestas**: la 47 fue una **poda** (mergeada, `abiertas=4` igual que antes), la 45 es **PAUSA** por el regimen propio del PO ("6 items a 4 = 4-7, en PAUSA no se investiga y no se traen ideas"; control negativo `ZZZ999` = **0**, o sea el criterio discrimina) y la 42 es vieja y cerrada. **Mandar 0 al Reviewer es correcto.** Pero es correcto **sin que ninguna dimension haya visto que las otras dos existen**: si manana el PO abre la 48 en `BACKLOG.md`, el paso 3 **sigue leyendo 45** y reporta PAUSA con la misma seguridad. **El dia que el numero pase de 0 a 3+, este criterio entrega 0 con la misma confianza.**
+
+**No se toco `HEARTBEAT.md`:** el banner verifica la paridad con `for-each-ref` + paridad de secciones, y ese chequeo **detecta que falta o sobra una seccion, NO que cambie el CONTENIDO de un paso que ya existe** (ALERT-228). Agregar la tercera dimension al paso 3 seria dar verde con un paso viejo. Decision de Pablo/Arquitecto; lo que queda escrita es la medicion, no el parche.
+
+## PASOS DEL CICLO
+
+| paso | resultado |
+|---|---|
+| **-1 Rescate** | Las dos puntas vacias, arbol limpio, remoto mas viejo. Sin rescate. |
+| **0 Comms** | `inbox` **vacio**, `replies` sin respuestas nuevas. **23 `overdue`**, todos de ciclos anteriores (HB#91 a HB#147). |
+| **1 Reviewer** | `task-6cc3851b8d15` -> **404**. Estado terminal, distinto de "termino sin veredicto". No se marco fallida. Las **29 filas con `task_id` "abiertas"** de `COMMS_LOG.md` son **de HB#30 a HB#147**: deuda de bookkeeping re-contada con script propio, no tareas vivas. |
+| **3 PO** | **0 propuestas**, con las 3 dimensiones medidas y en desacuerdo. **No se mando nada al Reviewer.** |
+| **4 BACKLOG** | **4 filas abiertas.** Solo **L88 Coberturable** desbloqueada; ver abajo por que no se arranco. |
+| **5 Docs** | Este bloque + **ALERT-231**. |
+
+## L88 Coberturable: MEDIDO, y su titular dice un numero viejo
+
+La fila dice *"12 endpoints `/v2/account/*` sin tocar"*. **Medido sobre `origin/main` @ `0138fb1`, endpoint por endpoint:**
+
+- **7 con wrapper Y pantalla**: `wallet`, `luck`, `achievements`, `bank`, `materials`, `legendaryarmory`, `raids`.
+- **`skins` tiene wrapper pero CERO pantallas** - `getAccountSkins` (`api-gw2.js:1467`) y `getSkinsBatch` (`:1545`) existen, versionados y exportados (`:2457-2458`, v2.33.0), y `git grep` da **1 solo archivo** = el propio `api-gw2.js`. **La API esta hecha; lo que falta es la pantalla.**
+- **10 sin wrapper**: `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `mounts` (no existe ningun `getAccountMount*`), `titles`, `dyes`, `home/cats`.
+
+**O sea: "12 sin tocar" son en realidad 7 con pantalla + 1 con wrapper sin pantalla + 10 sin wrapper.** El numero del titular no es el que se puede leer, y una fila de backlog se lee por el titular.
+
+**NO se arranco, y la razon se RE-DERIVO (no se heredo).** La del HB#153 era "el arbol esta sucio" - hoy el arbol esta limpio, asi que esa razon **caduco y no aplica**. La vigente es otra y es mas fuerte: **un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio**, que es justo lo que el PASO -1 existe para impedir (HB#150, HB#151 y HB#154 lo pagaron). Sumado a que L88 necesita **decision de producto** antes de codigo (12 endpoints -> cuales van, y donde se muestran). **Un item puede quedar esperando por una razon que ya caduco sin que nadie lo note: la justificacion de "no lo hago" hay que re-derivarla cada ciclo.**
+
+**Para el proximo ciclo, ya medido:** el limite duro de `/v2/skins` son **200 ids por lote** (201 -> 400); con alguno invalido devuelve **206** con los validos, y **`fetchBatchWithRepair` existe justo para eso** y ya lo usa `getItemsMany` - o sea `getSkinsBatch` tiene que **copiar `getItemsMany`, NO `meta.js:batchItems`** (que es la que descarta el status). El `chunk=100` que nombra la fila es una convencion, no el limite.
+
+## PENDIENTE (sin cambio de estado)
+
+1. **ALERT-41** - esperando el **body crudo** de `/v2/account/raids` con token real de Pablo. Escalado en el HB#149.
+2. **ALERT-179** - fix mergeado, Reviewer mudo.
+3. **T14/T15** - veredicto opcion C, precondicion medida, sin aplicar.
+4. **Los 7 del patron B** - verificados en el HB#151, siguen vivos.
+5. **Idea 57, los 4 wrappers** - viven solo en ALERT-48.
+6. **Decision de FILTRO-05** - Pablo.
+7. **ALERT-228/229** - sumar al banner el tercer chequeo (por contenido, no por cantidad) y la doble dimension. Decision de Principal/Arquitecto.
+8. **ALERT-231 (este ciclo)** - tercera dimension del paso 3: **`MAX(ronda)` sobre los DOS canales** + fecha del ultimo commit + **reportar el desacuerdo**. Medido, sin aplicar.
+9. **ALERT-230** - sumar al PASO -1 la medicion de las dos puntas. **Aplicado hoy en la practica**, y por eso no se perdio ningun commit local.
+10. **Deuda visible**: ~100 ramas locales y **28 worktrees**. La auditoria es del Arquitecto (`wt.js`).
+
+---
+
 # HB#161 — 2026-10-03 05:00-05:5x UTC — LOS 2 CHEQUEOS DEL BANNER DABAN VERDE CON EL ESPEJO DESACTUALIZADO, Y EL AGENTE QUE LO LEE ES EL QUE EJECUTA
 
 > **Actualizado:** 2026-10-03 (HB#161) por el Principal.

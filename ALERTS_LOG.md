@@ -7045,3 +7045,46 @@ sobre un archivo de 1492 lineas porque **paso el archivo de CRLF a LF**. Con
 EOL es parte del contrato del archivo (ALERT-157) y dos ciclos que lo toquen
 alternando EOL se pelean indefinidamente. Respetando el EOL de `origin/main`, el
 diff del rescate queda en **110 inserciones / 0 borrados**.
+
+## ALERT-231 (HB#162): EL CRITERIO DE "RAMA VIVA" DEL PASO 3 SIGUE SIENDO UN ASERTO QUE NO PUEDE FALLAR — LE FALTA LA TERCER DIMENSION, Y HOY LAS TRES SE CONTRADICEN
+
+**Medido el 2026-10-03 sobre las 19 ramas `po/*` de `origin`, sin `try/catch` que trague y con control negativo.** ALERT-227 dijo "ordena por fecha". ALERT-229 corrigio a "MAX(ronda) sobre todas las ramas". **Los dos criterios estan escritos, los dos dan una respuesta distinta, y el mas alto de los dos NO es el mas nuevo:**
+
+| criterio | rama que gana | ronda que lee | fecha del tip |
+|---|---|---|---|
+| por **fecha** (ALERT-227) | `origin/po/hb160-poda` | **42** | 2026-10-03 01:11 |
+| por **MAX(ronda)** en `DASHBOARD_PO_IDEAS.md` (ALERT-229) | `origin/po/hb150-poda` | **45** | 2026-10-02 19:07 |
+| el **segundo canal** del PO, `BACKLOG.md` | ya mergeado en `origin/main` (`7bfd8f4`) | **47** | 2026-10-03 01:43 |
+
+**La ronda 47 es la mas nueva del PO y no sale por ninguno de los dos criterios escritos.**
+
+### LA CAUSA, y es una forma nueva de la misma trampa
+
+**El PO tiene DOS canales de salida y el paso 3 mira UNO — y el segundo canal no usa la FORMA que el criterio sabe leer.** En `DASHBOARD_PO_IDEAS.md` cada ronda es un encabezado `## ACTUALIZACION ... ronda N`, que es justo lo que `/^## .*?ronda (\d+)/gim` matchea. En `BACKLOG.md` **la ronda aparece en PROSA dentro de la fila**:
+
+- `"PODADO y reencuadrado en la ronda 47 del PO (HB#160)"`
+- `"TRAMO 2 TAMBIEN HECHO, y la fila seguia diciendo que faltaba (ronda 47 del PO, HB#160)"`
+
+**Medido:** la misma regex, sobre el mismo repo, sobre las 19 ramas: en `DASHBOARD_PO_IDEAS.md` encuentra **34 encabezados** en `hb150-poda`; en `BACKLOG.md` da **0 en las 19 ramas**. El dato no falta: **esta en otra parte del archivo**, y un criterio que solo mira encabezados lee `0` con la misma cara con la que lee "no hay rondas". **Un `0` que no distingue "no existe" de "no lo se buscar" es ALERT-223, una dimension mas adentro.**
+
+**Y el `0` es invisible, porque el ganador no cambia respecto de hoy:** `hb150-poda` gana por `DASHBOARD` con 45 y `hb160-poda` por fecha con 42, y en los dos casos el paso 3 termina leyendo una ronda vieja. **El `MAX(ronda)=45` que reporto el HB#161 es cierto y esta incompleto**: es el maximo *de un canal*.
+
+### LO QUE LE FALTA AL CRITERIO
+
+Necesita las TRES dimensiones, y cuando se contradigan tiene que **decir que se contradicen** en vez de elegir una en silencio:
+
+1. **`MAX(ronda)` sobre los DOS canales** de cada rama (no solo `DASHBOARD_PO_IDEAS.md`), distinguiendo el patron de encabezado del de prosa en vez de mezclarlos.
+2. **Fecha del ultimo commit** de cada rama: una poda mergeada a `main` tiene fecha de rama vieja y ronda alta, y hoy es la unica que gana.
+3. **Que la rama se RESUELVA, no se pinee** — esto ya esta, y funciona (las 19 se leen, ninguna fija).
+
+**No lo escribo en `HEARTBEAT.md`, y la razon es ALERT-228.** El banner del canónico verifica la paridad con `for-each-ref` + paridad de secciones `### `. Ese chequeo **detecta que falta o sobra una seccion, NO que cambie el CONTENIDO de un paso que ya existe**. Agregar un criterio al paso 3 cambia el archivo que el cron ejecuta, y el chequeo daria verde igual. La decision de tocar el banner es de Pablo/Arquitecto. **Lo que queda aca es la medicion y el criterio, no el parche.**
+
+### POR QUE NO ES "el resultado correcto por la razon equivocada" (3a vez de la misma clase)
+
+Las 3 dimensiones apuntan a 3 rondas: **42, 45 y 47**. Las 3 dan **0 propuestas** — la 47 fue una **poda** (mergeada, `abiertas=4` igual que antes), la 45 es **PAUSA** por el regimen propio del PO ("6 items a 4 = 4-7, en PAUSA no se investiga y no se traen ideas"), y la 42 es vieja y cerrada. **Mandar 0 al Reviewer es correcto hoy.**
+
+Pero es correcto **sin que ninguna dimension haya detectado que las otras dos existen**. Si manana el PO abre una ronda 48 en `BACKLOG.md` y los otros dos canales siguen en 42 y 45, el paso 3 **va a seguir leyendo 45** y va a reportar PAUSA con la misma seguridad de siempre: **el dia que el numero pase de 0 a 3+, este criterio entrega 0 con la misma confianza.** Es la 3a vez de la clase "correcto por la razon equivocada" (ALERT-103, ALERT-227), y la 1a en que laDimension que falta no es una fecha sino **un canal de salida entero**.
+
+**Control negativo:** `ZZZ999` en las 19 ramas = **0**. El criterio discrimina.
+
+**REGLA (familia ALERT-222/223/229): un criterio de "cual es el mas nuevo" necesita TODAS las dimensiones en las que el dato puede vivir, y tiene que REPORTAR su desacuerdo. Elegir una dimension en silencio es un aserto que no puede fallar.** El caso de hoy es el mas limpio de la serie porque el dato existe en las 3 y la mas nueva es la que ninguna regla escrita conoce.
