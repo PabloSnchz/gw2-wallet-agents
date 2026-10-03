@@ -71,6 +71,36 @@
 <!--   los 2 numeros .... paridad de secciones `### `. Si no coinciden, falta  -->
 <!--                     o sobra un paso en una de las dos copias.              -->
 <!--                                                                          -->
+<!-- >   4. **`tools/hb163-canales.mjs` corre y devuelve los 3 canales medidos.**
+>      Este es el **unico** chequeo de esta lista que mira el CONTENIDO de un
+>      paso y no su cantidad. Los dos anteriores miran la FORMA: contar
+>      secciones detecta "falta o sobra un paso", y la ausencia de un comando
+>      detecta "el paso esta pineado". **Ninguno de los dos detecta que un paso
+>      se haya REESCRITO** - y fue exactamente eso lo que paso: la correccion
+>      vivia en el canonico y el defecto en el espejo, **los dos con el MISMO
+>      numero de secciones**. Por eso los dos checks dieron verde con el espejo
+>      roto. (ALERT-228.)
+>      Es un chequeo de **comportamiento**: mira lo que la herramienta MIDE
+>      sobre los archivos de verdad, no lo que el texto DICE, asi que el
+>      material que controla **no lo puede disparar**. Es la misma propiedad que
+>      pide el punto 2, y por eso no imprime el criterio.
+>
+>   ```
+>   cd /d "C:\Mis Archivos\GW2 online\gw2-dev"
+>   node tools\hb163-canales.mjs
+>   ```
+>
+>   Los tres canales medidos son las ramas `po/*`, el `BACKLOG.md` de
+>   `origin/main` y el `PRE_BACKLOG.md` del workspace del PO. Los tres tienen
+>   que venir con un conteo explicito, y **el desacuerdo entre ellos se
+>   reporta** (ALERT-231, ver PASO 3). Si uno sale en 0, el paso tiene que decir
+>   de que salio ese 0: no leerlo y no existir dan el mismo numero.
+>
+>   Un cuarto canal aparece **fuera del repo**, y por eso no lo cubre ningun
+>   control de git: el `PRE_BACKLOG.md` del PO vive en su workspace. Si ese
+>   workspace se borra, el canal se cae **y el paso 3 sigue dando verde**,
+>   porque las otras dos dimensiones no lo miran. Es la misma razon por la que
+>   el canonico de ESTE archivo tiene que estar en git y no en el workspace. -->
 <!-- Si alguno falla, el canonico (este archivo) gana y el espejo se regenera.  -->
 <!-- Ojo: este banner NO imprime el marcador vencido de la version vieja del   -->
 <!-- paso 3 a proposito, porque un chequeo que se puede disparar con el        -->
@@ -517,6 +547,52 @@ cuando la viva es la **35**.
 > contado") **no aguanta un rebase sobre `main`**. El archivo es append-only
 > *dentro* de una rama y **perdedor entre ramas**. Mergear `main` <- rama del PO
 > no es solo higiene: es lo que hace que la maxima exista en un solo lugar.
+
+> #### ALERT-231 (HB#163): EL PO TIENE **TRES** CANALES, Y EL PASO 3 MIRA UNO.
+> #### ADEMAS LA TERCERA DIMENSION NO SALE POR NINGUNA DE LAS DOS QUE YA
+> #### EXISTIAN.
+>
+> **Medido en el HB#163 sobre las 19 ramas `po/*`, con control negativo que da 0.**
+> Las dimensiones de "cual es el canal vivo" se contradicen:
+>
+> | Dimension | Instrumento | Resultado |
+> |---|---|---|
+> | rama por FECHA | `for-each-ref --sort=-committerdate` | `origin/po/hb160-poda`, ronda **42** |
+> | ronda por MAX en las 19 ramas | regex anclada de encabezado sobre `DASHBOARD_PO_IDEAS.md` | `origin/po/hb150-poda`, ronda **45** |
+> | `BACKLOG.md` en `origin/main` | **la misma regex** | **0 encabezados**, 46 coincidencias en PROSA, maximo **47** |
+> | `PRE_BACKLOG.md` del workspace del PO | **la misma regex** | 1 encabezado, ronda **47** |
+>
+> **La ronda 47 es la mas nueva de las cuatro y no la da NINGUNO de los dos
+> criterios anteriores.** La causa es una forma nueva de la misma trampa: **el PO
+> publica por mas de un canal, el paso 3 mira uno, y los otros dos no usan la FORMA
+> que el criterio sabe leer.** En `BACKLOG.md` la ronda esta **dentro de la fila**,
+> en prosa, y el mismo regex da **0 en las 19 ramas**.
+>
+> **Ese 0 es el punto, no un detalle.** Un `0` de ese regex **no distingue "no
+> existe" de "no lo se buscar"**: es ALERT-223 una dimension mas adentro, y hoy
+> es invisible porque **el ganador no cambia** y los dos criterios siguen leyendo
+> una ronda vieja. El `MAX(ronda)=45` que se viene reportando es cierto **y esta
+> incompleto: es el maximo de UN canal.**
+>
+> **LO QUE ESTO CORRIGE DE ALERT-227:** la regla de ALERT-227 ("se resuelve por
+> `MAX(ronda)` sobre todas las ramas") queda **SUPERADA**, no ampliada: es
+> **necesaria pero no suficiente**, porque lee un solo canal. Ordenar por fecha y
+> maximizar la ronda sobre las ramas **siguen siendo necesarios**; ya no bastan
+> ninguno de los dos por separado.
+>
+> **REGLA, en este orden:**
+>
+> 1. Medir los **3 canales** y **REPORTAR SU DESACUERDO** en `TEAM_STATUS.md`.
+>    El ultimo en escribir no es el ultimo en contenido.
+> 2. Si coinciden, hay una ronda. Si no, **gana el numero mas alto de los tres**,
+>    y cada propuesta se verifica contra `origin/main` antes de mandarla.
+> 3. Contar **items abiertos** (`- [ ]`), no encabezados de ronda: un encabezado
+>    de ronda no dice si hay trabajo.
+>
+> **Herramienta: `tools/hb163-canales.mjs`**, que mide los 3 canales y **CUENTA**
+> las coincidencias de cada uno. **Un canal que da 0 tiene que decir de que salio
+> el 0**: si no se pudo leer, eso es un fallo de medicion y se reporta como tal, no
+> como un cero.
 
 ```
 git show origin/po/<rama-viva>:DASHBOARD_PO_IDEAS.md

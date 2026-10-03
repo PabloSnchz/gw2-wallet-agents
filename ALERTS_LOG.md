@@ -7088,3 +7088,61 @@ Pero es correcto **sin que ninguna dimension haya detectado que las otras dos ex
 **Control negativo:** `ZZZ999` en las 19 ramas = **0**. El criterio discrimina.
 
 **REGLA (familia ALERT-222/223/229): un criterio de "cual es el mas nuevo" necesita TODAS las dimensiones en las que el dato puede vivir, y tiene que REPORTAR su desacuerdo. Elegir una dimension en silencio es un aserto que no puede fallar.** El caso de hoy es el mas limpio de la serie porque el dato existe en las 3 y la mas nueva es la que ninguna regla escrita conoce.
+---
+
+## ALERT-232 - el ancla de una linea de cierre sin el cierre deja el archivo desbalanceado, y el diff lo disimula
+
+**Medido en el HB#163, en mi propio instrumento. Lo encontre el control de
+integridad del script, no yo, y el diff que yo estaba mirando no lo mostraba.**
+
+### Que paso
+
+El banner de `HEARTBEAT.md` es un comentario HTML que se abre con `<!--` en la
+linea 5 y se cierra con `  -->` al final de cada linea. Para insertar el punto 4
+use de ancla **el texto** de la linea de cierre, **sin el `  -->`**:
+
+```
+ancla = 'Si alguno falla, el canonico (este archivo) gana y el espejo se regenera.'
+```
+
+La linea real es:
+
+```
+<!-- Si alguno falla, el canonico (este archivo) gana y el espejo se regenera.  -->
+```
+
+Reemplazar `ancla + bloque` deja el `<!--` de apertura **abierto** y empuja el
+`-->` al final del bloque insertado. Resultado: **todo lo intermedio queda dentro
+del comentario HTML**, invisible para quien lee el archivo, **incluido el bloque
+nuevo que se pretendia agregar**.
+
+### Por que no lo vi
+
+El `git diff --numstat` daba **78 inserciones y 1 borrado**. Con el filtro de
+costura habitual (`inserciones / 0 borrados` para probar que no hubo reescritura
+total) eso se lee como "casi todo bien, 1 linea tocada". El 1 borrado **era** la
+linea de cierre partida, y el filtro de "0 borrados" lo habria cazado... si el
+criterio hubiera sido `> 0` y no `distinto de lo esperado`.
+
+**Lo que faltaba no era el filtro de EOL ni el de encoding: faltaba la PARIDAD
+de delimitadores.** El archivo tenia 130 `<!--` y 130 `-->`, y despues de insertar
+tenia 131 y 130.
+
+### Regla
+
+1. **El ancla de una linea con delimitador es la LINEA COMPLETA**, cierre
+   incluido. Si el ancla es el texto, el cierre se va con el texto.
+2. **Despues de insertar dentro de un comentario, comparar el conteo de
+   apertura y de cierre.** Es un control de 2 lineas y es el unico que ve esto.
+3. **Un borrado en un diff de "solo inserciones" no es ruido de fin de linea:**
+   es una linea que se partio. Mirar CUAL antes de asumir.
+
+La forma correcta, que es la que quedo aplicada: el bloque entra **antes** de la
+linea de cierre, abriendo `<!--` en su primera linea y cerrando `-->` en la
+ultima, y se reemite la linea de cierre completa. Paridad: **130/130 -> 131/131**.
+
+### Control negativo
+
+Un archivo con `<!--` sin `-->` tiene que dar el control en rojo. El script
+aborta **antes de escribir** cuando el conteo queda desbalanceado, y tambien
+cuando el archivo de origen ya venia desbalanceado.

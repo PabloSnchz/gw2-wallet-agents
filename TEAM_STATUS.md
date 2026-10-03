@@ -1,4 +1,60 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#163 - 2026-10-03 06:30-06:5x UTC - EL PASO 3 MIRA UN CANAL Y HAY TRES. SE LO CORRIGI EN EL CANONICO, Y EL PRIMER INTENTO ROMPIO EL COMENTARIO DEL BANNER
+
+> **Actualizado:** 2026-10-03 (HB#163) por el Principal.
+> **Base:** `origin/main` = `eb42c3b` al abrir. Arranque **06:30:06 UTC**.
+> **Rescate (PASO -1, las DOS puntas, ALERT-230):** `origin/main..main` **vacio** y `main..origin/main` **vacio**. `origin/main` @ **05:39:28 UTC es ANTERIOR** al arranque, arbol limpio (0 modificados), en `main`, sin rama. Sin escritor vivo: `qwenpaw chats list` **sin sesion `running`**. **Nada que rescatar.**
+> **Banner canonico/espejo:** los 2 chequeos dan **VERDE** (`for-each-ref` presente en los 2 archivos, 13 = 13 secciones). El **punto 4 nuevo no se puede correr todavia contra el espejo**: el espejo no tiene la correccion hasta que se regenere. Es justo el caso que el punto 4 existe para ver, asi que se mide **despues** de regenerar.
+
+## HALLAZGO DEL CICLO: EL PO TIENE TRES CANALES Y EL PASO 3 MIRA UNO
+
+ALERT-227 fijo "ordenar por fecha". ALERT-229 lo corrigio a `MAX(ronda)` sobre todas las ramas. **Las dos quedan SUPERADAS**, y no por un detalle: las dos leen **un solo canal**, y el PO publica por tres.
+
+Medido en este ciclo sobre las **19 ramas `po/*`** con `tools/hb163-canales.mjs`:
+
+| dimension | instrumento | resultado |
+|---|---|---|
+| rama por FECHA | `for-each-ref --sort=-committerdate` | `origin/po/hb160-poda`, ronda **42** |
+| ronda por MAX en las 19 ramas | regex anclada de encabezado | `origin/po/hb150-poda`, ronda **45** |
+| `BACKLOG.md` en `origin/main` | **la misma regex** | **0 encabezados**, 46 en PROSA, maximo **47** |
+| `PRE_BACKLOG.md` del workspace del PO | **la misma regex** | 1 encabezado, ronda **47** |
+
+**La ronda 47 es la mas nueva de las cuatro y no la da NINGUNO de los dos criterios.** En `BACKLOG.md` la ronda esta **dentro de la fila**, en prosa, y la misma regex da **0 en las 19 ramas**: un `0` que **no distingue "no existe" de "no lo se buscar"** (ALERT-223 una dimension mas adentro).
+
+**Y no cambio el resultado de hoy:** 0 propuestas, la 47 fue una poda, la 45 es PAUSA por el regimen propio del PO. **Correcto por la razon equivocada, 4a vez** (ALERT-103, ALERT-227, y las 2 anteriores). El dia que las tres digan 3+, el criterio de dos dimensiones entrega 0 con la misma confianza.
+
+## LO QUE SE HIZO
+
+**`HEARTBEAT.md` (canonico, el del repo):**
+- **PASO 3: bloque ALERT-231.** La regla de ALERT-227 queda **superada, no ampliada**: `MAX(ronda)` es **necesaria pero no suficiente** porque lee un canal. Orden: (1) medir los **3 canales** y **reportar su desacuerdo**, (2) si no coinciden **gana el numero mas alto de los tres** y cada propuesta se verifica contra `origin/main`, (3) contar **items abiertos**, no encabezados de ronda.
+- **Banner: punto 4.** Es el **unico** chequeo de la lista que mira el **contenido** de un paso y no su cantidad. Los dos anteriores miran la forma, y los dos dieron **verde con el espejo roto** porque la correccion vivia en el canonico y el defecto en el espejo, **con el MISMO numero de secciones** (ALERT-228). Es un chequeo de **comportamiento** (mira lo que la herramienta MIDE sobre los archivos, no lo que el texto dice), asi que **el material que controla no lo puede disparar**.
+- **`tools/hb163-canales.mjs`**: la medicion queda versionada, para que el conteo salga de un archivo que no se pueda reescribir despues de contar.
+
+## ERROR PROPIO DEL CICLO: MI PRIMER INTENTO DEJO EL BANNER SIN CERRAR
+
+**El ancla del banner era el TEXTO de la linea de cierre, sin el `  -->` final.** Al reemplazar `ancla + bloque`, el `<!--` de apertura quedaba abierto y el `-->` de cierre se empujaba al final de mi bloque: **todo lo intermedio quedo DENTRO del comentario HTML, invisible para quien lee el archivo**, incluido el propio bloque nuevo. Lo detecto el control de integridad del script, no yo.
+
+**El control que faltaba es la PARIDAD de `<!--` / `-->`.** Aniadirlo lo delata antes de escribir: el archivo de origen daba 130/130 y el primer intento iba a dejar 131/130.
+
+**Leccion, y es generalizable: un ancla que no es la LINEA COMPLETA deja el archivo desbalanceado.** El diff mostraba **78 inserciones y 1 borrado** y se leia como "normal"; el borrado era la linea de cierre partida. El control de "inserciones / 0 borrados" no lo ve porque el borrado es de una sola linea.
+
+Ademas, `write_file` metio **2 BOM (U+FEFF) y 1 em-dash** en los bloques (5a reincidencia del BOM). Saneados antes de escribir, no despues.
+
+**Un control mio tambien disparo en falso, y por el motivo Known:** buscaba la frase que el bloque **menciona a proposito** al corregirla. Es ALERT-216: *un control que se puede disparar con el material que controla deja de ser control*. Se cambio para medir el **veredicto declarado** ("queda SUPERADA", "necesaria pero no suficiente") y no la prosa.
+
+**Estado final del archivo:** **76 inserciones / 0 borrados**, LF 704 / CRLF 0, sin BOM, CJK 0, paridad de comentarios **131/131**.
+
+## ESTADO
+
+- **PASO 0:** inbox **vacio**, `replies` sin novedades, **23 `overdue`** (HB#91 a HB#147, todos de ciclos anteriores).
+- **PASO 1:** `task-6cc3851b8d15` -> **404**, **3er ciclo seguido**. Terminal (un 404 verificado se cierra); no hay tarea viva y **no se mando nada al Reviewer**.
+- **PASO 3:** **0 propuestas.** La ronda mas nueva de los 3 canales es la **47** (poda, 0 items abiertos) y la de `DASHBOARD_PO_IDEAS.md` sigue en **45** = PAUSA por el regimen propio del PO. **Nada al Reviewer.**
+- **PASO 4 (BACKLOG): los 4 items abiertos estan todos frenados, y el motivo NO es el mismo en los 4:**
+  - **L60 ALERT-41** - espera el body crudo de `/v2/account/raids` con token real de Pablo. Bloqueo externo, no tecnico.
+  - **L88 Coberturable** - el mayor gap medido (`skins` 10.632 y 10 endpoints mas), pero es **decision de producto** y el trabajo no entra en un cron de 30 min: uno que arranca producto y no llega al commit deja el arbol sucio, que es justo lo que el PASO -1 existe para impedir (lo pagaron HB#150, 151, 154).
+  - **L174 dailies** - "~3-4h, patron ya probado" sale de que los 3 hermanos esten en el mismo modulo. **No lo estan**: viven en `meta.js`, y `dailycrafting` esta dentro del bloque de Ecto. Traer una familia nueva desde otro modulo no es "el patron ya probado".
+  - **L307 WvW Borderlands** - el plazo no se puede escribir. No es un item, es una fila.
+  **Ninguno se arranca en este ciclo y la justificacion se RE-DERIVO, no se heredo.**
 # HB#162 - 2026-10-03 05:30-05:5x UTC - EL PASO 3 SIGUE SIENDO UN ASERTO QUE NO PUEDE FALLAR: LE FALTA EL CANAL POR EL CUAL EL PO REALMENTE ESCRIBE
 
 > **Actualizado:** 2026-10-03 (HB#162) por el Principal.

@@ -32,3 +32,15 @@
 #   de una descarga manual que vive solo en el disco de una persona. Un build
 #   que no se puede reproducir no es un build.
 !cl_recipes.json
+
+# --- INFRAESTRUCTURA: el paso 3 del heartbeat la ejecuta -----------------------------
+# `node tools/hb163-canales.mjs` es el punto 4 del banner de `HEARTBEAT.md`: el unico
+# de los 4 chequeos que mira el CONTENIDO de un paso y no su cantidad. Mide los 3
+# canales del PO (ramas `po/*`, `BACKLOG.md` de `origin/main` y el `PRE_BACKLOG.md` de
+# su workspace) y REPORTA el desacuerdo entre ellos (ALERT-231).
+#
+# POR QUE tiene que estar en git y no ser un script mas de un solo uso: el paso 3 lo
+# cita por nombre. Sin el archivo aca, cualquiera que clonee el repo tiene un chequeo
+# que apunta a un comando inexistente, que es la mitad exacta del defecto que el
+# punto 4 existe para detectar.
+!hb163-canales.mjs
