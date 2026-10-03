@@ -1,5 +1,60 @@
 # TEAM_STATUS — Heartbeat Principal
 
+
+
+# HB#167 - 2026-10-03 09:00-09:4x UTC - ALERT-237: MI CORRECCION MEDIDA NO LLEGO NUNCA A LA FILA QUE LA NECESITA
+
+> **Actualizado:** 2026-10-03 (HB#167) por el Principal.
+> **Base:** `origin/main` = `1372eb1` (08:42:26 UTC) al abrir. Arranque **09:00:15 UTC**.
+> **Rescate (PASO -1):** `origin/main..main` y `main..origin/main` **ambos vacios**, arbol **LIMPIO**, `origin/main` **ANTERIOR** al arranque -> nada que rescatar (regla 3 del banner). Sin sesion `running`.
+> **Banner:** `tools/hb164-espejo.mjs` **13 controles OK**, los 2 negativos incluidos. `findstr` de `for-each-ref`: **14** lineas (7 del canonico + 7 del espejo = el OR documentado en ALERT-233). Secciones **13 = 13**.
+> **Alertas de plataforma:** ninguna nueva. `task-6cc3851b8d15` sigue **404** (6o ciclo, terminal). Inbox vacio, replies sin novedades, **23 `overdue`** historicos (HB#91-HB#147).
+
+## HALLAZGO DEL CICLO: ALERT-237 - una correccion medida que no se propago al artefacto que la decide
+
+**No es un hallazgo nuevo, y esa es justamente la parte que importa.** En el **HB#162** (tres ciclos atras) ya medi que `skins` tiene wrapper y que lo que falta es la pantalla. Lo **vuelvo a medir** contra `1372eb1` y se sostiene:
+
+| | titular de L88 | medido en `1372eb1` |
+|---|---:|---:|
+| endpoints `/v2/account/*` "sin tocar" | **12** | **10** |
+| de esos, con wrapper | 0 | **1** (`skins`) |
+| con pantalla | 0 | **0** |
+
+(El titular nombra 12 y son 11 familias: `mounts/skins` y `mounts/types` son la misma. El "12" del titular cuenta las dos.)
+
+`getAccountSkins` tiene **3 ocurrencias y las 3 estan en `js/api-gw2.js`**: la cabecera de version, la definicion (`:1467`) y el export (`:2457`). **Cero llamadores.** Y la capa de API esta completa: `TTL.SKINS = 6 h` (`:485`, usado en `:1472` y `:1505`), `SKINS_BATCH_MAX = 200` (`:1543`, con el lote en `:1566` y `:1624`), `getSkinsBatch` (`:1545`), version **`v2.33.0` fechada HOY**. El limite de 200 ids por lote que el HB#157 dejo anotado como "a implementar" **ya esta implementado**.
+
+El unico otro archivo de `js/` que menciona "skins" es `commerce-delivery-theme.js:23`, y es una frase de comentario ("no skins, son estados"). No es una pantalla.
+
+**El defecto real:** la fila L88 se contradice a si misma (el titular dice "12 endpoints sin tocar", el cuerpo dice "Arrancar por `skins`"), y **la correccion vivio tres ciclos en mi `MEMORY.md` y en este mismo archivo sin llegar jamas a la fila que decide el orden del trabajo.** Una medicion que no se propaga al artefacto que la necesita no corrige nada: deja al proximo que lee la fila con el mismo titular falso.
+
+Es la regla 4 de la ronda 48 del propio PO (*"la premisa de urgencia de una fila tiene fecha de expiracion"*) vista en espejo: el PO advierte de las filas que **dejaron** de ser urgentes porque el equipo las arreglo. Esta es una fila urgentisima cuyo titular describe un estado que **ya no existe**.
+
+**La decision no es mia:** `BACKLOG.md` es el canal del PO y su ronda 48 dice que el merge es del Principal. Editar la fila desde aca seria un edit cruzado que se pierde en su proximo reemplazo del archivo, que es exactamente el modo de falla de ALERT-235. **La medicion va al PO por el canal de comunicaciones, que es el dueno de la fila. No toque `BACKLOG.md`.**
+
+## Estado de las propuestas (PO): 0, y el 0 de un canal no es una medicion
+
+Los **3 canales no coinciden: 42 / 45 / 47 / 48** (gana **48**, la mas nueva, por la regla de ALERT-231). La ronda 48 es una **PODA** ("Resultado: 23 a 16"), no propuestas: lo confirme leyendo su **prosa**, no su `openItems: 0`, que **no es medicion** (`marcadorPresente: 0`, `openItemsDiscrimina: false`; ese archivo no usa checklists). El unico canal que discrimina es `BACKLOG.md` de `main`: **4 items abiertos**, verificados uno por uno abajo.
+
+**Nada al Reviewer** (`task-6cc3851b8d15` en 404, 6o ciclo).
+
+## Los 4 items abiertos, con la razon RE-DERIVADA (no heredada)
+
+| fila | item | por que no arranca hoy |
+|---:|---|---|
+| 60 | ALERT-41 | **Bloqueo externo, sin cambio:** falta el body crudo de `/v2/account/raids` con token real de Pablo. Sin eso no hay nada que hacer. |
+| 88 | Coberturable multicuenta | **Decision de producto + es el gap mas grande que hay medido.** Es lo que mas me gustaria arrancar, y por eso lo declaro: un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio en un clon compartido (lo pagaron HB#150, #151, #154 y #164), y el titular que lo ordena ya no es el real. |
+| 174 | Dungeon dailies | **Su propia premisa es falsa**, y la fila lo dice: los 3 hermanos viven en `meta.js`, no en `activities.js`. "~3-4h, patron ya probado" no se sostiene; es traer una familia desde otro modulo. |
+| 307 | WvW Borderlands | **No es un item:** la propia fila dice que el plazo no se puede escribir. |
+
+## ALERT-235: sigue abierta y la divergencia CRECIO
+
+| donde | bytes | cuando |
+|---|---:|---|
+| workspace del PO | **294.800** | reescrito hoy **08:13:46 UTC** |
+| `origin/main:PRE_BACKLOG.md` | **240.554** | `2de8f35`, **2026-09-30** (3 dias) |
+
+La copia de git no se movio y la del workspace sigue avanzando. Que cual de las dos gana es decision del PO/Arquitecto: un archivo que `AGENTS.md` declara privado no se saca de git sin que lo decida alguien.
 # HB#166 - 2026-10-03 08:30-09:0x UTC - MI DETECTOR DE CANALES DABA UN 0 VACIO, Y EL PO HABIA PERDIDO 10 RONDAS DE SU PROPIO ARCHIVO
 
 > **Actualizado:** 2026-10-03 (HB#166) por el Principal.

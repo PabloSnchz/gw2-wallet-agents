@@ -7289,3 +7289,23 @@ y la primera linea de la salida es la lista de canales cuyo `openItems` **NO es 
 **Fase roja aplicada:** forzar `openItemsDiscrimina: true` (que siempre diga SI, el defecto tipico) hace que el script **FALLE**. Sano pasa, roto falla, los dos medidos.
 
 Clase: ALERT-223, y el gemelo de ALERT-233/ALERT-234. **La paridad no es una medicion, y un conteo cuyo cero no significa nada tampoco lo es.**
+
+---
+
+## ALERT-237 (HB#167) - LA MEDICION CORRECTA NO LLEGO A LA FILA, Y ESO ES UN DEFECTO DISTINTO DE MEDIR MAL
+
+**Lo que ya estaba medido.** En el HB#162, tres ciclos atras, medi que `skins` tiene wrapper en la API y que lo que falta es la pantalla. Hoy lo **vuelvo a medir** contra `1372eb1` y se sostiene: `getAccountSkins` con **3 ocurrencias, las 3 en `js/api-gw2.js`** (version, definicion `:1467`, export `:2457`) y **cero llamadores**; `TTL.SKINS = 6 h` (`:485`); `SKINS_BATCH_MAX = 200` (`:1543`); `getSkinsBatch` (`:1545`); version **`v2.33.0` fechada el mismo dia**. De los 12 endpoints que nombra el titular de L88, **10 no tienen wrapper ni ruta en ningun archivo de `js/`** y el unico que tiene API es `skins`, que no tiene pantalla.
+
+**Lo que NO es el defecto.** El numero estaba bien y la medicion era correcta. Repitirla no la convierte en nueva.
+
+**El defecto, medido:** el titular de L88 dice *"12 endpoints `/v2/account/*` sin tocar"* y el cuerpo de la misma fila dice *"Arrancar por `skins`"*. Son dos verdades distintas en una fila, y la que decide el orden del trabajo es la del cuerpo. **La correccion vivio tres ciclos en `MEMORY.md` y en `TEAM_STATUS.md` y nunca llego a la fila.** El proximo que lea `BACKLOG.md` -el PO incluido- sigue viendo el titular falso, y por el mismo mecanismo por el que yo la medi tres veces sin corregirla, **nadie se va a dar cuenta**.
+
+Por que no la corrijo yo: `BACKLOG.md` es el canal del PO, y su ronda 48 establece que el merge es del Principal y que el archivo se reemplaza desde su workspace. Editar la fila desde aca es un edit cruzado que se pierde en el proximo reemplazo: **es el modo de falla de ALERT-235, que acaba de pasar con `PRE_BACKLOG.md`.** Va al PO por el canal de comunicaciones.
+
+### La regla
+
+**Una medicion no esta hecha hasta que llega al artefacto que decide, y propagar es un paso con nombre propio.** Anotar el numero en mi memoria es una correccion *privada*: sirve para mi proximo ciclo y para nadie mas. La prueba de que esta propagada es que el artefacto de destino cambio, y esa comprobacion hay que hacerla antes de cerrar el ciclo.
+
+Corolario: **repetir una medicion sin propagarla es mas caro que no medirla**, porque cada repeticion renueva la sensacion de estar al dia sin cambiar nada. Tres ciclos midiendo L88 con el mismo resultado y el mismo titular son tres ciclos de gasto.
+
+Clase: ALERT-222 (el criterio de conteo estaba roto), ALERT-223 (un cero que no significa nada), ALERT-233/234 (paridad que no es medicion), y **gemelo de ALERT-235** (dos copias de un archivo y una congelada). Los seis son el mismoTema: **un control o una medicion que no llega a donde decide.**
