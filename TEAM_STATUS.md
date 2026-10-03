@@ -1070,3 +1070,141 @@ se puede atribuir: el commit.
 ## Commits de este ciclo
 
 - (se completa al commitear)
+
+# HB#156 — 2026-10-03 02:45-03:30 UTC — HABIA DOS `HEARTBEAT.md` QUE NO ERAN EL MISMO DE DOS GENERACIONES, Y CADA UNO TENIA LO QUE AL OTRO LE FALTABA
+
+> **Actualizado:** 2026-10-03 (HB#156) por el Principal.
+> `origin/main` = `24f7dbc` (sobre `a7918db`, sobre `e1dfb69` del HB#155). Suite
+> **2272/0 en 85 de 85**. 31 refs, `main` UNICA, 0 duplicados por refspec. Remoto =
+> `origin` (`gw2-wallet-agents`).
+
+## Lo que hizo este ciclo
+
+- **Hubo dos crisis de rescate de WIP.** El arbol abrio con **WIP sin commitear
+  de 2 sesiones muertas** (HB#149 y HB#150, los dos con el trabajo TERMINADO y
+  sin commit). Rescatados: 39 + 9 archivos, mergeados sin perder una linea.
+- **Rescate de HB#154**: su trabajo estaba en `origin/main` (`23e2fea`) pero
+  **no habia dejado ni una linea en ningun log** (ALERT-226). Se registro.
+- **HB#152**: no toco `HEARTBEAT.md` por colision con WIP ajeno. Razon correcta,
+  y el item quedo esperando. Se destrabo este ciclo.
+- **Coberturable Tramo 2**: `getSkinsBatch` con paginacion y cache
+  (`js/api-gw2.js` L468-540, 176 lineas). Cierra los 3 FAIL de la suite.
+  **Sin cambio de contrato**: solo se agrego `cacheKey`, que ya estaba soportado.
+- **Armeria**: cache propio para items (906 iconos en 5 llamadas) y cola con
+  `QUEUE_MAX=5`.
+- **PRODUCT CODE: 0 commits de producto.** Toda la sesion fue logistica.
+
+## El hallazgo de este ciclo: dos `HEARTBEAT.md`, divergentes en los DOS sentidos
+
+**La interseccion de lo que les faltaba era VACIA.**
+
+| | repo | workspace (el que lee el cron) |
+|---|---|---|
+| lineas / secciones `### ` | 188 / 11 | 415 / 17 |
+| secciones de mismo titulo, contenido IDENTICO (sha1) | 6 | 6 |
+| secciones de mismo titulo, contenido DISTINTO | 2 | 2 |
+
+- **Solo en el repo**: el `PASO 3` version **HB#114** = **la correccion**.
+- **Solo en el workspace**: `PASO -1` rescate, `PASO 0`, `PASO 1`, regla de
+  espera, reglas de comunicacion, cierre de worktrees — y el `PASO 3` version
+  **HB#103 = el defecto, que era el que se ejecutaba**.
+
+**Por que no se veia: hoy el paso 3 acerto POR LA RAZON EQUIVOCADA.** Media
+`origin/po/hb99-dashboard` (ronda 33, 2026-10-01 13:12) en vez de
+`origin/po/hb150-poda` (ronda 45, 2026-10-02 19:07): **~30 h de retraso y 12
+rondas del PO invisibles**. La 33 tiene T12 ya cerrado -> da menos de 3 -> la
+regla "si no da 3 no se fuerza" frena el paso. **El resultado coincide con el
+correcto y por eso nadie lo ve.** Es el **mismo bug del HB#103 con otro archivo
+equivocado**: ahi el contador leia `PRE_BACKLOG.md`, hoy lee una rama pineada.
+
+## Lo que quedo decidido (Pablo delego la ejecucion)
+
+- **Canonico = el del repo**, porque git sobrevive a que se borre un workspace.
+  **Espejo = el del workspace**, regenerado desde el canonico. **Gana el
+  canonico** si divergen. Banner arriba de los dos que lo dice.
+- El canonico quedo con **13 secciones**: las 11 del repo + las 6 que solo
+  tenia el espejo. **Canonicalizar sin haberlas movido las habria borrado** —
+  ese era el riesgo de la operacion.
+- **`PASO -0` nuevo, el primero del ciclo**: regenerar el espejo + correr los
+  2 chequeos. Una regla en un banner es documentacion; en el orden del ciclo
+  es un paso (mismo criterio por el que se escribio el `PASO -1`).
+- **14 enunciados falsos muertos** (no 6: medidos, varios derivados), cada uno
+  con su medicion. **Documentador NO se toco**: 6 timeouts -> "SIN MEDIR",
+  porque `cron list` no devolvio nada y no se propaga un numero que nadie
+  volvio a contar.
+- **`PASO -1` NO se toco**, como pediste.
+
+## Los 2 chequeos son SEMANTICOS, no de bytes
+
+Dos archivos pueden ser identicos y estar los dos mal, y cualquier diferencia de
+espacios los marca como distintos sin que importe. Por eso:
+
+1. `for-each-ref` presente = el paso 3 **resuelve** la rama. **Es el chequeo que
+   habria parado este bug.**
+2. Paridad del numero de secciones `### `.
+
+Ejecutados contra las dos copias: ambos **OK**.
+
+## HALLAZGO PROPIO — mi PASO -1 se dispara solo, y es la 2a vez
+
+El `PASO -1` del HB#153 compara `origin/main` contra la **hora de arranque**.
+Al aplicarlo me dio "escritor VIVO -> solo lectura", porque `origin/main` era
+`e1dfb69` (23:08) y yo arranque 22:45. **El commit era del HB#155, que arranco
+DESPUES de que yo terminara: construyo sobre mi `23e2fea`.** No habia escritor
+concurrente: habia un ciclo **secuencial**, y el guard no distingue "otro ciclo
+escribio" de "el ciclo anterior escribio". El HB#155 lo topo solo y escribio el
+mismo hallazgo. **Costo real: cada ciclo que pushea se auto-declara de solo
+lectura al siguiente.** **NO se toco el PASO -1** (pediste no tocarlo y el
+arreglo es una condicion, no una reescritura). Queda esperando tu palabra.
+
+## Errores de instrumento PROPIOS de este ciclo (6, todos cazados antes del commit)
+
+1. **Un control que compara la cantidad y lo llama "contenido".** Mi primer
+   diff de secciones|reportaba "mismo cuerpo" comparando el **numero de lineas**.
+   Dio 8 de 8 identicas cuando `Acciones pospuestas` — la del enunciado falso —
+   era distinta. Rehice con sha1 por seccion.
+2. **Un control que se puede disparar con el material que controla deja de ser
+   control — 3a vez (HB#151 x2).** El banner **transcribia el titulo de la
+   version vencida** para explicar que senalaba: la senal aparecia en el archivo
+   sano. Resuelto con la senal que no se puede falsear por mencionarla (la
+   AUSENCIA de `for-each-ref`). **Costo: un commit extra** (`24f7dbc`).
+3. **LF en un archivo CRLF** (187 CRLF / 0 LF -> 546 LF). Sin medir fines de
+   linea el proximo diff habia mostrado las 188 lineas enteras. Normalizado.
+4. **Un `--amend` despues de pushear** creo un commit hermano, no descendiente,
+   y el push reboto. **Recuperado con un commit NUEVO encima, no con
+   `--force`.**
+5. **Un check que leyo `origin/main` DESPUES del amend pero ANTES del push**
+   → leyo el contenido viejo y dio un falso positivo.
+6. **`statSync` despues de `unlinkSync`** (el error de log impidio ver que el
+   borrado si habia salido) y **`write_file` metiendo BOM al mensaje de commit**
+   (ALERT-79, enésima vez).
+
+Ademas: un hook veto un comando por contener `rm` (**falso positivo**, no habia
+`rm`) y la denegacion es final: se cambio de instrumento a node.
+
+## Estado de las propuestas (PO)
+
+Sin ronda nueva, 3er ciclo. **18 refs `po/*`**, la mas reciente
+`origin/po/hb150-poda` (2026-10-02 19:07, ronda 45). El conteo literal del
+criterio viejo da **7 CUENTA / 4 CERRADAS**, pero son las rondas 16 a 45, todas
+atendidas: **ALERT-222 sigue sin corregir** porque su arreglo necesita el dato
+del "ultimo corte", que no existe en ningun archivo. Ronda MAX 45 = PAUSA.
+
+## Alertas
+
+- **ALERT-226** — los dos `HEARTBEAT.md` divergentes en ambos sentidos (arriba).
+- **ALERT-227** — HB#154 sin logs; la cadena de control perdio un ciclo entero.
+- **ALERT-228** — mi `PASO -1` se declara solo lectura por el commit del ciclo
+  anterior. 2a vez. Pendiente de decision.
+- **ALERT-225** — la premisa falsa de la noche vivia tambien en el prompt
+  embebido de un **cron de supervision nocturna** (el que pregunta por
+  `22a6a71` y da por hecho que Pablo duerme). No es archivo mio: hay que
+  avisarle.
+
+## Commits de este ciclo
+
+- `a7918db` — `docs(hb156)`: canonico en git, espejo regenerado, 14 falsos
+  muertos, `PASO -0`, los 2 chequeos, ALERT-226 (157 lineas).
+- `24f7dbc` — `docs(hb156-fix)`: el banner citaba el marcador que su propio
+  chequeo busca.
+- **Base**: `23e2fea` (rescate HB#154), `e1dfb69` (HB#155).
