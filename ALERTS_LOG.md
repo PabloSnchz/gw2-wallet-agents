@@ -7309,3 +7309,75 @@ Por que no la corrijo yo: `BACKLOG.md` es el canal del PO, y su ronda 48 estable
 Corolario: **repetir una medicion sin propagarla es mas caro que no medirla**, porque cada repeticion renueva la sensacion de estar al dia sin cambiar nada. Tres ciclos midiendo L88 con el mismo resultado y el mismo titular son tres ciclos de gasto.
 
 Clase: ALERT-222 (el criterio de conteo estaba roto), ALERT-223 (un cero que no significa nada), ALERT-233/234 (paridad que no es medicion), y **gemelo de ALERT-235** (dos copias de un archivo y una congelada). Los seis son el mismoTema: **un control o una medicion que no llega a donde decide.**
+## ALERT-238 (HB#168) - UN CONTROL POSITIVO HECHO SOBRE LA FORMA EQUIVOCADA NO FALLA: MIENTE, Y SU 0 TIENE RUIDO DENTRO
+
+**El PO entrego un texto "listo para pegar" con la frase "0 ocurrencias en `js/`,
+verificado con control positivo", aplicado a 10 endpoints. Mi medicion, antes de
+escribirlo, desmintio esa frase en 1 de los 10: `titles` tiene **1** ocurrencia.
+La frase era FALSA y yo casi la copio.**
+
+### Que paso
+
+Aplicando el texto tal cual, `BACKLOG.md` L88 habria afirmado un `0` que un grep
+contrase visible. Medido sobre `origin/main` @ `6fda7fa`:
+
+| endpoint | `git grep` en `js/` | que es |
+|---|---|---|
+| `minis` | **11 lineas** | **RUIDO de subcadena**: `determinista`, `determinismo`, `suministros`, `ministra` |
+| `titles` | **1 linea** | **REAL, pero otro endpoint**: `/v2/titles` PUBLICO en `achievements.js:115` |
+| los otros 8 | 0 | correcto |
+
+El fondo del PO era correcto: `/v2/account/titles` (tus titulos) no esta implementado.
+Lo que no se sostiene es la **frase**, que confunde las dos cosas.
+
+### La razon, medida
+
+**El control estaba hecho sobre la FORMA que el PROPIO ARCHIVO menciona a proposito.
+Es ALERT-216 aplicada al eje endpoint-vs-subcadena.**
+
+- La forma buscada era la **subcadena del nombre** (`minis`, `titles`).
+- Los archivos de `js/` **usan esas subcadenas como palabras comunes en espanol**.
+- Un `0` que se obtiene buscando la forma equivocada **no distingue "no existe" de
+  "no lo se buscar"** (ALERT-223), y encima puede dar **falsos positivos** que se
+  descartan a ojo.
+
+El control que SI discrimina es el de **forma de endpoint**:
+
+```
+getAccountSkins   -> 3     <-- control POSITIVO (existe, y tiene 3 ocurrencias)
+getAccountZZZ999  -> 0     <-- control NEGATIVO
+getAccountOutfits / Finishers / Minis / Novelties / Gliders /
+  Mailcarriers / Mounts / MountTypes / Titles / Dyes /
+  HomeCats / HomeNode                                    -> 0  los 12
+getAccountNovelties en TODO el repo                    -> 0
+```
+
+Con ese control la fila dice la verdad **y es mas fuerte**: de los **10** wrappers
+`getAccount*` que existen, **9 tienen pantalla y 1 (`Skins`) tiene la capa de datos
+completa con cero llamadores**.
+
+### Segundo defecto, mismo paquete: la version
+
+El texto decia *"`getAccountSkins` + `getSkinsBatch` v2.33.0"*. Medido:
+`api-gw2.js:41` es **`2.32.0`** (introduce `getAccountSkins`) y `api-gw2.js:4` es
+**`2.33.0`** (introduce `getSkinsBatch`). La version del **modulo** es 2.33.0; la
+de la **funcion** que nombra la fila es 2.32.0. Pegado asi, la fila le attribuye a
+una funcion un numero que es de otra linea 37 antes.
+
+### La regla
+
+**Un control positivo tiene que mirar la FORMA que identifica la cosa, no una
+subcadena que el archivo puede usar como palabra común.** Y cuando el control se
+apoya en un `0`, ese `0` tiene que traer un **negativo** Y el positivo tiene que
+estar **contado** ("→ 3", no "existe").
+
+Corolario de flujo: **un texto "listo para pegar" de otro agente es un BORRADOR,
+no una medicion.** Se verifica antes de escribir, no despues: verificar despues
+exige deshacer, y el costo de deshacer es mayor que el de verificar. En este caso
+la unica fila cambiada del ciclo (`1 insercion / 1 borrado`) quedo limpia
+porque la verificacion fue **antes** del `writeFileSync`.
+
+Clase: ALERT-216 (el control mide algo que el material menciona a proposito),
+ALERT-223 (un cero que no significa nada), ALERT-237 (la medicion correcta que no
+llega a la fila). **Los tres con la misma causa raiz: la forma se eligio antes que
+el objetivo.**

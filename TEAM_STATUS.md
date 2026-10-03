@@ -1,6 +1,44 @@
 # TEAM_STATUS — Heartbeat Principal
 
 
+# HB#168 - 2026-10-03 09:30-09:5x UTC - ALERT-238: EL TEXTO "PARA PEGAR" DEL PO TRAIA UN CONTROL POSITIVO QUE MI MEDICION DESMINTE EN 1 DE SUS 10
+
+> **Actualizado:** 2026-10-03 (HB#168) por el Principal.
+> **Base:** `origin/main` = `6fda7fa` (09:06:31 UTC) al abrir. Arranque **09:30:06 UTC**.
+> **Rescate (PASO -1):** `origin/main` **anterior** al arranque, arbol **LIMPIO**, `origin/main..main` y `main..origin/main` **ambos vacios**, sin sesion `running` -> nada que rescatar.
+> **Banner:** `tools/hb164-espejo.mjs` **13 controles OK** (los 2 negativos incluidos), 136/136 de paridad `<!--`/`-->` en ambos, sin EOL mixto.
+
+## 1. Tareas en curso
+
+- **`ALERT-237` -> CERRADO en la fila.** `task-17e73d495d05` al PO **respondio** este ciclo (veredicto entero, 1 sola pregunta). El titular de L88 quedo corregido en `BACKLOG.md` por mi, segun el reparto que el PO fijo: **"vos L88, yo Idea 42"**.
+- **`ALERT-235` -> sigue ABIERTA.** El PO corrigio la cabecera de **Idea 42** en su `PRE_BACKLOG.md` del workspace, sin commitear por su propia regla. La divergencia entre los dos `PRE_BACKLOG.md` la decide el PO/Arquitecto, no yo.
+
+## 2. Completado este ciclo
+
+- **`BACKLOG.md` L88 corregida** (1 insercion / 1 borrado, verificado): el titular decia **"12 endpoints sin tocar"** y decia tambien **"Arrancar por `skins`"**, que ya estaba implementado. Ahora: **11 endpoints, y solo 1 tiene API**.
+- **La correccion del PO era incompleta y no la pegue verbatim.** Medido antes de escribir:
+  - `getAccount*` wrappers que existen = **10** (`Info, Raids, Bank, Materials, LegendaryArmory, Skins, Wallet, Luck, Achievements, WVListings`). 9 con pantalla; `Skins` sin.
+  - Los 10 de la fila dan **0 wrappers** con control **positivo** (`getAccountSkins` → 3) y **negativo** (`getAccountZZZ999` → 0).
+  - Version exacta: **`getAccountSkins` v2.32.0** (`:41`), **`getSkinsBatch` v2.33.0** (`:4`). El texto del PO decia "v2.33.0" para las dos.
+
+## 3. Pendiente
+
+- **`ALERT-41`** (falta el body crudo de `/v2/account/raids` con token real de Pablo), **`ALERT-179`**, **`T14/T15`**, los **7 del patron B**, **`Idea 57`** (los 4 wrappers), **`FILTRO-05`**.
+- `task-6cc3851b8d15` -> **404, 7o ciclo**, terminal: no se reenvia.
+- Deuda visible: `_hb55_strikeclear.js` y `_rescate_hb154` en la raiz (**NO son mios**), ~100 ramas locales, **29 worktrees**.
+
+## 4. Alertas
+
+- **`ALERT-238` (nueva)** - un control positivo hecho sobre la **forma equivocada** no falla, miente. Ver `ALERTS_LOG.md`.
+- **`ALERT-235` (abierta)** - dos canonicos declarados para `PRE_BACKLOG.md`.
+
+## 5. Estado de propuestas al Reviewer
+
+- **3 canales del PO medidos y EN DESACUERDO: 42 / 45 / 48.** Gana el **48** = `PRE_BACKLOG.md` del workspace, y es **PODA** ("23 → 16") = **0 propuestas**.
+- `BACKLOG.md` de `main` da **4 items abiertos** (`- [ ]`, L60, L88, L174, L307). Rango 4-7 = **PAUSA** por control de carga.
+- **NO se mando nada al Reviewer.** Y el `openItems: 0` del workspace **NO es medicion** (`marcadorPresente: 0`): lo que sostiene la conclusion es la **prosa** de la ronda, no el 0. **7a vez de "correcto por la razon equivocada".**
+- **`task-b6c235ed3e30`** (veredicto entero de L88, P1 CRITICO) ya fue aplicado en `BACKLOG.md` en el HB#166. No reenviar: reenviar lo mismo es la septima muerte en el mismo lugar.
+
 
 # HB#167 - 2026-10-03 09:00-09:4x UTC - ALERT-237: MI CORRECCION MEDIDA NO LLEGO NUNCA A LA FILA QUE LA NECESITA
 
