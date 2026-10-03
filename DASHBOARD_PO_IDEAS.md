@@ -1,3 +1,115 @@
+## ACTUALIZACION 2026-10-03 18:00 UTC - Heartbeat PO ronda 51 - PAUSA: el bloqueo de ALERT-41 es VACIO, y su propia prueba es un probe roto
+
+> **Espejo de la ronda 51 del PO.** Control de carga: `openItems` = **5** en `BACKLOG.md`
+> @ `origin/main` `e67690e` = **PAUSA**. En PAUSA la corrida entera es podar: **no se investigo
+> y no se trajo ninguna idea nueva.** Lo que hay abajo son mediciones sobre codigo y API viva.
+>
+> **Aviso de proceso:** este espejo estaba **9 rondas viejo** (ronda 41). Las rondas 42 a 50
+> no lo actualizaron. Es la misma causa que la ronda 47 encontro ("mis podas anteriores nunca
+> salieron"): el producto de una corrida se entrega al Principal y el espejo se queda.
+
+### El numero que decide
+
+| | valor |
+|---|---|
+| items abiertos al empezar y al terminar | **5 / 5** |
+| comunicaciones `Esperando` dirigidas al PO | **0** (de 6: las 6 son Principal -> Reviewer/Pablo) |
+
+**0 items podados**, quinta corrida seguida que termina en 0 - y esta vez con la razon escrita:
+**las 5 filas tienen premisas ciertas.** La cola no esta inflada por filas falsas.
+
+### La que si cambia: ALERT-41 deja de esperar un token que no puede cambiar la respuesta
+
+ALERT-41 es la fila mas larga del backlog abierto (2 570 chars) y su **condicion unica de cierre**
+es *"Pablo pega el body crudo de `/v2/account/raids` con un token real"*. Espera eso desde el 29-sep.
+
+**Medi la condicion.** El contrato de la wiki (`API:2/account/raids`, leido en vivo) dice que el
+endpoint devuelve *"the ID of a raid encounter that **can be resolved against `/v2/raids`**"*. O sea
+que todo lo que puede devolver esta dentro del universo resoluble de `/v2/raids`:
+
+| | medido en vivo |
+|---|---|
+| `/v2/raids?ids=all` -> alas | **6** |
+| `raid.wings[].events[]` -> eventos | **30** |
+| **universo resoluble** | **36** |
+| los 15 ids de `STRIKES_BY_EXPANSION` (`li:1`) dentro de ese universo | **0 de 36** |
+
+**`/v2/account/raids` no puede devolver ninguno de los 15. El token no cambia la respuesta.**
+
+### Y la prueba que la fila usa para sostener esto NO FUNCIONA
+
+La fila dice: *"los 15 dan `all ids provided are invalid` contra `/v2/raids?ids=<id>`"*. **Probe eso:
+los 15 dan 404 - y tambien dan 404 ids que SI existen.**
+
+| probe | resultado | deberia ser |
+|---|---|---|
+| `/v2/raids?ids=gorseval` | **404** | **200** (esta en el catalogo) |
+| `/v2/raids?ids=ura` | **404** | **200** |
+| `/v2/raids?ids=old_lions_court` | 404 | 404 |
+
+**El probe devuelve la misma respuesta para un id bueno y para uno malo: no mide nada.** Y la propia
+fila lo dice 2 parrafos mas abajo, en su nota de fusion: *"ALERT-52: los ids de evento no resuelven
+uno a uno contra `/v2/raids?ids=<id>`; hay que usar `?ids=all` + `raid.wings[].events[]`"*.
+
+**La fila cita el aviso que invalida su propia prueba, y despues apoya el diagnostico en ella.**
+
+**Control que discrimina** (corrido antes de reportar): probe 28 ids que el Raid Tracker **si** marca y
+**13 estan en el universo** (`gorseval`, `xera`, `cairn`, `sabetha`, `vale_guardian`, `samarog`,
+`deimos`, `mursaat_overseer`, `conjured_amalgamate`, `twin_largos`, `qadim`, `qadim_the_peerless`,
+`mythwright_gambit`). Por eso "0 de 36" es una medicion y no un 0 mio.
+
+### Correccion a la fila WvW: WvW ya tiene casa
+
+La fila cierra con *"no existe ningun `js/` que pinte esto, y agregarlo es producto"*. La primera mitad
+es cierta (`wvw/objectives` en `js/` = **0**) pero **la app ya lee WvW y ya lo pinta**:
+
+- `characters.js:505` - `fetch('.../v2/wvw/ranks?ids=all')`
+- `characters.js:1004-1008` - renderiza **`WvW: <rank> <nivel>`** en el header, al lado de `Logros` y `PvP`
+- `router.js:83`, `wv-objectives-dashboard.js:244`, `wv-theme.js:67` - `wvw` ya es categoria, junto a `pvp`/`pve`
+- `/v2/wvw/objectives?ids=all` -> **HTTP 200, `X-Result-Total: 178`**
+
+**Lo que cambia para la decision:** no es "donde meto un modulo nuevo", es **"la lista de objetivos va
+al lado del rango que ya esta ahi, o en panel propio"**. Decision de colocacion, no de construccion.
+
+### El 🟢 que estaba escondido dentro de una fila 🟡
+
+La fila *Coberturable account-scoped* dice, textualmente, que `skins` *"tiene la capa de datos
+**completa** (`getAccountSkins` v2.32.0, `getSkinsBatch` v2.33.0) y **cero llamadores**: es 1 llamada
++ 1 vista"*. **Verificado hoy en `origin/main`:** `api-gw2.js:1467` y `:1545`, exportadas `:2457/:2458`,
+**0 callers** en todo `js/`. Los otros 10 endpoints de esa fila: **0 wrappers** (control: 28 menciones de
+`getAccount*` que si existen).
+
+**Es lo unico de las 5 filas que no depende de endpoint nuevo, ni wrapper, ni permiso nuevo, ni de que
+la API conteste otra cosa.** Esta escondido detras de un 🟡 de 10 endpoints. **Es lo primero que se
+puede hacer manana sin esperar a nadie.**
+
+### Las 5 filas, verificadas una por una
+
+| # | fila | veredicto |
+|---|---|---|
+| 1 | ALERT-41 | **bloqueo vacio** - el token no puede cambiar la respuesta |
+| 2 | Coberturable account-scoped | **cierta** - y contiene un 🟢 sin rotular |
+| 3 | Dungeon dailies | **cierta** (la premisa "los 3 hermanos en `activities.js`" sigue falsa: `dailycrafting` = **1 mencion en todo el repo**, `worldboss|mapchest` = **0** en `activities.js` y **16** en `meta.js`) |
+| 4 | Fractal Tracker multicuenta | **cierta** - `loadCMStatus` `activities.js:896` con `state.token`; `fractal` + `cuenta` = **0** sobre **110** |
+| 5 | WvW VISOR | **incompleta** - WvW ya se pinta en el header |
+
+### Prioridades
+
+1. **`getAccountSkins` 🟢** - 1 llamada + 1 vista, capa de datos ya completa, 0 callers. Sin dependencias.
+2. **ALERT-41** - ya no espera un token; es decision de Pablo entre **arreglar** o **borrar** el modulo,
+   con el hecho medido encima. Cerrar la fila es lo que mas tiempo lleva parado, y no cuesta codigo.
+3. **WvW VISOR** - Pablo decide colocacion (el sitio ya existe), y despues es trabajo.
+4. **Dungeon dailies** 🟢/🟡 - el estimado "~3-4h, patron ya probado" era de una premisa falsa:
+   los 3 hermanos estan en 2 modulos distintos.
+5. **Coberturable (los otros 10)** y **Fractal multicuenta** 🟡 - trabajo real y bien descrito, sin atajos.
+
+### Lo que NO se toco
+
+`BACKLOG.md` (`AGENTS.md` me lo prohibe), `COMMS_LOG.md`, `TEAM_STATUS.md`, `ALERTS_LOG.md` y el clon
+compartido, que tenia `M ALERTS_LOG.md` + `M TEAM_STATUS.md` sin commitear del Principal.
+
+---
+
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
