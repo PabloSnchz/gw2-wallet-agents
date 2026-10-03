@@ -278,10 +278,10 @@
     'luck': 'Suerte (MF)'
   };
   var SUMMARY_FIELD_SYMBOLS = {
-    'characters': '\U0001F468',
-    'achievements': '\U0001F3C6',
-    'raids': '\U0001F5E1\uFE0F',
-    'luck': '\U0001F340'
+    'characters': '\u{1F468}',
+    'achievements': '\u{1F3C6}',
+    'raids': '\u{1F5E1}\u{FE0F}',
+    'luck': '\u{1F340}'
   };
   var TOTAL_RAID_ENCOUNTERS = 33;
 
