@@ -1,4 +1,58 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#173 - 2026-10-03 12:00-12:3x UTC - ALERT-243: EL EJE DE CONTEO TIENE TRES FORMAS, Y LAS DOS QUE SE COMPARARON DIFIEREN EN 3 CARACTERES
+
+**El hallazgo del ciclo, y es la 3a variante de un eje que ya dio 2 alertas (ALERT-238 subcadena de endpoint, ALERT-242 anclado-vs-subcadena): NO son dos formas, son TRES.** El PO cerro el eje comparando dos regex y declarando que coinciden: `^- \[ ]` contra `^\s*- \[ ]`, con el veredicto textual *"4 = 4"*. Las dos difieren en **3 caracteres de la fuente** (`\s*`) y por eso dan lo mismo: **el archivo no tiene ni una casilla con sangria.** El criterio "las dos formas coinciden" no prueba que la forma correcta sea la unica correcta: prueba que **el caso que las separa no existe todavia.**
+
+**La tercera forma no la midio nadie: `- [ ]` como SUBCADENA, sin ancla. Da 7.** Medido con dos instrumentos independientes sobre `BACKLOG.md` de `origin/main` @ `ac205dc`, y coincide en las tres:
+
+| forma | que mide | lineas |
+|---|---|---|
+| `^- \[ ]` (la del PO) | casilla en columna 0 | **4** (L60, L88, L174, L307) |
+| `^\s*- \[ ]` (la del PO) | casilla en cualquier sangria | **4** (las mismas 4) |
+| `- [ ]` como subcadena | la cadena, en cualquier lado | **7** (+L200, L286, L415) |
+
+**Y las 3 de ruido son el caso PEOR, no el de la prosa que menciona el glifo: lo NIEGAN.** Medidas las 3, con el contexto alrededor del marcador:
+
+- L200: *"estaba `- [ ]` con el veredicto escrito adentro. VEREDICTO CERRADO: APROBADA y MERGEADA en el HB#55"*
+- L286: *"...funcionando como `- [ ]`. Reverificado en este ciclo: `git merge-base --is-ancestor` = NO"*
+- L415: *"...como `- [ ]` con el fix **ya mergeado**: `router.js:1524`"*
+
+La subcadena **convierte una correccion ya cerrada en trabajo abierto**, y pone el texto del cierre exactamente en el sitio que el control lee como pendiente. Un item que se cerro deja de ser open por el glifo y vuelve a serlo por la frase que lo cerro.
+
+**EL DATO QUE CONVIERTE EL HALLAZGO EN RIESGO: EL UMBRAL ESTA A 1.** La tabla del control de carga del PO (`AGENTS.md` de su workspace, L343-L344): **4-7 = PAUSA**, **= 8 = MODO PODA**. Medido:
+
+- forma correcta **4** -> PAUSA, holgura **4**
+- forma por subcadena **7** -> PAUSA, holgura **1**
+
+La holgura que hoy protege al conteo es **ACCIDENTAL**: depende de que la prosa que niega el glifo siga siendo 3 lineas. **Una cuarta frase de "ya mergeado" con el marcador literal cruza 8 y dispara MODO PODA para los 5 agentes del ecosistema, con el disparador siendo una frase y no una decision.** Y el modo decide si el PO investiga o solo poda.
+
+**REGLA, y generaliza ALERT-242:** para cerrar un eje de conteo hay que medir **la forma completa del eje**, no dos puntos que estan pegados. *"Las dos regex que compare coinciden" es una medicion de que el archivo no tiene el caso que las diferencia, no una prueba de que la forma correcta sea la unica posible.* Y una forma que **no ancla** no es mas ruidosa por accidente: es la que ve el texto de cierre de un item.
+
+**SEGUNDO HALLAZGO, INDEPENDIENTE: LA PREMISA DEL TRAMO A ES FALSA, Y ES LA SEGUNDA VEZ QUE LA MIDO.** El PO escribe (L36): *"la seccion `## Completed (referencia historica)` de L329 **esta vacia: 2 lineas, el encabezado y el blanco.** El destino ya existe y nunca se uso"*. Medido sobre `origin/main` @ `ac205dc`: `## Completed` en **L329** (correcto), pero el bloque tiene **25 lineas y 17 casillas `- [x]`**, la primera *"Convergence Achievement Tracker - DROP (no downgrade)"*. **El destino existe y se usa.** En el HB#170 ya lo habia medido y se lo mande al PO con `submit_to_agent`; la ronda 49 lo repite. **La correccion vivio en mi TEAM_STATUS y no llego a su archivo: mandar el dato NO es lo mismo que hacerlo llegar.** Y el *"21 items / 157 lineas"* del Tramo A tampoco reproduce con una forma de conteo: hay **62 items `- [x]`** en el archivo, 17 de ellos en Completed, o sea **45 en `## Pendientes`**. El 21 depende de su criterio de *"sin decision viva"*, que es un detector de prosa; **no lo contradigo, lo marco como no reproducible.**
+
+**TRAMO B (`- [~]`): la decision sigue partida, pero con un dato que el PO no tiene y que separa los dos tramos.** El PO escribio que cambiar el glifo *"obliga a editar `HEARTBEAT.md:643` junto, no despues"*, y eso es cierto **para una de las dos salidas y falso para la otra**. Medido en `HEARTBEAT.md` de `origin/main`: **una sola mencion del glifo** (L643) y cuenta `- [ ]`. Una fila `- [~]` **no es** `- [ ]`, asi que:
+
+- **B1** (dar el glifo `[~]`, sin que cuente): conteo queda **4**, modo **PAUSA**, **no hay que tocar `HEARTBEAT.md`**. Es gratis y separa "hecho" de "aplazado con decision viva".
+- **B2** (que `[~]` cuente como abierto): **11**, modo **MODO PODA**, si necesita L643 y **cambia el modo de los 5 agentes -> va a Pablo.**
+
+**DECISION DE ALCANCE, y es una medida:** **NO toco `BACKLOG.md`** (ni el Tramo A ni el B) y **NO toco `HEARTBEAT.md`**. El Tramo A tiene la premisa de carga falsa y eso cambia **QUE** se mueve, no solo cuanto. El banner exige ademas regenerar el espejo, y el detector de este ciclo solo entra a `tools/` cuando el banner lo cite por nombre (criterio de `tools/.gitignore`), o sea que su turno es el del ciclo del banner.
+
+**PASO -1 limpio:** arranque **12:00:06**, `origin/main` `ac205dc` @ **11:41:10 UTC = ANTERIOR**, arbol **LIMPIO**, en `main`, **ambas puntas vacias** (ALERT-230). Sin sesion `running`.
+
+**PASO 0/1:** inbox **vacio**, replies sin novedades, **23 `overdue`** (HB#91-147, historicos). `task-6cc3851b8d15` -> **404, 11o ciclo**, terminal. `task-17e73d495d05` **responde**, pero es la L88 del HB#168 ya consumida en el HB#172: no reenviar.
+
+**PASO 3: los 3 canales NO coinciden = 42 / 45 / 49. Gana el 49** = `PRE_BACKLOG.md` del workspace = **PAUSA (podado)**, `PROPUESTA_NUEVA: 0`. **0 propuestas al Reviewer.** Y el `openItems: 0` del workspace **no es medicion** (`marcadorPresente: 0`, `openItemsDiscrimina: false`): 5a vez que lo veo, y el guard de ALERT-236 lo declara bien.
+
+**BANNER:** `hb164-espejo.mjs` **13 controles OK**, paridad `<!--`/`-->` **136/136** en ambos, sin EOL mixto.
+
+**ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79), en orden de coste:**
+
+1. **Le `findstr /c:"- [ ]"` me dio 7 y arranqué a pensar que el PO contaba mal.** El primer paso ante un numero que no coincide tiene que ser **la forma**, no el error del otro. Lo cerre con el tiempo de leer la forma antes de escribir la frase.
+2. **`-match` con `\[[ x~\]]`** en PowerShell -> `Conjunto [] sin terminar`, y como estaba dentro de un `for`, **el error se repitio una vez por iteracion (935 lineas de salida)**. El mensaje identico repetido N veces es lo que me dijo que era un error de FORMA y no de datos: un dato malo no se repite solo.
+3. **`$env:TEMP + '_hb173bl.md'` da `C:\__Users\...Temp_hb173bl.md`, que no existe**, y `[System.IO.File]::ReadAllText` **no lanzo**: me devolvio un archivo vacio y lei `TOTAL_LINEAS=1` de algo que no leí. **Un `ReadAllText` sobre una ruta mala no falla: hay que mirar el Length antes de concluir nada.**
+
+**CICLO:** sin `js/` ni `tests/` tocados => la suite NO aplica y no la corro por costumbre. 0 worktrees creados, 0 scratch en el repo.
+
 # HB#172 - 2026-10-03 11:30-11:5x UTC - EL GUARD DEL PASO 3 ESTA SANO Y MI CONTADOR NO: EL EJE ES ANCLADO vs SUBCADENA
 
 **El hallazgo del ciclo, y es un caso raro: el error fue MIO y lo refute a tiempo.** El guard del paso 3

@@ -1,3 +1,52 @@
+## ALERT-243 - EL EJE DE CONTEO TIENE TRES FORMAS, Y COMPARAR DOS VECINAS CIERRA EL EJE SOBRE UN CASO QUE NO EXISTE TODAVIA
+
+**El hallazgo.** El control de carga del PO declara el eje cerrado asi: dos regex, `^- \[ ]` y
+`^\s*- \[ ]`, con veredicto *"4 = 4"*. Las dos difieren en **3 caracteres de la fuente**
+(`\s*`) y por eso coinciden: **`BACKLOG.md` no tiene ni una casilla con sangria.** La tercera forma del
+mismo eje, `- [ ]` como **subcadena sin ancla**, no la midio nadie y da **7**.
+
+Medido con dos instrumentos independientes sobre `origin/main` @ `ac205dc` (455 lineas, 66 casillas):
+
+| forma | lineas |
+|---|---|
+| `^- \[ ]` | **4** (L60, L88, L174, L307) |
+| `^\s*- \[ ]` | **4** (las mismas) |
+| `- [ ]` subcadena | **7** (+L200, L286, L415) |
+
+Controles del instrumento: caso sano `1 / 2 / 3` (las tres formas se distinguen), caso vacio `0 / 0`.
+
+**Las 3 de ruido son el caso peor, no la prosa que menciona el glifo: LO NIEGAN.**
+L200 *"estaba `- [ ]` ... VEREDICTO CERRADO: APROBADA y MERGEADA"*;
+L286 *"funcionando como `- [ ]` ... `is-ancestor` = NO"*;
+L415 *"como `- [ ]` con el fix **ya mergeado**"*.
+Una forma sin ancla **convierte un item cerrado en trabajo abierto, y pone el texto del cierre en el
+sitio que el control lee como pendiente.**
+
+**LO QUE CONVIERTE EL HALLAZGO EN RIESGO: el umbral esta a 1.** La tabla del control de carga
+(`AGENTS.md` del PO, L343-344): **4-7 = PAUSA**, **8 = MODO PODA**. Forma correcta **4** (holgura 4);
+forma por subcadena **7** (holgura 1). **La holgura es ACCIDENTAL: depende de que la prosa que niega
+el glifo sigan siendo 3 lineas.** Una cuarta frase de cierre con el marcador literal cruza 8 y dispara
+MODO PODA para los 5 agentes del ecosistema, con el disparador siendo una frase y no una decision.
+
+**REGLA (generaliza ALERT-242):** para cerrar un eje de conteo hay que medir **la forma completa del
+eje**, no dos puntos que estan pegados. *"Las dos regex que compare coinciden" mide que el archivo no
+tiene el caso que las diferencia; no prueba que la forma correcta sea la unica posible.*** El control de
+un conteo tiene que **anclar Y discriminar**, y el caso que discrimina hay que construirlo si no existe.
+
+**BONUS, misma medicion: la premisa del Tramo A del PO es FALSA.** Escribio que `## Completed`
+*"esta vacia: 2 lineas ... el destino ya existe y nunca se uso"*. Medido: **25 lineas de bloque y 17
+casillas `- [x]`**. El destino se usa. Y el *"21 items / 157 lineas"* no reproduce con ninguna forma de
+conteo (hay **62** `[x]` en el archivo, **45** en `## Pendientes`). El 21 depende de su criterio de
+*"sin decision viva"*, que es un detector de prosa: no lo contradigo, lo marco como no reproducible.
+Era la **segunda** vez que lo media (HB#170, y lo mande al PO): **mandar el dato no es lo mismo que
+hacerlo llegar.**
+
+**CONTROL NEGATIVO de esta misma regla, para que no se dispare con el material que controla:** el
+criterio es *"dos formas que difieren solo en el anclaje tienen que dar el mismo numero en un
+archivo SIN el caso que las separa"*. Applied al archivo sano de 1 casilla: las dos dan 1 y coincide,
+que es el caso degenerado y el esperado. El defecto no se dispara por la cita del alert: se dispara
+cuando la tercera forma da un numero distinto sobre un archivo real.
+
 ## ALERT-242 - UN CONTEO POR SUBCADENA NO PUEDE DECIDIR SI UN 0 ES UNA MEDICION,
 Y CASI LO REPORTO COMO DEFECTO DEL GUARD QUE ESTA SANO
 
