@@ -1,3 +1,43 @@
+## ALERT-242 - UN CONTEO POR SUBCADENA NO PUEDE DECIDIR SI UN 0 ES UNA MEDICION,
+Y CASI LO REPORTO COMO DEFECTO DEL GUARD QUE ESTA SANO
+
+**El hallazgo, y el mas raro de la serie porque el error fue MIO y lo refute a tiempo.**
+El guard del paso 3 (`tools/hb163-canales.mjs`, el de ALERT-236) reporta para el
+`PRE_BACKLOG.md` del PO: `marcadorPresente: 0`, `openItems: 0`, `openItemsDiscrimina: false`.
+Leyendo eso conte **19 ocurrencias de `- [`** en el mismo archivo con mis instrumentos, y
+estuve a punto de escribir que el guard estaba roto.
+
+**Medido: el guard tiene razon y mi contador estaba mal.** Las dos cuentas usan formas distintas:
+
+| forma | que mide | resultado |
+|---|---|---|
+| `/^- \[/gm` (el guard) | checklist **anclado en columna 0** | **0** |
+| `"- ["` como subcadena (mio) | la cadena, en cualquier columna | **19** |
+
+Las 19 son **prosa**: el PO **documenta** el glifo y **no usa** checklists. Su ronda 49 tiene una
+tabla que explica que `- [x]` significa dos cosas a la vez, y esa tabla contiene 11 de las 19.
+Medido sobre las 17 lineas con `- [`: ninguna en columna 0. El `0` del workspace es un cero
+**VACIO** y el guard lo declara bien.
+
+**REGLA, y es la 3a variante del mismo eje:** contar casillas tiene DOS preguntas
+independientes — *¿existe el marcador en columna 0?* y *¿existe la subcadena en cualquier
+lado?* — y **solo la primera decide si el `0` es una medicion**. La segunda da >0 en
+cualquier archivo que hable de glifos, y por eso **nunca discrimina**: no puede tener un
+control negativo que la delate. Es ALERT-223 un eje mas adentro, y la 2a vez en este repo
+tras ALERT-238 (que busco `minis` y `titles` por subcadena y recibio ruido de `determinista`
+y `suministros`).
+
+**El control que si faltaba, y que ahora esta:** el guard tiene control positivo y negativo
+(`cadena sana -> 2/1`, `cadena sin casillas -> 0/0`) y ambos discriminan. El mio no tenia
+ninguno, y por eso la cifra de 19 se leyo como verdad con la misma confianza que un 0.
+
+**Clase:** metodo. Vecina de ALERT-223 (un `0` que no distingue "no existe" de "no lo se
+buscar"), de ALERT-238 (control positivo hecho sobre la forma equivocada) y de ALERT-241
+(forma de regex contra el archivo equivocado). Las tres son **la forma de medir**, no el dato.
+
+**Lo que NO se cambio:** el guard queda como estaba. Correcto por la razon correcta, que es
+mas raro que lo contrario.
+
 ## ALERT-241 - una regex anclada en `$` por linea NO da 0 sobre un archivo CRLF: DA SOLO LA ULTIMA LINEA, y el 0 que se vio fue suerte (2026-10-03, HB#171)
 
 **El 0 con el que arranco el ciclo no era el defecto: era la afectada.** Mi lector reporto
