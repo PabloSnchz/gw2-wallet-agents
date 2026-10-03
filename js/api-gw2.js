@@ -1792,6 +1792,25 @@
     // familias (`v1` y `armory`) lo llevan igual. Sacarlo fusionaria el es de
     // las dos y las volveria el mismo cache.
     var lkey = (opts.cacheKey || 'items_cache_v1') + ':' + CFG.LANG;
+
+    // LAS TRES SON UN BLOQUE, y ESTA es la parte que las hace un bloque:
+    // `trim` y `cap` SOLO se mueven si vino `cacheKey`. Sin `cacheKey` se
+    // ignoran, aunque vengan solos.
+    //
+    // Por que tiene que ser asi. Si `cacheTrim`/`cacheCap` tocaran el
+    // presupuesto compartido, bastaria con que un call site futuro escribiera
+    // `getItemsMany(906, {cacheTrim:1000, cacheCap:906})` sin `cacheKey` para
+    // EXPULSAR a los 9 que hoy comparten `items_cache_v1`. Y no habria forma
+    // de que nadie lo notara: los 906 volverian con icono igual, asi que el
+    // conteo de iconos seguiria en verde mientras el cache compartido cambia
+    // de presupuesto por debajo. El presupuesto propio SOLO existe si cambia
+    // la clave; la clave es lo unico que separa las dos familias.
+    //
+    // El `||` de los defaults va a proposito hacia el lado seguro: un
+    // `cacheTrim:0` o un `cacheCap:0` caen en 500/400 en vez de abrir el
+    // presupuesto. Cero no es un umbral con sentido para ninguno de los dos.
+    var trim = opts.cacheKey ? (opts.cacheTrim || 500) : 500;
+    var cap  = opts.cacheKey ? (opts.cacheCap  || 400) : 400;
     var bag = lsGet(lkey) || { ts: 0, data: {} };
     var per = bag.data || {};
 
@@ -1855,23 +1874,25 @@
       var perNow = Object.assign({}, per, fresh);
 
       var keys = Object.keys(perNow);
-      // Hay DOS numeros y estan en la MISMA linea: el umbral que dispara el
-      // recorte (500) y lo que deja cuando dispara (400). Por eso "subir el
-      // tope" no es mover una constante, son dos. Ahora son defaults, con
-      // exactamente los mismos valores que tenian las dos literales.
+      // `trim` y `cap` se arman junto con `lkey`, mas arriba, y llegan aqui ya
+      // resueltos: 500/400 salvo que vino `cacheKey`, y en ese caso los que
+      // paso el llamador. El recorte se calcula sobre `perNow` (la union de lo
+      // leido + lo que trajo esta llamada) y NO mira `lkey`: por eso cambiar
+      // solo la clave no alcanzaba, y por eso las tres opciones son un bloque.
       //
-      // El recorte se calcula sobre `perNow` (la union de lo leido + lo que
-      // trajo esta llamada) y NO mira `lkey`: cambiar solo `cacheKey` no
-      // cambiaria nada, porque `per` se leeria vacio y `fresh` traeria los ids
-      // nuevos, y el cap los recortaria igual. Por eso las tres opciones van
-      // juntas.
-      var trim = typeof opts.cacheTrim === 'number' ? opts.cacheTrim : 500;
-      var cap  = typeof opts.cacheCap  === 'number' ? opts.cacheCap  : 400;
+      // El `Math.max(0, ...)` existe porque `slice` con final NEGATIVO corta
+      // del otro extremo. Si `cap` fuera mayor que las entradas,
+      // `keys.length - cap` se vuelve negativo y `slice(0, -n)` no deja `cap`
+      // entradas sino `cap - keys.length`. Medido: con `cacheCap:1000` sobre
+      // 906 entradas dejaba 94 en vez de 906, comiendose 812. Antes de que el
+      // cap fuera un parametro no podia pasar (400 era siempre menor que el
+      // umbral), y con el 0 es no-op para toda combinacion posible: cuando el
+      // recorte dispara, `keys.length > trim >= cap` y la resta ya es positiva.
       if (keys.length > trim) {
         var sorted = keys.sort(function (a, b) {
           return (perNow[a]?.ts || 0) - (perNow[b]?.ts || 0);
         });
-        sorted.slice(0, keys.length - cap).forEach(function (k) { delete perNow[k]; });
+        sorted.slice(0, Math.max(0, keys.length - cap)).forEach(function (k) { delete perNow[k]; });
       }
       lsSet(lkey, { ts: now(), data: perNow });
 

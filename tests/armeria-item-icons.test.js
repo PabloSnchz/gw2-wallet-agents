@@ -390,6 +390,67 @@ const FROSTFANG = 30684;
       '(c) y los dos numeros son distintos: el cacheKey si esta llegando a la capa',
       'con presupuesto: ' + conIcono + ' / sin presupuesto: ' + sinIcono);
 
+    // ---------------------------------------------------------------------
+    // (d) SIN `cacheKey`, `cacheTrim` Y `cacheCap` SE IGNORAN
+    // ---------------------------------------------------------------------
+    // Este es el aserto que mas protege, y protege a los 9 MODULOS, no al
+    // arbol. Honrar trim/cap sin cambiar de clave moveria el presupuesto
+    // COMPARTIDO de `items_cache_v1` y expulsaria a los 9 call sites. Y el
+    // conteo de iconos NO lo detectaria: los 906 volverian con icono igual, y
+    // el (a) seguiria en verde mientras el cache compartido cambia de
+    // presupuesto por debajo. Con las tres como bloque, sin `cacheKey` los
+    // otros dos no se mueven.
+    const md = montar({});
+    const sinClave = await md.sb.GW2Api.getItemsMany(validos, {
+      nocache: false, cacheTrim: 1000, cacheCap: 906
+    });
+    eq(sinClave.length, 400,
+      '(d) trim y cap SIN cacheKey: sigue el cap compartido de 400, no 906');
+    ok(!md.sb.localStorage.getItem('items_cache_armory_v1:es'),
+      '(d) y no se crea la clave de la Armeria: no hubo presupuesto propio');
+
+    // Y el caso al reves, que es el que se usa hoy: con las tres, se mueven.
+    const md2 = montar({});
+    const conTres = await md2.sb.GW2Api.getItemsMany(validos, {
+      nocache: false, cacheKey: 'items_cache_armory_v1', cacheTrim: 1000, cacheCap: 906
+    });
+    eq(conTres.length, 906, '(d) con las tres si: 906, que es el presupuesto propio');
+
+    // ---------------------------------------------------------------------
+    // (e) `cap` MAYOR QUE LAS ENTRADAS: no se pierde nada
+    // ---------------------------------------------------------------------
+    // `slice(0, keys.length - cap)` con cap > keys.length se vuelve NEGATIVO y
+    // `slice(0, -n)` corta del otro extremo: no deja `cap` entradas, deja
+    // `cap - keys.length`.
+    //
+    // EL NUMERO EXACTO IMPORTA, y por eso este caso usa 1000 y no un numero
+    // "mas grande". La ventana en la que el defecto muerde es
+    // `keys.length < cap < 2 * keys.length`. Con cap >= 2 * keys.length el
+    // negativo tiene un modulo mayor que el largo del array, `slice` recorta a
+    // `[]` y NO borra nada: el caso pasa con el fix y sin el, y no mide. Con
+    // cap 1000 sobre 906 entradas el negativo es -94, `slice(0,-94)` devuelve
+    // 812 elementos y se COME 812: quedan 94 de 906. Medido.
+    //
+    // Ojo al leer el fallo: `sorted` esta en orden ASCENDENTE por ts, y
+    // `slice(0, n)` se come los PRIMEROS n, o sea los MAS VIEJOS. Sin el fix
+    // sobreviven 94 de 906 y son las 94 mas recientes.
+    const me = montar({});
+    const largo = await me.sb.GW2Api.getItemsMany(validos, {
+      nocache: false, cacheKey: 'items_cache_armory_v1', cacheTrim: 500, cacheCap: 1000
+    });
+    eq(largo.length, 906, '(e) cap 1000 sobre 906 entradas: no se pierde ninguna');
+
+    // El otro borde de la ventana, que el fix NO debe romper: cap >= 2x el
+    // largo. Ahi el negativo excede el largo del array y `slice` recorta a
+    // `[]`, asi que este caso da 906 CON el fix y tambien SIN el. No es un
+    // control del defecto (no cae), es un limite: el `Math.max(0, ...)` no
+    // puede empezar a recortar cuando antes no recortaba.
+    const me2 = montar({});
+    const largo2 = await me2.sb.GW2Api.getItemsMany(validos, {
+      nocache: false, cacheKey: 'items_cache_armory_v1', cacheTrim: 500, cacheCap: 2000
+    });
+    eq(largo2.length, 906, '(e) cap 2000 (>= 2x el largo): tampoco se pierde ninguna');
+
     // Lo que NO puede pasar: que el recorte haga algo peor que dejar sin pintar.
     const res5 = mc.T.build(FROSTFANG);
     const html = mc.UI.renderTreeHTML(res5,
