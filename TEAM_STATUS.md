@@ -863,3 +863,82 @@ FECHA del commit mas nuevo contra la hora de arranque, no el estado del arbol.**
    backlog ya no los coordina; el trabajo vive en ALERT-48.
 5. **Los 7 del patron B** (HB#118).
 6. **Los 6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.
+
+## HB#153 (2026-10-03 00:30-00:40 UTC) — el "paso 1 bloqueante" de la noche ya estaba mergeado hace 4 minutos, y Pablo nunca se durmio
+
+**Que se hizo.** Ciclo de solo lectura sobre el repo mas correccion de un archivo
+de control. **Ninguna linea de codigo de producto.** Dos alertas nuevas
+(ALERT-224, ALERT-225). El hallazgo del ciclo es que **las dos premisas del
+bloque "TRABAJO PRIORITARIO DE LA NOCHE" son falsas**, y la primera nacio falsa.
+
+**HALLAZGO — el paso 1 que rigio la noche ya estaba hecho.** El bloque (en
+`HEARTBEAT.md` y `ARME_TRABAJO_NOCHE.md`) dice: *"el fix de los 93 items con
+`generation=null` NO esta mergeado en main (rama `22a6a71`,
+`git merge-base --is-ancestor` da falso). El bug esta vivo. Es el paso 1 y
+bloquea todo lo demas."* Medido:
+- `git merge-base --is-ancestor 22a6a71 origin/main` → **exit 0** = mergeado.
+- Lo mergeo `9a68eb4` el **2026-10-02 03:12:36 UTC**.
+- El bloque dice *"Son las 03:16 UTC cuando se escribio esto"* → **se escribio
+  3 min 24 s DESPUES del commit que hacia falsa su propia frase principal.**
+- Verificado por **efecto**, no por el mensaje del commit: el test de regresion
+  esta en `origin/main` y corre **121 pass, 0 fail**.
+
+**HALLAZGO — y "Pablo se fue a dormir" tampoco.** Sesion
+`1790896138537-8kgh5xf`, `updated_at` = `last_finished_at` =
+**2026-10-03T00:28:27Z**: 2 minutos antes de que arrancara este ciclo. Commits
+suyos de hoy: `d2dfd57` (00:08 UTC) y `6b0c12c` (00:27 UTC). **Las dos premisas
+juntas son lo que autorizaba trabajar solo de madrugada sobre los archivos de
+Pablo** — con la segunda caida, la ventana de 12:00 UTC existe suponiendo a
+alguien dormido que no lo esta. Detalle en **ALERT-224**.
+
+**El WIP que el HB#152 encontro, ya no esta.** El arbol abrio **LIMPIO** y en
+`main`: Pablo commiteo el trabajo que el HB#152 vio sin commitear, en 3 commits
+(`7e2c916` iconos de rareza, `d2dfd57` boton + Cola, `6b0c12c` presupuesto de
+cache de 906 ids), 10 archivos. Sus scratch `_fix*.mjs` tambien los borro.
+**Esto desbloquea lo que el HB#152 dejo explicito**: alli estaba prohibido tocar
+`HEARTBEAT.md` porque cualquier commit se llevaba por delante su WIP a medias.
+Ese bloqueo ya no existe.
+
+**PASO 1 — 2 veredictos, y son estados distintos.**
+- `task-debe51c6331f` (Reviewer, T19-c) → **finished CON veredicto entero**.
+  Confirma lo ya cerrado: T19-c es un bug de **lectura**, no dos escritores.
+- `task-6cc3851b8d15` (cola) → **finished SIN veredicto**, *"Max iterations
+  (100) reached"*. **6to ciclo consecutivo.** No es el Reviewer caido: es la
+  pregunta mas grande que su presupuesto de iteraciones no cubre. Reenviar la
+  misma es la septima muerte en el mismo lugar → **ALERT-225**, con la regla de
+  partirla.
+
+**PASO 3 — no se abrio ronda.** 18 refs `po/*`; la mas reciente sigue siendo
+`origin/po/hb150-poda` (22:07 UTC del 10-02), sin mover. Conteo literal de
+HEARTBEAT.md sobre ese ref: **7 CUENTA / 4 CERRADAS / 16 sin "### Tramos"**.
+**Las 7 son de las rondas 16 a 37**, todas atendidas hace ciclos; ronda MAX 45
+es **PAUSA** (6 items -> 4-7 = PAUSA, y en PAUSA no se investiga por regimen).
+**Control negativo: 0**, asi que el criterio si mide — lo que le falta es el
+filtro de "ronda posterior al ultimo corte" (**ALERT-222**, sin corregir: el
+dato del "ultimo corte" no existe en ningun archivo).
+**No se mando nada al Reviewer**: ademas de que el conteo no da novedades, el
+unico tramo libre de la serie es justamente mandarle trabajo.
+
+## Alertas
+
+- **ALERT-224 (nueva)** — el control que regia la noche nacio falso, y la premisa
+  que autorizaba trabajar solo ya no se sostiene.
+- **ALERT-225 (nueva)** — 6 ciclos seguidos del Reviewer sin veredicto, con causa
+  medible y con remedio (partir la pregunta).
+
+## Pendientes
+
+1. **ALERT-41**: sigue esperando el body crudo de `GET /v2/account/raids`.
+   Escalado en el HB#149; **Pablo esta despierto hoy**, asi que la condicion de
+   cierre cambio de probabilidad. No se re-escala: ya se mando una vez.
+2. **`ARME_TRABAJO_NOCHE.md`**: tiene la misma premisa falsa que `HEARTBEAT.md`
+   pero es documento del Arquitecto → **no se toco**. Le corresponde a el o a Pablo.
+3. **ALERT-179**: fix mergeado, Reviewer mudo desde el HB#121.
+4. **T14/T15**: veredicto = **opcion C**. Precondicion medida. Sin aplicar.
+5. **Los 7 del patron B** (HB#118): el veredicto sigue valido en alcance.
+6. **Idea 57 — los 4 wrappers**: medidos, NO tocados (ALERT-48).
+7. **Tramo 2 de Coberturable**: medido y listo. Sigue pendiente, y ahora sin la
+   excusa del arbol sucio — pero **no se arranco** porque Pablo esta commiteando
+   en el mismo clon y el work es de producto.
+8. **ALERT-222**: filtro de ronda del PASO 3, blocked en que exista el dato del
+   "ultimo corte".

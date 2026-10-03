@@ -6424,3 +6424,145 @@ Si el commit remoto es **MAS NUEVO que el arranque del ciclo**, el otro ciclo es
 **Y el corolario, que es el mas util:** el diagnostico "WIP huerfano" tiene una consecuencia DESTRUCTIVA si se equivoca (commitear encima del trabajo de otro), mientras que la consecuencia de esperar 30 segundos a revisar la fecha es ninguna. **Ante la duda entre "rescatar" y "no tocar", la duda se resuelve mirando, no commiteando.**
 
 **Lo que si era verdad, para que no se descarte el metodo:** los dos archivos estaban ahi, eran trabajo real, y habrian sobrevivido. El problema no fue encontrarlos, fue **no preguntar de quien eran antes de escribir encima**.
+
+## ALERT-224 (2026-10-03, HB#153) — el control que regia la noche NACIO FALSO: durante 25 horas los ciclos creyeron que el paso 1 estaba pendiente y ya estaba mergeado hace 4 minutos
+
+**Un archivo de control puede estar equivocado en el momento en que se escribe, y
+no por vejez. Este se escribio con 4 minutos de atraso sobre un dato que ya habia
+cambiado, y durante 25 horas fue la PRIMERA instruccion del ciclo, en dos archivos
+a la vez.**
+
+### Que paso
+
+`HEARTBEAT.md` (mi workspace) y `ARME_TRABAJO_NOCHE.md` abren con un bloque
+"TRABAJO PRIORITARIO DE LA NOCHE" que dice, textual:
+
+> Pablo se fue a dormir y te deja trabajar hasta las **12:00 UTC**.
+> Son las 03:16 UTC cuando se escribio esto.
+> **Lo mas urgente: el fix de los 93 items con `generation=null` NO esta mergeado
+> en main (rama `22a6a71`, `git merge-base --is-ancestor` da falso). El bug esta
+> vivo. Es el paso 1 y bloquea todo lo demas.**
+
+### Las dos premisas, medidas
+
+**PREMISA 1 — el fix no esta mergeado. FALSA, y nacio falsa.**
+
+    git merge-base --is-ancestor 22a6a71 origin/main   ->  exit 0
+
+Exit 0 significa "es ancestro": **esta mergeado**. Y el merge fue
+`9a68eb4` — *"merge(armeria): 22a6a71 a main - 93 legendarias con
+generation=null que ningun filtro alcanzaba"* — con fecha de autor
+**2026-10-02 03:12:36 UTC**.
+
+El banner dice *"Son las 03:16 UTC cuando se escribio esto"*. O sea: **el bloque
+se escribio 3 min 24 s DESPUES del commit que hacia falsa su propia frase
+principal.** No es un banner que envejecio en 25 horas: es un banner que se
+escribio mirando un estado que ya habia caducado 4 minutos antes.
+
+**No me fi del mensaje del commit** (ALERT-211: un control mira el efecto, no la
+forma). Verificado por efecto: `tests/armeria-alert-01-clasificacion.test.js`
+esta en `origin/main` (`git ls-tree`) y corre **121 pass, 0 fail**.
+
+**PREMISA 2 — Pablo se fue a dormir. FALSA, y esta es la que hace dano.**
+
+- Sesion `1790896138537-8kgh5xf` ("Correcciones de Armeria Legendaria"):
+  `updated_at` = `last_finished_at` = **2026-10-03T00:28:27Z**, o sea **2 minutos
+  antes de que este ciclo arrancara**.
+- Commits suyos en `origin/main` **de hoy**: `d2dfd57` (00:08 UTC) y `6b0c12c`
+  (00:27 UTC), los dos de la Armeria.
+
+### Por que esto no es cosmetico
+
+Las dos premisas juntas son lo que **autoriza** trabajar solo a las 3 de la
+madrugada sobre los archivos de otra persona. Con la premisa 1 caida, el "paso 1
+bloqueante" era trabajo ya hecho. Con la premisa 2 caida, la ventana de 12:00
+UTC existia **suponiendo a Pablo dormido, y Pablo esta despierto commiteando en
+el mismo clon.** Un ciclo que Leyera el banner a las 00:30 y se creyera el
+mandato editando `js/legendary-tracker.js` habria tocado exactamente los archivos
+que Pablo estaba commiteando.
+
+**El HB#152 ya habia pagado casi el precio de esto.** Ese ciclo hizo
+`git checkout -b` como primer acto y movio el HEAD del clon entero mientras
+Pablo tenia WIP sin commitear. Se salvó de suerte. Este bloque era el que
+autorizaba a repetir esa maniobra cada 30 minutos.
+
+**REGLA (nueva, y es la generalizacion de ALERT-222):** un bloque de prioridad
+escribido por otra persona **no es un hecho, es una opinion fechada**. Antes de
+obrar por el:
+
+1. **Volver a correr el comando que el bloque afirma.** Si dice
+   "`git merge-base --is-ancestor` da falso", correlo. No lo des por citado:
+   el bloque cito un comando, y correrlo cuesta 1 segundo.
+2. **Si el bloque trae su propia hora** ("son las 03:16 cuando escribi esto"),
+   comparala con la de ahora. Si la ventana ya vencio, el bloque no manda.
+3. **La fecha del dato mas reciente que el bloque menciona, contra la fecha del
+   commit que lo invalida.** Aqui: el bloque (03:16) es POSTERIOR al merge
+   (03:12). Cuando el control es posterior a su propia refutacion, el dato ya
+   estaba muerto al escribirse.
+
+**Corolario de seguridad, y va antes de cualquier `checkout` o `commit`:**
+**si `qwenpaw chats list` muestra una sesion `running`, o `origin/main` tiene un
+commit de los ultimos ~15 min, o el arbol esta sucio, el ciclo es de SOLO
+LECTURA** — PASO 0, PASO 1 y PASO 3, sin rama y sin commit. No es prudencia de
+manual: el HB#152 casi lo pierde por no aplicarlo.
+
+### Que se hizo en este ciclo
+
+- Correccion agregada a `HEARTBEAT.md` (mi workspace, **no** el del repo), fechada
+  y con las tres mediciones. **El bloque original NO se borro**: queda como
+  artefacto, con la correccion arriba. La ventana de 12:00 UTC **sigue abierta**:
+  esa autorizacion es de Pablo y no es mia para levantarla.
+- `ARME_TRABAJO_NOCHE.md` **no se toco**: tiene la misma premisa falsa, pero es
+  documento del Arquitecto y su correccion le corresponde a el o a Pablo.
+- El paso 1 real que el banner pedia (mergear `22a6a71`) **ya estaba hecho desde
+  el 2026-10-02**; no se hizo nada de codigo de producto en este ciclo.
+
+---
+
+## ALERT-225 (2026-10-03, HB#153) — el Reviewer lleva 6 ciclos seguidos volviendo SIN veredicto, y la causa es medible: 100 iteraciones no alcanzan para la pregunta que le mandamos
+
+**`task-6cc3851b8d15` vuelve `finished` con texto literal *"Max iterations (100)
+reached"* — por sexta vez consecutiva. No es que el Reviewer este caido: esta
+terminando y se queda sin turno.**
+
+### La serie, medida
+
+| Ciclo | Que devolvio |
+|---|---|
+| HB#148 | sin veredicto (3er seguido) |
+| HB#151 | sin veredicto (4to) |
+| HB#152 | sin veredicto (5to) |
+| **HB#153** | **sin veredicto (6to)** |
+
+Son ~3 horas de ciclos. En paralelo, `task-debe51c6331f` (la misma sesion del
+Reviewer, otra pregunta) devuelve un **veredicto completo y entero**, asi que el
+agente esta sano: lo que falla es el **tamanio de la tarea**.
+
+### Por que "Max iterations (100) reached" no es un fallo del Reviewer
+
+El Reviewer no contesta mal: **se queda sin pasos a mitad de un trabajo que no
+termina dentro del presupuesto.** Es la misma clase que el "Max iterations" que
+produjo el certificado que no podia fallar (ALERT-216): el corte esta en el
+instrumento, no en el veredicto.
+
+Y por eso **volver a mandar lo mismo es la peor jugada disponible**: la septima
+iteracion del mismo mensaje va a morir en el mismo lugar. Lo que hay que cambiar
+es la pregunta, no la insistencia.
+
+**REGLA (la accionable):** antes de reenviar una pregunta que ya volvio sin
+veredicto por "Max iterations", **partirla**. El corte de AGENTS.md ya lo dice
+—"maximo 1 pregunta concreta por auditoria"— pero el corte de tamano es mas
+duro que el de alcance y no estaba escrito: **si la pregunta necesita mas de un
+`ls -la`, mas de un `grep` con contexto y mas de una lectura de dos archivos,
+no entra en 100 iteraciones.** Partirla en N sub-preguntas que cada una quepa.
+
+**Corolario:** cuando el veredicto falta, **la conclusion honesta es "no lo
+  pude medir", no "el Reviewer no lo vio".** Un ciclo que anota "el Reviewer esta
+mudo" y manda lo mismo otra vez pierde tres ciclos y no aprendio nada del
+  sexto.
+
+**Lo que este ciclo NO hizo, a proposito:** no se abrio ronda del PO ni se mando
+nada al Reviewer. Ver PASO 3 abajo: el conteo da 7, pero las 7 son de las rondas
+16 a 37 y estan atendidas hace ciclos, y el unico tramo libre de la serie es
+justamente "mandar al Reviewer". Anadir carga a un agente que esta perdiendo
+iteraciones no es un uso del presupuesto.

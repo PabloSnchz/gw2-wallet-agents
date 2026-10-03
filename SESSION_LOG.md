@@ -4621,3 +4621,47 @@ amend. Misma clase que ALERT-79: un byte invisible que no se ve en un diff.
 - **Los 6 scripts de `tools/` con ruta absoluta**: deuda de instrumental.
 - **Armeria**: la vista del arbol ya esta; lo que sigue es el tramo de datos
   (los items sin receta publicable) y la revision del Reviewer.
+## HB#153 (2026-10-03 00:30-00:40 UTC)
+
+**Que se hizo.** Ciclo de medicion y correccion de control. Sin codigo de producto.
+- **PASO 0**: inbox y replies **vacios**. **23 `overdue`**, todos de ciclos
+  anteriores (HB#91 a HB#147), que son las mismas filas de `task_id` abierto que ya
+  son deuda de bookkeeping.
+- **PASO 1**: `task-debe51c6331f` finished CON veredicto entero; `task-6cc3851b8d15`
+  finished SIN veredicto por 6to ciclo ("Max iterations (100) reached").
+- **PASO 3**: **no se abrio ronda**. 7 CUENTA / 4 CERRADAS, las 7 de rondas 16-37
+  ya atendidas; ronda 45 = PAUSA. Control negativo 0.
+- **Ciclo**: correccion de `HEARTBEAT.md` (workspace, no el del repo) + ALERT-224
+  y ALERT-225 en `ALERTS_LOG.md` + este bloque y el de `TEAM_STATUS.md`.
+
+**Que se rompio.** Nada de producto. Se detectaron 2 errores de instrumento propios,
+ambos de la familia ALERT-79 y ambos corregidos antes del commit:
+1. **CJK colado al escribir** (caracteres CJK dentro de una linea en espanol de
+   ALERT-225). Lo cazo el control de delta-CJK; por eso el control corre
+   DESPUES de cada escritura y ANTES del commit.
+2. **142 lineas anexadas con LF en un archivo CRLF**: `git diff` advierte
+   `LF will be replaced by CRLF`. Normalizado a CRLF uniforme antes de commitear;
+   el diff final es 142 inserciones limpias. Sin esto, el proximo que edite el
+   archivo tiene 142 lineas de ruido de fin de linea.
+
+**Que quedo pendiente.** Sin cambios respecto del HB#152, mas el desbloqueo de
+`HEARTBEAT.md` (ya editable: el WIP de Pablo fue commiteado y el arbol abrio
+limpio). El **Tramo 2 de Coberturable** sigue medido y listo, y ya no tiene la
+excusa del arbol sucio — pero no se arranco porque Pablo esta commiteando en el
+mismo clon y el trabajo es de producto.
+
+**Decisiones.**
+1. **No tocar `ARME_TRABAJO_NOCHE.md`** aunque tenga la premisa falsa: es
+   documento del Arquitecto. Se documenta y se decide arriba.
+2. **No mandar nada al Reviewer** con el conteo en 7, porque las 7 son viejas y
+   el Reviewer esta perdiendo iteraciones. Anadir carga no es usar el presupuesto.
+3. **No re-escalar ALERT-41.** Pablo esta despierto, pero ya se la mando una vez;
+   reenviar por chance es ruido, no comunicacion.
+4. **No arrancar el Tramo 2** aunque este desbloqueado: producto en un clon con
+   otro escritor vivo, a 10 minutos de su ultimo commit, no eselian.
+
+**Lo que mas importo del ciclo.** Un archivo de control puede **nacer falso**, y
+este nacio con 3 min 24 s de atraso sobre el commit que lo desmentia. La regla que
+sale es corta y ejecutable: **antes de obrar por un bloque de prioridad escrito
+por otro, volver a correr el comando que el bloque afirma.** Cuesta 1 segundo y
+esta vez habria evitado 25 horas de ciclos creyendo en un paso 1 ya hecho.
