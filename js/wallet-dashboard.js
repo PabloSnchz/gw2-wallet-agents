@@ -107,7 +107,6 @@
     accounts: [],
     currencies: [],
     selectedCurrencies: [],
-    summaryFields: [],
     summaries: {},
     loading: false,
     lastRefreshTime: null,
@@ -248,7 +247,6 @@
 
   var STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_CURR : 'gn:wallet:dashboard:selected_currencies';
   var SORT_STORAGE_KEY = (typeof Storage !== 'undefined' && Storage.STORAGE_KEYS) ? Storage.STORAGE_KEYS.WALLET_DASHBOARD_SORT : 'gn:wallet:dashboard:sort';
-  var SUMMARY_STORAGE_KEY = 'gn:wallet:dashboard:selected_summaries';
   
   var DEFAULT_CURRENCY_NAMES = ['Gema', 'Moneda', 'Laurel', 'Reconocimiento Astral', 'Karma', 'Esquirla espiritual'];
     // Iconos por tipo de cuenta (mismos que accounts-panel.js)
@@ -269,21 +267,11 @@
     'assets/icons/Cuentas/1770686.png'
   ];
 
-  // Campos de resumen para la vista multicuenta (Idea 2)
-  var DEFAULT_SUMMARY_FIELDS = ['characters', 'achievements', 'raids'];
-  var SUMMARY_FIELD_LABELS = {
-    'characters': 'Personajes',
-    'achievements': 'Logros (AP)',
-    'raids': 'Raids',
-    'luck': 'Suerte (MF)'
-  };
+  // La tabla ya no tiene columnas de resumen (no hay selector de campos), pero
+  // el KPI "Mejor MF base" se dibuja siempre y usa este simbolo.
   var SUMMARY_FIELD_SYMBOLS = {
-    'characters': '\u{1F468}',
-    'achievements': '\u{1F3C6}',
-    'raids': '\u{1F5E1}\u{FE0F}',
     'luck': '\u{1F340}'
   };
-  var TOTAL_RAID_ENCOUNTERS = 33;
 
   // ------------------------------------------------------------------------
   // Suerte (Luck / magic find account-wide)
@@ -378,27 +366,6 @@
     } catch(e) { console.warn(LOG, 'Error saving sort preference', e); }
   }
 
-  function loadSelectedSummaryFields() {
-    try {
-      var stored = Storage.get(SUMMARY_STORAGE_KEY);
-      if (Array.isArray(stored) && stored.length) {
-        state.summaryFields = stored;
-      } else {
-        state.summaryFields = DEFAULT_SUMMARY_FIELDS.slice();
-        saveSelectedSummaryFields();
-      }
-    } catch(e) {
-      console.warn(LOG, 'Error loading selected summary fields', e);
-      state.summaryFields = DEFAULT_SUMMARY_FIELDS.slice();
-    }
-  }
-
-  function saveSelectedSummaryFields() {
-    try {
-      Storage.set(SUMMARY_STORAGE_KEY, state.summaryFields);
-    } catch(e) { console.warn(LOG, 'Error saving selected summary fields', e); }
-  }
-
   // ------------------------------ Funciones auxiliares ------------------------------
   async function loadCurrencies() {
     if (state.currencies.length) return state.currencies;
@@ -434,22 +401,15 @@
   }
 
   async function loadAccountSummary(token, forceNoCache) {
-    if (!state.summaryFields || !state.summaryFields.length) return null;
     var nocache = !!forceNoCache;
 
-    var charP, apP, raidsP, luckP;
-    if (state.summaryFields.indexOf('characters') >= 0) {
-      charP = root.GW2Api.getCharacterCount(token, { nocache: nocache });
-    }
-    if (state.summaryFields.indexOf('achievements') >= 0) {
-      apP = root.GW2Api.getAccountInfo(token, { nocache: nocache });
-    }
-    if (state.summaryFields.indexOf('raids') >= 0) {
-      raidsP = root.GW2Api.getAccountRaids(token, { nocache: nocache });
-    }
-    if (state.summaryFields.indexOf('luck') >= 0) {
-      luckP = root.GW2Api.getAccountLuck(token, { nocache: nocache });
-    }
+    // Las 4 promesas se crean siempre. La tabla ya no tiene columnas de
+    // resumen, pero 'luck' alimenta el KPI "Mejor MF base", que se dibuja
+    // siempre y no depende de ningun selector (ya no existe uno).
+    var charP = root.GW2Api.getCharacterCount(token, { nocache: nocache });
+    var apP = root.GW2Api.getAccountInfo(token, { nocache: nocache });
+    var raidsP = root.GW2Api.getAccountRaids(token, { nocache: nocache });
+    var luckP = root.GW2Api.getAccountLuck(token, { nocache: nocache });
 
     // Las 4 promesas se lanzan aqui, en un bloque sincrono, y cada una recibe
     // su handler recien en su propio await, mas abajo. Entre el lanzamiento y
@@ -522,10 +482,7 @@
           map[entry.id] = entry.value;
         });
       }
-      var summary = null;
-      if (state.summaryFields && state.summaryFields.length) {
-        summary = await loadAccountSummary(token, forceNoCache);
-      }
+      var summary = await loadAccountSummary(token, forceNoCache);
       return { wallet: map, error: null, summary: summary, errorInfo: null };
     } catch(e) {
       console.warn(LOG, 'Error loading wallet for token', e);
@@ -745,76 +702,6 @@
     }
   }
 
-  function renderSummarySelector() {
-    var container = document.getElementById('wdSummarySelector');
-    if (!container) {
-      console.warn(LOG, 'Summary selector container no encontrado');
-      return;
-    }
-
-    var selectedSet = new Set(state.summaryFields || []);
-    var selectedNames = (state.summaryFields || [])
-      .map(function(f) { return SUMMARY_FIELD_LABELS[f] || f; })
-      .join(', ');
-
-    var html = '<div style="position:relative; display:inline-block;">' +
-      '<button id="wdSummaryDropdownBtn" class="btn btn--ghost" style="display:inline-flex; align-items:center; gap:6px; min-width:180px; justify-content:space-between;">' +
-      '<span>' + (selectedNames || 'Seleccionar campos') + '</span>' +
-      '<span>\u25BC</span>' +
-      '</button>' +
-      '<div id="wdSummaryDropdown" class="wd-dropdown" style="top:100%; left:0; z-index:100; min-width:200px; max-height:200px; overflow-y:auto; display:none;">' +
-      '<div style="display:flex; flex-direction:column; gap:6px;">';
-
-    Object.keys(SUMMARY_FIELD_LABELS).forEach(function(field) {
-      var isSelected = selectedSet.has(field);
-      html += '<label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 8px; border-radius:6px;">' +
-        '<input type="checkbox" value="' + field + '" ' + (isSelected ? 'checked' : '') + ' style="cursor:pointer;">' +
-        '<span>' + esc(SUMMARY_FIELD_LABELS[field] || field) + '</span>' +
-        '</label>';
-    });
-
-    html += '</div></div></div>';
-    container.innerHTML = html;
-
-    var dropdownBtn = document.getElementById('wdSummaryDropdownBtn');
-    var dropdown = document.getElementById('wdSummaryDropdown');
-
-    if (dropdownBtn && dropdown) {
-      dropdownBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-      });
-
-      document.addEventListener('click', function(e) {
-        if (dropdownBtn && dropdown && !dropdownBtn.contains(e.target) && !dropdown.contains(e.target)) {
-          dropdown.style.display = 'none';
-        }
-      });
-
-      var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(function(cb) {
-        cb.addEventListener('change', function() {
-          var id = this.value;
-          if (this.checked) {
-            if (!state.summaryFields.includes(id)) {
-              state.summaryFields.push(id);
-            }
-          } else {
-            state.summaryFields = state.summaryFields.filter(function(f) { return f !== id; });
-          }
-          saveSelectedSummaryFields();
-          var newNames = state.summaryFields
-            .map(function(f) { return SUMMARY_FIELD_LABELS[f] || f; })
-            .join(', ');
-          if (dropdownBtn.querySelector('span:first-child')) {
-            dropdownBtn.querySelector('span:first-child').textContent = newNames || 'Seleccionar campos';
-          }
-          refreshData(true);
-        });
-      });
-    }
-  }
-
   function renderKPIs(totals, accounts) {
     var container = $('#wdKPIs');
     if (!container) return;
@@ -852,30 +739,22 @@
         '<div class="wd-kpi-value">' + fmtInt(totals[aaId]) + '</div></div>');
     }
 
-    // KPIs de resumen multicuenta (Idea 2)
-    var fields = state.summaryFields || [];
-    if (accounts && fields.length) {
-      var charTotal = 0, apTotal = 0, raidTotal = 0, luckBest = 0, luckCapped = 0;
+    // KPI de MF base: se dibuja SIEMPRE, sin mirar ningun selector.
+    // El MF% es por cuenta (curva independiente), asi que no se suma:
+    // mostramos la mejor cuenta y cuantas llegaron al tope.
+    if (accounts && accounts.length) {
+      var luckBest = 0, luckCapped = 0;
       accounts.forEach(function(acc) {
         var s = acc.summary || {};
-        charTotal += s.characters || 0;
-        apTotal += s.ap || 0;
-        raidTotal += s.raids || 0;
         if (typeof s.luck === 'number') {
           if (s.luck > luckBest) luckBest = s.luck;
           if (s.luckCapped) luckCapped++;
         }
       });
-      fields.forEach(function(field) {
-        if (field === 'luck') {
-          // El MF% es por cuenta (curva independiente), asi que no se suma:
-          // mostramos la mejor cuenta y cuantas llegaron al tope.
-          kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(255,193,7,0.5);">' +
-            '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Mejor MF base (' + luckCapped + '/' + accounts.length + ' al tope)</div>' +
-            '<div class="wd-kpi-value">' + luckBest + '%</div></div>');
-        }
-      });
+      kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(255,193,7,0.5);">' +
+        '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
+          '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS.luck + '</span> Mejor MF base (' + luckCapped + '/' + accounts.length + ' al tope)</div>' +
+        '<div class="wd-kpi-value">' + luckBest + '%</div></div>');
     }
 
     container.innerHTML = kpis.join('');
@@ -934,21 +813,8 @@
 
     console.log(LOG, 'Renderizando tabla con', selectedCurrencies.length, 'divisas y', state.accounts.length, 'cuentas');
 
-    // Campos de resumen activos (Idea 2)
-    var activeSummaryFields = (state.summaryFields || []).filter(function(f) { return f !== 'wv'; });
-
     // Cabecera con ordenamiento
     var hcells = ['<th class="wd-account-header">Cuenta</th>'];
-    // Summary column headers
-    activeSummaryFields.forEach(function(field) {
-      var label = SUMMARY_FIELD_LABELS[field] || field;
-      var sortIndicator = '';
-      if (state.sortColumn === 'summary:' + field) {
-        sortIndicator = state.sortDirection === 'desc' ? ' \u2193' : ' \u2191';
-      }
-      hcells.push('<th class="right sortable-summary" data-summary-field="' + field + '" title="Ordenar por ' + label + '" style="cursor:pointer; min-width:100px;">' +
-        '<span style="display:inline-block; margin-left:4px;">' + label + sortIndicator + '</span></th>');
-    });
     selectedCurrencies.forEach(function(cur) {
       var iconHtml = getCurrencyIconHtml(cur);
       var sortIndicator = '';
@@ -1000,27 +866,6 @@
               errorIndicator +
             '</td>'
           );
-      // Summary cells (Idea 2)
-      activeSummaryFields.forEach(function(field) {
-        var s = acc.summary || {};
-        var fieldErr = (s._errors && s._errors[field]) || null;
-        if (field === 'luck') {
-          cells.push(fieldErr ? unreadableCell(fieldErr) : renderLuckCell(s));
-          return;
-        }
-        var sv = 0;
-        if (field === 'achievements') { sv = s.ap || 0; }
-        else if (field === 'characters') { sv = s.characters || 0; }
-        else if (field === 'raids') { sv = s.raids || 0; }
-        var titleLabel = SUMMARY_FIELD_LABELS[field] || field;
-        var displayVal = fmtInt(sv);
-        if (field === 'raids' && TOTAL_RAID_ENCOUNTERS > 0) {
-          var pct = Math.round(sv / TOTAL_RAID_ENCOUNTERS * 100);
-          displayVal = sv + '/' + TOTAL_RAID_ENCOUNTERS + ' (' + pct + '%)';
-        }
-        cells.push(fieldErr ? unreadableCell(fieldErr)
-                            : '<td class="right" title="' + titleLabel + '">' + displayVal + '</td>');
-      });
       selectedCurrencies.forEach(function(cur) {
         var value = acc.wallet[cur.id] || 0;
         var displayValue = formatValueForDisplay(cur.id, value);
@@ -1031,31 +876,6 @@
 
     // Fila de totales
     var totalCells = ['<td class="total-label"><strong><img src="assets/icons/578844.png" width="14" height="14" alt="" style="vertical-align: middle; margin-right: 6px;">TOTAL</strong></td>'];
-    activeSummaryFields.forEach(function(field) {
-      var sTotal = 0;
-      var unreadable = 0;
-      rowsAcc.forEach(function(acc) {
-        var s = acc.summary || {};
-        if (s._errors && s._errors[field]) { unreadable++; return; }
-        if (field === 'achievements') sTotal += s.ap || 0;
-        else if (field === 'characters') sTotal += s.characters || 0;
-        else if (field === 'raids') sTotal += s.raids || 0;
-        else if (field === 'luck') sTotal += s.luck || 0;
-      });
-      if (field === 'luck') {
-        // No tiene sentido sumar MF% entre cuentas: cada una tiene su curva.
-        var cappedN = rowsAcc.filter(function(acc) { return acc.summary && acc.summary.luckCapped; }).length;
-        totalCells.push('<td class="right total-cell" title="El MF base es independiente por cuenta; no se puede sumar.">' +
-          '<strong>' + (cappedN > 0 ? cappedN + ' tope' : '—') + '</strong></td>');
-        return;
-      }
-      // Si alguna cuenta no se pudo leer, el total está incompleto y hay que decirlo.
-      var totTitle = unreadable > 0
-        ? 'Parcial: ' + unreadable + ' de ' + rowsAcc.length + ' cuentas no se pudieron leer en esta columna.'
-        : '';
-      totalCells.push('<td class="right total-cell"' + (totTitle ? ' title="' + esc(totTitle) + '"' : '') + '>' +
-        '<strong>' + fmtInt(sTotal) + (unreadable > 0 ? ' ⚠' : '') + '</strong></td>');
-    });
     selectedCurrencies.forEach(function(cur) {
       var totalValue = totals[cur.id];
       var displayTotal = formatValueForDisplay(cur.id, totalValue);
@@ -1077,16 +897,6 @@
       th.removeEventListener('click', th.__clickHandler);
       var currencyId = parseInt(th.getAttribute('data-currency-id'), 10);
       var handler = function() { setSortColumn(currencyId); };
-      th.__clickHandler = handler;
-      th.addEventListener('click', handler);
-    });
-
-    // Agregar eventos de ordenamiento (campos de resumen)
-    var summaryHeaders = thead.querySelectorAll('th.sortable-summary');
-    summaryHeaders.forEach(function(th) {
-      th.removeEventListener('click', th.__clickHandler);
-      var field = th.getAttribute('data-summary-field');
-      var handler = function() { setSortColumn('summary:' + field); };
       th.__clickHandler = handler;
       th.addEventListener('click', handler);
     });
@@ -1162,7 +972,6 @@
         
         setStatus('Renderizando...');
         renderCurrencySelector();
-        renderSummarySelector();
         renderTable();
         renderProgressErrors();
         updateTimestamp();
@@ -1224,10 +1033,6 @@
             <strong>Divisas:</strong>
             <div id="wdCurrencySelector"></div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <strong>Campos:</strong>
-            <div id="wdSummarySelector"></div>
-          </div>
           <div style="display:flex; gap:8px; margin-left:auto;">
             <button id="wdRefreshBtn" class="btn btn--ghost" style="display:inline-flex; align-items:center; gap:6px;">
               <img src="assets/icons/Welcome/834002.png" width="14" height="14" alt="Refrescar"> Refrescar
@@ -1271,7 +1076,6 @@
       // Cargar preferencias
       loadSortPreference();
       loadSelectedCurrencies();
-      loadSelectedSummaryFields();
       
       // Conectar eventos de botones (los botones ya existen después de ensurePanelContent)
       var refreshBtn = document.getElementById('wdRefreshBtn');
