@@ -867,23 +867,7 @@
         }
       });
       fields.forEach(function(field) {
-        if (field === 'characters') {
-          kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(68,130,240,0.5);">' +
-            '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Total Personajes</div>' +
-            '<div class="wd-kpi-value">' + fmtInt(charTotal) + '</div></div>');
-        } else if (field === 'achievements') {
-          kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(255,193,7,0.5);">' +
-            '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Total Logros (AP)</div>' +
-            '<div class="wd-kpi-value">' + fmtInt(apTotal) + '</div></div>');
-        } else if (field === 'raids') {
-          var pct = TOTAL_RAID_ENCOUNTERS > 0 ? Math.round(raidTotal / TOTAL_RAID_ENCOUNTERS * 100) : 0;
-          kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(76,175,80,0.5);">' +
-            '<div class="wd-kpi-label" style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:20px;line-height:1;">' + SUMMARY_FIELD_SYMBOLS[field] + '</span> Total Raids (' + fmtInt(raidTotal) + '/' + TOTAL_RAID_ENCOUNTERS + ', ' + pct + '%)</div>' +
-            '<div class="wd-kpi-value">' + fmtInt(raidTotal) + '</div></div>');
-        } else if (field === 'luck') {
+        if (field === 'luck') {
           // El MF% es por cuenta (curva independiente), asi que no se suma:
           // mostramos la mejor cuenta y cuantas llegaron al tope.
           kpis.push('<div class="wd-kpi-card wd-kpi-summary" style="borderLeft:3px solid rgba(255,193,7,0.5);">' +
