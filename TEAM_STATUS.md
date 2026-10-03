@@ -214,6 +214,87 @@ ALERT-228/229 quedan **1 vez cada uno**.
   **32 CJK/U+FFFD HISTORICOS** (deuda vieja, no de este ciclo).
 - Por eso el control es **delta contra `origin/main`**: uno de valor absoluto marca los 32
   historicos para siempre y deja de correrse (regla del HB#151).
+## CIERRE DEL CICLO (HB#161) - RESCATE: `main` local tenia un commit sin pushear que el PASO -1 no puede ver
+
+**Esto paso despues de medir todo lo de arriba, y es lo mas importante que dejo.** Al
+hacer el merge a `main`, git abortó con *"Diverging branches can't be
+fast-forwarded"*. Medido antes de tocar nada:
+
+```
+solo en main local :  da474c0  2026-10-03 04:51:53 UTC
+                       "docs(hb158): seccion de TEAM_STATUS del ciclo - ALERT-227 y el detector del paso 3"
+solo en origin/main : (vacio)
+```
+
+O sea: **`main` local estaba 1 commit adelante y ese commit nunca se pusheo.** Es el
+trabajo del ciclo HB#158, escrito a las 04:51:53 UTC, **5 minutos despues** del
+`origin/main` que yo venia usando como referencia, y **9 minutos antes de que yo
+arrancara**.
+
+**Mi rama se creo desde `origin/main`, asi que ese trabajo no estaba en ella.** Si
+hubiera hecho `git merge` normal y push, el resultado habria sido exactamente el que
+ALERT-219 y ALERT-227 previenen. **Lo que lo impidio fue el `--ff-only`**, no yo: yo
+iba a pushear `main` sin haber mirado que commit sobraba.
+
+### Por que el PASO -1 no lo vio, y por que es un hueco de verdad
+
+El PASO -1 mide **`git log -1 --format=%ci origin/main`** contra la hora de arranque.
+Un commit que **nunca salio del clon no existe en `origin/main`**, asi que la medicion
+dio *"remoto mas viejo que mi arranque -> nada que hacer"* y el ciclo se declaro
+normal. La fecha era correcta **para lo que el control pregunta** y la respuesta
+estaba incompleta: la pregunta es *"hay otro escritor?"*, y hay una tercera respuesta
+que el control no contempla —**"hay trabajo terminado que nadie publico"**.
+
+**REGLA.** Antes de escribir, hay que mirar **las DOS puntas**: `origin/main` **y**
+`main` local, con `git log --oneline origin/main..main` y `git log --oneline
+main..origin/main`. Si la primera lista no esta vacia, hay trabajo sin pushear: se
+rescata, no se descarta. **Un commit local sin pushear es trabajo terminado invisible
+para un control que solo mira el remoto.**
+
+### El rescate, verificado por igualdad exacta y no por inspeccion
+
+| paso | resultado |
+|---|---|
+| hogar para `da474c0` antes de mover `main` | rama `rescate/hb158-teams-status` (un commit al que no apunta ninguna rama se pierde en el proximo `gc`) |
+| realinear `main` | `git branch -f main origin/main` (**no** `reset --hard`: mueve el puntero sin borrar archivos) |
+| extraer el bloque HB#158 e insertarlo entre HB#161 y HB#159 | 110 lineas, orden cronologico descendente |
+| **control** | **quitar HB#161 y HB#158 del archivo deja `origin/main` byte a byte** |
+
+El control importa mas que la inspeccion: con el, `da474c0` queda **probado** como
+"no aporta nada mas alla de su bloque", y por eso el realinear `main` es seguro en vez
+de una apuesta. Con una lectura a ojo, es una apuesta.
+
+### El EOL: por que ese commit se veia como "reescribio el archivo entero"
+
+`git diff origin/main da474c0` marca **1652 inserciones / 1491 borrados** sobre un
+archivo de 1492 lineas. **No reescribio el contenido: paso el archivo de CRLF a LF.**
+Medido: `core.autocrlf = true`, y aun asi el blob de `origin/main:TEAM_STATUS.md`
+tiene **CRLF (1491)**. O sea hay archivos con CRLF **commiteados** a pesar de la
+configuracion.
+
+La consecuencia concreta: **el fin de linea es parte del contrato del archivo** (lo
+decia ALERT-157) y dos ciclos que toquen el mismo log alternando EOL se pelean
+indefinidamente, porque cada uno ve *"todo el archivo cambio"*. Aqui se respeto el EOL
+de `origin/main` (CRLF) y el bloque se inserto en ese EOL, y el diff del rescate
+queda en **110 inserciones y 0 borrados**.
+
+### Resultado
+
+```
+87ee481..fe90587  HEAD -> main     (fast-forward)
+33 refs | main 1 vez | 0 duplicados por refspec
+TEAM_STATUS.md: HB#161 (este ciclo) + HB#158 (rescatado) + HB#159..HB#146, todos con encabezado
+ALERTS_LOG.md  : ALERT-227 (previo) + ALERT-228 y ALERT-229 (este ciclo)
+```
+
+La rama del ciclo y la de rescate **nunca se pushearon**: `origin/main` es el unico
+ref que este ciclo toco.
+
+**Nota sobre el numero de ciclo.** La numeracion en los mensajes de commit no es
+monotona: el commit mas reciente al abrir (`87ee481`) se autotiqueta **HB#158** y es
+POSTERIOR a los etiquetados HB#159 y HB#160. Este ciclo se numero **HB#161** por
+encima del maximo visto, no por encima del ultimo escrito. Un archivo de bitacora con
+numeracion que se repite es un archivo donde dos entradas se confunden.
 # HB#158 - 2026-10-03 04:30-05:2x UTC - EL PASO 3 RESOLVIA LA RAMA DEL PO POR FECHA, Y LA FECHA DICE LO CONTRARIO DE LO QUE BUSCA
 
 > **Este ciclo no abrio ronda ni mando nada al Reviewer. Y el motivo por el que

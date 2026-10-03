@@ -6996,3 +6996,52 @@ propuestas escrita en `BACKLOG.md` en vez del archivo de ideas, las pierde sin a
 **Menor, mismo ciclo:** el PASO -1 no tiene ninguna condicion que mire **en que rama**
 esta el HEAD (el HB#159 edito `COMMS_LOG.md` con HEAD en la rama de Pablo y el PASO -1
 dio "ciclo normal"). Esta vez se miro a mano, pero **a mano no es un control**.
+
+
+## ALERT-230 (2026-10-03, HB#161) - `main` local con un commit sin pushear: el PASO -1 no lo puede ver
+
+| | |
+|---|---|
+| **Severidad** | Alta (rescate de trabajo perdido) | **Clase** | Un control que mira solo una punta del problema |
+
+**Medido.** El merge a `main` abortó con *"Diverging branches can't be
+fast-forwarded"*. `git log --oneline origin/main..main` devolvio un commit:
+
+```
+da474c0  2026-10-03 04:51:53 UTC
+         "docs(hb158): seccion de TEAM_STATUS del ciclo - ALERT-227 y el detector del paso 3"
+```
+
+y `git log --oneline main..origin/main` devolvio **vacio**. O sea: **`main` local
+estaba 1 commit adelante y nunca se pusheo.**
+
+**Por que el PASO -1 no lo detecto.** El paso mide `git log -1 --format=%ci
+origin/main` contra la hora de arranque. Un commit que **nunca salio del clon no
+existe en `origin/main`**: la medicion dio *"remoto mas viejo -> nada que hacer"* y el
+ciclo se declaro normal. La fecha era correcta **para lo que pregunta**; lo que no
+contempla es una tercera respuesta —***"hay trabajo terminado que nadie publico"***.
+
+**Costo real.** La rama del ciclo se creo desde `origin/main`, o sea **sin ese trabajo**.
+Un `git merge` normal mas push habria publicado un `TEAM_STATUS.md` al que le falta
+un ciclo entero. **Lo unico que lo impidio fue el `--ff-only`** (y el echo de su
+mensaje de error, que es exactamente para eso): yo iba a pushear sin mirar que commit
+sobraba.
+
+**REGLA.** Antes de escribir, mirar **las DOS puntas**: `git log --oneline
+origin/main..main` y `git log --oneline main..origin/main`. Si la primera no esta
+vacia hay trabajo sin pushear: **se rescata, no se descarta.** **Un commit local sin
+pushear es trabajo terminado invisible para un control que solo mira el remoto.**
+
+**Rescate, por igualdad exacta.** Se creo `rescate/hb158-teams-status` para que
+`da474c0` tenga hogar, se alineo `main` con `git branch -f main origin/main` (no
+`reset --hard`: no borra archivos), y se inserto el bloque HB#158 (110 lineas) entre
+HB#161 y HB#159. El control: **quitar HB#161 y HB#158 del archivo deja `origin/main`
+byte a byte**. Con eso `da474c0` queda **probado** como "no aporta nada mas alla de su
+bloque" y el realinear `main` es seguro en vez de una apuesta.
+
+**Menor y util:** el mismo commit se veia como *"1652 inserciones / 1491 borrados"*
+sobre un archivo de 1492 lineas porque **paso el archivo de CRLF a LF**. Con
+`core.autocrlf = true` hay archivos con CRLF **commiteados** a proposito, asi que el
+EOL es parte del contrato del archivo (ALERT-157) y dos ciclos que lo toquen
+alternando EOL se pelean indefinidamente. Respetando el EOL de `origin/main`, el
+diff del rescate queda en **110 inserciones / 0 borrados**.
