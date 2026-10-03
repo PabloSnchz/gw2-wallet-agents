@@ -101,6 +101,60 @@
   fallan en silencio si se olvidan son la allowlist `CACHE_KEYS_EXACT` (sin ella el
   boton de cache **no borra** la clave) y el `?v=` de `index.html` (ALERT-220).
 
+  **🟢 TRAMO 3 DECIDIDO, NO ESCRITO (HB#159, `task-b6c235ed3e30`): la pantalla es (B),
+  ruta propia — y la premisa de la pregunta era FALSA.** Veredicto entero del
+  Reviewer en un turno. **No se escribio codigo**, y el motivo queda escrito mas
+  abajo (faltan catalogo de nombres para 2 de los 12, y paginacion para 10.632).
+
+  **Donde vive:** `#/account/skins`, `skinsPanel`, entrada de nav en `index.html`
+  junto a la de la armería, `activate`/`deactivate` propios, con el molde exacto de
+  `legendary-tracker.js` (`#/account/legendary-armory`), que ya es una coleccion
+  account-scoped con card por desbloqueo, grid y barra de filtros.
+
+  **P1 CRITICO — MI PREMISA ERA FALSA: `Characters` NO es subvista de `InventoryHub`.**
+  Lo escribi asi en la pregunta ("inventario y personajes ya son subvistas suyas") y
+  es lo que hacia las dos opciones parecer simetricas. Medido: son **dos `<section>`
+  al mismo nivel** (`characters.js:1454-1459`), el salto es un **intercambio
+  imperativo en las dos direcciones** (`inventory-hub.js:1431-1436` ↔
+  `characters.js:1076-1082`), y la ruta `#/account/characters` muestra
+  `inventoryPanel`, no `charactersPanel`. La prueba de que no es subvista es que
+  **el router ya tiene un work-around por eso**: `router.js:1501` documenta que si su
+  panel quedo visible no se toca, y por eso el `barridoLatch` (`:1517-1526`) esta
+  **keyed en el DOM y no en la ruta**. Un patron que ya rompe el control del router
+  no puede ser el molde de una pantalla nueva.
+
+  **Por que NO (A), con las 4 mediciones:**
+  1. El buscador unificado es de **ITEMS**: `state.itemsById` se puebla con
+     `getItemsMany` y las 3 secciones son `materials / bank / armory`. Una skin no
+     tiene `count`, ni slot, ni peso; su ficha vive en otra cache (`__skinsMeta`).
+     **Meter skins ahi no reutiliza el buscador: lo rompe.**
+  2. El hub tiene tope de **25 items visibles** (`MAX_VISIBLE_ITEMS`). Skins son
+     **10.632**, y el hub no tiene paginacion ni virtualizacion.
+  3. **El precedente ya existe y es una ruta**: la armeria.
+  4. El hub **ya lee** esos datos (`inventory-hub.js:234` llama
+     `getAccountLegendaryArmory`) y no los hospeda. **El repo ya resolvio este caso.**
+
+  **CORRECCION A ESTA FILA: LA DECISION ES POR ENDPOINT, NO POR FILA.** Yo decia que
+  el siguiente tramo era "(2) el call site + la pantalla" para el conjunto de los 12.
+  Es falso, y en los dos sentidos:
+  - **`skins`: se puede hacer YA.** `getSkinsBatch` ya mapea id→ficha con `name` e
+    `icon`. No hay hueco de datos.
+  - **`outfits`: el hueco es ESTRUCTURAL.** `getOutfit|/v2/outfits` → **0 matches** en
+    `api-gw2.js`. No hay wrapper, y no es endpoint de catalogo publico: outfits son
+    ids que solo existen en la cuenta. **Sin catalogo, un grid de outfits no puede
+    mostrar nombre ni icono, asi que NO comparte pantalla con skins.**
+  Decidir (B) para `skins` **no ejecuta nada** para `outfits`.
+
+  **LO QUE FALTA PARA ESCRIBIR EL TRAMO 3 (medido, no supuesto):** (a) paginacion o
+  virtualizacion para 10.632 fichas — el hub no tiene ninguna de las dos; (b) el
+  catalogo de nombres de los que no sean `skins`, y hay al menos uno sin posible.
+
+  **Lo que el Reviewer NO re-verifico, y por eso no lo doy por bueno:** tomo de esta
+  fila los "6 lugares en 3 archivos" y el "0 de 6" **sin volver a correrlos**. Lo que
+  si midio es consistente con ellos: los 6 son plomeria (allowlist `CACHE_KEYS_EXACT`,
+  `?v=` de `index.html`) y **esa plomeria es identica en (A) y en (B)**, o sea no
+  era factor de la decision.
+
   **SIGUIENTE TRAMO, en este orden:** (1) el catalogo `/v2/skins` paginado en
   lotes — `?ids=all` -> **400** verificado, molde `chunk = 100` — y recien ahi
   (2) el call site + la pantalla. **Sin (1) el call site solo tendria ids sin nombre

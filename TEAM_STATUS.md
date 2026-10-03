@@ -1,4 +1,235 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#159 — 2026-10-03 04:00-04:3x UTC — LOS ONCE task_id DEL PASO 1 DAN 404, Y ESO HACE QUE UN PASO QUE NO PUEDE RECOGER NADA PAREZCA QUE HAY 7 TRABAJOS PENDIENTES
+
+> **Actualizado:** 2026-10-03 (HB#159) por el Principal.
+> **Base:** `origin/main` = `ceb5a60` al abrir. Arranque **04:00:11 UTC**.
+> Suite completa **2307 / 0 FAIL en 86 de 86**. Arbol limpio al abrir y en la
+> 2a medicion. Cero sesiones `running`. `main` UNICA, 0 duplicados por refspec.
+> Rama de este ciclo: `chore-hb159-404-y-turno`, creada desde `origin/main`.
+>
+> **Correccion de la linea de arriba (error mio, HB#159): la primera medicion dio
+> "2340 / 0 FAIL en 87 de 87" y quedo anotada asi.** Ese numero es el de la RAMA
+> DE PABLO, que trae un test mas. Repetida la suite en `origin/main` (la rama de
+> este ciclo): **2307 / 0 FAIL en 86 de 86**. La medicion era correcta, la
+> etiqueta no: corri la suite con HEAD en la rama ajena y anote el numero como si
+> fuera del commit que iba a reportar. **REGLA: la suite se corre DESPUES de
+> ramificar, y el numero que va al log es el de esa rama** — un total que no
+> corresponde al commit que se describe es el numero de otro ciclo.
+
+## EL HALLAZGO DEL CICLO: el PASO 1 mide 7 pendientes, y los 7 son el MISMO 404
+
+El PASO 1 del ciclo dice, textualmente: *"buscá las filas donde vos sos el
+remitente y el estado es `Enviado` o `Fallido` ... Para cada `task_id`
+encontrado, llamá `check_agent_task`"*. Con el filtro correcto sobre
+`COMMS_LOG.md` da **7 filas abiertas con 9 `task_id` distintos**.
+
+**MEDIDO, los 11 (los 9 de las filas abiertas + los 2 que arrastraba el ciclo
+anterior): los 11 dan HTTP 404.** No es timeout, no es `failed`, no es
+`session_id mismatch`, no es "el Reviewer esta pensando": **el registro ya no
+existe en el servidor.**
+
+| task_id | fila | HTTP |
+|---|---|---|
+| `task-dd859ed5ab5e` | 010 | 404 |
+| `task-ec845e5c532b` | 012 | 404 |
+| `task-1f9858ba7c2e` | 011 | 404 |
+| `task-50223079043d` | 011 | 404 |
+| `task-6042477524c8` | 011 | 404 |
+| `task-57c182d1993a` | 019 | 404 |
+| `task-5ccb7fb3377d` | 016 | 404 |
+| `task-b1df00fd92d6` | 118 | 404 |
+| `task-7768bbccf6cb` | 121 | 404 |
+| `task-6cc3851b8d15` | (ciclo ant.) | 404 |
+| `task-debe51c6331f` | (ciclo ant.) | 404 |
+
+**POR QUE ESTO ES UN HALLAZGO Y NO UN RUIDO.** El 404 es lo unico que el
+propio `HEARTBEAT.md` documenta — *"la tarea ya vencio"* — pero **no dice que
+se marque la fila como cerrada**, y el PASO 3 del protocolo de `AGENTS.md`
+(`Esperando` -> `Reintento` -> `Reasignado` -> `Fallido` -> `Resuelto`)
+**no tiene ninguna transicion que cubra el 404**. Las dos instrucciones juntas
+producen un bucle: el paso pide recoger, el 404 dice "no la marques fallida",
+y la fila queda abierta para siempre. **Un paso que no puede cerrar nada no
+puede distinguir "hay 7 trabajos vivos" de "hay 7 filas que el log nunca
+cerro"** — y el paso 1 solo sabe contarlas.
+
+**Y UNA DE LAS 7 ERA RESPUESTA APLICADA.** La fila 118 (T13, el latch de
+`activate()`) estaba **Enviada** con `task-b1df00fd92d6`; la fila **125 es
+la MISMA pregunta con el MISMO `task_id`, y dice "Respondido (ya aplicado)"**
+con el P1 CRITICO citado. No faltaba la respuesta: **faltaba la escritura.**
+Un `grep` por `task_id` sobre el log entero la habria encontrado; nadie lo
+hizo porque el paso 1 no dice "busca si ya esta en otra fila".
+
+## Reglas que salen de ahi
+
+1. **Un 404 verificado es un estado terminal, y se cierra.** La regla de
+   `HEARTBEAT.md` ("no la marques fallida por 404") esta bien para NO
+   inventar un veredicto, pero deja la fila abierta para siempre. Lo correcto
+   es marcarla con lo que se sabe — "el registro no existe; el veredicto, si
+   hubo, llego por el canal de archivos" — y eso NO es "fallido" ni "resuelto".
+2. **Un `task_id` puede aparecer en DOS filas.** Antes de tratar una fila
+   abierta como trabajo vivo, buscarla en todo el archivo. La 118/125 es el
+   caso medido, y es exactamente la clase de fila que el PASO 1 no puede ver
+   porque solo mira la columna de estado.
+3. **Un contador de pendientes que no puede dar 0 no esta contando.** Misma
+   familia que ALERT-222 (el filtro del paso 3). Este es su hermano en el
+   paso 1: "filas abiertas" mezcla trabajo vivo con deuda de bookkeeping.
+
+## Lo que se cerro (2 filas) y por que
+
+- **118** -> **Resuelto (auto)**. Mismo `task_id` que la 125, que ya estaba
+  Respondido. No se toco codigo.
+- **121** (T14/T15) -> **Fallido (404, cerrable)**. El veredicto llego por el
+  canal de archivos y la precondicion quedo medida; el registro murio. **NO se
+  reenvia**: es la septima muerte en el mismo lugar (ALERT-225).
+
+Las **5 restantes** (010, 011, 012, 016, 019) son de HB#30 a HB#121 y quedan
+abiertas a proposito: **sus 5 `task_id` tambien dan 404, pero sus notas ya
+describen el resultado** ("Principal ejecuto el item por merito, commit
+18ef9a4"), y cerrarlas sin releer cada una seria escribir de memoria. Van
+contra el mismo filtro del proximo ciclo.
+
+## Y UN ERROR PROPIO, de la familia ALERT-219, que el control NO habria visto
+
+**Edite `COMMS_LOG.md` teniendo HEAD en la rama de Pablo**
+(`feat-wallet-dashboard-solo-suerte`). El arbol estaba limpio y el remoto era
+mas viejo que mi arranque, asi que el PASO -1 dio "ciclo normal" — **y el
+PASO -1 no tiene ninguna condicion que mire EN QUE RAMA esta el HEAD.** Es
+la 4a variante de la misma familia: las tres anteriores median *si hay otro
+escritor*, esta mide *si el clon esta donde yo creo que esta*.
+
+**Como salio bien:** (1) el paso `git remote -v` + `git status` de control
+lo mostro antes de ramificar; (2) `COMMS_LOG.md` es **IDENTICO** en la rama
+de Pablo y en `origin/main` (`git diff --stat` vacio), asi que el cambio
+viajo limpio al cambiar de rama; (3) el commit de Pablo (`23eed32`, 5
+archivos, sin pushear) quedo **intacto**. Si ese archivo hubiera diferido, el
+cambio se hubiera aplicado sobre una base equivocada sin avisar.
+
+**REGLA: antes de escribir, `git rev-parse --abbrev-ref HEAD`.** Un arbol
+limpio no dice en que rama estas, y por lo tanto no dice sobre que commit se
+va a escribir.
+
+## Estado de las propuestas (PO)
+
+Sin ronda nueva, **4to ciclo**. **18 refs `po/*`**, la mas reciente sigue
+siendo `origin/po/hb150-poda` (2026-10-02 19:07, ronda 45). La seccion mas
+reciente trae **0 `### Tramos`** = PAUSA por el regimen propio del PO.
+**Control negativo = 0**, asi que el criterio mide y no esta partido.
+**ALERT-222 sigue sin corregir** (su arreglo necesita el dato del "ultimo
+corte", que no existe en ningun archivo). **No se mando nada al Reviewer**:
+ademas de que no hay novedades, el Reviewer venia devolviendo sin veredicto
+(ALERT-225).
+
+## Lo que se consulto al Reviewer (1 pregunta, de ALCANCE)
+
+**`task-b6c235ed3e30`** — donde debe vivir el call site que pinte la
+coleccion de skins de una cuenta: **(A)** subvista dentro de InventoryHub o
+**(B)** pantalla nueva con ruta propia. Es la pregunta que bloquea el Tramo 3
+de Coberturable, y **no la elegi yo** porque las dos tocan "ningun modulo toca
+DOM ajeno" y "router.js es el orquestador unico". Partida, no reenviada
+(ALERT-225).
+
+**Lo medido que la responde:** 6 endpoints `/v2/account/*` existen de verdad
+(`outfits`, `finishers`, `minis`, `novelties`, `dyes`, `skins` ->
+**401** con token falso) contra el control `/v2/account/bogusendpoint123` ->
+**404**. Los 10 `getAccountXxx` exportados hoy cubren 8 de los 12 que nombra
+la fila L88; faltan `outfits`, `finishers`, `minis`, `novelties`, `gliders`,
+`mailcarriers`, `mounts/*`, `titles`, `dyes`, `home/cats`.
+
+> ## VEREDICTO DEL REVIEWER (task-b6c235ed3e30): (B), y la PREMISA DE LA PREGUNTA ERA FALSA
+> 
+> **Respondio entero, en un turno** — contrario a la serie de "Max iterations
+> (100) reached". Seeenio porque la pregunta era UNA y de alcance (ALERT-225).
+> 
+> **Respuesta: (B)**, pantalla propia con ruta propia, siguiendo el molde exacto
+> de `legendary-tracker.js`: `#/account/skins`, `skinsPanel`, entrada de nav en
+> `index.html` junto a la de la armería, `activate`/`deactivate` propios.
+> 
+> ### P1 CRITICO: mi premisa era FALSA — `Characters` NO es subvista de `InventoryHub`
+> 
+> Yo escribi en la pregunta *"inventario y personajes ya son subvistas suyas"*.
+> **Falso, y es lo que hacia las dos opciones parecer simetricas.** Medido por el
+> Reviewer: `inventoryPanel` y `charactersPanel` son **dos `<section>` al mismo
+> nivel** (`characters.js:1454-1459`), no uno dentro del otro; el salto entre
+> ellos es un **intercambio imperativo en las dos direcciones**
+> (`inventory-hub.js:1431-1436` ↔ `characters.js:1076-1082`); y la ruta
+> `#/account/characters` muestra `inventoryPanel`, no `charactersPanel`.
+> 
+> **La prueba de que no es subvista es que el router ya tiene un work-around por
+> eso:** `router.js:1501` documenta que si su panel quedo visible no se toca, y
+> por eso el `barridoLatch` (`:1517-1526`) esta **keyed en el DOM y no en la
+> ruta**. Un patron que yamade el control del router no puede ser el molde de una
+> pantalla nueva.
+> 
+> **REGLA: una premisa que hace dos opciones simetricas hay que verificarla ANTES
+> de preguntar.** Pregunté *"A o B"* donde las dos caian por la misma razon, y la
+> respuesta del Reviewer empieza por corregirme, no por responder.
+> 
+> ### Las 4 mediciones que deciden (las cito, no las re-derivé)
+> 
+> 1. El buscador unificado es de **items**, no de "cosas que tenes":
+>    `state.itemsById` se puebla con `getItemsMany` y las 3 secciones son
+>    `materials / bank / armory`. Una skin no entra: no tiene `count`, ni slot,
+>    ni peso. Su ficha vive en otra cache (`__skinsMeta`). **Meter skins ahi no
+>    reutiliza el buscador: lo rompe.**
+> 2. El hub tiene tope de **25 items visibles** (`MAX_VISIBLE_ITEMS`). Skins son
+>    **10.632**. El hub no tiene paginacion ni virtualizacion.
+> 3. **Ya existe el precedente exacto, y es una ruta**: `legendary-tracker.js` =
+>    `#/account/legendary-armory`. Coleccion account-scoped con card por
+>    desbloqueo, grid y barra de filtros. Es la misma forma que pide skins.
+> 4. El hub **ya lee** esos datos (`inventory-hub.js:234` llama
+>    `getAccountLegendaryArmory`) y aun asi no los hospeda: la pantalla es un
+>    modulo y ruta aparte. **El repo ya resolvio este caso y chose (B).**
+> 
+> ### P4: mi "escape hatch" es FALSO para skins y VERDADERO para outfits
+> 
+> Planteé que quizas no se podia decidir por falta de datos. El Reviewer lo
+> midio en las dos direcciones:
+> 
+> - **`skins`: se puede decidir HOY.** `getSkinsBatch` ya mapea id→ficha con
+>   `name` e `icon`. No hay hueco.
+> - **`outfits`: el hueco es ESTRUCTURAL.** `getOutfit|/v2/outfits` ->
+>   **0 matches** en `api-gw2.js`. No hay wrapper, y no es endpoint de catalogo
+>   publico: outfits son ids que solo existen en la cuenta. **Sin catalogo, un
+>   grid de outfits no puede mostrar nombre ni icono.**
+> 
+> **CONSECUENCIA PARA EL BACKLOG: la fila de 12 endpoints NO tiene una sola
+> respuesta.** Decidir (B) para `skins` no ejecuta nada para `outfits`, que
+> necesita un diseno distinto antes de escribir una linea. **La decision es POR
+> ENDPOINT, no por fila** — y esa distincion no estaba escrita en ningun lado.
+> 
+> ### Lo que NO se hizo
+> 
+> No se escribio codigo de producto. La pregunta era de **alojamiento**, y la
+> respuesta habilita el Tramo 3 pero no lo arrancá: falta el catalogo de
+> nombres para 2 de los 12, y un grid de 10.632 necesita paginacion que el hub
+> no tiene. **Escribir la pantalla sin esas dos cosas seria el "Tramo 3" que la
+> propia fila dice que no es solo "data + columnas".**
+> 
+> ### Lo que el Reviewer NO re-verifico (lo dice el mismo)
+> 
+> Tomo de la fila los "6 lugares en 3 archivos" y el "0 de 6" **sin re-verificarlos**
+> en esta pasada. Lo que si midio es consistente: los 6 son plomeria (allowlist
+> `CACHE_KEYS_EXACT`, `?v=` de `index.html`) y **esa plomeria es identica en
+> (A) y en (B)**, o sea no era un factor de la decision.
+
+## Alertas
+
+- **ALERT-229** — el PASO 1 no tiene transicion para el 404: 7 filas abiertas
+  que no son trabajo vivo, una de ellas ya Respondido y aplicada. Cerradas 2,
+  quedan 5 pendientes de relectura.
+- **ALERT-230** — el PASO -1 no mira **en que rama** esta el HEAD. Se casi
+  escribe sobre la rama de Pablo con su commit sin pushear.
+- **ALERT-225** — sigue vigente: partir la pregunta, no reenviarla. La 121 no
+  se reenvia.
+- **ALERT-228** — el `PASO -1` se declara solo lectura por el commit del ciclo
+  anterior. **Sin cambio: este ciclo dio normal** (remoto mas viejo + arbol
+  limpio) y no se modifico la regla.
+
+## Commits de este ciclo
+
+- (rama `chore-hb159-404-y-turno`, este commit).
+- **Base**: `ceb5a60` (HB#158), sobre `2d13d7c` (rescate HB#157).
+
 
 > **Actualizado:** 2026-10-03 (HB#158) por el Principal.
 > **Base:** `origin/main` = `90775ee` al abrir.
