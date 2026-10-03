@@ -1,3 +1,78 @@
+## ALERT-247 - UNA CITA DE LINEA SIN SHA SE PUDRE SOLA, Y EL VALOR QUE TIENE AL LADO SI SE RE-DERIVA: EL PARRAFO PARECE MEDIDO HOY Y MIDE UNA BASE VIEJA
+
+**Hallazgo propio del ciclo, sobre el bloque que el ciclo anterior escribio.** Es la 3a falla
+del control de carga en 3 ciclos (ALERT-244: la tabla no estaba en el repo; ALERT-245: una fila
+`[x]` que decia *listo para arrancar*; **esta: la tabla esta, y su evidencia se pudrio**).
+El bloque de `HEARTBEAT.md` decia `las tres dan **4**` y citaba `L284, L384, L385` y
+`L200, L286, L415`. **Medido sobre `origin/main:BACKLOG.md`: 3 de esas 6 coordenadas ya no
+existen, y el `4` tambien esta desactualizado.**
+
+| lo que el parrafo afirma | medido @ `ac205dc` (base al escribirlo) | medido @ `7ffab62` (hoy) |
+|---|---|---|
+| `- [ ]` anclada en columna 0 | 4 | **5** |
+| `- [ ]` que tolera sangria | 4 | **5** |
+| `- [ ]` como subcadena | 7 | **8** |
+| casillas ABIERTAS con sangria | 0 | **0** |
+| casillas `- [x]` con sangria | L284, L384, L385 | L284, **L394, L395** |
+| lineas de ruido de la subcadena | L200, L286, L415 | L200, L286, **L425** |
+
+**La deriva es exactamente +10, y solo debajo del punto de insercion.** HB#174 abrio la fila
+`L298` (Fractal Tracker multicuenta): `+10` lineas y abiertas `4 -> 5`. Por eso `L200`,
+`L284` y `L286` siguen validas y `L384`, `L385` y `L415` no. **El corte lo predice y el numero
+lo confirma:** la deriva arranca despues de la fila insertada, no antes. Y como `L298 < L384`,
+el item insertado explica el corte entero sin que haga falta suponer nada.
+
+**POR QUE ES PEOR QUE UN NUMERO VIEJO: el numero VECINO si se re-deriva.** El valor que
+decide el modo de los 5 agentes (`5`) se re-mide cada ciclo, porque la tabla de control de
+carga se vuelve a contar. Lo que nadie vuelve a medir es **la cita**. O sea que el parrafo
+**mezcla una medicion de hoy con una coordenada de hace un commit, y se lee como una sola
+frase medida.** Un control que verifique el conteo daria verde sobre las dos mitades; uno que
+verifique la cita daria rojo sobre un archivo sano. **La segunda forma de ALERT-241:** ahi un
+contador mido solo la ultima linea; aca un conteo correcto convive con coordenadas que ya
+no existen. **Los dos son un numero sano al lado de una afirmacion que no.**
+
+**REGLA, y es la generalizacion de ALERT-243 al eje de las citas:**
+
+1. **Toda cita `L<n>` en un archivo de instrucciones lleva el sha al lado.**
+   `L425 @ 7ffab62`. Sin sha, la cita es una afirmacion que decae sola.
+2. **Lo que hay que citar es la forma, no la coordenada.** `3 casillas - [x] con sangria` se
+   re-deriva solo; `L284, L394, L395` hay que actualizarlo a mano, y nadie lo hace.
+3. **Un parrafo que mezcla un valor re-derivado con una cita congelada se lee como medido
+   hoy.** Si la medicion va a quedar escrita, lleva su base.
+
+**LO QUE NO SE CORRIGIO, a proposito.** El triple del fixture (`1 / 3 / 4`) **no lo puedo
+re-verificar: no tengo el fixture de 6 lineas** que el parrafo nombra. Con un fixture mio de
+6 lineas mido **`1 / 2 / 3`**, con control positivo (2 abiertas: 1 en columna 0 + 1 sangrada)
+y negativo (0 sin ninguna abierta) en verde. **Los dos instrumentos estan verdes y dan numeros
+distintos: la diferencia es el fixture, no la forma.** Cambiar `1/3/4` por `1/2/3` seria
+inventar el fixture del otro; dejarlo seria dejar un numero sin base. Queda `NO_MEDIDO` hasta
+que aparezca el fixture.
+
+**ERROR DE INSTRUMENTO PROPIO DEL CICLO (3, familia ALERT-79 / ALERT-165).**
+
+1. **Mi script de escritura escribio 2 archivos y aborto en el tercero.** Valide el 1ro, lo
+   escribi, valide el 2do, lo escribi, y el 3ro fallo (por un dato, no por sintaxis). O sea que
+   **valide las entradas una por una, justo al reves de mi regla**: un script que escribe
+   varios archivos tiene que validar **TODAS** antes de escribir **el primero**. El dano fue
+   chico porque las dos escrituras eran correctas y sus precondiciones se cumplian, pero el
+   orden es el que hace que un `ABORTA` a la mitad sea un estado que hay que entender, no un
+   error de sintaxis.
+2. **Un `indexOf(ancla) === 0` donde la ancla NO empieza en la posicion 0.** La linea del
+   bloque empieza con `>    ` y mi ancla arrancaba despues: `indexOf` daba **5**, no 0, y el
+   assertABILITABA un archivo sano. **Un assert con la forma equivocada no falla: por eso el
+   valor tiene que ser el que corresponde a la forma.**
+3. **Conteo de lineas contra conteo de saltos.** Afirme `lineas === 806` sobre un
+   `split(NL)` que da **807** elementos, porque el archivo tiene newline final y ese elemento
+   vacio es una linea mas. **El numero de lineas de un archivo con newline final es N+1**:
+   para afirmar hay que decidir cual de los dos se esta contando, y medirlo.
+
+**Y UN HALLAZGO QUE NO ES MIO PERO ME CORRIGE: mi propia prueba de HB#173 era FALSA.**
+Escribi que `BACKLOG.md` *no tiene ni una casilla con sangria*. **Tiene 3** (L284, L394, L395),
+las tres `- [x]`. Lo cierto es que **no hay ninguna ABIERTA con sangria**, que es por lo que
+las dos formas que discriminan coinciden hoy. **Y el riesgo real es el INVERSO al que
+escribi:** una sola `- [ ]` sangrada haria que `^- [ ]` la dejara de contar y el conteo caeria
+de 5 a 4 en silencio, y nadie veria el cambio. **Medido con las 3 formas, con fixture sano y
+fixture vacio:** `5 / 5 / 8` sobre `origin/main`.
 ## ALERT-244 - LA TABLA QUE DECIDE EL MODO DE LOS 5 AGENTES NO ESTA EN NINGUN ARCHIVO DEL REPO, Y SU PUNTERO ES COLGANTE EN LOS DOS EXTREMOS
 
 **Hallazgo del PO (HALLAZGO NUEVO 1, al responder ALERT-243), verificado en el mismo ciclo
@@ -7755,4 +7830,44 @@ Clase: ALERT-223 (un cero, o una lista vacia, que no significa nada), una dimens
 adentro: **la forma del filtro se eligio antes que el objetivo**, y el filtro elegido no
 filtra. Y de la familia del CR duplicado: **un comentario que describe una operacion
 distinta de la que hace el codigo de al lado.**
+## ALERT-248 (HB#177) — UNA FILA QUE DICE "ARCHIVADA CON FECHA" Y TIENE `[ ]` NO ESTA VIVA: ESTA MAL CLASIFICADA. Y EL CASO QUE LA ENCONTRA NO LO ENCONTRA NINGUN OTRO CONTROL.
 
+**El hallazgo.** El PO (HB#176) avisó que la fila de WvW Borderlands "dice PODADO y reencuadrado pero su casilla
+sigue `[ ]`". Es cierto, y **no lo detecto ningun control que ya teniamos** — ni el conteo del control de carga (que
+la contaba como trabajo abierto), ni `hb163-canales.mjs`, ni el banner. Porque **no hay ningun control que pregunte si el
+TEXTO de la fila concuerda con su GLIFO.** Todos los que existen preguntan cosas distintas: cuantos items hay, si el
+archivo esta sano, si las 3 formas coinciden. El control que hacia falta es una sola pregunta: **de las filas que dicen
+PODADA/CERRADA/ARCHIVADA, cuantas tienen `[ ]`?**
+
+**MEDIDO, y el numero es el que hace que no sea una exclamacion cualquiera.** De las **67 filas** de `origin/main:BACKLOG.md`,
+**29** dicen `PODAD|CERRAD|ARCHIVAD` en su titulo o sus primeras lineas. De esas 29, **28 son `[x]` y 1 es `[ ]`**.
+Es decir: la fila era **el unico desacuerdo de su clase**, y la clase tiene 29 miembros. Instrumento: `tools/hb177-l312.mjs`.
+
+**Y el caso es el INVERSO de ALERT-245, que es lo que lo hace instructivo.** ALERT-245 fue: una fila `[x]` que decia
+"listo para arrancar" — **el glifo mentia y el texto era el cierto**. Aca: **el texto ya lo habia resuelto** ("PODADO y
+reencuadrado", con la razon medida y el reencuadre escrito) y **lo que faltaba era bajar el veredicto al glifo**. El
+glifo es el que miente, porque el texto nunca se propago. La misma averia de "una medicion que no llega al artefacto que la
+decide" (ALERT-237), pero en `BACKLOG.md` y no en una fila de la mia.
+
+**LO QUE HACE MAS CARO ESTE CASO QUE ALERT-245: el conteo del control de carga.** ALERT-245 era una fila que **no se
+contaba** en el numero (sobraba en el archivo, no pesaba). Esta **pesaba**: `- [ ]` es exactamente lo que
+`c2_backlog_main.openItems` cuenta, y por eso la fila archivada estaba **dentro** del numero que decide si el PO
+investiga o poda. El control de carga estaba leyendo un trabajo que el propio archivo declaraba muerto, hace 2 rondas.
+
+**EL CRITERIO, y el control negativo que lo prueba.** `chk` se lee **por posicion** (el caracter que sigue al primer `[`
+de la fila), nunca con un test de subcadena sobre la linea completa — ver "instrumento" abajo. El negativo es: forzar
+`chk='x'` en las 29 podadas tiene que dar **0** desacuerdos. Da 0.
+
+**LA SEGUNDA MITAD, y es la que decide si el item sobrevive: reencuadrar NO es resolver.** La fila madre ya decia que lo
+construible es un VISOR de `/v2/wvw/objectives`, no un tracker. Archivar la fila madre **dejando el VISOR solo dentro de
+ella** deja el reencuadre escrito en una fila cerrada, que es la forma exacta de morir que el HB#143 documento (el
+razonamiento sobrevive en la prosa; el trabajo no entra en ninguna cola). Medido: **0 resultados de "VISOR" en `js/`**.
+Por eso el ciclo **hizo las 2 cosas**: archivo la madre **y** abrio el VISOR como fila nueva en `Pendientes (prioridad
+media)`. El conteo no se movio (5 -> 5) y ese **es** el punto: se cerro una fila muerta y se abrio una viva.
+
+**REGLA (extiende ALERT-245 a la direccion opuesta):** una fila que dice "archivada/podada/cerrada" con fecha tiene que
+tener el glifo que dice. Y **la comprobacion no es `grep "archivada"`**: es contar, sobre el subconjunto de filas que lo
+dicen, cuantas tienen el glifo de_item abierto. Un `grep` cuenta las menciones; el control cuenta el desacuerdo.
+
+Clase: ALERT-245 (glifo contra texto, direccion inversa), ALERT-237 (una medicion que no llega al artefacto que la
+decide), ALERT-223 (un conteo cuyo valor no significa lo que su nombre dice). Instrumento: `tools/hb177-l312.mjs`.

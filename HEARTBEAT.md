@@ -680,14 +680,22 @@ cuando la viva es la **35**.
 >    **La FORMA del conteo importa, y hay tres (ALERT-243).** Con un fixture de 6
 >    lineas que mezcla los dos casos, sobre un archivo real: la forma anclada en
 >    columna 0 da **1**, la que tolera sangria da **3**, y la subcadena sin ancla
->    da **4**. Sobre `origin/main:BACKLOG.md` las tres dan **4** hoy, y por eso
->    parecen la misma: **hoy no hay ninguna casilla ABIERTA con sangria** (hay 3
->    con sangria — L284, L384, L385 — y las 3 son `- [x]`). **Coinciden por
->    casualidad, no por contrato.** La forma que NO pierde un item abierto si
->    alguien lo indenta bajo un subtitulo es la que **tolera sangria**: la anclada
->    en columna 0 lo dejaria de contar en silencio (4 -> 3).
+>    da **4** (fixture de 6 lineas: 1 abierta en columna 0 + 1 sangrada + 2 de
+>    prosa que citan el glifo). Sobre `origin/main:BACKLOG.md` @ `7ffab62` las tres
+>    dan **5 / 5 / 8**. La anclada y la que tolera sangria **coinciden porque hoy no
+>    hay ninguna casilla ABIERTA con sangria** — las 3 con sangria son `- [x]`, y por
+>    eso aca no hay nada que citar por linea: **lo que hay que citar es la forma**,
+>    que es lo unico que se re-deriva solo. **Coinciden por casualidad, no por
+>    contrato.** La forma que NO pierde un item abierto si alguien lo indenta bajo
+>    un subtitulo es la que **tolera sangria**: la anclada en columna 0 lo dejaria de
+>    contar en silencio.
+>    **ALERT-247: toda cita `L<n>` de este bloque lleva su sha al lado.** Sin sha, una
+>    cita se pudre sola. HB#174 inserto 10 lineas en `L298` y las 3 referencias de
+>    linea de debajo quedaron +10 desfasadas, mientras el conteo de al lado se
+>    re-derivo bien. **El valor se refresca, la coordenada no, y el parrafo se lee
+>    como una sola medicion de hoy.**
 >    La subcadena **no puede discriminar nunca**: las 3 lineas de mas que agrega
->    (L200, L286, L415) son frases **escritas sobre este bug** que niegan el
+>    (L200, L286, L425 @ `7ffab62`) son frases **escritas sobre este bug** que niegan el
 >    estado abierto. O sea que **cada frase que el equipo escribe para explicar
 >    el fallo del glifo sube el conteo del contador roto.** La holgura de 1 entre
 >    7 y 8 no es un margen: es una tension que crece con la calidad del trabajo.

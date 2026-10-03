@@ -309,8 +309,8 @@
 - [x] **Homestead decoration collection tracker** — PO Prioridad #1 (post-promotion). API confirmada (`/v2/account/homestead/decorations`, `/v2/homestead/glyphs`, `/v2/account/home/cats`). 837+ decorations, max_count varía. Pattern: activities.js Home Nodes. ~15-20h. — 🟹 **FUNDIDA con "Homestead tracker: completar wiring" (ronda 40 del PO, HB#125).** Es la misma fila contada dos veces: este item depende de que exista el wiring, que es exactamente lo que no está (ver esa fila). `git ls-tree` del icono no devuelve nada. *"Construir el tracker"* y *"construir la cosa que el tracker trackea"* son el mismo item con distinto verbo. **Revisar: 2026-11-01**, junto con la otra.
 - [x] **New Items Awareness Feed** — ✅ COMPLETADO. js/activities.js v3.20.0 + assets/data/new-items-feed.json. NewItemsFeed module con fetch + abort/last-win (_fetchId), gn:activities:new-items cache key, localStorage fallback, GW2 API fetch para item details. Render dinámico en activities panel. (commit en agents/main)
 - [x] **Mobile PWA enhancement** — manifest.json + service worker. CSS breakpoints ya implementados. ~8-12h. — 🟹 **ARCHIVADA CON FECHA (ronda 40 del PO, HB#125). No se descarta: es idea del PO** (sale del análisis UX del flujo de API Key; la Bóveda en mobile es funcional pero no cómoda). No depende de nada, no tiene deadline, y hay items por delante. **Revisar: 2026-11-01.**
-- [ ] **WvW Borderlands - NO es un "map tracker", y el plazo no se puede escribir** -
-**PODADO y reencuadrado en la ronda 47 del PO (HB#160). MEDIDO contra `origin/main` @ `ceb5a60` y la API viva.**
+- [x] **WvW Borderlands - NO es un "map tracker", y el plazo no se puede escribir** -
+**ARCHIVADA CON FECHA (HB#177, 2026-10-03), sobre la PODA de la ronda 47 del PO (HB#160). MEDIDO contra `origin/main` @ `ceb5a60` y la API viva.**
 **(a) La premisa del producto no existe:** `/v2/wvw/borderlands` -> **404**, y `borderlands` no aparece en **ninguna de las 184 rutas** de
 `/v2.json?versions=all` (18 de las cuales son `/v2/wvw/*`). **(b) "la Bóveda tiene WvW objectives" es FALSO:**
 `git grep 'v2/wvw' -- js/ index.html` -> **1 sola línea**, `characters.js:505` (`/v2/wvw/ranks`, para poner el nombre del rango
@@ -329,6 +329,32 @@ lee del endpoint en pantalla.
     - **REENCUADRE:** lo construible es un **VISOR** del mapa (objetivos con `chat_link` para |Marcar| y `marker`), **no un tracker**.
 Un tracker con "vacío" pintado significa dos cosas distintas - "no lo completaste" y "no hay dato" - y el juego no las distingue.
 Mismo criterio que la rotación de fractales y que la corona del CM.
+
+  - 🗓️ **ARCHIVADA CON FECHA (HB#177, 2026-10-03). POR QUE HACE FALTA, y es una medicion, no una opinion:** de las **29**
+    filas de `BACKLOG.md` que dicen `PODADA`/`CERRADA`/`ARCHIVADA`, **28 son `[x]` y esta era la UNICA `[ ]`**
+    (`tools/hb177-l312.mjs`, con control negativo: forzar `chk='x'` en todas las podadas tiene que dar 0 desacuerdos).
+    O sea: la fila **ya decia** que estaba podada y seguia contando como trabajo abierto. Es el caso inverso de ALERT-245
+    (una fila `[x]` que decia "listo para arrancar"): alla el glifo mentia, **aca el glifo es correcto y el texto ya lo
+    resolvio — lo que faltaba era que alguien lo bajara al glifo.** El conteo del control de carga la contaba viva.
+  - **LO QUE ESTA FILA NO CIERRA, y por eso abro la fila de al lado en vez de resolverlo aqui:** el VISOR **no existe**
+    (medido: 0 resultados de "VISOR" en `js/`), asi que reencuadrar sin abrir item nuevo seria **dejar el reencuadre
+    escrito en una fila archivada**, que es exactamente como el HB#143 documento que mueren los items: el razonamiento
+    sobrevive, el trabajo no entra en ninguna cola.
+
+- [ ] **WvW: VISOR de `/v2/wvw/objectives` (VISOR, no tracker)** — 🟢 **REENCUADRADO desde la fila archivada de WvW
+  Borderlands (HB#177, 2026-10-03). MEDIDO en la fila madre, `origin/main` @ `ceb5a60`:** `/v2/wvw/objectives?ids=all`
+  -> **178 objetivos, 178/178 con `name`**, 178 con `chat_link`, 118 con `upgrade_id`, 97 con `coord`;
+  `/v2/wvw/upgrades` -> **48**, 3 tiers (15/20/35 yaks). Los nombres de mapa (`RedHome`/`BlueHome`/`GreenHome`/`Center`/
+  `EdgeOfTheMists`) **no hay que cathachearlos**: vienen en `map_type`.
+  - **Lo que hay que construir:** una vista que liste los objetivos con su `chat_link` para `|Marcar|` y su `marker`.
+    **Lo que NO hay que construir:** cualquier noción de "completado por cuenta". No existe: `/v2/account/wvw` devuelve solo
+    `{team, guild}`, y **NO hay forma de que la vista distinga "no lo completaste" de "no hay dato"** — que es
+    exactamente la razon por la que esto es VISOR y no tracker.
+  - **El plazo se lee del endpoint, no se escribe.** `/v2/wvw/timers/teamAssignment` es **rotativo**: medido el 2026-10-02
+    daba `na: 2026-10-03T02:00:00Z`, y el 2026-10-03 daba **`na: 2026-11-07T02:00:00Z`** — una rotación entera en 24 h.
+    Una fecha escrita en el backlog se caducaria sola.
+  - **Prioridad: la decide Pablo.** Hoy no existe ningun `js/` que pinte esto, y agregarlo es producto.
+
 - [x] **Inventory cleanup tool** — MetaForge WARDOGS competitive gap. ~15-20h. — 🟹 **ARCHIVADA CON FECHA (ronda 40 del PO, HB#125).** Gap competitivo real contra MetaForge WARDOGS, y el estimado más caro de la cola (**15-20h**), sin deadline ni dependencia. **Revisar: 2026-11-01.**
 
 ## Completed (referencia histórica)
