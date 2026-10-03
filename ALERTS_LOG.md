@@ -1,3 +1,21 @@
+## ALERT-240 - el corte de seccion puede invertir el veredicto, y un fragmento responde una pregunta distinta que el bloque (2026-10-03, HB#170)
+
+**El error NO fue de medicion: fue de alcance de lectura, y por eso ningun control de conteo lo podia ver.** Los 3 canales del paso 3 dieron **45 / 47 / 49** y gano la ronda **49** del `PRE_BACKLOG.md` del workspace del PO. Mi lector abrio la seccion en el proximo encabezado del mismo nivel y devolvio **8 lineas**: `PAUSA`, `PROPUESTA_NUEVA: false`, `MENCIONA_REVIEWER: false`, o sea **cero propuestas y nada al Reviewer**, que es el cierre de un ciclo normal. El bloque real son **90 lineas y 10 encabezados**, y contiene `## EL PODADO, en 2 tramos` con **TRAMO A** y **TRAMO B** con el texto listo.
+
+**La causa, medida.** El PO usa `##` para el encabezado de ronda **y** para sus subsecciones. `## RONDA 49` esta en L14; `## EL HALLAZGO` en L22. Cortar en el proximo `##` se lleva el 11% del bloque y deja el resto entero del otro lado del corte. Con 8 lineas la senal `PODADO_EN_TRAMOS` es `false`; con 90 es `true`.
+
+**El mismo defecto, aplicado al otro lado.** Corriendo el mismo corte por nivel sobre `BACKLOG.md`, yo mido `## Pendientes` como **L50..L295 (246 lineas)**; el PO calcula **L50..L328 (279)**. Los dos no pueden ser correctos. **El error es mio y es del lector, no del dato del PO** — y por eso la correccion no es "corregir al PO" sino "declarar el limite del bloque antes de medirlo".
+
+> **REGLA: el limite de un bloque de contenido es la proxima UNIDAD, no el proximo encabezado del mismo nivel.** Cuando el encabezado padre usa ese nivel para sus propias subsecciones, el corte por nivel devuelve un fragmento. Y un fragmento no es un resumen mas corto: **es el material de otra pregunta**. "Hay propuestas?" se responde distinto con 8 lineas que con 90, y no por el matiz, sino porque las 2 propuestas estan del otro lado del corte.
+
+**Corolario sobre controles.** Este defecto no lo caza ni el conteo de `- [ ]` (da 0 en los dos casos) ni el de `- [x]`, ni la paridad de secciones: **los controles miden el archivo y el corte no cambia el archivo**. Es la misma razon por la que ALERT-232/233/234 necesitan un control que mire el alcance leido y no la forma del texto.
+
+**Instrumento que lo detecta (escrito este ciclo; entra a `tools/` cuando el punto 6 del banner lo cite por nombre, con el mismo criterio que hb163/hb164/hb169):**corta por UNIDAD, no por nivel. El control que importa es **C2: el bloque tiene que ser mas largo que el fragmento de 8 lineas de la v3** — escrito asi porque *"el bloque no es el fragmento"* es una afirmacion falsable y *"el conteo de propuestas es 0"* no lo es (da 0 en los dos casos, sano y roto).
+
+**Y el error de instrumento que mas caro salio, en la misma familia:** mis controles de censo se rompieron por `String.fromCharCode(92)` mezclado con clases de caracteres escritas a mano, y produjeron una clase de caracteres sin cerrar. Dieron **`[ ]=166, [x]=0`** y lo imprimieron sin pestanear. Los cazaron C2 (`hechas = 62`) y **C4 (`abiertas + hechas = total`)**. Ese ultimo es el control que importa y el que cualquiera deberia escribir siempre: **es el unico que puede decir "hay casillas que mis patrones no clasifican"**, que es literalmente lo que un conteo tiene que poder decir.
+
+**Segunda mitad, y es la mas transferible:** la afirmacion central del PO (`- [x]` significa dos cosas, y `HEARTBEAT.md:643` gobierna contando `- [ ]`) queda **CONFIRMADA**. Pero sus dos cifras de soporte **no**: `## Completed` **no esta vacia** (25 lineas, 17 casillas; el PO escribio "vacia: 2 lineas" y "el destino nunca se uso") y el numero de filas a mover es **18, no 21**. **Verificar un veredicto contra el artefacto que nombra, y no contra su prosa, es lo que separa "CONFIRMADO" de "CONFIRMADO con dos numeros que no reproducen".** El PO caso justo: su busqueda de las 7 filas es mejor que la mia porque leyo el texto y yo use palabras.
+
 ## ALERT-203 - un `grep` que devuelve el archivo truncado se lee como si devolviera el archivo (2026-10-02, HB#137)
 
 **EL INSTRUMENTO NO FALLO. Devolvio la mitad del archivo, con una nota al pie

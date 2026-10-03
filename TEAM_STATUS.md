@@ -1,4 +1,91 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#170 - 2026-10-03 10:30-11:0x UTC - ALERT-240: TRUNCAR LA SECCION DE UNA RONDA CAMBIO EL VEREDICTO, Y EL PO TENIA DOS TRAMOS LISTOS
+
+> **Actualizado:** 2026-10-03 (HB#170) por el Principal.
+> Arranque 10:30:08 UTC. `origin/main` @ `b4eb160` (10:16:51 UTC) **anterior** al arranque, arbol **LIMPIO**, `origin/main..main` y `main..origin/main` **ambos vacios**, sin sesion `running`. Inbox vacio, replies sin novedades, **23 `overdue`** (HB#91-147, historicos).
+
+## HALLAZGO DEL CICLO (ALERT-240): EL CORTE DE SECCION, NO EL CONTENIDO, DECIDIO QUE HAY O NO TRABAJO
+
+**Lo que lei al principio, y por que estaba mal.** Los 3 canales del paso 3 dieron **45 / 47 / 49**: gana la ronda **49** del `PRE_BACKLOG.md` del workspace del PO. Mi lector de secciones la abrio en **8 lineas** y salio `PAUSA`, `PROPUESTA_NUEVA: false`, `MENCIONA_REVIEWER: false`. Traducido: **cero propuestas, nada al Reviewer**, y con eso habria cerrado el ciclo.
+
+**Lo que hay.** El bloque de la ronda 49 va de **L14 a L103: 90 lineas y 10 encabezados**. El contenido que decide el ciclo esta en las subsecciones: `## EL HALLAZGO` (L22), `### CONTROL que discrimina` (L38), `## EL PODADO, en 2 tramos` (L46), `### TRAMO A` (L48), `### TRAMO B` (L54), `## LO QUE NO AFIRMO` (L69), `## ERRORES MIOS` (L78), `## ESTADO` (L88), `## REGLA QUE SALE` (L96).
+
+**El defecto, medido:** el PO usa `##` tanto para el encabezado de ronda como para sus subsecciones, asi que "terminar en el proximo encabezado del mismo nivel" corta en L22 y devuelve **11% del bloque**. Con 8 lineas la senal `PODADO_EN_TRAMOS` era `false`; con 90 es `true`, y hay **2 tramos con el texto listo**.
+
+> **REGLA (ALERT-240):** el limite de un bloque de contenido NO es el proximo encabezado del mismo nivel, sino **la proxima UNIDAD**. Cuando el encabezado padre usa ese nivel para sus propias subsecciones, el corte por nivel devuelve un fragmento, y un fragmento **responde una pregunta distinta** que el bloque. Mismo archivo, mismo encabezado, veredicto opuesto.
+
+La segunda mitad del defecto esta en el artefacto del PO: el mismo corte por nivel, aplicado a `BACKLOG.md`, mide `## Pendientes` como **L50..L295 (246 lineas)** cuando el PO calcula **L50..L328 (279)**. Los dos numeros no pueden ser correctos, y la diferencia son subsecciones que el corte no ve. **No es un error del PO: es mi lector, aplicado a los dos lados.**
+
+## LO QUE DIJO EL PO (ronda 49) Y LO QUE MEDI
+
+Su tesis, textual: *"un control que cuenta un glifo no puede decidir sobre un archivo donde el glifo significa dos cosas"*. **CONFIRMADA, y es el hallazgo del ciclo.** `HEARTBEAT.md:643` manda *"Contar **items abiertos** (`- [ ]`)"*, y `BACKLOG.md` tiene **62 filas `- [x]` de las cuales 7 llevan decision de producto viva** en su propio texto (L299 `PENDIENTE DECISION` + `NO CERRADA`, L304 `FUNDIDA`, L368 `ARCHIVADA CON FECHA`...). Con 4 el modo es **PAUSA**; si esas 7 se contaran serian 11 y seria **MODO PODA**. La escalacion que la regla nunca dispara existe.
+
+Medido en `origin/main:BACKLOG.md` @ `2561416` (el commit que nombro el PO) **y** @ `b4eb160` (el actual): **idénticos**, asi que no hay deriva entre los dos commits.
+
+| magnitud | dice el PO | medido | veredicto |
+|---|---|---|---|
+| lineas del archivo | 455 | 455 | OK |
+| casillas `- [` | 66 | 66 | OK |
+| `- [ ]` abiertas | 4 | 4 | OK |
+| `- [x]` hechas | 55 + 7 = 62 | 62 | OK |
+| `## Pendientes` abre en | L50 | L50 | OK |
+| `## Completed` abre en | L329 | L329 | OK |
+| `[x]` con decision viva | 7 | 7 por lectura de texto / 15 por mi regex de palabras | **el del PO es mejor** |
+| items a mover (TRAMO A) | 21 | **18** | el PO exagera en 3 |
+| `## Completed` "vacia: 2 lineas, el encabezado y el blanco" | vacia | **25 lineas y 17 casillas** | **FALSO** |
+| `## Pendientes` | L50-L328 (279) | **L50-L295 (246)** | mi lector, no el PO |
+
+**Sobre el 7 vs 15:** mi detector busca palabras (`ARCHIVAD`, `DESBLOQUEAD`, `FUNDID`) en la fila y sus 4 siguientes, y me da 15. Varias de esas 15 son items **hechos de verdad** cuya prosa menciona "archivada". **Un detector de palabras no puede separar "hecho" de "aplazado"**; el PO leyo el texto de las 66 y por eso su 7 es el numero bueno. Es ALERT-223 aplicado a una columna de prosa: mi numero es mas alto y peor.
+
+## POR QUE NO APLIQUE EL TRAMO A
+
+El PO lo cede porque su `AGENTS.md` le prohibe escribir `BACKLOG.md`, o sea que la escritura es mia. **No lo aplico, y la razon es medida, no de estilo:**
+
+1. **Su premisa de carga es falsa.** "Mover 157 lineas a la seccion que ya existe **y esta vacia**... el destino ya existe y **nunca se uso**." La seccion `## Completed` tiene **25 lineas y 17 casillas**. El destino existe y se uso. El Tramo A no es "mover a un destino vacio", es **anexar a un archivo que ya tiene 17 items** — otra operacion, con su propiarevision de solapamiento, que el PO no hizo porque creyo que no habia nada ahi.
+2. **Su numero de items no reproduce.** Dice 21; con sus propios numeros (23 casillas en `## Pendientes` = 20 hechas + 3 abiertas, y 7 hechas con decision viva) salen **18**, no 21. Mover 18 en vez de 21 deja **3 filas** en un estado que el tramo prometia unificar.
+
+**Ninguna de las dos correcciones es pequena: la primera cambia **que** se hace, la segunda cambia **cuanto**. Aplicar una mudanza de 157 lineas sobre una premisa de destino falso es exactamente el riesgo que el propio PO advierte en su punto 3 del Tramo A: *"si moviera las 157 lineas a ciegas, enterraria 6 decisiones de Pablo"*. Con 17 items de por medio en el destino, el numero de decisiones en riesgo es mayor que el que el midio.**
+
+## EL TRAMO B PARTE EN DOS, Y SOLO UNA NECESITA TOCAR LA REGLA
+
+El PO escribe: *"cambiar `- [x]` por `- [~]` en las 7 filas, y **actualizar `HEARTBEAT.md:643`**, que hoy manda contar `- [ ]` y por eso hay que tocarlo junto, no despues"*, y ofrece dos salidas: que `[~]` cuente como abierto (11 items, MODO PODA) o que no cuente (4 items, PAUSA). Dice que no elige y que es decision de Pablo o del Principal.
+
+**Medido: la regla y el glifo estan desacoplados.** `HEARTBEAT.md` tiene **una sola** mencion del glifo (L643) y **cero** menciones de `- [x]` o `- [~]`:
+
+- **B1 - las 7 filas pasan a `- [~]` y NO cuentan.** El conteo sigue dando **4**, el modo sigue siendo **PAUSA**, y **`HEARTBEAT.md` no necesita ninguna edicion**: L643 cuenta `- [ ]`, y una fila `[~]` no es una fila `- [ ]`. El glifo queda honesto y el numero no se mueve. **Es un cambio sin consecuencia operativa.**
+- **B2 - ademas `[~]` cuenta como abierto.** El conteo pasa a **11** y el modo a **MODO PODA**. **Este si** necesita editar L643. Es un cambio de modo de TODO el ecosistema.
+
+**La acoplacion que el PO afirma ("hay que tocarlo junto, no despues") es cierta solo para B2.** El PO agrupo un cambio cosmetico con un cambio de modo y concluyo que los dos requieren lo mismo. Separados, uno es gratis y el otro es una decision de Pablo. **No decido B2 en un cron de 30 min: cambia el modo de corrida de los 5 agentes.** B1 lo dejo propuesto y medido.
+
+## LO QUE YA ESTABA RESUELTO Y EL PO NO MENCIONA
+
+`BACKLOG.md:354` es literalmente una seccion llamada **`## Pendientes que el control de carga no contaba (HB#125)`**, con 3 casillas (L366, L367, L368) **las tres `[x]` con decision viva**. O sea: **la ambiguedad del glifo se detecto y se atendio en el HB#125**, hace 45 rondas, y la atencion fue **nombrar la seccion**, no cambiar el glifo. El PO escribe *"hoy el numero es un accidente"* y es verdad que hoy 4 no es "cuanto trabajo hay" — pero **no es hoy el primer dia que se sabe**: hay un precedente en el mismo archivo, y el precedente chose distinto. Lo que si es nuevo y valioso del PO es **el recuento y la regla**, no el diagnostico.
+
+## ESTADO DE LA RONDA 49 PARA EL PASO 3
+
+**NO se mando nada al Reviewer, y la razon es la prosa, no un conteo.** Es la **novena vez** de "correcto por la razon equivocada". Matiz importante: en los ciclos previos la conclusion se sostenia por la prosa porque el `0` del canal del PO no era medicion; hoy el `0` **sigue sin ser medicion** (`marcadorPresente: 0`, `openItemsDiscrimina: false`) pero la lectura del bloque completo **si** dice PAUSA, y dice tambien que la corrida entera es podado. Ademas **las 2 propuestas son para mi, no para el Reviewer**: el PO no las manda al Reviewer porque el Reviewer no tiene nada que ver con `BACKLOG.md`. Enviarlas seria mandarle al revisor de codigo una mudanza de un log.
+
+## ERRORES DE INSTRUMENTO PROPIOS (4, familia ALERT-79)
+
+1. **`String.match(/re/g)` no devuelve grupos de captura.** `m[1]` quedo `undefined`, `Number(undefined)` = `NaN`, y un `sort` que compara `NaN` es un **no-op silencioso**: la lista salio en orden de documento y parecio ordenada. El script v1 "funciono" porque el archivo ya venia en orden descendente. **Correcto por la razon equivocada, y el `NaN` no rompio nada visible.**
+2. **`write_file` convierte un escape de newline dentro del contenido en un salto de linea real.** Un regex con `CR?` y `LF` quedo sin cerrar y el modulo no arranco. De ahi la regla de este script: **cero backslashes en los `.mjs` que escribo**, `LF` y `CR` por `String.fromCharCode`.
+3. **Construir un regex con concurrencia de escapes es mas caro que el error que evita.** Mezcle `String.fromCharCode(92)` con clases escritas a mano y produje una clase de caracteres sin cerrar: dio **`[ ]=166, [x]=0`**. Lo cazaron los controles C2/C4, y C4 (`abiertas + hechas = total`) es el que mas importa: **es el control que detecta "hay casillas que mis patrones no clasifican"**, que es exactamente lo que un conteo tiene que poder decir.
+4. **Un control escrito sin medir el caso sano es una opinion con exit code** (3a vez, ya estaba escrito en mi MEMORY del HB#165). Escribi `el sort tiene que diferir del orden del documento` y dio ROJO: el archivo **ya esta** en orden descendente, asi que un sort correcto es un no-op sobre este input. **El control era invalido, no la herramienta.** El que si discrimina es: sort del array **revesado** => tiene que devolver el maximo.
+
+Menor: `const_neg` por `c_neg` (ReferenceError). Y una corrupcion mia de escritura, `el POuate` por `el PO dice`, cazada releyendo.
+
+## VERIFICACION DE DISPARADORES (ALERT-239, 2 capas)
+
+`tools/hb169-capas.mjs`: **4/4 controles OK, exit 0**. 6 estados distinguibles y `NO_MEDIDO` que nunca se imprime como 0. Repite que `cron list` por query param da la **lista GLOBAL** con HTTP 200: PO `header=1 / query=2`. Los 4 agentes medidos en las 2 capas; los 3 con disparador (Principal, PO por cron; Documentador por heartbeat interno 4h). **Sin incidente de crons.**
+
+## BANNER
+
+`tools/hb164-espejo.mjs`: **13 controles OK**, paridad `<!--`/`-->` **136/136** en los dos, sin sangria imposible, sin EOL mixto. Canonico y espejo sano. **El paso 3 de este archivo no lo toco**: el hallazgo ES del banner (falta un punto que mida el corte de seccion de ronda, que es la forma general de ALERT-240), pero el banner acumula incidentes y anadir un punto exige ademas regenerar el espejo y correr los 2 controles. Va para un ciclo dedicado. Precedente: `hb163-canales.mjs` existio un ciclo antes de entrar al banner.
+
+## PENDIENTE
+
+Sin cambio: (1) **ALERT-41** (falta el body crudo de `/v2/account/raids` con token real de Pablo); (2) **ALERT-179**; (3) **T14/T15**; (4) los **7 del patron B**; (5) **Idea 57**, los 4 wrappers; (6) **FILTRO-05**; (7) **ALERT-235 ABIERTA** (los 2 `PRE_BACKLOG.md`); (8) `task-6cc3851b8d15` **404**, **9o ciclo**, terminal; (9) **nuevo:** aplicar ALERT-240 al banner de `HEARTBEAT.md` (punto 6); (10) **nuevo:** los 3 items de la ronda 49 — **B1** (glifo `[~]`, sin cambio de modo, sin editar la regla) a proposito; **B2** (modo MODO PODA) **a Pablo**; **TRAMO A** rehecho sobre destino con 17 items y 18 filas.
+
 
 
 # HB#169 - 2026-10-03 10:00-10:4x UTC - ALERT-239: EL INSTRUMENTO DE LA REGLA DE CRONS MIENTE EN LOS DOS SENTIDOS, Y MI SCRIPT NUEVO MIDIO CON LA FORMA EQUIVOCADA
