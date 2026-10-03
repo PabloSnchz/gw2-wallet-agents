@@ -42,9 +42,13 @@
 <!-- distintos sin que importe. El criterio util es SEMANTICO:                  -->
 <!--                                                                          -->
 <!--   1. Los dos tienen los MISMOS titulos de seccion `### `.                -->
-<!--   2. NINGUNO dice `PASO 3 ... (CORREGIDO HB#103)`. Ese sufijo ES la      -->
-<!--      senal del arbol defective. Si aparece, el archivo que lo tiene esta     -->
-<!--      rancio, aunque tenga el resto bien.                                   -->
+<!--   2. Los dos tienen el paso 3 que RESUELVE la rama, no la que la fija.   -->
+<!--      Este banner NO transcribe el titulo de la version vencida a        -->
+<!--      proposito (seria justo lo que el control busca): un control que se   -->
+<!--      puede disparar con el material que controla deja de ser control.    -->
+<!--      La senal es la AUSENCIA de `for-each-ref`, y una ausencia no se      -->
+<!--      puede falsear por mencionarla. Ver los 2 comandos de arriba.        -->
+<!--                                                                          -->
 <!--   3. La rama del PO se RESUELVE (la mas reciente), nunca se pinea.        -->
 <!--      Ver "PASO 3 del ciclo".                                              -->
 <!--                                                                          -->
