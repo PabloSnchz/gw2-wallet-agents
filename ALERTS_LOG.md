@@ -6629,3 +6629,160 @@ correcta al closing (producto en un clon compartido) la fijo el HB#152.
 
 **No toco `ARME_TRABAJO_NOCHE.md`**, que tiene la misma premisa falsa que el
 bloque que el HB#153 ya corrigio: es documento del Arquitecto.
+
+## ALERT-226 (2026-10-03, HB#156) - HABIA DOS `HEARTBEAT.md` QUE NO ERAN EL MISMO DE DOS GENERACIONES, Y LA INTERSECCION DE LO QUE LES FALTABA ERA VACIA
+
+**Lo que hay que leer primero: la correccion vivia en el archivo que nadie
+ejecutaba, y el defecto en el que se ejecutaba.** Cada copia tenia lo que a la
+otra le faltaba, en las DOS direcciones. No es un archivo desactualizado: es
+un archivo que quedo RANCIO en el sentido fuerte.
+
+### Medido (no es hipotesis; las dos copias se compararon por hash de contenido)
+
+| | repo `gw2-dev/HEARTBEAT.md` | workspace `default/HEARTBEAT.md` |
+|---|---|---|
+| lineas | 188 | 415 |
+| secciones `### ` | 11 | 17 |
+| secciones de MISMO TITULO y contenido IDENTICO | 6 | 6 |
+| secciones de mismo titulo y contenido DISTINTO | 2 | 2 |
+
+**Solo en el repo:** el `PASO 3` version HB#114 — **la correccion**.
+
+**Solo en el workspace:** `PASO -1` rescate, `PASO 0`, `PASO 1`, regla de
+espera, reglas de comunicacion con el Reviewer, cierre de worktrees — y el
+`PASO 3` version HB#103 — **el defecto, que era el que el cron ejecutaba**.
+
+### Por que el defecto no se veia: hoy el paso 3 acerto POR LA RAZON EQUIVOCADA
+
+El paso que se ejecutaba leia una rama pineada del PO:
+
+```
+  lo que leia el cron   origin/po/hb99-dashboard   2026-10-01 13:12  ronda 33
+  la que estaba viva    origin/po/hb150-poda       2026-10-02 19:07  ronda 45
+```
+
+(18 refs `po/*`; verificado con `git for-each-ref --sort=-committerdate`.
+**~30 horas de retraso y 12 rondas del PO invisibles.**)
+
+La ronda 33 tiene T12 ya cerrado -> el conteo da menos de 3 -> la regla "si no
+da 3, no se fuerza" frena el paso. **El resultado coincide con el correcto y
+por eso nadie lo ve.** Mañana, si la 33 tuviera 3 items vivos, el paso habria
+mandado 3 propuestas de hace dos dias sin avisar. Es el **mismo bug que el
+HB#103**, con **otro archivo equivocado**: en el HB#103 el contador leia
+`PRE_BACKLOG.md` (del workspace, que el PO reescribe) y hoy lee una rama
+pineada (del repo, que envejece).
+
+### Los 14 enunciados falsos, y con que medicion se mataron
+
+No se borro nada por confianza: cada uno se midi antes. **14 falsos / 14 muertos.**
+
+| Enunciado | Medicion que lo refuta |
+|---|---|
+| titulo "CRON ACTIVO — MODO MANUAL por re-inyeccion"; "el banner previene ejecucion automatica"; "heartbeats #14-#26 manuales" | `qwenpaw cron list`: cron `13dc22e6` -> **`enabled: true`**, corre cada 30 min. El banner se contradecía a si mismo: linea 24 "CRON REACTIVADO" y linea 27 "el banner evita ejecucion automatica" |
+| seccion 1: re-inyeccion "CRITICA, 10ma consecutiva", causa raiz "el cron esta pausado", "necesita intervencion de plataforma" | `agent.json`: `heartbeat = {"enabled":false,...}`. La re-inyeccion solo ocurre en `app/crons/heartbeat.py:207`, que es el heartbeat INTERNO: si esta apagado, no puede estar inyectando. **Y el cron no esta pausado** |
+| "Phase 3 awaiting API connection for recipe components (GW2 API limitation)" | `tools/cl_recipes.json`: **634 recetas, las 634 con ingredientes** (352 crafting, 278 mystic_forge, 4 vendor). No hay limitacion de API |
+| seccion 3: Reviewer "TIMEOUT 10x (session_id mismatch)" | veredictos completos recuperados en HB#148/151/152. El fallo real es otro: `Max iterations (100) reached` cuando la pregunta es grande (ALERT-225), no caida del agente |
+| "inventory-dashboard fixes / Homestead tracker — Reviewer DOWN" | misma premissa del anterior |
+| seccion 5: PO "TIMEOUT (platform bug)" | `origin/po/hb150-poda` con committerdate **2026-10-02 19:07**, ronda 45. El PO produce; lo que estaba caido era el LECTOR |
+| "Sept 29 CM content AWAITING promotion" / "CM launches TODAY (Sept 29)" | el banner del mismo archivo decia "PROMOVIDO a origin (9423 verificado)", y Sept 29 hace 4 dias |
+
+**Una NO se toco: Documentador "TIMEOUT 6x".** No se puede afirmar un numero que
+nadie volvio a contar (`cron list` del documenter no devolvio nada). Se marco
+"SIN MEDIR en este ciclo", no se invento el valor. **REGLA: un numero sin
+fecha de medicion no se propaga a una correccion; se marca como no medido.**
+
+### Que quedo (delegado por Pablo: canonico en git, espejo regenerado)
+
+- **Canonico = el del repo** (`gw2-dev/HEARTBEAT.md`), porque git es lo que
+  sobrevive a que se borre un workspace. **Espejo = el del workspace**,
+  regenerado desde el canonico. **Si divergen, gana el canonico.**
+- El canonico quedo con **las 13 secciones**: las 11 del repo + las 6 que solo
+  tenia el espejo. Canonicalizar el repo sin haber movido esas 6 las habria
+  borrado — ese era el riesgo de la operacion y no se dio.
+- Banner arriba del canonico: quien es canonico, quien es espejo, quien gana,
+  por que existio, y **con que criterio se comparan**.
+- **`PASO -0` nuevo, el primero del ciclo**: regenerar el espejo y correr los
+  2 chequeos. Una regla en un banner es documentacion; en el orden del ciclo
+  es un paso (es el mismo criterio por el que escribi el `PASO -1`: una regla
+  escrita en un documento no detiene nada).
+- `PASO 3` del workspace (HB#103) -> version **HB#114** del repo, textual.
+- `PASO -1` **NO se toco**, como pediste.
+
+### La clase, y por que esto vuelve a pasar si no hay senal
+
+Un archivo de instrucciones que existe en dos sitios sin regla de precedencia
+es un archivo con **dos fuentes de verdad y ninguna**：cada autor escribe en la
+que tiene abierta, y la divergencia no la detecta nadie porque **las dos
+copias son legibles y ambas parecen autoritativas**. Git no lo evita: las dos
+estaban en git, o la otra ni siquiera estaba.
+
+**REGLA 1 (por que este caso no era visible):** *la interseccion tiene que
+estar medida, no supuesta.* "El del repo esta viejo" y "el del workspace esta
+nuevo" describen la misma divergencia desde los dos lados y no dicen nada de
+si uno tiene algo que el otro no. El numero que lo revelo fue **6 secciones
+identicas sobre 8 de mismo titulo**: dos archivos con 11 y 17 secciones no
+son dos versiones del mismo documento, son dos documentos.
+
+**REGLA 2 (la accionable):** *cuando la regla viva y su copia se separan,
+tiene que existir un SENAL, y el senal tiene que medir lo que importa.* Por eso
+los 2 chequeos del banner **no comparan bytes**:
+
+- `for-each-ref` presente = el paso 3 **resuelve** la rama; ausente = tiene la
+  version pineada. **Es el chequeo que habria parado este bug.**
+- paridad del numero de secciones `### ` entre las dos copias.
+
+### Dos errores de instrumento PROPIOS, ambos del mismo genero
+
+**(1) Un control que compara la cantidad y llama "contenido" al resultado.**
+Mi primer diff de secciones|reportaba "mismo cuerpo" comparando el **numero de
+lineas** de cada seccion, no su contenido. Con eso dio 8 de 8 identicas cuando
+en realidad `Acciones pospuestas` — justo la que contenia el enunciado falso de
+la Phase 3 — era distinta en las dos copias. **Un conteo de lineas no es una
+comparacion de contenido; es un conteo de lineas con otro nombre.** Rehice el
+dif con sha1 por seccion y ahi aparecio.
+
+**(2) Un control que se puede disparar con el material que controla deja de
+ser control — 2a vez, y es la misma del HB#151.** El marcador de la version
+vencida era el titulo exacto de la seccion, y **el banner que escribiCITABA
+ese marcador para explicar el criterio**: el chequeo que busca ese marcador lo
+marcaba a si mismo. Se resolvio describiendo la senal en vez de citarla — la
+senal es la **ausencia** de `for-each-ref`, que no se puede falsear por
+mencionarla.
+
+**(3) Un casi-dano que el control de encoding no estaba hecho para ver:**
+escribi el canonico en **LF** sobre un archivo que era **CRLF** (187 CRLF, 0
+LF). Sin medir los fines de linea, el proximo diff habria mostrado las 188
+lineas del archivo entero. `core.autocrlf=true` lo habria neutralizado en el
+commit, y aun asi el working copy queda con un warning permanente. Medido antes
+de commitear: `git diff --stat` = 419/63 (no 544/188). Normalizado a CRLF.
+**REGLA: un control de encoding que mira caracteres no mira el archivo — el
+fin de linea es parte del encoding.**
+
+### Hallazgo lateral, PENDIENTE DE DECISION DE PABLO (no se toco el PASO -1)
+
+El `PASO -1` del HB#153 compara `git log -1 --format=%ci origin/main` contra la
+**hora de arranque del ciclo**. Al aplicarlo en este ciclo me dio **"escritor
+VIVO -> ciclo de solo lectura"**, porque `origin/main` era `e1dfb69` (23:08) y
+yo arranque a las 22:45. **El commit era del HB#155, que arranco DESPUES de
+que yo terminara: construyo sobre mi `23e2fea`.** O sea: no habia escritor
+concurrente, habia un ciclo **secuencial**, y el `PASO -1` no tiene forma de
+distinguir "otro ciclo escribio" de "el ciclo anterior escribio".
+
+**El HB#155 lo topo solo y escribio el mismo hallazgo** ("la guardia de escritor
+vivo se disparo y se libero sola; 'vivo' es un instante, no un estado"), asi que
+es la segunda vez que el mismo guard se dispara solo en dos ciclos seguidos.
+El costo es real: **cada ciclo que pushea se auto-declara de solo lectura al
+ciclo siguiente.**
+
+**NO se modifico el `PASO -1`**, porque pediste explicitamente no tocarlo y la
+correccion es una condicion (excluir los commits propios), no una reescritura.
+Queda esperando tu palabra.
+
+### Verificacion
+
+- **Suite completa: 2272 aserciones / 0 FAIL (85 de 85 archivos)**. Ningun test
+  lee `HEARTBEAT.md` (verificado con `findstr /s /m` sobre `tests/`), asi que la
+  suite no podia verse afectada — se corrio igual.
+- 2 chequeos del banner ejecutados contra las DOS copias: ambos **OK**.
+- `for-each-ref` presente en canonico y espejo; ninguna rama pineada.
+- BOM: no. CJK: 0. U+FFFD: 0. Delta contra el respaldo pre-canonico: 0.
