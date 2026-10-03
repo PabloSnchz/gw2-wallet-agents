@@ -1,6 +1,43 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
+ * Versión: 2.33.0 (2026-10-03) — `getSkinsBatch(ids, opts)`: resuelve los ids
+ *   de skin de una cuenta a su FICHA (nombre, icono, rareza), que es lo que
+ *   faltaba para que la fila "Coberturable account-scoped multicuenta"
+ *   (BACKLOG.md L88) pueda tener un call site. El Tramo 1 entrego solo el
+ *   `Array.isArray` de ids: sin esto, un call site tendria una lista de
+ *   numeros, que es exactamente lo que el BACKLOG dice que "no le sirve a
+ *   Pablo". Sigue siendo SOLO la capa de datos: todavia no hay call site ni
+ *   pantalla, asi que NO cambia lo que Pablo ve.
+ *   Las tres cifras de la v2.32.0 que este tramo usa, RE-MEDIDAS en vivo
+ *   (HB#154) en vez de heredadas, y una estaba mal:
+ *     - `/v2/skins?ids=all` -> 400 "unable to use 'all' keyword for this
+ *       API". Confirma la trampa de BACKLOG L88.
+ *     - Lote de 201 ids -> 400 "id list too long; this endpoint is limited to
+ *       200 ids at once". O sea que el limite DURO es 200 y el error lo dice
+ *       textual; el `chunk = 100` de `meta.js:294` que citaba la v2.32.0 es
+ *       un molde, no el limite, asi que aca se parti en 200.
+ *     - CORRECCION: la v2.32.0 anotaba "200 ids todos validos -> 200/200".
+ *       FALSA para el rango que uno usaria de verdad: `?ids=1..200` da
+ *       **206 con 188** (faltan 15,61,127,128,135,136,148,181,182,192,194,
+ *       200). El 206 depende del CONTENIDO y no del tamano: `?ids=1,2,3` da
+ *       200 y `?ids=1,2,3,99999997` da 206 con 3. O sea que el PRIMER lote
+ *       real de una cuenta puede ser 206 y no es un error.
+ *   Y UN HALLAZGO QUE CORRIGE UNA NOTA DEL TRAMO 1 (HB#152). La recomendacion
+ *   era "copiar `getItemsMany`, no `meta.js:batchItems`", por el 206. MEDIDA,
+ *   esa razon no se sostiene para `/v2/skins`: tanto `meta.js:batchItems` como
+ *   `jfetch` tratan el 206 bien (`res.ok` es true y sale el array parcial), asi
+ *   que los 188 de cada 200 llegan igual por los tres caminos. Peor: como los
+ *   ids ausentes son ids que el catalogo NO TIENE, re-preguntarlos da 404
+ *   SIEMPRE, o sea que `fetchBatchWithRepair` agrega en este endpoint un
+ *   round-trip que falla por lote, a cambio de nada. Por eso este lote va por
+ *   `fetchWithRetry` + un guard de forma propio, que ademas propaga en vez de
+ *   degradar a `[]` como hace el helper (`Idea 57 T2`).
+ *   El catalogo NO va a `localStorage` (a diferencia de `getItemsMany`): son
+ *   ~10.632 fichas y la cuota medida da ~4.98 MB (Idea 49). Va a memoria con
+ *   `TTL.ITEMS` (24 h), que es metadata estatica; `TTL.SKINS` (6 h) es para
+ *   la lista de la cuenta, que cambia con una compra.
+ *   Test: tests/hb154-skins-catalogo.test.js.
  * Versión: 2.32.0 (2026-10-02) — `getAccountSkins(token, opts)`: el primer
  *   endpoint de la lista "Coberturable account-scoped multicuenta" que pide la
  *   idea del PO de las 18:00 UTC (12 endpoints `/v2/account/*` sin tocar; el
@@ -473,6 +510,14 @@
 
   var __mem = new Map();
   var __inflight = new Map();
+
+  // Catalogo de skins resuelto id -> ficha. EN MEMORIA, a proposito y no por
+  // descuido: `getItemsMany` persiste porque los items ya hacen falta en
+  // varias superficies, y este catalogo son ~10.632 fichas que hoy nadie
+  // pide. Persistirlo seria una familia de clave mas cerca del techo de
+  // cuota medido (Idea 49: ~4.98 MB, con 27 cuentas de logros ya en
+  // 14.22 MB) y el unico escape pasaria a ser `cacheClear`.
+  var __skinsMeta = Object.create(null);
 
   // ---- Pool global de requests (Idea 46, t1) ------------------------------
   // El limite MAX vivia duplicado dentro de cada dashboard, o sea que era
@@ -1467,6 +1512,136 @@
   }
 
   // ========================================================================
+  // Catalogo de skins en lotes: id -> ficha (v2.33.0, Tramo 2 de Coberturable)
+  // ========================================================================
+  //
+  // MEDIDO EN VIVO (HB#154), y no heredado de la v2.32.0, que habia anotado
+  // "200 ids todos validos -> 200/200":
+  //   ?ids=all            -> 400 "unable to use 'all' keyword for this API"
+  //   ?ids=<201 ids>      -> 400 "id list too long; this endpoint is limited
+  //                                to 200 ids at once"
+  //   ?ids=1..200         -> 206 con 188  (faltan 15,61,127,128,135,136,
+  //                                    148,181,182,192,194,200)
+  //   ?ids=1,2,3          -> 200 con 3
+  //   ?ids=1,2,3,99999997 -> 206 con 3    (3 validos + 1 invalido)
+  //   re-preguntar SOLO los que faltaron -> 404 "all ids provided are invalid"
+  //
+  // LAS DOS QUE DECIDEN EL DISENO:
+  //
+  // (1) EL 206 DEPENDE DEL CONTENIDO, NO DEL TAMANO. Un lote de 3 ids puede
+  //     ser 206, asi que tratar "distinto de 200" como error rompe en el
+  //     PRIMER lote real de una cuenta.
+  //
+  // (2) ESTO VA POR `fetchWithRetry` A SECAS, SIN `fetchBatchWithRepair`, y es
+  //     lo contrario de lo que anotaba el carnet del Tramo 1. MEDIDO: `jfetch`
+  //     trata el 206 bien (`res.ok` es true y sale el array parcial), asi que los 188 de
+  //     cada 200 llegan igual por los tres caminos posibles. Y como los ids
+  //     ausentes son ids que el catalogo NO TIENE, re-preguntarlos da 404
+  //     SIEMPRE: el helper agregaria un round-trip que falla por lote a cambio
+  //     de nada. Se toma el helper de `getItemsMany` solo como molde de LECTURA
+  //     (no rellenar por posicion, buscar por `obj.id`), que esa parte si vale.
+  var SKINS_BATCH_MAX = 200;
+
+  function getSkinsBatch(ids, opts) {
+    opts = opts || {};
+    var pedido = Array.isArray(ids) ? Array.from(new Set(ids)) : [];
+    var asked = pedido
+      .filter(function (x) { return x != null && x !== '' && isFinite(Number(x)); })
+      .map(Number);
+    if (!asked.length) return Promise.resolve([]);
+
+    // TTL: `TTL.ITEMS` y NO `TTL.SKINS`. Esta es metadata de catalogo, que
+    // cambia el dia de parche; los 6 h de `TTL.SKINS` son para la lista de la
+    // cuenta, que cambia con una compra. Mezclarlos haria re-preguntar el
+    // catalogo cuatro veces mas sin ningun motivo.
+    var out = [];
+    var missing = [];
+    asked.forEach(function (id) {
+      var c = opts.nocache ? null : __skinsMeta[id];
+      if (c && isFresh(c, TTL.ITEMS)) out.push(c.val);
+      else missing.push(id);
+    });
+
+    var chain = Promise.resolve();
+    for (var i = 0; i < missing.length; i += SKINS_BATCH_MAX) {
+      (function (slice) {
+        chain = chain.then(function () {
+          var url = withParams(CFG.API_BASE + '/v2/skins', {
+            ids: slice.join(','),
+            lang: CFG.LANG
+          });
+          var ikey = 'if:skins:' + CFG.LANG + ':' + slice.join(',');
+          return inflightOnce(ikey, function () {
+            return fetchWithRetry(url, opts).then(function (data) {
+              // FORMA, y PROPAGA (no degrada). El helper de items baja una forma
+              // no soportada a `[]` con un `console.warn`, y para esta pantalla
+              // eso seria justo el fallo que la fila quiere evitar: una
+              // coleccion vacia que se lee como "no tenes skins". Aca el error
+              // sale con el tipo real y lo recoge el `catch` del lote.
+              if (!Array.isArray(data)) {
+                throw new Error('skins: forma no soportada (devolvio ' +
+                  (data === null ? 'null' : typeof data) + ' donde se esperaba un array)');
+              }
+
+              // Y el guard del ELEMENTO: este endpoint devuelve OBJETOS con
+              // `id`, al reves que `/v2/account/skins`, que devuelve escalares.
+              // Se busca por `obj.id` y NUNCA por posicion (el motivo esta
+              // escrito en `missingFromBatch`): el 206 puede venir fuera de
+              // orden, y rellenar por posicion mete el nombre de una skin en la
+              // de otra, que es el peor fallo posible en una coleccion.
+              data.forEach(function (sk, idx) {
+                if (!sk || typeof sk !== 'object' || typeof sk.id !== 'number' || !isFinite(sk.id)) {
+                  throw new Error(
+                    'skins: lote con elemento ' + idx + ' sin id numerico (' +
+                    (sk === null ? 'null' : typeof sk) + ')'
+                  );
+                }
+                __skinsMeta[sk.id] = { ts: now(), val: sk };
+              });
+
+              // Un lote pedido que vuelve VACIO no es lo mismo que un lote que
+              // no existe. Con el guard de forma ya propagado, el `[]` que
+              // llega aca solo puede ser el segundo caso, pero se avisa igual:
+              // la cuenta tiene que poder decir "estas N no las conozco" en vez
+              // de pintar una coleccion incompleta sin decirlo.
+              if (data.length === 0 && slice.length) {
+                console.warn(LOGP, 'skins: lote de', slice.length, 'ids sin ninguna ficha (' +
+                  slice.slice(0, 5).join(',') + (slice.length > 5 ? ',...' : '') + ')');
+              }
+            }).catch(function (e) {
+              // Un lote caido NO se lleva al resto: la cadena sigue y los
+              // lotes siguientes resuelven. Los ids de este quedan sin
+              // resolver y el aviso queda a la vista. Mismo criterio que
+              // `getItemsMany`, que tambien avisa y sigue. Lo que NO se hace
+              // aca es inventar un nombre: una skin sin ficha no se rellena
+              // con un placeholder silencioso, porque en una coleccion eso se
+              // lee como un dato. Que el call site muestre el hueco es
+              // decision del Tramo 3, que todavia no existe.
+              console.warn(LOGP, 'skins batch error', e);
+            });
+          });
+        });
+      })(missing.slice(i, i + SKINS_BATCH_MAX));
+    }
+
+    return chain.then(function () {
+      // Se resuelve DESDE `__skinsMeta` y no desde `out`: el store es
+      // compartido entre lotes y entre llamadas concurrentes de la misma
+      // id-set (los producers se comparten por `inflightOnce`). Armar el
+      // resultado con el `out` local perderia lo que otro lote escribio.
+      var seen = Object.create(null);
+      var res = [];
+      asked.forEach(function (id) {
+        if (seen[id]) return;
+        seen[id] = 1;
+        var c = __skinsMeta[id];
+        if (c && isFresh(c, TTL.ITEMS)) res.push(c.val);
+      });
+      return res;
+    });
+  }
+
+  // ========================================================================
   // Wallet / Currencies (fallback para Astral Acclaim)
   // ========================================================================
   function getAccountWallet(token, opts) {
@@ -2277,6 +2452,7 @@
 
     // Coleccion / Coberturable (NUEVO v2.32.0)
     getAccountSkins: getAccountSkins,
+    getSkinsBatch: getSkinsBatch,   // v2.33.0 (Tramo 2): id -> ficha
 
     // Wallet / Currencies (fallback AA)
     getAccountWallet: getAccountWallet,

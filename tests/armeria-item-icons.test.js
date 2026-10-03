@@ -445,6 +445,21 @@ const FROSTFANG = 30684;
     // `[]`, asi que este caso da 906 CON el fix y tambien SIN el. No es un
     // control del defecto (no cae), es un limite: el `Math.max(0, ...)` no
     // puede empezar a recortar cuando antes no recortaba.
+    //
+    // LA REGLA GENERAL, y va mas alla de este cache (Pablo, HB#154). La
+    // ventana `length < n < 2 * length` NO es una propiedad de la Armeria ni
+    // de `getItemsMany`: es la ventana de `slice(0, length - n)` sobre
+    // CUALQUIER array. En el rango medio `slice` recorta del extremo
+    // equivocado y se come `length - n` entradas; fuera de el, o recorta a
+    // `[]` (n >= 2*length) o no recorta (n <= length), y en los dos bordes
+    // "no se pierde nada" es verdad SIN el fix tambien. O sea: un test de
+    // este defecto QUE ESTE ABAJO, colocado en el borde equivocado, da verde
+    // con el bug vivo, que es justo lo que un control tiene que evitar.
+    //
+    // Para CUALQUIER recorte por presupuesto que se escriba en el futuro: el
+    // caso que mide tiene que caer DENTRO de la ventana, y hace falta un
+    // negativo que caiga FUERA (donde el bug es invisible) para demostrar
+    // que el caso de adentro cae y el de afuera no.
     const me2 = montar({});
     const largo2 = await me2.sb.GW2Api.getItemsMany(validos, {
       nocache: false, cacheKey: 'items_cache_armory_v1', cacheTrim: 500, cacheCap: 2000
