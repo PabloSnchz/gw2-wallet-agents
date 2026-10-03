@@ -1,4 +1,68 @@
 # TEAM_STATUS — Heartbeat Principal
+
+# HB#166 - 2026-10-03 08:30-09:0x UTC - MI DETECTOR DE CANALES DABA UN 0 VACIO, Y EL PO HABIA PERDIDO 10 RONDAS DE SU PROPIO ARCHIVO
+
+> **Actualizado:** 2026-10-03 (HB#166) por el Principal.
+> **Base:** `origin/main` = `6f38c80` (08:19:09 UTC) al abrir. Arranque **08:30:07 UTC**.
+> **Rescate (PASO -1):** `origin/main..main` y `main..origin/main` **ambos vacios**. `origin/main` @ 08:19:09 UTC es **ANTERIOR** al arranque y el arbol estaba **LIMPIO** -> nada que rescatar (regla 3 del banner). Sin sesion `running` (`qwenpaw chats list` sin coincidencia).
+> **Banner canonico/espejo:** `tools/hb164-espejo.mjs` da **13 controles OK**, incluidos los 2 negativos. Ademas el canonico y el espejo estan **IDENTICOS byte a byte** (`fc /b`), asi que el PASO -0 noTenia nada que regenerar.
+
+## HALLAZGO DEL CICLO: UN 0 QUE NO ES UNA MEDICION, Y UN ARCHIVO CON DOS CANONICOS
+
+El PO escribio en su ronda 48 (08:13 UTC, 17 minutos antes de mi arranque) que su `PRE_BACKLOG.md` mide **7.796 bytes** cuando el suyo real mide **240.554**. O sea: **venia pisandose su propio archivo desde la ronda 38, 10 rondas seguidas.** El numero de 7.796 bytes es **exactamente el que yo venia reportando como el tamano normal del canal** desde el HB#162.
+
+### ALERT-235 (descubierto por el PO, confirmado y medido por mi): el archivo tiene DOS canonicos
+
+| donde | bytes | bloques | ultimo commit |
+|---|---:|---:|---|
+| workspace del PO | 294.800 | 61 | - |
+| `origin/main:PRE_BACKLOG.md` | 240.554 | 28 | `2de8f35`, **2026-09-30** |
+
+Medido por mi: `git ls-files --error-unmatch PRE_BACKLOG.md` **existe** (esta trackeado), y `git log -1 -- PRE_BACKLOG.md` sobre `main` da el **30-sep**. O sea: **la copia de git esta congelada hace 3 dias** y nadie lo ve, porque un archivo congelado se ve igual que uno al dia. `AGENTS.md` lo declara privado del workspace; git lo trackea en 127 ramas.
+
+### ALERT-236 (MIO, y del ciclo anterior): el detector de `openItems` contaba sobre un archivo sin checkboxes
+
+`tools/hb163-canales.mjs` (el que manda el paso 3, puse en git en el HB#163) reportaba `openItems` como un regex de `- [ ]` **sin declarar si el marcador existe en el canal**. Medido hoy sobre `PRE_BACKLOG.md`: **0 ocurrencias de `- [` en cualquier estado**. O sea que el canal 3 **no usa checklists**: su 0 no es "no hay trabajo", es "aca no hay marcador". Las dos cosas salian con el mismo numero y el mismo nombre de campo.
+
+**Arreglado y con fase roja:** el contador ahora expone `marcadorPresente` y `openItemsDiscrimina`, la primera linea de la salida lista los canales cuyo `openItems` **NO es medicion** (hoy: `c3_pre_backlog_ws`), y el script **sale con codigo distinto de 0** si los controles no coinciden, con control positivo Y negativo. Forzar el flag a `true` (el defecto tipico) lo hace **FALLAR**. Sano pasa, roto falla.
+
+## PASO 3: LOS 3 CANALES NO COINCIDEN, Y EL DESACUERDO SE REPORTA (ALERT-231)
+
+| canal | instrumento | ronda |
+|---|---|---:|
+| ramas `po/*`, por FECHA | `for-each-ref --sort=-committerdate` | `origin/po/hb160-poda` -> **42** |
+| ramas `po/*`, por `MAX(ronda)` | regex anclada sobre `DASHBOARD_PO_IDEAS.md` | `origin/po/hb150-poda` -> **45** |
+| `BACKLOG.md` en `origin/main` | **0 encabezados**, 46 coincidencias en PROSA | **47** |
+| `PRE_BACKLOG.md` del workspace del PO | 7 encabezados | **48** |
+
+**Gana el mas alto: la ronda 48**, que es la mas nueva de las cuatro y la unica queneither of the dos criterios anteriores podia ver. Y es una **PAUSA por control de carga** (4 items, rango 4-7), con **0 items nuevos** — confirmado leyendo la prosa de la ronda, **no leyendo el 0**: hoy `openItems` del canal 3 **no es una medicion** (ALERT-236), asi que el 0 no puede ser la prueba.
+
+**Nada se mando al Reviewer.** Con 0 items abiertos no hay nada que mandar, y mandar por el numero habria sido mandar por un 0 vacio. **Sexta vez de "correcto por la razon equivocada"** (ALERT-103, ALERT-227, dos en el HB#165): hoy la conclusion se sostiene por un instrumento distinto del que yo creia.
+
+## PASO 1: el veredicto de L88 YA ESTABA APLICADO (casi lo reporto como nuevo)
+
+`task-6cc3851b8d15` -> **404**, 5o ciclo (terminal, no se reenvia). Pero `task-b6c235ed3e30` **SI responde**, con el veredicto entero de L88 en un turno. **Casi lo reporto como hallazgo del ciclo.** No lo es: `git log -S` loUbica en `159611c` (HB#159, 04:20 UTC) y el contenido esta aplicado en `BACKLOG.md` lineas 104-161. Lo unico que faltaba era la fila en `COMMS_LOG.md`.
+
+La consecuencia si importa, y es la que **mato una premisa mia**: el veredicto marca **P1 CRITICO** — `Characters` **NO** es subvista de `InventoryHub` — y esa premisa estaba escrita en **dos** lugares, no uno: en mi fila L88 **y en `AGENTS.md:337`**, que la declaraba desde hace meses.
+
+## TAREAS DEL CICLO
+
+| | |
+|---|---|
+| **Completado** | `tools/hb163-canales.mjs`: `openItems` con `marcadorPresente` + `openItemsDiscrimina`, lista de canales no medibles, control positivo, exit code. **Fase roja verificada.** |
+| **Completado** | `ALERTS_LOG.md`: ALERT-235 y ALERT-236 anexadas. Delta de encoding **0/0** (los 32 CJK y el U+FFFD son preexistentes). |
+| **Completado** | `AGENTS.md:337`: corregida la celda "Personajes = subvista" con las 4 mediciones y el work-around del `barridoLatch` como prueba. |
+| **En curso** | L88 `Coberturable`: tramo 3 **decidido, no escrito** (creo `skinsPanel` + ruta propia). El paso (1) es el catalogo `/v2/skins` paginado. **No se arranco: es producto y un cron de 30 min que no llega al commit deja el arbol sucio.** |
+| **Pendiente** | ALERT-41 (espera el body crudo de `/v2/account/raids` de Pablo) · ALERT-179 · T14/T15 · los 7 del patron B · Idea 57 (4 wrappers) · FILTRO-05 |
+
+## ALERTAS ABIERTAS DE ESTE CICLO
+
+- **ALERT-235** — `PRE_BACKLOG.md` con dos canonicos declarados. **No lo arreglo yo**: la decision de cual gana es del PO/Arquitecto, y un archivo declarado privado por `AGENTS.md` no se saca de git sin que lo decida alguien.
+- **ALERT-236** — cerrado en este ciclo (arreglo + fase roja).
+
+## PROPUESTAS ENVIADAS AL REVIEWER
+
+**0.** La ronda 48 es PAUSA con 0 items. Y la fila de 12 endpoints de L88 ya tiene veredicto entero aplicado.
 # HB#165 - 2026-10-03 08:00-08:5x UTC - EL RESCATE DEL HB#164 ESTABA ROTO, Y EL CONTROL QUE EL MISMO HB#164 CONSTRUYO LE DABIA VERDE
 
 > **Actualizado:** 2026-10-03 (HB#165) por el Principal.

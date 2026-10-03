@@ -16,15 +16,26 @@ const git = (...a) =>
 const RE_HEAD = /^#{2,} .*?ronda (\d+)/gim;
 const RE_ANY = /ronda (\d+)/gi;
 
+// ALERT-236: el marcador de tarea, en CUALQUIER estado y en columna 0.
+// Sin esta cuenta, "0 items abiertos" y "0 porque aca no hay checkboxes" son el MISMO
+// numero, y el segundo se lee con la misma confianza que el primero.
+const RE_MARCA = /^- \[/gm;
+const RE_ABIERTO = /^- \[ \]/gm;
+
 function scan(text) {
   const head = [...text.matchAll(RE_HEAD)].map((m) => Number(m[1]));
   const any = [...text.matchAll(RE_ANY)].map((m) => Number(m[1]));
+  const marcador = (text.match(RE_MARCA) || []).length;
   return {
     headMatches: head.length,
     headMax: head.length ? Math.max(...head) : null,
     anyMatches: any.length,
     anyMax: any.length ? Math.max(...any) : null,
-    openItems: (text.match(/^- \[ \]/gm) || []).length,
+    marcadorPresente: marcador,
+    // openItems SOLO es una medicion si el marcador existe en el canal. Si no existe,
+    // el 0 es vacio: hay que reportarlo como vacio, no como "no hay trabajo".
+    openItemsDiscrimina: marcador > 0,
+    openItems: (text.match(RE_ABIERTO) || []).length,
   };
 }
 
@@ -49,13 +60,36 @@ const bl = git('show', 'origin/main:BACKLOG.md');
 const s2 = scan(bl);
 
 // ---- CANAL 3: PRE_BACKLOG.md del workspace del PO --------------------------------
-const s3 = existsSync(PO_WS) ? scan(readFileSync(PO_WS, 'utf8'))
-  : { headMatches: -1, headMax: null, anyMatches: -1, anyMax: null, openItems: -1 };
+// ALERT-236: si el archivo no existe NO se puede distinguir de "existe y esta vacio".
+// Se reporta el motivo del -1 explicitamente para que el 0 de abajo no se lea solo.
+const c3Ausente = !existsSync(PO_WS);
+const s3 = c3Ausente
+  ? { headMatches: -1, headMax: null, anyMatches: -1, anyMax: null,
+      marcadorPresente: -1, openItemsDiscrimina: false, openItems: -1 }
+  : scan(readFileSync(PO_WS, 'utf8'));
 
-// ---- CONTROL NEGATIVO: un imposible tiene que dar 0 -------------------------------
-const neg = scan('ZZZ999 sin ronda **ZZZ999');
+// ---- CONTROLES -------------------------------------------------------------------
+// El flag nuevo tiene que saber decir SI y NO. Un flag que solo sabe decir NO
+// convierte todo 0 en "no hay trabajo", que es exactamente el defecto que cierra.
+// Con ambos controles el script sale con codigo distinto de 0 si el flag miente.
+const ctrlPos = scan('- [ ] abierto\n- [x] tachado\n');   // el flag tiene que decir SI
+const ctrlNeg = scan('ZZZ999 sin ronda **ZZZ999');        // y NO
+const controlesOk =
+  ctrlPos.openItemsDiscrimina === true && ctrlPos.openItems === 1 &&
+  ctrlNeg.openItemsDiscrimina === false && ctrlNeg.openItems === 0;
+
+// Canales cuyo openItems NO es una medicion. Se listan arriba de todo para que un 0
+// vacio se lea como vacio y no como "el PO no propuso nada".
+const openItemsVacios = [['c2_backlog_main', s2], ['c3_pre_backlog_ws', s3]]
+  .filter(([, s]) => !s.openItemsDiscrimina)
+  .map(([n]) => n);
 
 const out = {
+  // Lo primero que hay que leer: que canales tienen un 0 que NO es medicion.
+  // Si esta lista no esta vacia, "0 items" de ahi no se puede usar como criterio.
+  openItems_VACIOS_no_son_medicion: openItemsVacios,
+  controles_ok: controlesOk,
+  c3_archivo_ausente: c3Ausente,
   ramas_medidas: c1.length,
   c1_por_fecha: { rama: porFecha.rama, fecha: porFecha.fecha, headMax: porFecha.headMax,
                   headMatches: porFecha.headMatches, anyMax: porFecha.anyMax },
@@ -65,8 +99,12 @@ const out = {
   c1_ramas_solo_prosa: c1.filter((x) => x.headMatches === 0 && x.anyMatches > 0).length,
   c2_backlog_main: s2,
   c3_pre_backlog_ws: s3,
-  control_negativo: neg,
+  control_negativo: ctrlNeg,
+  control_positivo: ctrlPos,
   top5_por_ronda: c1.slice().sort((a, b) => (b.headMax ?? -1) - (a.headMax ?? -1)).slice(0, 5)
     .map((x) => `${x.rama} head=${x.headMax} n=${x.headMatches} any=${x.anyMax}`),
 };
 console.log(JSON.stringify(out, null, 1));
+// Un control que no puede fallar no es un control: si los controles no coinciden,
+// el 0 de los canales queda sin verificar y hay que saberlo por el exit code.
+process.exitCode = controlesOk ? 0 : 1;

@@ -334,7 +334,7 @@ indefinidamente.
 | Cámara del Brujo (WV) | ✅ Estable |
 | Actividades | ✅ Estable |
 | Inventario y Personajes | ✅ Buscador unificado |
-| Personajes | ✅ Subvista del InventoryHub |
+| Personajes | ✅ **Panel PAR de `InventoryHub`, NO subvista** — [corregido HB#166, la celda decía "subvista" y es FALSA, ver abajo] |
 | Conversor (Modal) | ✅ 3 tabs funcionales |
 | Dashboard Cartera | ✅ Estable |
 | Dashboard Inventario | ✅ 3 sets, tiers, carga 2 fases |
@@ -352,6 +352,25 @@ indefinidamente.
 - `#/account/wizards-vault/objectives-dashboard`
 - `#/activities`, `#/account/characters`, `#/inventory/dashboard`
 - `#/account/raids`, `#/account/strikes`, `#/account/accounts`
+
+### ⚠️ La celda "Personajes = subvista del InventoryHub" era FALSA (corregido en el HB#166)
+
+Esta tabla decía *"Personajes | Subvista del InventoryHub"* durante meses, y la premisa se uso para comparar
+pantallas nuevas contra el hub. **Medido, es falsa:**
+
+1. `inventoryPanel` y `charactersPanel` son **dos `<section>` al mismo nivel**, no uno dentro del otro
+   (`characters.js:1454-1459`).
+2. El salto entre ellos es un **intercambio imperativo en las dos direcciones**
+   (`inventory-hub.js:1431-1436` ↔ `characters.js:1076-1082`).
+3. La ruta **`#/account/characters` muestra `inventoryPanel`**, no `charactersPanel` (`router.js:1725-1727`).
+4. **La prueba de que no es subvista es el work-around que el router ya tiene escrito por eso:**
+   `router.js:1501` documenta que si el panel de personajes quedo visible no se toca, y por eso el
+   `barridoLatch` (`:1517-1526`) esta **keyed en el DOM y no en la ruta**.
+
+**Consecuencia práctica:** un patrón que ya rompe el control del router **no puede ser el molde de una
+pantalla nueva**. Es la razon por la que `skins` se decidio como modulo y ruta propios
+(`#/account/skins`) y no como cuarta seccion del hub. Ver `BACKLOG.md` L88 y el veredicto del Reviewer
+registrado ahi.
 
 ---
 

@@ -7219,3 +7219,73 @@ Un **AND de verdad**: revisar **cada archivo por separado** y exigir que los dos
 **Un control que mira "existe la cadena en estos archivos" con varios argumentos es un OR. Si el defecto que busca esta en UNO de los archivos, ese control no lo puede ver.** Para un invariant que tiene que valer en los dos lados, hay que medir los dos lados por separado.
 
 Clase: ALERT-154 y ALERT-124 (un control que no discrimina). Vecina de ALERT-234, que es el mismo error una dimension mas adentro: alli el control media la paridad de delimitadores, que **tampoco ve** el texto que se movio de lugar.
+
+## ALERT-235 - `PRE_BACKLOG.md` tiene DOS canonicos declarados, y cada uno se ve bien (2026-10-03, HB#166)
+
+> **Lo descubrio el PO en su ronda 48. Yo lo confirmo desde el otro lado, y la parte que me duele es que mi propio instrumento de canal estaba midiendo la fuente rota sin avisar.**
+
+### Las dos declaraciones
+
+`AGENTS.md` dice que `PRE_BACKLOG.md` *"vive en workspace del PO, NO en el repo"*. Es verdad que vive ahi. **Y tambien esta commiteado en el repo**, y ahi vive otro:
+
+| donde | bytes | bloques `## ` | ultimo commit |
+|---|---:|---:|---|
+| workspace del PO (reconstruido) | 294.800 | 61 | - |
+| `origin/main:PRE_BACKLOG.md` | 240.554 | 28 | `2de8f35`, **2026-09-30** |
+
+Medido por mi: `git ls-files --error-unmatch PRE_BACKLOG.md` **existe** (esta trackeado) y `git log -1 -- PRE_BACKLOG.md` sobre `main` da `2de8f35` del **30-sep**. O sea: **la copia de git esta congelada hace 3 dias** y nadie lo detecta, porque un archivo congelado se ve exactamente igual que uno al dia.
+
+### Por que esto casi no se nota, y por eso importa
+
+**Cada copia esta completa en su recorte.** `main` tiene las rondas hasta el 30-sep y nada mas. El workspace tenia, hasta hace una hora, **7.796 bytes**: el PO venia **pisandose su propio archivo** desde la ronda 38 - **10 rondas seguidas** - y no lo vio, porque un archivo del 3% del tamano real **no se ve raro**. Lo delato el **tamanio**, que no necesita interpretacion.
+
+### La regla
+
+**Un archivo con dos lugares declarados canonicos no tiene canonico: tiene dos copias que divergen, y la divergencia no la detecta nadie porque las dos se ven bien.** `AGENTS.md` lo declara privado; git lo trackea en 127 ramas. Mientras las dos declaraciones coexistan, cualquier medicion sobre el `PRE_BACKLOG.md` tiene que **decir cual de los dos leyo** - y por tamano, no por nombre.
+
+Consecuencia directa y medida: **ALERT-236**.
+
+Clase: la misma que ALERT-115 (referencias a cosas que no existen) y que ALERT-141 (un censo que miraba 0 modulos). Un inventario que no mira el objeto que dice contar.
+
+---
+
+## ALERT-236 - MI detector de `openItems` reportaba un 0 VACIO con el mismo formato que un 0 real, y lo puse en git ayer (2026-10-03, HB#166)
+
+**Este es mio, y es del ciclo anterior.** Regresion de ALERT-223 (un 0 que no distingue "no existe" de "no lo se buscar"), una dimension mas adentro.
+
+### Que habia
+
+`tools/hb163-canales.mjs` (el que manda el paso 3) reportaba por canal:
+
+```js
+openItems: (text.match(/^- \[[ ]/gm) || []).length,
+```
+
+Medido hoy sobre el `PRE_BACKLOG.md` del workspace del PO:
+
+```
+marcadorPresente: 0        <- ocurrencias de "- [" en CUALQUIER estado
+openItems: 0
+```
+
+**El archivo no tiene ni una sola linea de checklist.** No es que tenga 0 items abiertos: es que **no usa el marcador**. Y el codigo reportaba las dos cosas con el mismo numero y el mismo nombre de campo, asi que `openItems: 0` se leia igual en los dos casos.
+
+### Por que casi no hizo dano - y por eso lo dejo escrito igual
+
+Hoy la conclusion de fondo ("el PO no propuso nada") **era correcta**: la ronda 48 es una PAUSA, y lo confirme leyendo su prosa ("No se ocurrio nada nuevo"), no leyendo el 0. O sea: **correcto por la razon equivocada, sexta vez** (ALERT-103, ALERT-227, dos en el HB#165). **Un acierto que no sobrevive al cambio de instrument no es un acierto.**
+
+### El arreglo
+
+El contador ahora declara si el marcador existe antes de dar el 0:
+
+```js
+marcadorPresente: (text.match(/^- \[/gm) || []).length,
+openItemsDiscrimina: marcador > 0,
+openItems: (text.match(/^- \[ \]/gm) || []).length,
+```
+
+y la primera linea de la salida es la lista de canales cuyo `openItems` **NO es una medicion** (hoy: `c3_pre_backlog_ws`). Ademas el script sale con codigo distinto de 0 si los controles no coinciden, con **un control positivo** (un checklist de verdad tiene que dar `discrimina: true`) y el negativo de siempre.
+
+**Fase roja aplicada:** forzar `openItemsDiscrimina: true` (que siempre diga SI, el defecto tipico) hace que el script **FALLE**. Sano pasa, roto falla, los dos medidos.
+
+Clase: ALERT-223, y el gemelo de ALERT-233/ALERT-234. **La paridad no es una medicion, y un conteo cuyo cero no significa nada tampoco lo es.**
