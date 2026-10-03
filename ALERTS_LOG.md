@@ -1,3 +1,80 @@
+## ALERT-241 - una regex anclada en `$` por linea NO da 0 sobre un archivo CRLF: DA SOLO LA ULTIMA LINEA, y el 0 que se vio fue suerte (2026-10-03, HB#171)
+
+**El 0 con el que arranco el ciclo no era el defecto: era la afectada.** Mi lector reporto
+`HEADINGS_TOTAL=0` sobre un archivo que tiene **326 encabezados**, y el primer impulso fue
+reportar que el archivo del PO se habia roto. No se rompio: **el que media con la forma
+equivocada era el instrumento.**
+
+### La forma, medida
+
+En JS el `.` **no** matchea `\r` — es un terminador de linea — y `$` **sin flag `m`** exige
+fin-de-cadena. Una regex por linea con `$` aplicada a un archivo **CRLF** no matchea nada:
+la linea termina en CR, `(.*)` se frena antes y `$` no encuentra el fin.
+
+```
+v1 = split por LF + exec por linea, con (.*)$      <-- mi v1
+v2 = split por LF + exec por linea, sin $          <-- corregido
+
+| entrada | v1 | v2 |
+|---|---|---|
+| LF    | 2 | 2 |
+| CRLF  | 1 | 2 |
+```
+
+### Lo que hace peor que un 0
+
+**Sobre CRLF devuelve 1, no 0: mide solo la ultima linea**, porque es la unica que no
+tiene CR antes del fin. En el archivo real (`PRE_BACKLOG.md` del PO, 4436 lineas,
+**CRLF puro**: 4435 CRLF y 0 LF sueltos) dio 0 **unicamente porque la ultima linea esta
+vacia**. Ese 0 fue **suerte**.
+
+**La asimetria que lo hace peligroso:** un **0** se anuncia como roto y nadie lo usa; un
+**1** se lee como medicion parcial legitima. **La forma de falla no es "no medir", es
+"medir una cosa y devolverla como si fuera el total".**
+
+### Por que ningun control de conteo lo ve
+
+El conteo de lineas es **identico** en las dos entradas: **3 y 3**. Un control que
+cuente lineas, o que compare el numero de lineas antes y despues, **no tiene nada que
+mirar**. Solo el **caracter de fin de linea** lo delata. Es la leccion del HB#163
+aplicada al reves: ahi un control que gritaba en todos los casos habria tapado al que
+estaba roto; aqui el que no grita es justamente el que no puede ver el defecto.
+
+> **REGLA: una regex por linea que termina en `$` es una regex escrita contra LF. Sobre
+> CRLF no falla, devuelve la ultima linea — y eso es un numero, no un error.**
+> **Normalizar el EOL ANTES de aplicar las regex**, o quitar el `$` final. Y un conteo de
+> lineas NO es un control de EOL.
+
+### Alcance real, con su cota (medido sobre `tools/*.mjs`)
+
+- **28 de 69 archivos** tienen alguna regex literal anclada en `$`. **Cota superior, no
+  veredicto**: el escaner tambien cuenta `/\r$/` (que es el detector de EOL) y `/^'gn:[^']*'$/`
+  (que ancla en una comilla, no en el fin de linea).
+- **Los controles vivos del banner NO estan expuestos.** `hb163-canales.mjs`,
+  `hb164-espejo.mjs` y `hb169-capas.mjs` **no aparecen** en el escaneo.
+- **3 scripts historicos tienen la forma peligrosa y quedan SIN VERIFICAR**:
+  `hb114-cuento.mjs`, `hb114-tramos.mjs`, `hb117-po-materia.mjs`. No medi si la aplican
+  por linea ni si su destino es CRLF, y **no los arregle**: son de un solo ciclo, el
+  banner no depende de ellos, y editarlos sin medir su salida seria cambiar codigo que
+  no se puede verificar.
+
+### Dos errores mas, del mismo ciclo, y por que los dos importan
+
+1. **Un control POSITIVO que fallo me salvo.** La primera fila de mi demo aplico la regex
+   por linea al **archivo entero sin flag `m`** — una **tercera** forma, distinta de la
+   que yo estaba depurando — y dio 0 **tambien sobre LF**. Si no hubiera medido el caso
+   sano, ese 0 se reportaba como parte del defecto del CRLF: **habria ensanchado el
+   hallazgo con un caso que no existe.** Lo diagnostique con una prueba minima de una
+   linea antes de escribir una linea del alerta.
+2. **Un criterio hardcodeado de otro archivo.** Mi control C4 comparo contra
+   `total=66`, que es el conteo de `BACKLOG.md`, y lo aplique a `PRE_BACKLOG.md`, que no
+   usa checklists: dijo "DESCUIDADO" sobre un archivo sano. Reincidencia del HB#170
+   (marcas fijas en vez de derivar el esperado del dato base).
+
+Clase: ALERT-223 otra vez (una medicion que no significa lo que su numero dice), y de la
+familia de ALERT-216 (un control que no discrimina no falla: **miente con formato de
+exito**). Lo nuevo es que el numero este **bien formado** y el archivo este **sano**: los
+dos errores que suelen delatar una medicion rota estan ausentes, y el defecto igual esta.
 ## ALERT-240 - el corte de seccion puede invertir el veredicto, y un fragmento responde una pregunta distinta que el bloque (2026-10-03, HB#170)
 
 **El error NO fue de medicion: fue de alcance de lectura, y por eso ningun control de conteo lo podia ver.** Los 3 canales del paso 3 dieron **45 / 47 / 49** y gano la ronda **49** del `PRE_BACKLOG.md` del workspace del PO. Mi lector abrio la seccion en el proximo encabezado del mismo nivel y devolvio **8 lineas**: `PAUSA`, `PROPUESTA_NUEVA: false`, `MENCIONA_REVIEWER: false`, o sea **cero propuestas y nada al Reviewer**, que es el cierre de un ciclo normal. El bloque real son **90 lineas y 10 encabezados**, y contiene `## EL PODADO, en 2 tramos` con **TRAMO A** y **TRAMO B** con el texto listo.

@@ -1,4 +1,124 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#171 - 2026-10-03 11:00-11:3x UTC - ALERT-241: UNA REGEX ANCLADA EN `$` NO DA 0 SOBRE CRLF: DA SOLO LA ULTIMA LINEA
+
+## HALLAZGO DEL CICLO (ALERT-241): MI LECTOR DIO 0, Y NO ERA 0
+
+**El defecto propio, familia ALERT-79.** Escribi un lector de `PRE_BACKLOG.md` del PO
+y reporto `HEADINGS_TOTAL=0` sobre un archivo que tiene **326 encabezados**. Lo primero
+que pense fue "el archivo se rompio". No: el archivo esta sano y el que media mal era
+el instrumento.
+
+**La forma, medida.** En JS el `.` **no** matchea `\r` (es terminador de linea), y
+`$` **sin flag `m`** exige fin-de-cadena. Mi regex era `/^(#{1,6})[ ]+(.*)$/` aplicada
+**linea por linea** sobre un archivo **CRLF**: cada linea termina en CR, `(.*)` se frena
+antes y `$` no encuentra fin-de-cadena.
+
+**El caso sano, medido PRIMERO, que es el que faltaba:**
+
+| entrada | v1 (con `$`) | v2 (normalizado) |
+|---|---|---|
+| LF | 2 | 2 |
+| CRLF | **1** | 2 |
+
+**Lo importante, y es peor que devolver 0: sobre CRLF devuelve 1, no 0.** Mide **solo la
+ultima linea**, porque es la unica sin CR antes del fin. En el archivo real dio 0 **solo
+porque la ultima linea esta vacia**: ese 0 fue **suerte**, y el defecto de fondo es que
+la herramienta devuelve **un numero que parece un conteo parcial**. Un 0 se anuncia como
+roto; un 1 se lee como medicion. Sin la fila LF no habria forma de distinguir "el
+archivo tiene 1 encabezado" de "la herramienta midio la ultima linea".
+
+**Por que ningun control por conteo lo ve:** el conteo de lineas es **identico** en las
+dos entradas (**3 y 3**). Solo el EOL lo delata. Es la leccion del HB#163 al reves: ahi
+el control que gritaba en todos los casos habria tapado al que estaba roto; aqui el
+control que **no** gritaba es el de conteo de lineas, y es el que no puede ver el defecto.
+
+## ALCANCE REAL EN tools/ (medido, y con su cota)
+
+- **28 de 69 archivos de `tools/*.mjs`** tienen alguna regex literal anclada en `$`.
+  **Es una cota superior, no un veredicto**: el escaner tambien cuenta `/\r$/`, que es el
+  detector de EOL, y `/^'gn:[^']*'$/`, que ancla en una comilla y no en el fin de linea.
+- **Los controles VIVOS del banner NO estan expuestos:** `hb163-canales.mjs`,
+  `hb164-espejo.mjs` y `hb169-capas.mjs` **no aparecen** en el escaneo.
+- **3 scripts historicos SI tienen la forma peligrosa**, y quedan **SIN VERIFICAR** (no
+  medi si la aplican por linea ni si su archivo destino es CRLF): `hb114-cuento.mjs`,
+  `hb114-tramos.mjs` y `hb117-po-materia.mjs`.
+- **No los arregle:** son scripts de un solo ciclo de los que el banner no depende, y
+  cambiar instrumentos sin medir su salida seria editar codigo que no se puede verificar.
+
+## PASO 3: los 3 canales, y el MISMO bloque que en HB#170
+
+`tools/hb163-canales.mjs` (controles OK): **42 / 45 / 49**. Gana el **49** =
+`PRE_BACKLOG.md` del workspace del PO. **Los bytes son los que lei en HB#170**: mtime
+**2026-10-03T10:11:29Z**, 312.093 bytes, 4436 lineas, **anterior** a mi arranque de
+HB#170 (10:30). **La ronda 49 no se movio**: sigue siendo **PAUSA, 0 propuestas**.
+
+**El 0 del workspace no es medicion** (4a vez que lo veo): `marcadorPresente: 0`,
+`openItemsDiscrimina: false`. Ese archivo no usa checklists.
+
+**ALERT-240 reaplicado:** con corte por nivel el bloque son **8 lineas**; con el corte
+correcto (proximo **encabezado de ronda**) son **113**, L14..L126. Leidas las 113.
+
+## BANNER
+
+- `tools/hb164-espejo.mjs` → **13 controles OK**, paridad `<!--`/`-->` **136/136** en los
+  dos, sin EOL mixto, control negativo incluido.
+
+## 1. Tareas en curso
+
+- Ninguna. **PAUSA por control de carga**: 4 items abiertos en `BACKLOG.md` (rango 4-7),
+  y la ronda del PO es una poda.
+- **No mande nada al Reviewer.** Las 2 acciones que el PO dejo medidas (TRAMO A, TRAMO B)
+  son sobre `BACKLOG.md`, que su propio `AGENTS.md` le prohibe escribir: mandarle al
+  revisor de codigo una mudanza de un log seria gastar el canal.
+
+## 2. Completadas en este ciclo
+
+- **ALERT-241 medido y acotado**, no "detectado": la forma, el caso sano, el alcance real
+  en `tools/` y la lista de los 3 historicos **sin verificar**.
+- **PASO -1**: ambas puntas vacias, arbol limpio, sin sesion `running`.
+
+## 3. Pendientes (la razon se RE-DERIVO, no se heredo)
+
+1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con token real de Pablo.
+2. **ALERT-179**. 3. **T14/T15**. 4. Los **7 del patron B**.
+5. **Idea 57**, los 4 wrappers. 6. **FILTRO-05**.
+7. **ALERT-235 ABIERTA** — los 2 `PRE_BACKLOG.md`.
+8. **ALERT-240** — aplicar al banner de `HEARTBEAT.md` (punto 6).
+9. **nuevo:** los 3 scripts historicos con la forma de ALERT-241, **sin verificar**.
+10. **De Pablo, no mio:** TRAMO B2 (que `[~]` cuente) cambia el modo de los 5 agentes.
+    TRAMO A lo rehace el PO: destino con 17 items y **18** filas, no 21 sobre un vacio.
+11. **Deuda visible:** ~100 ramas locales, 29 worktrees, y `_hb55_strikeclear.js` y
+    `_rescate_hb154` en la raiz (**NO son mios**).
+
+## 4. Alertas
+
+- **ALERT-241 (nueva)** — regex con `$` por linea sobre CRLF mide **solo la ultima
+  linea**. Controles vivos **no** expuestos; 3 historicos **sin verificar**.
+- **ALERT-240** — el corte de seccion de una ronda, no su contenido, decidio que hay o no
+  trabajo. Reaplicado: **113** lineas, no 8.
+- **ALERT-239** — el filtro de agente de la API de crons no filtra; hay 2 capas.
+- **ALERT-236** — un `0` cuyo cero no significa nada. **ALERT-235** — 2 canonicos.
+
+## 5. Estado de propuestas al Reviewer
+
+**0 enviadas**, 0 candidatas. La ronda 49 es PAUSA y sus 2 acciones son de log y de modo.
+
+## 6. Errores de instrumento PROPIOS (3, familia ALERT-79), todos antes del commit
+
+1. **El del ciclo (ALERT-241)**: la regex con `$` por linea.
+2. **Un control POSITIVO que fallo, y por eso lo caze**: la primera fila de mi demo
+   aplico la regex por linea al **archivo entero sin flag `m`** — una tercera forma
+   distinta — y dio 0 **tambien sobre LF**. Sin medir el caso sano, ese 0 se reportaba
+   como parte del defecto del CRLF. Lo diagnostique con una prueba minima antes de
+   escribir una linea del alerta.
+3. **Un criterio hardcodeado de otro archivo**: mi control C4 comparo contra
+   `total=66`, que es el conteo de `BACKLOG.md`, aplicado a `PRE_BACKLOG.md`, y dijo
+   "DESCUIDADO" sobre un archivo sano. Reincidencia del HB#170.
+
+## 7. Archivos de este ciclo
+
+- `TEAM_STATUS.md` (esta seccion) y `ALERTS_LOG.md` (ALERT-241).
+- **Sin `js/` ni `tests/`: la suite NO aplica** y no la corro por costumbre.
 # HB#170 - 2026-10-03 10:30-11:0x UTC - ALERT-240: TRUNCAR LA SECCION DE UNA RONDA CAMBIO EL VEREDICTO, Y EL PO TENIA DOS TRAMOS LISTOS
 
 > **Actualizado:** 2026-10-03 (HB#170) por el Principal.
