@@ -1,3 +1,32 @@
+## ACTUALIZACION 2026-10-03 12:20 UTC — HB#173 — ALERT-243: el conteo del backlog esta a 1 de disparar MODO PODA
+
+**Estado: PAUSA.** `BACKLOG.md` @ `ac205dc` = **4 items abiertos**. Novena PAUSA seguida. Esta corrida es **podado y nada mas**.
+
+### El eje de conteo tiene tres formas, y la que uso no esta probada
+
+| forma | `BACKLOG.md` @ `ac205dc` | fixture de control |
+|---|---:|---:|
+| `^- \[ \]` (ancla col 0) | **4** | **1** |
+| `^\s*- \[ \]` (con sangria) | **4** | **3** |
+| `- \[ \]` **subcadena** | **7** | **4** |
+
+La forma con sangria es la **unica correcta**, y hoy coincide con la anclada porque **no hay ninguna casilla abierta con sangria** (hay 3 con sangria: L284/L384/L385, y las 3 son `- [x]`). **Coinciden por casualidad, no por contrato** - y el caso que las separa es una sola linea: **una `- [ ]` sangrada y el conteo cae de 4 a 3 sin que nadie lo vea.**
+
+### Las 3 lineas de mas niegan el estado abierto, y son autorreferentes
+
+L200 col 119, L286 col 289, L415 col 41. Las tres son **frases escritas sobre este mismo bug** (*"estaba `- [ ]`"*, *"seguia contando como `- [ ]`"*, *"Estaba como `- [ ]` con el fix ya mergeado"*). **El conteo por subcadena sube cada vez que el equipo documenta bien un cierre.** Documentar el fix acerca a MODO PODA para los 5 agentes. La holgura de 1 no es un margen: es una tension que crece con la calidad del trabajo.
+
+### Dos hallazgos que no estaban en la lista
+
+1. **La tabla que decide el modo de 5 agentes no esta en el repo.** `origin/main/AGENTS.md` = **0** coincidencias de `MODO PODA` / `RECOLECTAR` / `CONTROL DE CARGA`. `AGENTS_SYNC.md` = **0**. Vive solo en el `AGENTS.md` de mi workspace (L342-344). **Si ese workspace se resetea, el control de carga entero - y el `>= 8` que dispara MODO PODA - desaparece sin un solo diff en el repo.** Y el puntero que lo describe es **mio y dangling**: digo *"detalle operativo en `HEARTBEAT.md` § PASO 0.5 - CONTROL DE CARGA"* y esa seccion **no existe** (`HEARTBEAT.md` tiene 4 coincidencias de `PASO 0*`, ninguna es `PASO 0.5`; 0 de `CONTROL DE CARGA`).
+2. **`- [~]` (Tramo B1) no es gratis, pero tampoco cambia el modo de nadie.** `HEARTBEAT.md` tiene **1** sola mencion del glifo (L643) y ninguna de `[~]`. B1 deja el conteo en 4 y el modo en PAUSA, correcto - pero L643 *define* que es abierto y nombra solo `- [ ]`, asi que hace falta **1 clausula** para que un tercer lector sepa que `[~]` es deliberado. **No cambia ningun conteo y no cambia el modo de los 5: no va a Pablo.** La falla que produjo las 3 lineas falsas es exactamente un simbolo sin significado escrito al lado.
+
+### Correccion propia, y es la que mas me pesa
+
+Escribi que `## Completed` *"esta vacia: 2 lineas, el destino ya existe y nunca se uso"*, y que el Tramo A movia *"21 items / 157 lineas"*. **Medido: `## Completed` esta en L329 con 24 lineas de cuerpo y 17 casillas `[x]`**, la primera *"Convergence Achievement Tracker - DROP"*. El destino se usa. **Y ALERT-240 ya lo habia refutado 25 minutos antes de que yo escribiera el bloque** (`1ad8a08` 10:45 UTC contra mi ronda 49 de 10:11 UTC; el commit mio `b366eb9` es 08:10 local, descendant de el). Lo corrijo porque el dato estaba, no porque me avisaran: **esta vez tampoco lo mande.** Es la tercera vez que el dato llega y no llega a mi prosa.
+
+---
+
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
