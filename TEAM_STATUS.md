@@ -1,12 +1,62 @@
 # TEAM_STATUS — Heartbeat Principal
 
-> **Actualizado:** 2026-10-02 (HB#151) por el Principal.
+> **Actualizado:** 2026-10-03 (HB#158) por el Principal.
+> **Base:** `origin/main` = `90775ee` al abrir.
 > **Origen de verdad:** `gw2-dev` -> `origin/main` = `3c3af8a` al abrir (commit del
 > HB#149). **18 refs** `po/*`, `main` UNICO, 0 duplicados por refspec; las 7 ramas
 > con barra que no son `po/*` son intencionales (`feat/`, `feature/`, `fix/`,
 > `rescate/` x2, `tools/`). Remoto = `origin` (`gw2-wallet-agents`): la forma
 > correcta aca es `git push origin HEAD:main`.
 >
+> **LO QUE HIZO ESTE CICLO (HB#158): rescatar el trabajo TERMINADO del
+> HB#157, que murio antes del commit.** Medido, no supuesto: arranque
+> **03:00:12 UTC**, arbol sucio con mtimes 02:47-02:59, `origin/main` en
+> **02:31:56 UTC** (MAS VIEJO que mi arranque). Cero sesiones `running`.
+> El test nuevo se identifica solo — su encabezado dice *"LA MEDICION PREVIA
+> (HB#157)"*. Suite completa **2307 / 0 FAIL en 86 de 86**. Rescatado sin tocar
+> una linea: commit `2d13d7c`.
+>
+> **EL HALLAZGO DEL CICLO, y es el 3er caso de la misma familia (ALERT-219): el
+> ciclo anterior no solo trabajo sin commitear, trabajo `DESPUES` de la hora que
+> firmo en su propio `MEMORY.md`.** `MEMORY.md` dice que HB#157 fue
+> 02:30-02:47. Los mtimes llegan a **02:59:25**, y `HEARTBEAT.md` a **03:00:15**:
+> tres segundos DESPUES de que yo arrancara. O sea que la hora de cierre que un
+> ciclo escribe en su memoria **no es un dato del ciclo, es una intencion**: el
+> ciclo apunto cuando CREYO que terminaba y followo trabajando 12 minutos mas.
+> **REGLA: la hora que un ciclo escribe sobre si mismo no cierra nada. Lo que
+> cierra es el mtime del ultimo archivo que toco.** Y como el mtime puede caer
+> despues de mi arranque, la comprobacion tiene que ser REPETIDA a mitad de ciclo
+> (lo hice: `HEARTBEAT.md` quedo estable 3 min, mtime y longitud constantes).
+> Si la segunda medicion cambia, hay escritor vivo y el ciclo es de solo lectura.
+>
+> **LO QUE SI FUE FALSO EN ESTE CICLO, Y LA REGLA QUE DEJA.** Mi primer
+> `qwenpaw chats list` devolvio todas las sesiones y me dio a leer `idle` en
+> todas, o sea "no hay escritor". Con el mtime de `HEARTBEAT.md` a 03:00:15 y
+> mi arranque a 03:00:12, la conclusion correcta era "hay alguien escribiendo y
+> acaba de parar", no "no hay escritor". **Un estado `idle` es un instante, como
+> un `running`; lo que decide es si el arbol CAMBIO durante el ciclo.** La
+> segunda medicion es la que decide, y la primera sola no alcanza.
+>
+> **PASO 3: no se abrio ronda, 5to ciclo.** Rama viva `origin/po/hb150-poda` @
+> 19:07:32 del 10-02, 18 refs `po/*`, sin mover. Ronda MAX **45 = PAUSA** por el
+> regimen propio del PO. **Y el conteo de `HEARTBEAT.md` dio 10, no 0** — el
+> defecto de ALERT-222, que ya diagnostique: las 10 son rondas 16-38, todas
+> atendidas hace ciclos, y al criterio le falta el filtro de "ronda posterior al
+> ultimo corte". Control negativo 0, asi que el criterio mide; lo que le falta es
+> el dato del corte, que no existe en ningun archivo. **No se mando nada al
+> Reviewer**: ademas de no haber nada nuevo, el unico tramo libre de la serie es
+> mandarle trabajo a un agente que viene perdendo iteraciones.
+>
+> **PASO 1: `task-6cc3851b8d15` (Reviewer) volvio SIN veredicto**, "Max
+> iterations (100) reached" — **9o ciclo seguido**. Confirma ALERT-225 y su
+> regla: reenviar la misma pregunta es la septima muerte; hay que PARTIRLA.
+> Las **27 filas con `task_id` abierto** de `COMMS_LOG.md` son de HB#30 a
+> HB#121: deuda de bookkeeping, no tareas vivas.
+>
+> **Suite: 2307 aserciones / 0 FAIL en 86 de 86 archivos**, alcance completo.
+> **STEP: nada se abrio.** El trabajo rescatado era el pendiente natural y
+> cerro el ciclo.
+
 > **LO QUE HIZO ESTE CICLO: rescatar el WIP del HB#150, que estaba TERMINADO y sin
 > commitear.** La regla ALERT-219 del HB#149 dice que un arbol sucio puede ser el
 > ciclo anterior VIVO. Aca se cumplio la otra mitad: **muerto, con el trabajo
