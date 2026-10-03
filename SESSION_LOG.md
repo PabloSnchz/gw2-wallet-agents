@@ -4665,3 +4665,79 @@ este nacio con 3 min 24 s de atraso sobre el commit que lo desmentia. La regla q
 sale es corta y ejecutable: **antes de obrar por un bloque de prioridad escrito
 por otro, volver a correr el comando que el bloque afirma.** Cuesta 1 segundo y
 esta vez habria evitado 25 horas de ciclos creyendo en un paso 1 ya hecho.
+
+## HB#155 — 2026-10-03 02:00-02:20 UTC — la guardia se disparo a tiempo, y por poco no era de otra cosa
+
+**Que se hizo.** Ciclo de solo lectura, por una regla que se cumplio.
+- **PASO -1 (rescate)**: arbol limpio al abrir, pero `origin/main` con un commit de
+  **10 minutos antes** (`23e2fea`). Arbol limpio NO es "no hay otro escritor".
+  `qwenpaw chats list` -> sesion `1790896138537-8kgh5xf` **`status: running`**.
+  **Ciclo de SOLO LECTURA** (regla del HB#153), sin rama, sin `checkout`, sin
+  commit.
+- **PASO 0**: inbox y replies **vacios**. **23 `overdue`** (HB#91 a HB#147), las
+  mismas filas de `task_id` abierto que ya son deuda de bookkeeping.
+- **PASO 1**: `task-debe51c6331f` ya cerrado (HB#153). `task-6cc3851b8d15` ->
+  **finished SIN veredicto, 7to ciclo seguido** ("Max iterations (100) reached").
+- **PASO 3**: **no se abrio ronda.** 18 refs `po/*`, la mas reciente sin mover.
+  Conteo literal: **7 CUENTA / 5 CERRADAS / 15 sin Tramos**, ronda MAX 45 = PAUSA.
+  **Control negativo 0.** Verificadas las 7 contra `origin/main`: **0 nuevas**.
+  No se mando nada al Reviewer.
+- **Suite**: **2272 / 0 FAIL en 85 de 85**, leida de la linea `TOTAL` (ALERT-217).
+
+**Lo que mas importo del ciclo.** **La guardia se disparo Y se libero sola.** A
+mitad de ciclo repeti la comprobacion — no me quedo con la lectura de apertura — y la
+sesion habia pasado de `running` a **`idle`** (02:02:23Z), con `origin/main` sin
+cambios y el arbol limpio. Osea: la guardia fue la correcta, pero "escritor vivo"
+es un dato **de un instante**, no un estado permanente. **REGLA: una guardia de
+concurrencia que solo se mide al abrir sirve para bloquear el ciclo entero; hay que
+VOLVER A MEDIRLA a mitad de ciclo.** Si solo mirara al abrir, este ciclo se
+quedaba en solo-lectura con el escritor ya ido. Y al reves, si solo mirara al
+Abrir y el escritor se hubiera ido a los 10 segundos, se habria escrito producto
+sobre un clon que recien se liberaba. La misma comprobacion corrida dos veces con
+15 min de diferencia es lo que distingue "vive ahora" de "vivia cuando abri".
+
+**Que se rompio.** Nada de producto. Dos errores de instrumento propios, familia
+ALERT-79, los dos cazados por el control ANTES del commit: una palabra inglesa
+colada donde iba una conjugacion, y un fragmento roto de una palabra en dos
+mitades. Corregidos, y verificados en 0 despues. **Los van DESCRITOS y no
+citados**: la primera version de este bloque llevaba los dos textos literales como
+ejemplo, y entonces el control los dispara sobre si mismo y deja de distinguir
+ruido nuevo de ruido viejo — la misma trampa de HB#151. Se re-corrio el control
+sobre el archivo **destino** despues de escribirlo, no solo sobre el borrador.
+
+**Que quedo pendiente.** Sin cambios en lo de fondo. `ALERT-41` (esperando el body
+crudo de `/v2/account/raids`, ya escalado una vez, y **Pablo esta despierto**: el
+`23e2fea` es suyo, de 01:50 UTC). `ALERT-225` (partir la pregunta del Reviewer, no
+reenviarla). `ALERT-222` (filtro de ronda del PASO 3, blocked en que exista el
+dato del "ultimo corte"). `ALERT-179`, `T14/T15`, los 7 del patron B, Idea 57.
+**El Tramo 2 de Coberturable ya no esta pendiente**: Pablo lo commiteo en
+`23e2fea` y la suite da 0 FAIL.
+
+**HALLAZGO PROPIO (ALERT-226).** **HB#154 no dejo ni una linea en los 4 logs de
+control.** MEDIDO: `23e2fea` ("rescate de HB#154 — getSkinsBatch cierra los 3
+FAIL") esta en `origin/main`, y un grep de `HB#154` sobre `TEAM_STATUS.md`,
+`COMMS_LOG.md`, `ALERTS_LOG.md` y `SESSION_LOG.md` da **0 hits**. Hay un hueco de
+un ciclo completo en la cadena de logs, y el commit que lo rescata se llama asi
+porque el HB#154 escribio producto y no llego a los logs. El producto esta bien;
+lo que falta es el registro. **REGLA: un rescate de producto tiene que ir
+acompanado del bloque de log del ciclo que lo origino, o el hueco queda para
+siempre y el siguiente ciclo no tiene forma de saber que paso.**
+
+**Decisiones.**
+1. **Ciclo de solo lectura al abrir, y solo lectura al cerrarlo tambien.** El
+   arbol limpio y `origin/main` sin cambios no habilitan product code: la regla
+   del HB#153 es por el **escritor**, no por el estado del arbol, y el ciclo no
+   tiene una ventana de autorizacion para product code con otro escritor en el
+   mismo clon.
+2. **No mandar nada al Reviewer** aun teniendo el conteo en 7: las 7 verificadas
+   dan 0 nuevas, y la unica que sigue abierta (T13-a / T19-a) es la que ya esta
+   en la tarea muda. Anadir carga no es usar el presupuesto.
+3. **No re-escalar ALERT-41.** Pablo esta despierto, pero ya se la mando una vez;
+   reenviar por chance es ruido, no comunicacion.
+4. **No tocar `ARME_TRABAJO_NOCHE.md`** aunque tenga la premisa falsa: es
+   documento del Arquitecto.
+
+**Lo que mas importo, en una linea.** La regla de concurrencia escrita el HB#153
+esta medida y funciona, pero solo si se **re-mide**: "escritor vivo" es un
+instante, y un ciclo que decide con la foto de apertura decide con una foto
+vieja.

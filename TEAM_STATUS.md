@@ -942,3 +942,131 @@ unico tramo libre de la serie es justamente mandarle trabajo.
    en el mismo clon y el work es de producto.
 8. **ALERT-222**: filtro de ronda del PASO 3, blocked en que exista el dato del
    "ultimo corte".
+
+---
+
+# HB#155 — 2026-10-03 02:00-02:20 UTC — la guardia se DISPARO, y por poco no era de otra cosa
+
+> **Actualizado:** 2026-10-03 (HB#155) por el Principal.
+> **Origen de verdad:** `gw2-dev` -> `origin/main` = `23e2fea` al abrir **y al
+> cerrar** (sin commits en el clon durante el ciclo). **18 refs** `po/*`,
+> `main` UNICO, 0 duplicados por refspec. Remoto = `origin` (`gw2-wallet-agents`).
+
+## Lo que hizo este ciclo
+
+**LA GUARDIA DE ESCRITOR VIVO SE DISPARO, y esta vez midio bien.** Al abrir
+(02:00:05 UTC) `git status` daba **arbol limpio**, pero `origin/main` tenia un
+commit de **10 minutos antes** (`23e2fea`, 01:50 UTC). El arbol limpio NO dice
+que no haya otro escritor — ALERT-219 ya lo aviso. Fui a `qwenpaw chats list` y
+ahi estaba: la sesion `1790896138537-8kgh5xf` ("Correcciones de Armeria
+Legendaria") estaba **`status: running`**, `updated_at` 01:43:49Z.
+
+**Regla aplicada tal cual esta escrita:** con escritor vivo, el ciclo es de **SOLO
+LECTURA** — PASO 0, PASO 1 y PASO 3, sin rama, sin `checkout`, sin commit. Esta vez
+la regla **si costo trabajo**: el ciclo entero podia haber abierto rama y
+commiteado encima. No lo hizo.
+
+**Y el resultado de aplicar la regla bien fue que la guardia SE LIBERO sola a mitad
+de ciclo.** A mitad de ciclo repeti la comprobacion (no me quedo con la lectura de
+apertura): la sesion paso de `running` a **`idle`** a las **02:02:23Z**, con
+`last_finished_at` identico. `origin/main` seguia en `23e2fea` y el arbol seguia
+limpio.Pablo habia terminado su racha de commits.
+
+**La leccion del ciclo (nueva forma de ALERT-219):** una guardia que se dispara no
+es una guardia dead-weight; es una que **hay que volver a medir a mitad de ciclo
+para saber si sigue disparando**. Si solo mirara al abrir yUMMARY-diera "escritor
+vivo" para siempre, este ciclo se hubiera quedado en solo-lectura con el escritor ya
+ido. Y al reves: si solo mirara al abrir y el escritor se hubiera ido a los 10
+segundos, se hubiera escrito product code sobre un clon que recien se liberaba. La
+**misma** comprobacion, corrida dos veces con 15 min de diferencia, es lo que
+distingue "vive ahora" de "vivia cuando abri".
+
+## Tareas en curso / completadas / pendientes
+
+**Completado este ciclo:**
+- **PASO 0** — inbox **vacio**, replies **vacias**. **23 `overdue`**, todas de
+  ciclos anteriores (HB#91 a HB#147): son las mismas filas de `task_id` abierto que
+  ya son deuda de bookkeeping, no tareas vivas.
+- **PASO 1** — `task-debe51c6331f` ya cerrado en el HB#153. Volvio a salir
+  `task-6cc3851b8d15`: **finished SIN veredicto, "Max iterations (100) reached",
+  7to ciclo consecutivo.** Confirma **ALERT-225** un ciclo mas: la causa medible es
+  el **tamano** de la pregunta, no el Reviewer. Reenviarla es la septima muerte en
+  el mismo lugar.
+- **PASO 3** — **NO se abrio ronda.** 18 refs `po/*`, la mas reciente sigue
+  `origin/po/hb150-poda` (sin mover). Conteo literal de HEARTBEAT.md: **7 CUENTA
+  / 5 CERRADAS / 15 sin Tramos**, ronda MAX **45**. **Control negativo 0** (el
+  criterio mide), pero **ALERT-222 sigue sin corregir**: no existe el dato del
+  "ultimo corte" en ningun archivo, asi que el filtro "ronda posterior al corte" no
+  se puede construir. Las 7 CUENTA son rondas 16-37, todas atendidas hace ciclos.
+- **Verificacion de las 7 CUENTA contra `origin/main`** (regla del PASO 3, "antes de
+  mandarla al Reviewer, verificar cada una"): las 7 colapsan a **0 nuevas** —
+  `BACKLOG.md` las tiene marcadas `[x]` / CERRADAS / ya en el Reviewer. Las unicas
+  2 que siguen de verdad abiertas (**T13-a**, **T19-a**) son justamente la familia
+  que cubre el `task-6cc3851b8d15` mudo. **No se mando nada al Reviewer**: no hay
+  novedades, y el unico tramo libre de la serie es mandarle trabajo.
+- **Suite completa**: **2272 aserciones / 0 FAIL en 85 de 85 archivos**, leida de la
+  linea `TOTAL` del detector (nunca sumando las filas — ALERT-217).
+
+**Pendiente (sin cambios, re-derivado este ciclo):**
+- `ALERT-41` — esperando el body crudo de `GET /v2/account/raids`. Escalado en el
+  HB#149; **Pablo esta despierto** (comiteo a las 01:50 UTC), asi que la condicion
+  de cierre cambio de probabilidad. **No se re-escala** — ya se le mando una vez.
+- `ALERT-225` — 7to ciclo del Reviewer sin veredicto. Remedio: **partir la
+  pregunta**, no reenviarla.
+- `ALERT-222` — filtro de ronda del PASO 3. **Blocked en que exista el dato del
+  "ultimo corte"**; hoy no existe en ningun archivo, por eso no se toco nada.
+- `ALERT-179` — fix mergeado, Reviewer mudo desde el HB#121.
+- `T14/T15` — veredicto opcion C, precondicion medida, sin aplicar.
+- **Tramo 2 de Coberturable** (`getSkinsBatch`) — **ya NO esta pendiente: Pablo lo
+  commiteo** en `23e2fea` ("rescate de HB#154 — getSkinsBatch cierra los 3 FAIL").
+  Este ciclo no lo toco. Verificado por efecto: la suite da 0 FAIL.
+- Los **7 del patron B** (HB#118) — veredicto sigue valido en alcance.
+- **Idea 57, los 4 wrappers** — medidos, NO tocados (ALERT-48).
+
+## HALLAZGO PROPIO — HB#154 no dejo ni una linea de log, y su rescate tampoco
+
+**HB#154 existio y su trabajo esta en `main`, pero no hay registro de el en ningun
+log de control.** MEDIDO: `23e2fea` ("rescate de HB#154") esta en `origin/main`; un
+grep de `HB#154` sobre `TEAM_STATUS.md`, `COMMS_LOG.md`, `ALERTS_LOG.md` y
+`SESSION_LOG.md` da **0 hits**. Osea: el equipo completo no tiene forma de saber
+que hizo el HB#154, salvo por leer el mensaje de ese commit. **La cadena de logs
+tiene un hueco de un ciclo completo**, y el commit que lo lleno se llama a si mismo
+"rescate" — o sea el HB#154 escribio producto y **no llego a los logs**, y Pablo lo
+commiteo sin los logs. No es un fallo grave (el producto esta), pero es exactamente
+el escenario que ALERT-219 previene cuando se escapa: si el HB#154 hubiera tenido
+WIP sin commitear, el rescate lo habria encontrado sin registro que lo explicara.
+**Regla: un rescate de producto debe ir acompanado del bloque de log del ciclo que
+lo origino, o el hueco queda para siempre.** Lo registro y lo atribuyo a lo que si
+se puede atribuir: el commit.
+
+## Estado de las propuestas (PO)
+
+- **Ronda MAX = 45, y es PAUSA.** No es que el PO este proposesiendo: su propio
+  regimen manda "no se investiga y no se traen ideas" en PAUSA (6 items abiertos ->
+  4-7). El 0 de la ronda 45 lo verifique yo, no lo acepte (**control de HB#151**).
+- **No se abrio ronda.** Ver arriba.
+- **ALERT-222** (el conteo del PASO 3 esta roto): sin corregir, sin danio nuevo —
+  el filtro falta, y depende de un dato que no existe todavia.
+
+## Alertas
+
+- **ALERT-225 (sigue)** — 7to ciclo del Reviewer sin veredicto (misma tarea, misma
+  causa medible: tamano de la pregunta). Remedio pendiente: partirla.
+- **ALERT-226 (nueva)** — la guardia de escritor vivo **si se disparo** y **si se
+  libero sola** a mitad de ciclo. Confirmacion de que la regla del HB#153 funciona;
+  agrega el matiz de que hay que **re-medirla a mitad de ciclo**, no solo al abrir.
+- **HB#154 sin logs** — hueco de un ciclo completo en la cadena de logs (arriba).
+
+## Notas de instrumentos
+
+- El conteo del PASO 3 lo corri un **script propio en `%TEMP%`** con el criterio
+  literal de HEARTBEAT.md **y su control negativo** (criterio imposible -> 0).
+  Cuando un contador da un numero distinto del esperado, el primer suspecto es el
+  script, no la realidad.
+- **CRLF**: el repositorio trabaja en CRLF. Cualquier escritura mia se normaliza a
+  CRLF antes de commitear, si no el proximo diff trae lineas de ruido de fin de
+  linea (ALERT-79 reincidente).
+
+## Commits de este ciclo
+
+- (se completa al commitear)

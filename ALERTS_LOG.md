@@ -6566,3 +6566,66 @@ nada al Reviewer. Ver PASO 3 abajo: el conteo da 7, pero las 7 son de las rondas
 16 a 37 y estan atendidas hace ciclos, y el unico tramo libre de la serie es
 justamente "mandar al Reviewer". Anadir carga a un agente que esta perdiendo
 iteraciones no es un uso del presupuesto.
+
+## ALERT-226 (2026-10-03, HB#155) — la guardia de escritor vivo se disparo, y se libero sola: "vivo" es un instante, no un estado
+
+**Severidad:** baja (nada roto), pero corrige el alcance de una regla recien escrita.
+**Estado:** la regla del HB#153 **funciona**; lo que faltaba era volver a medirla.
+
+### Lo que se midio
+
+Al abrir (02:00:05 UTC) el arbol estaba **LIMPIO** y `HEAD` en `main` — las dos
+senales de "todo bien". Pero `git log -1 --format=%ci origin/main` daba un commit
+de **10 minutos antes** (`23e2fea`, 01:50 UTC). Con arbol limpio, la unica senal
+que quedaba era la **fecha**, y por HB#153 eso alcanza para Goes a solo lectura.
+
+`qwenpaw chats list` lo confirmo: sesion `1790896138537-8kgh5xf` ("Correcciones de
+Armeria Legendaria"), **`status: running`**, `updated_at` 01:43:49Z. **Ciclo de SOLO
+LECTURA**, sin rama, sin `checkout`, sin commit — la regla del HB#153 aplicada tal
+cual esta escrita.
+
+### El hallazgo: se libero a mitad de ciclo
+
+A mitad de ciclo **repeti la comprobacion** en vez de quedarme con la foto de
+apertura. La sesion habia pasado de `running` a **`idle`**, con `last_finished_at`
+= `updated_at` = **02:02:23Z**. `origin/main` seguia en `23e2fea` y el arbol
+seguia limpio: Pablo habia terminado su racha y no habia dejado WIP.
+
+### Por que esto importa
+
+La regla del HB#153 dice "si hay un escritor vivo, el ciclo es de solo lectura".
+Leida literal, esa frase **no tiene fecha de vencimiento**: uno la cumple, ve que
+habia escritor, y se queda en solo lectura **para siempre**, aunque el escritor se
+vaya a los 10 minutos. Y es el modo de fallo que ALERT-219 ya avisto —"el estado del
+arbol NO dice si el otro murio; la FECHA si"— puesto al reves: aca el dato se
+envejecía.
+
+El caso simetrico es igual de peligroso: si uno midiera la sesion **una sola vez**
+y el escritor se hubiera ido justo antes, la conclusion seria "no hay escritor" y
+el ciclo escribiria product code sobre un clon que recien se liberaba, sin saber si
+vuelve.
+
+**REGLA (la accionable):** **la guardia de concurrencia se mide al abrir Y se
+vuelve a medir a mitad de ciclo.** "Hay escritor" es una afirmacion sobre un
+instante; usarla como estado permanente es el mismo error que tratar un archivo de
+control viejo como verdad. Si en la segunda medicion el escritor se fue y el arbol
+esta limpio, el ciclo **puede** dejar de estar bloqueado — y la decision se toma
+con el dato, no con la suposicion.
+
+### Corolario operativo
+
+Un ciclo bloqueado por esta regla **no es un ciclo perdido**: este hizo PASO 0,
+PASO 1, PASO 3, verifico la suite (2272 / 0 FAIL en 85 de 85), verifico las 7
+propuestas del PO contra `origin/main` (0 nuevas) y documento todo. El bloqueo
+de mutar **no** es el bloqueo de pensar.
+
+### Lo que este ciclo NO hizo, a proposito
+
+**No abrio product code aunque la guardia se hubiera liberado.** El arbol limpio y
+`origin/main` sin cambios **no habilitan** product code por si solos: la regla del
+HB#153 es por el **escritor**, no por el estado del arbol, y no hay ventana de
+autorizacion para product code en un clon con otro escritor. Ademas, la deriva
+correcta al closing (producto en un clon compartido) la fijo el HB#152.
+
+**No toco `ARME_TRABAJO_NOCHE.md`**, que tiene la misma premisa falsa que el
+bloque que el HB#153 ya corrigio: es documento del Arquitecto.
