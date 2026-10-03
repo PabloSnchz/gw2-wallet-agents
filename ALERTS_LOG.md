@@ -7381,3 +7381,70 @@ Clase: ALERT-216 (el control mide algo que el material menciona a proposito),
 ALERT-223 (un cero que no significa nada), ALERT-237 (la medicion correcta que no
 llega a la fila). **Los tres con la misma causa raiz: la forma se eligio antes que
 el objetivo.**
+
+## ALERT-239 - el filtro de agente de la API de crons NO FILTRA, y hay una CAPA de disparadores que `cron list` no puede ver (2026-10-03, HB#169)
+
+**EL INSTRUMENTO DE LA REGLA DE CRONS MIENTE EN LOS DOS SENTIDOS. Y lo primero que
+hice con el fue creerselo, medir mal, y que un control me corrigiera.**
+
+### Lo que se midio
+
+| id | header `X-Agent-Id` | query `?agent_id=` |
+|---|---|---|
+| `default` | 200, n=2 | 200, n=2 |
+| `documenter` | **200, n=0** | 200, n=2 |
+| `product-owner` | **200, n=1** | 200, n=2 |
+| `Code-Reviewer` | **200, n=0** | 200, n=2 |
+| `code-reviewer` | **404** | 200, n=2 |
+| `zzz999` | **404** | 200, n=2 |
+
+El filtro de agente es el **header `X-Agent-Id`** (`venv\Lib\site-packages\qwenpaw\cli\cron_cmd.py:61-62`: `headers = {"X-Agent-Id": agent_id}`), no un query param. Pasarlo como query param **no da error**: da HTTP 200 y la lista GLOBAL, para cualquier valor, **incluido un id que no existe**.
+
+### El primer defecto: MI SCRIPT NUEVO MIDIO CON LA FORMA EQUIVOCADA Y DIJO 4 VEREDICTOS FALSOS
+
+Escribi `tools/hb169-capas.mjs` con el filtro por query param y reporto `MEDIDO: 1`
+para el Documentador, el Reviewer y el Arquitecto. **Los tres no tienen ningun cron.** Lo
+cazo el control 2, que salio en ROJO porque mi premisa -el Documentador no tiene
+crons- resulto falsa. No porque el control supiera la respuesta correcta, sino
+porque el mundo no era lo que yo decia.
+
+**Un control que falla por la premisa equivocada tambien es un control que funciona.**
+Y es el caso bueno de un control: no hacia falta que supiera la respuesta, hacia
+falta que la midiera y no le creyera a mi.
+
+### El segundo defecto, y es el que rompe una REGLA
+
+El Documentador tiene **0 crons** y un **heartbeat interno `enabled: true, every: 4h`**
+(`workspaces\documenter\agent.json`, clave `heartbeat`). `qwenpaw cron list --agent-id
+documenter` devuelve `[]`, **que es exactamente lo que devolveria si el agente no
+tuviera ningun disparador.**
+
+La regla de crons de `AGENTS.md` dice que si un heartbeat nota un cron apagado que no
+es suyo y no esta en la lista de "por diseno", lo reporta en `ALERTS_LOG.md`. Con el
+instrumento que esa regla alcanza, **esa regla no se puede cumplir**: al Documentador
+se lo leeria como agente sin disparador y se reportaria como incidente, cuando esta
+operativo y con su ciclo corriendo.
+
+Lo mismo pasa con el id del Reviewer: el workspace se llama `code-reviewer` y el
+`agent.json` declara `id: "Code-Reviewer"`. Con la carpeta la API responde **404**, no
+una lista vacia. El 404 es una senal, pero solo aparece en el camino correcto (header):
+un filtro mal escrito devuelve la lista global sin avisar.
+
+### Que queda medido y que no
+
+- **NO es incidente.** El Documentador tiene su ciclo; el PO tiene el cron `0 */2 * * *`
+  enabled; el Reviewer y el Arquitecto estan **sin ninguna de las dos capas**, que es lo
+  que `AGENTS.md` declara por diseno (bajo demanda). Verificado hoy contra el
+  `agent.json` que el propio `AGENTS.md` cita, no contra una afirmacion reenviada.
+- **El control 4 de `tools/hb169-capas.mjs` esta escrito para avisar cuando el defecto
+  se arregle**: si la API llega a aceptar `?agent_id=`, ese control pasa a ROJO.
+- **NO se toco `HEARTBEAT.md`.** El hallazgo es del banner, pero el banner acumula 3
+  incidentes de instrumentacion seguidos (el CR duplicado, el ancla partida, ALERT-234)
+  y anadir un punto 6 exige ademas regenerar el espejo. Queda para un ciclo dedicado,
+  con el control ya construido y probandose.
+
+Clase: ALERT-223 (un cero, o una lista vacia, que no significa nada), una dimension mas
+adentro: **la forma del filtro se eligio antes que el objetivo**, y el filtro elegido no
+filtra. Y de la familia del CR duplicado: **un comentario que describe una operacion
+distinta de la que hace el codigo de al lado.**
+

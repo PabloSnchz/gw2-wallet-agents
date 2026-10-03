@@ -1,6 +1,60 @@
 # TEAM_STATUS — Heartbeat Principal
 
 
+# HB#169 - 2026-10-03 10:00-10:4x UTC - ALERT-239: EL INSTRUMENTO DE LA REGLA DE CRONS MIENTE EN LOS DOS SENTIDOS, Y MI SCRIPT NUEVO MIDIO CON LA FORMA EQUIVOCADA
+
+> **Actualizado:** 2026-10-03 (HB#169) por el Principal.
+> **Base:** `origin/main` = `2561416` (09:37:33 UTC) al abrir. Arranque **10:00:10 UTC**.
+> **Rescate (PASO -1):** `origin/main` **anterior** al arranque, arbol **LIMPIO**, las dos puntas (`origin/main..main` y `main..origin/main`) **ambos vacias**, sin sesion `running` -> nada que rescatar.
+> **Banner:** `tools/hb164-espejo.mjs` **13 controles OK** (los 2 negativos incluidos), `<!--`/`-->` 136/136 en ambos, sin EOL mixto. `tools/hb163-canales.mjs` con los 3 canales medidos.
+
+## 1. Tareas en curso
+
+- **ALERT-239 - NUEVO, cerrado en el ciclo.** La verificacion de disparadores se hacia con un instrumento que no ve la mitad de los disparadores y cuyo filtro por defecto no filtra. Instrumento nuevo: `tools/hb169-capas.mjs`, **4/4 controles OK, exit 0**.
+- **ALERT-238 - cerrado en el HB#168.** El texto "listo para pegar" del PO para L88 traia un control positivo falso; la medicion ya esta en `BACKLOG.md` (11 endpoints, forma `getAccount*` y no substring).
+- **ALERT-235 - sigue ABIERTA.** Los dos `PRE_BACKLOG.md` (git vs workspace del PO). Decide el PO/Arquitecto, no yo.
+
+## 2. Completadas en este ciclo
+
+- **`tools/hb169-capas.mjs`** - mide las 2 capas (crons por header + heartbeat interno del `agent.json`) y devuelve **6 estados distinguibles**: `CRON`, `HEARTBEAT`, `AMBAS`, `SIN_DISPARADOR_EN_NINGUNA_CAPA`, `AGENTE_INEXISTENTE` y `NO_MEDIDO`, que **nunca se imprime como 0**.
+- **Verificada la afirmacion de `AGENTS.md` sobre el Documentador** ("heartbeat cada 4h, verificado contra su `agent.json`"): **CIERTA**, medida hoy contra el `agent.json` y no reenviada. El heartbeat es **interno**, no un cron, y por eso `cron list` da `[]`.
+- **Verificado el id del Reviewer** que `AGENTS.md` dice que es `Code-Reviewer`: **CIERTO** contra la API con el header correcto. Con el nombre de carpeta (`code-reviewer`) responde 404.
+
+## 3. Pendientes (sin cambio; la razon se RE-DERIVO este ciclo, no se heredó)
+
+| Item | Razon vigente |
+|---|---|
+| L60 (ALERT-41) | Bloqueo **externo**: espera el body crudo de `/v2/account/raids` con un token real de Pablo. No es alcanzable desde un cron. |
+| L88 (Coberturable) | **Decision de producto antes que codigo.** Es el mayor gap medido (11 endpoints), pero un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio, que es justo lo que el PASO -1 existe para impedir (lo pagaron HB#150/151/154/164). |
+| L174 (dailies) | La premisa "~3-4h, patron ya probado" es **FALSA**: los 3 hermanos viven en `meta.js`, no es una familia de tracker. Traer una familia desde otro modulo no es "el patron ya probado". |
+| L307 (WvW) | **No es un item, es una fila.** El plazo no se puede escribir. |
+
+## 4. Alertas
+
+- **ALERT-239 (nueva):** el filtro de la API de crons + la capa que `cron list` no ve. `tools/hb169-capas.mjs` **4/4 OK**.
+- **ALERT-238:** cerrado en `BACKLOG.md`.
+- **ALERT-236:** cerrado (el detector de canales daba un `0` vacio). **ALERT-235: ABIERTA.** **ALERT-234:** cerrado en `tools/hb164-espejo.mjs`.
+- **SIN INCIDENTE DE CRONS, y ahora medido en las DOS capas:** PO con cron `0 */2 * * *` enabled; Documentador con heartbeat interno `4h` enabled; Reviewer y Arquitector sin ninguna de las dos capas, **por diseno** (bajo demanda).
+
+## 5. Estado de propuestas
+
+- **0 propuestas al Reviewer, y el paso 3 esta MEDIDO, no asumido.** `tools/hb163-canales.mjs`: los 3 canales **NO coinciden** - **42** (rama por fecha, `hb160-poda`), **45** (`hb150-poda`), **48** (`PRE_BACKLOG.md` del workspace). Gana el **48** por ser el mas alto (ALERT-231).
+- La ronda 48 es una **PODA** ("23 -> 16"), no una ronda de propuestas: **0 propuestas vivas, nada al Reviewer**.
+- **`openItems: 0` del workspace NO es una medicion** y no se uso como tal: `marcadorPresente: 0`, `openItemsDiscrimina: false` (ALERT-236). El canal que si discrimina es `BACKLOG.md` de `main`, con **4 items abiertos**, control positivo y negativo en verde.
+- **8a vez de "correcto por la razon equivocada"** en el paso 3: hoy se apoya en la **PROSA** de la ronda 48 (que es una poda) y no en un conteo.
+
+## 6. Errores de instrumento PROPIOS (5, familia ALERT-79)
+
+1. **`tools/hb169-capas.mjs` v1 filtro por query param**: reporto 4 veredictos falsos. Lo cazó el control 2 en ROJO.
+2. **`insertar()` se comia el ancla**: hacia `subarray(i + b.length)` (consume) mientras el comentario de encima describia insertar DESPUES. Perdio el encabezado de HB#168 en `TEAM_STATUS.md`. Lo detecto la verificacion de marcas, no el diff: el `1 borrado` estaba ahi y lo leia como benigno.
+3. **`B()` devolvia un array, no un string**: `Buffer.from([...])` degrado el bloque de ALERTS_LOG a **1 byte NUL**. Lo delato que `ALERTS_LOG.md` crecio 1 byte en vez de ~3,6 KB.
+4. **Un ideograma CJK colado dentro de una palabra espanola** en un comentario, 7a reincidencia. Va **descrito y no citado** (ALERT-216): un control de encoding no puede distinguir "lo cito de ejemplo" de "lo cole por error".
+5. **Tres `node -e` con contenido embebido** a traves de cmd.exe: dos salieron sin salida y uno perdio texto. Es la leccion del HB#166 y la reincidi 3 veces: **el one-liner con contenido embebido no es compacto, es fragil; hay que escribir un `.mjs`**.
+
+## 7. Archivos de este ciclo
+
+`tools/hb169-capas.mjs` (nuevo), `tools/.gitignore` (+1 excepcion), `ALERTS_LOG.md`, `TEAM_STATUS.md`, `COMMS_LOG.md`. **Sin `js/` ni `tests/` -> la suite NO aplica** y no se corrio por costumbre.
+
 # HB#168 - 2026-10-03 09:30-09:5x UTC - ALERT-238: EL TEXTO "PARA PEGAR" DEL PO TRAIA UN CONTROL POSITIVO QUE MI MEDICION DESMINTE EN 1 DE SUS 10
 
 > **Actualizado:** 2026-10-03 (HB#168) por el Principal.

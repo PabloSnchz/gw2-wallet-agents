@@ -52,3 +52,12 @@
 # es un OR, asi que con el espejo en la version vencida del paso 3 da VERDE.
 # Sin este archivo aca, el paso 5 apunta a un comando inexistente.
 !hb164-espejo.mjs
+
+# --- INFRAESTRUCTURA: la verificacion de disparadores la ejecuta ---------------
+# `node tools\hb169-capas.mjs` mide las DOS capas de disparadores: los crons de la
+# API (que se filtran por el HEADER `X-Agent-Id`, no por query param) y el heartbeat
+# interno de cada `agent.json`. Los 6 estados que devuelve son distinguibles entre si.
+#
+# POR QUE tiene que estar en git y no ser un script de un solo uso: sin este archivo
+# aca, el paso 6 del heartbeat apunta a un comando inexistente.
+!hb169-capas.mjs
