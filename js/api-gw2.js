@@ -2150,11 +2150,14 @@
   //
   // `items_cache_v1:` (arriba, en CACHE_KEYS_PREFIX) es el que usan los 9 call
   // sites de `getItemsMany` y no se toco. `items_cache_armory_v1:` es el mismo
-  // cliente con otro presupuesto: `cacheKey` distinto + `cacheTrim:1000` /
-  // `cacheCap:906`, desde item-icons.js. Existe porque el cap por defecto (500
-  // que dispara, 400 que deja) esta dimensado para una tanda corta de ids, y
-  // la Armeria pide 906 de una vez: con el default el cache se recortaba a si
-  // mismo y de los 906 ids solo 400 quedaban pintados al recargar.
+  // cliente con otro presupuesto: `cacheKey` distinto + `cacheTrim:1300` /
+  // `cacheCap:1200`, desde item-icons.js. Existe porque el cap por defecto (500
+  // que dispara, 400 que deja) esta dimensado para una tanda corta de ids.
+  // MEDIDO en HB#157: la Armeria pide **1113** ids distintos (907 de precursores
+  // + las 206 legendarias del catalogo, que son las raices del arbol y no estan
+  // en ese contrato). El presupuesto quedo en 1200/1300 por eso. Con los valores
+  // viejos (906/1000) el recorte se comia 207 ids y el arbol se repintaba sin
+  // icono al recargar.
   //
   // OJO con lo que significa "misma clave que otro": si un call site futuro pasa
   // `cacheKey` y OLVIDA `cacheTrim`/`cacheCap`, lee los defaults 500/400 bajo

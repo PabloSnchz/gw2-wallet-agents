@@ -316,10 +316,19 @@ const FROSTFANG = 30684;
   // ACA SE AFIRMAN LAS DOS COSAS, Y LAS DOS IMPORTAN.
   //
   // (a) CON presupuesto propio el modulo trae 906 de 906. Es el numero que
-  //     todavia no existia: `cargar` pasa `cacheKey:'items_cache_armory_v1'`,
-  //     `cacheTrim:1000` y `cacheCap:906`, y el recorte ya no se come la mitad
-  //     del arbol al recargar. Sigue siendo UN cliente (`getItemsMany`) y siguen
-  //     siendo 5 llamadas: no se agrego ninguna.
+  //     todavia no existia: `cargar` pasa `cacheKey:'items_cache_armory_v1'` y un
+  //     presupuesto propio, y el recorte ya no se come la mitad del arbol al
+  //     recargar. Sigue siendo UN cliente (`getItemsMany`) y siguen siendo 5
+  //     llamadas: no se agrego ninguna.
+  //
+  //     OJO con el numero del presupuesto: HB#157 subio `cacheTrim:1300` /
+  //     `cacheCap:1200` porque la Armeria paso a pedir 1113 ids (907 del
+  //     contrato de precursores + las 206 legendarias del catalogo, que son las
+  //     RAICES del arbol y no estan en ese contrato). Esta seccion sigue
+  //     midiendo 906 porque llama a `cargar` con los ids de precursores a
+  //     proposito: es el caso mas chico y por eso no depende del presupuesto
+  //     grande. El caso de 1113 con su cap esta en
+  //     `armeria-modal-iconos-nombre.test.js`, seccion [5].
   //
   // (b) SIN opciones el cap sigue siendo 400. Esto NO es una prueba de que
   //     "el tope no existe": es EL CANDADO de los 9 call sites que usan

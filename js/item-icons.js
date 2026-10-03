@@ -11,7 +11,7 @@
  *
  * Lo UNICO que hace este archivo es:
  *   1) juntar los ids de un arbol entero en UNA llamada a `getItemsMany`
- *   2) guardar el resultado en un mapa id -> {icon, rarity, color}
+ *   2) guardar el resultado en un mapa id -> {icon, rarity, color, name}
  *   3) derivar el color con el mapa de rareza que ya usa el resto de la app
  *
  * DE DONDE SALE EL COLOR, Y POR QUE NO SE AGRUPA POR rarity_color
@@ -39,7 +39,7 @@
  * El cliente sigue siendo UNO: `getItemsMany`. Lo que cambia es DONDE guarda.
  * Este mapa es de memoria de sesion (se pierde al recargar), y ademas se le
  * pide a `getItemsMany` un presupuesto propio en disco: `cacheKey:
- * 'items_cache_armory_v1'` con `cacheTrim:1000` y `cacheCap:906`.
+ * 'items_cache_armory_v1'` con `cacheTrim:1300` y `cacheCap:1200`.
  *
  * POR QUE EXISTE. El cap por defecto esta dimensado para una tanda corta de
  * ids: en api-gw2.js el recorte son DOS numeros en la MISMA linea, el umbral
@@ -132,7 +132,7 @@
   /**
    * Pide los datos de N ids. Resuelve siempre; nunca rechaza.
    * @param {number[]} ids
-   * @returns {Promise<Object>} el mapa id -> {icon, rarity, color}
+   * @returns {Promise<Object>} el mapa id -> {icon, rarity, color, name}
    */
   function cargar(ids) {
     var faltan = _idsUtiles(ids).filter(function (id) { return !_datos[String(id)]; });
@@ -145,18 +145,19 @@
 
     if (_vuelo) return _vuelo.then(function () { return cargar(ids); });
 
-    // Presupuesto propio de disco (ver el encabezado). 906 es la cantidad de ids
-    // distintos que puede pedir un arbol completo, asi que el cap tiene que
-    // quedar POR ENCIMA de eso: si el cap fuera menor que el lote, el recorte
-    // se comeria ids que este mismo render esta por traer. `cacheTrim` va mas
-    // arriba que el cap a proposito — es el umbral que dispara el recorte, no
-    // un tope de contenido — y los dosDefaults (500/400) quedan intactos para
-    // los 9 call sites que no pasan nada de esto.
+    // Presupuesto propio de disco (ver el encabezado). MEDIDO en HB#157: el lote
+    // que pide la Armeria son **1113 ids distintos**, no 906 — 907 del contrato
+    // de precursores MAS las 206 legendarias del catalogo, que son las RAICES del
+    // arbol y no viven en ese contrato. El cap tiene que quedar POR ENCIMA del
+    // lote: si el cap fuera menor, el recorte se comeria ids que este mismo render
+    // esta por traer — que es exactamente el bug que este presupuesto existe
+    // para arreglar, reintroducido por el otro lado. Con cap=906 el recorte
+    // echaba 207 ids y el trim (1000) disparaba. 1200/1300 dejan margen.
     _vuelo = api.getItemsMany(faltan, {
       nocache: false,
       cacheKey: 'items_cache_armory_v1',
-      cacheTrim: 1000,
-      cacheCap: 906
+      cacheTrim: 1300,
+      cacheCap: 1200
     })
       .then(function (items) {
         (items || []).forEach(function (it) {
@@ -166,7 +167,14 @@
           _datos[String(id)] = {
             icon: it.icon || null,
             rarity: it.rarity || null,
-            color: _colorDe(it.rarity)
+            color: _colorDe(it.rarity),
+            // El NOMBRE, que se estaba tirando. `it.name` YA VINO en espanol:
+            // la API se pide con lang=es (api-gw2.js:457, CFG.LANG='es'). Todo
+            // item que pase por aca tiene su nombre traducido disponible y no
+            // se estaba guardando. Sin esto, la Armeria muestra el nombre en
+            // ingles que trae `cl_recipes.json` (fuente, no API) para TODO item
+            // que tenga ficha, en vez de solo para los que no la tienen.
+            name: it.name || null
           };
         });
       })
@@ -186,7 +194,7 @@
 
   /** Lo que se sabe de un id. SIEMPRE un objeto, nunca undefined. */
   function de(id) {
-    return _datos[String(id)] || { icon: null, rarity: null, color: null };
+    return _datos[String(id)] || { icon: null, rarity: null, color: null, name: null };
   }
 
   function iconDe(id) { return de(id).icon; }

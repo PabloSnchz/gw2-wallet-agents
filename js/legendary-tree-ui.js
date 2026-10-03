@@ -172,9 +172,18 @@
         ' style="width:14px;height:14px;flex-shrink:0;border-radius:2px;">';
     }
 
+    // El nombre: primero el de la API (espanol, `lang=es`), y el de la receta
+    // como respaldo. El orden importa y va al reves de como se caeria por
+    // defecto: `node.name` sale de `tools/cl_recipes.json`, que es ingles de
+    // origen y NO pasa por la API, asi que usarlo primero deja la pantalla
+    // entera en ingles aunque el nombre traducido este disponible. Los ids que
+    // no tengan ficha resuelta siguen mostrando el nombre de la receta, que es
+    // mejor que mostrar el id.
+    var nombreNodo = (info && info.name) || node.name;
+
     out += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;' +
       'white-space:nowrap;font-size:0.76rem;color:' + ((info && info.color) || 'var(--tx-1)') + ';"' +
-      ' title="' + esc(node.name) + '">' + esc(node.name) + '</span>';
+      ' title="' + esc(nombreNodo) + '">' + esc(nombreNodo) + '</span>';
 
     // La multiplicidad solo cuando es > 1. Un "×1" en todas las filas es ruido.
     if (node.count > 1) {
@@ -311,10 +320,20 @@
       // El mismo `de` que el arbol. Sin el, la celda queda en var(--tx-1)
       // como estaba: que la red falle no puede sacar la tabla de pantalla.
       var infoFila = opts.de ? opts.de(r.itemId) : null;
+      // MEDIDO (HB#157): los ids de estas filas estan 100% cubiertos por el
+      // contrato de precursores, o sea que el icono estaba DISPONIBLE y la
+      // tabla no lo pedia — solo leia el color. Por eso el <img> faltaba.
+      var nombreFila = (infoFila && infoFila.name) || r.name;
       h += '<tr style="' + borde + '">' +
         '<td style="padding:5px 6px;color:' + ((infoFila && infoFila.color) || 'var(--tx-1)') +
         ';overflow:hidden;text-overflow:ellipsis;' +
-        'max-width:0;" title="' + esc(r.name) + '">' + esc(r.name) + '</td>' +
+        'max-width:0;" title="' + esc(nombreFila) + '">' +
+        (infoFila && infoFila.icon
+          ? '<img src="' + esc(infoFila.icon) + '" alt="" width="14" height="14" loading="lazy"' +
+            ' style="width:14px;height:14px;vertical-align:-2px;margin-right:5px;' +
+            'border-radius:2px;">'
+          : '') +
+        esc(nombreFila) + '</td>' +
         '<td style="padding:5px 6px;text-align:right;color:var(--tx-3);' +
         'font-variant-numeric:tabular-nums;">' + tengo + '</td>' +
         '<td style="padding:5px 6px;text-align:right;color:var(--tx-1);' +

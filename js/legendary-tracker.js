@@ -529,7 +529,7 @@
         // pantalla y agregar pasa a ser un trabajo de cuatro clics.
         '<header class="modal__header" style="position:sticky;top:0;z-index:2;' +
           'background:var(--panel);">' +
-          '<h3 id="ltItemModalTitle" style="font-size:0.95rem;color:var(--tx-1);flex:1;' +
+          '<h3 id="ltItemModalTitle" style="font-size:0.95rem;flex:1;' +
             'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Legendaria</h3>' +
           '<div id="ltItemModalActions" style="display:flex;align-items:center;gap:6px;' +
             'flex-shrink:0;"></div>' +
@@ -677,8 +677,34 @@
       .filter(function (x) { return x.id === id; })[0];
 
     var nombre = item ? (item.nameEs || item.name) : ('#' + id);
+
+    // El icono y el color del titulo salen del DATO, no del markup. El <h3>
+    // traia `color:var(--tx-1)` en su style INLINE, que gana contra cualquier
+    // CSS: aunque se definiera una regla para el titulo, no se veria. Por eso se
+    // saca el color del style y lo pone esta funcion con el color de rareza
+    // real. Si todavia no hay dato, queda el neutro de la app y no un morado
+    // inventado — el modo claro no puede quedar con un morado falso.
+    //
+    // MEDIDO (HB#157): el icono del titulo no estaba y no era un dato faltante.
+    // `pedirIconos` pedia solo `byItem` (907 ids de precursores) y las 206
+    // legendarias del catalogo — que son las RAICES y viven en
+    // `legendary-recipes.js` — quedaban fuera. Ahora se piden las dos.
+    // El color es el de `RARITY_COLORS['Legendario']` (#974EFF), el mismo que ya
+    // usa la cola: no se invento un morado nuevo para el titulo.
     var title = document.getElementById('ltItemModalTitle');
-    if (title) title.textContent = nombre;
+    if (title) {
+      title.textContent = nombre;
+      var infoT = (root.ItemIcons && root.ItemIcons.de) ? root.ItemIcons.de(id) : null;
+      var hayIconoT = !!(infoT && infoT.icon);
+      title.style.color = (infoT && infoT.color) ? infoT.color : 'var(--tx-1)';
+      if (hayIconoT) {
+        title.innerHTML = '<img src="' + esc(infoT.icon) + '" alt="" width="16" height="16"' +
+          ' style="width:16px;height:16px;vertical-align:-3px;margin-right:6px;' +
+          'border-radius:2px;">' + esc(nombre);
+      } else {
+        title.textContent = nombre;
+      }
+    }
 
     state.openItemId = id;
     vistaModal = 'arbol';
@@ -703,18 +729,32 @@
     }
   }
 
-  // Icono y rareza del contrato COMPLETO de precursores, no solo de este
-  // arbol. La razon es el costo: el usuario abre el arbol de otra legendaria al
-  // toque, y pedirlo por arbol serian 5 lotes por cada legendary que mire.
-  // `getItemsMany` ya deduplica y cachea, asi que el precio es el primer arbol
-  // y no cada apertura. Idempotente de punta a punta: si no hay Iconos todavia
-  // no hace nada, y si los datos estan `cargar` resuelve al instante.
+  // Icono y rareza del contrato COMPLETO de precursores, MAS las 206
+  // legendarias del catalogo. La razon de pedir el contrato entero es el costo:
+  // el usuario abre el arbol de otra legendaria al toque, y pedirlo por arbol
+  // serian 5 lotes por cada legendary que mire.
+  //
+  // MEDIDO (HB#157) por que hacen falta TAMBIEN las del catalogo: los ids que se
+  // PINTAN en "Materiales Totales" estan 100% dentro de `byItem` (0 de 7258
+  // filas quedan afuera), pero los 206 nodos RAIZ del arbol estan FUERA: son las
+  // legendarias, y viven en `legendary-recipes.js`, no en el contrato de
+  // precursores. Pedir solo `byItem` dejaba la raiz —la fila que Pablo ve
+  // primero— sin icono y sin color, y con ella el titulo del modal.
   function pedirIconos(id) {
     var Icons = root.ItemIcons;
     var Prec = root.LegendaryPrecursors;
     if (!Icons || typeof Icons.cargar !== 'function') return;
     if (!Prec || !Prec.byItem) return;
-    Icons.cargar(Object.keys(Prec.byItem)).then(function () {
+
+    var ids = Object.keys(Prec.byItem);
+    var Cat = root.LegendaryCatalog;
+    var catalogo = (Cat && Cat.items) || [];
+    for (var i = 0; i < catalogo.length; i++) {
+      var cid = Number(catalogo[i].id);
+      if (cid && isFinite(cid)) ids.push(String(cid));
+    }
+
+    Icons.cargar(ids).then(function () {
       var mm = document.getElementById('ltItemModal');
       if (mm && !mm.hidden && state.openItemId === id) pintarModalLegendaria();
     });

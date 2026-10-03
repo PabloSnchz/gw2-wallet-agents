@@ -166,14 +166,22 @@
 >
 > **REGLA (esto si va antes de cualquier `checkout`, `commit` o escritura):**
 > **al abrir el ciclo, `qwenpaw chats list` y mirar si hay alguna sesion
-> `running`.** Si la hay —o si hay un commit en `origin/main` de los ultimos
-> ~15 min, o el arbol esta sucio— **el ciclo es de SOLO LECTURA**: PASO 0, PASO 1
-> y PASO 3, y nada mas. Sin rama, sin `checkout`, sin commit.
+> `running`.** Si la hay **y** el arbol esta sucio con mtimes recientes —
+> o el arbol esta sucio y los mtimes son viejos — el ciclo se resuelve con el
+> PASO -1 de mas abajo. Sin rama, sin `checkout`, sin commit.
 > El motivo esta medido, no es prudencia de manual: el HB#152 casi destruye el
 > trabajo de Pablo con un `git checkout -b` de primer acto, y por suerte. La
 > ventana de 12:00 UTC sigue **abierta** —esa autorizacion es de Pablo y no es
 > mia para quitarla—, pero **no autoriza trabajar a solas**: se escribio
 > suponiendo a Pablo dormido, y Pablo esta despierto trabajando en el mismo clon.
+>
+> **CORREGIDO EN HB#157, y era la SEGUNDA copia de la misma bomba.** Este texto
+> decia que un commit en `origin/main` de los ultimos ~15 min ya basta para
+> declararse de SOLO LECTURA, que es lo mismo que decia el punto 2 del PASO -1 y
+> por la misma razon es falso: **un commit es trabajo terminado.** El defecto no
+> estaba en un punto, estaba en dos, y por eso el fix del punto 2 no cerraba el
+> problema: un ciclo que Leyera este bloque se declaraba igual de mudo. Ahora los
+> dos remiten al PASO -1, que es el unico lugar donde vive la regla.
 
 > ## 🚨 TRABAJO PRIORITARIO DE LA NOCHE — LEÉ ESTO PRIMERO
 >
@@ -303,9 +311,25 @@ Hasta que no haya dirección del usuario o arreglo de plataforma:
 > **El paso, en orden:**
 >
 > 1. **Anota tu hora de arranque** (una sola vez, al principio).
-> 2. **Mide el remoto:** `git log -1 --format=%ci origin/main`. Si es **MAS
->    NUEVO** que tu arranque, hay un escritor VIVO: el ciclo es de **SOLO
->    LECTURA**. Sin rama, sin `checkout`, sin commit.
+> 2. **Mide el remoto:** `git log -1 --format=%ci origin/main`, y cruza el
+>    resultado con el estado del arbol. **Las DOS preguntas hacen falta**:
+>
+>    - **MAS NUEVO que tu arranque Y arbol SUCIO con mtimes recientes**
+>      -> hay un escritor **VIVO**: el ciclo es de **SOLO LECTURA**. Sin rama,
+>      sin `checkout`, sin commit.
+>    - **MAS NUEVO que tu arranque Y arbol LIMPIO**
+>      -> el otro ciclo commiteo y **TERMINO**. No hay conflicto. Segui normal.
+>    - **MAS VIEJO que tu arranque** -> nada que hacer.
+>
+>    **Por que la regla anterior era una bomba:** decia que un commit remoto
+>    mas nuevo significa escritor vivo. FALSO: **un commit es trabajo
+>    terminado, y un commit nunca vuelve vivo a nadie.** Lo unico que indica
+>    conflicto real es **el arbol SIN commitear con mtimes recientes**. La regla
+>    vieja tenia una sola condicion y por eso disparaba con el caso que NO
+>    queria — un commit de hace 5 minutos, que es exactamente lo normal. Agregar
+>    el "arbol limpio" no endurece el control, lo **completa**: la pregunta nunca
+>    fue "hay commits nuevos?", es "**hay alguien ESCRIBIENDO?**". Medido: HB#155
+>    (`e1dfb69`) se declaro de solo lectura por su propio commit y se libero solo.
 > 3. **Si el arbol esta sucio, mira los mtimes** de lo modificado y de lo sin
 >    trackear. Si son **TODOS anteriores** a tu arranque, el escritor esta
 >    **MUERTO y el trabajo esta TERMINADO**: eso no es WIP para descartar, es
@@ -315,9 +339,12 @@ Hasta que no haya dirección del usuario o arreglo de plataforma:
 >    Perder 176 lineas por una reconstruccion *correcta* es el peor final
 >    posible para una decision correcta.
 >
-> **El estado del arbol NO dice si el otro murio. La FECHA si.** Y las dos
-> hacen falta: un arbol limpio con `origin/main` viejo no dice nada, y un arbol
-> sucio con mtimes viejos es exactamente el caso de rescate.
+> **El estado del arbol NO dice si el otro murio. La FECHA tampoco.** Y las dos
+> juntas tampoco: la FECHA sola declara vivo a un ciclo que ya commiteo (HB#155),
+> y el arbol solo no distingue WIP de trabajo terminado. La unica lectura que
+> no miente es **la CRUZ**: remoto mas nuevo **Y** arbol sucio con mtimes
+> recientes = vivo; remoto mas nuevo con arbol limpio = termino; arbol sucio con
+> mtimes viejos = trabajo para rescatar (punto 3); arbol limpio = nada que hacer.
 >
 > **Que el test quede sin codigo NO es una opcion.** Si aparece un test en el
 > arbol sin la implementacion que prueba, O se aplica el trabajo, O se borra el
