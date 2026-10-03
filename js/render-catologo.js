@@ -355,11 +355,10 @@
     var queueBtn = '<div style="margin-top:6px;display:flex;justify-content:flex-end;">' +
       '<button type="button" class="lt-card-queue-btn" data-card-queue="' + item.id + '" ' +
       'title="' + textoCola + '" aria-label="' + textoCola + '" ' +
-      'style="padding:4px 10px;border-radius:20px;font-size:0.66rem;font-weight:600;cursor:pointer;' +
-      'white-space:nowrap;border:1px solid ' + (enCola ? '#974EFF' : 'var(--color-red)') + ';' +
-      'background:' + (enCola ? 'rgba(151,78,255,0.18)' : 'var(--color-red-bg)') + ';' +
-      'color:' + (enCola ? '#974EFF' : 'var(--color-red)') + ';' +
-      (enCola ? '' : 'box-shadow:0 0 6px rgba(255,157,157,0.20);') + '">' +
+      'style="padding:2px 8px;border-radius:999px;font-size:0.58rem;font-weight:600;cursor:pointer;' +
+      'white-space:nowrap;border:1px solid ' + (enCola ? '#974EFF' : 'var(--bd-1)') + ';' +
+      'background:' + (enCola ? 'rgba(151,78,255,0.18)' : 'rgba(255,255,255,0.06)') + ';' +
+      'color:' + (enCola ? '#974EFF' : 'var(--tx-3)') + ';">' +
       (enCola ? '✓ En la cola' : '+ Cola') + '</button></div>';
 
     return '<div class="card lt-item-card" data-id="' + item.id + '" data-type="' + esc(item.type) + '" ' +
