@@ -641,7 +641,13 @@ cuando la viva es la **35**.
 > 2. Si coinciden, hay una ronda. Si no, **gana el numero mas alto de los tres**,
 >    y cada propuesta se verifica contra `origin/main` antes de mandarla.
 > 3. Contar **items abiertos** (`- [ ]`), no encabezados de ronda: un encabezado
->    de ronda no dice si hay trabajo.
+>    de ronda no dice si hay trabajo. **La forma exacta es la que dice el bloque
+>    4 de mas abajo** (`/^[ \t]*- \[ \]/`, que **tolera sangria**), no la glifo
+>    suelto: una `- [ ]` que alguien indenta bajo un subtitulo sigue siendo un
+>    item abierto, y el conteo no puede bajarla en silencio. Medido
+>    2026-10-03 sobre `origin/main:BACKLOG.md` @ `4dfeff8`: la forma tolerante da
+>    **5**, la anclada en columna 0 tambien **5**, y coinciden **por casualidad**
+>    — las 3 casillas con sangria (L284, L420, L421) son todas `- [x]`.
 >
 > 4. **CONTROL DE CARGA — la tabla vive ACA, no en un workspace.** Este archivo
 >    es el unico canonico del ciclo, asi que la tabla que decide el modo de los
@@ -665,7 +671,10 @@ cuando la viva es la **35**.
 >    `tools/hb163-canales.mjs`, y **solo cuenta si `openItemsDiscrimina` es
 >    `true`** (ALERT-236). Medido hoy: **5 = PAUSA** (era 4 antes del rescate del HB#174,
 >    que abrio 1 fila abierta al mover el trabajo multicuenta del Fractal Tracker a su
->    propia fila).
+>    propia fila). **`openItems` es la forma que TOLERA SANGRIA** (ALERT-249, dos parrafos
+>    abajo): no puede perder un item abierto si alguien lo indenta bajo un subtitulo, que
+>    es la unica forma en que este numero podia bajar solo. El numero anclado se publica
+>    aparte, como `openItemsAnclada`, y hoy los dos dan **5 = 5**.
 >
 >    **La holgura entre las dos formas se consumio en el primer item real del ciclo, y
 >    no en una frase.** Medido sobre el staged y sobre `origin/main`: la forma que
@@ -694,8 +703,62 @@ cuando la viva es la **35**.
 >    linea de debajo quedaron +10 desfasadas, mientras el conteo de al lado se
 >    re-derivo bien. **El valor se refresca, la coordenada no, y el parrafo se lee
 >    como una sola medicion de hoy.**
+>    **ALERT-248: el contador que decide el modo era el que este mismo bloque declara
+>    incorrecto.** `hb163-canales.mjs` contaba con `/^- \[ \]/gm`, **anclado en columna
+>    0**, mientras el parrafo de arriba — que existe para medir esa misma forma —
+>    concluia que la que no pierde un item abierto si alguien lo indenta bajo un subtitulo
+>    es la que **tolera sangria**. **El parrafo tenia escrita la forma correcta a cinco
+>    lineas del campo que usaba la otra.** Medido hoy sobre `origin/main:BACKLOG.md` @
+>    `4dfeff8` con un fixture de 4 lineas (1 abierta en columna 0, 1 abierta sangrada, 1
+>    cerrada sangrada, 1 prosa que cita el glifo): **anclada 1, tolerante 2**. Sobre el
+>    archivo real dan **5 / 5 / 8** y las dos primeras coinciden porque **las 3 casillas
+>    con sangria (L284, L420, L421) son todas `- [x]`**. Coinciden por casualidad, no por
+>    contrato, y el modo de los 5 agentes se decidia con el numero de la forma que puede
+>    perder un item sin avisar.
+>    Corregido en ALERT-248, y **corregido al reves en ALERT-249.** La primera vez el
+>    campo autoritativo se dejo como estaba (`openItems` = anclada, "porque este archivo
+>    lo cita por nombre") y la forma correcta se agrego como campo nuevo al lado. Eso
+>    **conserva la cita y deja el defecto vivo**: el numero que se lee seguia siendo el
+>    que se decrementa solo, y el detector que lo veia quedo en un campo que nadie mira.
+>    **Un detector que nadie mira es decorativo**, y el residuo no era teorico: el PO
+>    senalo que nadie iba a buscar `openItems_INCONSISTENTE_por_forma` salvo que fuera a
+>    buscarlo, y que por eso el fix **detectaba pero no previnia**. Ahora `openItems`
+>    **es** la forma tolerante — el nombre no cambia, la cita no se rompe, y lo que la
+>    cita alcanza es el numero que no puede perder trabajo — y `openItemsAnclada` +
+>    `openItemsQueLaAncladaPierde` + `openItems_INCONSISTENTE_por_forma` quedan como
+>    **diagnostico**. Hoy vacia (5 = 5).
+>    **La asimetria del parrafo de abajo es lo que decidia el caso:** la forma tolerante
+>    es un **superconjunto** de la anclada, asi que invertir el campo quiere decir que
+>    `openItems` solo puede **subir o quedarse**. Subir es hacia MODO PODA (frena);
+>    bajar seria hacia RECOLECTAR (trae mas trabajo). **Invertir el campo es poner el
+>    numero en el lado caro del error.**
+>    **La guarda tambien hubo que moverla:** `openItemsDiscrimina` se calcula sobre
+>    `marcadorPresente`, y con la forma anclada la guarda era **mas estrecha que el numero
+>    que custodia**: un canal con la unica casilla sangrada daba `marcadorPresente: 0`,
+>    `openItemsDiscrimina: false` y `openItems: 1` — tres campos, uno solo cierto. Medido
+>    en `BACKLOG.md`: `marcadorPresente` pasa de **65 a 68**, que son las 3 casillas con
+>    sangria (L284, L420, L421), todas `- [x]`. `openItems` **no se mueve**: 5.
+>    **Con control y fase roja** (ALERT-249, medida): el fixture `control_sangria` da
+>    **autoritativo 2 / anclada 1 / perdidos 1 / `marcadorPresente` 2**. Dos
+>    mutaciones, las dos en rojo: colapsar `RE_ABIERTO` a la forma anclada ->
+>    `controles_ok: false`, **exit 1**; colapsar `RE_MARCA` a la forma anclada ->
+>    `controles_ok: false`, **exit 1**. Sano: `true`, **exit 0**. Restaurado byte a byte.
+>    **Y el margen no es un margen** (medido por el PO, su ronda 50): la subcadena con
+>    guion da **8** y sin guion **9**, y el umbral de MODO PODA es `>= 8`. La banda buena
+>    (4-7) mide **3 de ancho**. O sea que **la distancia entre la forma que decide bien y
+>    la que decide mal es el ancho entero de la banda**: no se acercan, no hay un tercer
+>    canal, la forma ruidosa entra directo en el otro modo. Por eso no hay que "vigilar"
+>    la forma: hay que usarla solo una.
+>    **Y la asimetria es la parte que hay que recordar: la perdida va en la direccion de
+>    RECOLECTAR.** Un item que se indenta **baja** el conteo; bajar de 5 a 4 no cambia el
+>    modo, pero bajar de **4 a 3** cambia PAUSA por RECOLECTAR. O sea que el defecto no es
+>    simetrico: **el error que este instrumento puede cometer es el que abre la puerta a
+>    traer mas trabajo**, nunca el que la frena. Un control de carga que solo puede
+>    fallar hacia un lado hay que revisarlo cada vez que se escribe, no solo cuando
+>    alguien lo nota.
 >    La subcadena **no puede discriminar nunca**: las 3 lineas de mas que agrega
->    (L200, L286, L425 @ `7ffab62`) son frases **escritas sobre este bug** que niegan el
+>    (L200, L286, L451 @ `4dfeff8`; antes L425 @ `7ffab62`, movida por el rescate del
+>    HB#174) son frases **escritas sobre este bug** que niegan el
 >    estado abierto. O sea que **cada frase que el equipo escribe para explicar
 >    el fallo del glifo sube el conteo del contador roto.** La holgura de 1 entre
 >    7 y 8 no es un margen: es una tension que crece con la calidad del trabajo.

@@ -19,13 +19,34 @@ const RE_ANY = /ronda (\d+)/gi;
 // ALERT-236: el marcador de tarea, en CUALQUIER estado y en columna 0.
 // Sin esta cuenta, "0 items abiertos" y "0 porque aca no hay checkboxes" son el MISMO
 // numero, y el segundo se lee con la misma confianza que el primero.
-const RE_MARCA = /^- \[/gm;
-const RE_ABIERTO = /^- \[ \]/gm;
+// ALERT-249: el marcador y el conteo se preguntan con la MISMA forma. Si la guarda
+// `openItemsDiscrimina` usara una forma mas estrecha que el numero que custodia, la
+// guarda queda rota por construccion: el campo mas estrecho (anclado) puede dar 0
+// mientras el numero autoritativo (tolerante) da 3, y los dos se leen como verdad.
+// Una guarda tiene que medir con la misma regla que lo que guarda.
+const RE_MARCA = /^[ \t]*- \[/gm;
+// La forma ANCLADA en columna 0: una casilla abierta que alguien indente bajo un
+// subtitulo deja de contar, y en silencio. Se conserva, pero SOLO como diagnostico.
+const RE_ABIERTO_ANCLADA = /^- \[ \]/gm;
+// ALERT-249: la forma que NO pierde ese item es la que TOLERA SANGRIA, y es la que
+// decide el modo de los 5 agentes. Con ALERT-248 la ancla se habia quedado con el campo
+// autoritativo (`openItems`) y la forma tolerante con el campo nuevo, que nadie mira.
+// Un detector que nadie mira es decorativo, y el defecto de fondo seguia vivo: el
+// numero que se lee era el que se decrementa solo. Invertido — `openItems` es la forma
+// TOLERANTE. El nombre no cambia porque HEARTBEAT.md lo cita por nombre, y lo que la
+// cita tiene que alcanzar es el numero que no puede perder trabajo. La asimetria es lo
+// que decide el caso: la forma tolerante es un SUPERCONJUNTO de la anclada, asi que
+// `openItems` solo puede subir o quedarse. Subir es hacia MODO PODA (frena); bajar
+// seria hacia RECOLECTAR (trae mas trabajo). Un control de carga tiene que fallar
+// hacia el lado caro, no hacia el barato.
+const RE_ABIERTO = /^[ \t]*- \[ \]/gm;
 
 function scan(text) {
   const head = [...text.matchAll(RE_HEAD)].map((m) => Number(m[1]));
   const any = [...text.matchAll(RE_ANY)].map((m) => Number(m[1]));
   const marcador = (text.match(RE_MARCA) || []).length;
+  const abiertosAnclada = (text.match(RE_ABIERTO_ANCLADA) || []).length;
+  const abiertos = (text.match(RE_ABIERTO) || []).length;
   return {
     headMatches: head.length,
     headMax: head.length ? Math.max(...head) : null,
@@ -35,7 +56,16 @@ function scan(text) {
     // openItems SOLO es una medicion si el marcador existe en el canal. Si no existe,
     // el 0 es vacio: hay que reportarlo como vacio, no como "no hay trabajo".
     openItemsDiscrimina: marcador > 0,
-    openItems: (text.match(RE_ABIERTO) || []).length,
+    // ALERT-249: el campo autoritativo es la forma que TOLERA SANGRIA. Con ALERT-248
+    // era la anclada, y por eso se perdia trabajo en silencio.
+    openItems: abiertos,
+    // La cuenta ANCLADA en columna 0, que es la que pierde un item si alguien lo
+    // indenta. Se publica para poder ver la diferencia, no para decidir el modo.
+    openItemsAnclada: abiertosAnclada,
+    // Cuantos items abiertos hay que la anclada NO ve. Hoy 0 en BACKLOG.md, y por
+    // casualidad y no por contrato: las 3 casillas con sangria (L284, L420, L421) son
+    // todas `- [x]`. Si esto pasa a >0, ya hay trabajo que la forma anclada perdia.
+    openItemsQueLaAncladaPierde: abiertos - abiertosAnclada,
   };
 }
 
@@ -74,9 +104,25 @@ const s3 = c3Ausente
 // Con ambos controles el script sale con codigo distinto de 0 si el flag miente.
 const ctrlPos = scan('- [ ] abierto\n- [x] tachado\n');   // el flag tiene que decir SI
 const ctrlNeg = scan('ZZZ999 sin ronda **ZZZ999');        // y NO
+// ALERT-248: el control tiene que DISCRIMINAR el caso que la forma anclada pierde.
+// Fixture con 1 abierta en columna 0 y 1 abierta sangrada: la anclada tiene que decir 1
+// y la tolerante 2. Si las dos dicen lo mismo, el detector del hueco no funciona y el
+// campo nuevo no sirve para reportar nada. Sin este control, "las dos coinciden hoy" se
+// lee como "no hay diferencia posible".
+const ctrlSangria = scan('- [ ] abierta en columna 0\n  - [ ] abierta sangrada bajo un subtitulo\n');
+// El fixture tiene que poner la ancla y el autoritativo en numeros DISTINTOS: con la
+// forma tolerante como autoritativo, `openItems` tiene que dar 2 y la anclada 1. Si los
+// dos dieran lo mismo, el campo autoritativo habria vuelto a ser el que pierde el item y
+// este control no lo veria. El `marcadorPresente` tiene que dar 2 y no 1 por lo mismo:
+// la guarda que decide si `openItems` es medicion tiene que ver el mismo caso que el
+// numero que custodia.
 const controlesOk =
   ctrlPos.openItemsDiscrimina === true && ctrlPos.openItems === 1 &&
-  ctrlNeg.openItemsDiscrimina === false && ctrlNeg.openItems === 0;
+  ctrlNeg.openItemsDiscrimina === false && ctrlNeg.openItems === 0 &&
+  ctrlSangria.openItems === 2 &&
+  ctrlSangria.openItemsAnclada === 1 &&
+  ctrlSangria.openItemsQueLaAncladaPierde === 1 &&
+  ctrlSangria.marcadorPresente === 2;
 
 // Canales cuyo openItems NO es una medicion. Se listan arriba de todo para que un 0
 // vacio se lea como vacio y no como "el PO no propuso nada".
@@ -88,6 +134,15 @@ const out = {
   // Lo primero que hay que leer: que canales tienen un 0 que NO es medicion.
   // Si esta lista no esta vacia, "0 items" de ahi no se puede usar como criterio.
   openItems_VACIOS_no_son_medicion: openItemsVacios,
+  // ALERT-249: canales donde la forma ANCLADA y la autorativa dan numeros distintos. Con
+  // la inversion `openItems` ya no puede perder trabajo, asi que lo que queda en esta
+  // lista es DONDE leer el numero anclado seria leer menos del que hay. Hoy vacia (5 = 5
+  // en BACKLOG.md, porque no hay ninguna abierta sangrada). Y sigue siendo una lista que
+  // nadie mira: por eso la correccion no fue agregarla mas grande, fue poner la forma que
+  // no falla EN EL CAMPO QUE SE LEE.
+  openItems_INCONSISTENTE_por_forma: [['c2_backlog_main', s2], ['c3_pre_backlog_ws', s3]]
+    .filter(([, s]) => s.openItemsQueLaAncladaPierde > 0)
+    .map(([n]) => n),
   controles_ok: controlesOk,
   c3_archivo_ausente: c3Ausente,
   ramas_medidas: c1.length,
@@ -101,6 +156,10 @@ const out = {
   c3_pre_backlog_ws: s3,
   control_negativo: ctrlNeg,
   control_positivo: ctrlPos,
+  // ALERT-249: el fixture que separa las dos formas. Si el autoritativo y el anclado
+  // dieran lo mismo ACA, el campo que decide el modo habria vuelto a ser el que pierde
+  // el item y el control no lo veria.
+  control_sangria: ctrlSangria,
   top5_por_ronda: c1.slice().sort((a, b) => (b.headMax ?? -1) - (a.headMax ?? -1)).slice(0, 5)
     .map((x) => `${x.rama} head=${x.headMax} n=${x.headMatches} any=${x.anyMax}`),
 };
