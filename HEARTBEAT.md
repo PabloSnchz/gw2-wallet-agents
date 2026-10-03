@@ -467,6 +467,57 @@ envejece en 2-3 rondas y el paso 3 pasa a leer rondas viejas **sin avisar**.
 Medido HB#114: el paso 3 pineado a `po/hb99-dashboard` leia la **ronda 33**,
 cuando la viva es la **35**.
 
+> #### 🔴 ALERT-227 (HB#158): ORDENAR POR FECHA NO ES SUFICIENTE. LA RAMA MAS
+> #### RECIENTE PUEDE SER LA QUE TIENE **MENOS** HISTORIAL DEL PO.
+>
+> **Medido hoy, con dos instrumentos que coinciden.** Ordenando `origin/po/*` por
+> `-committerdate`, la primera es **`origin/po/hb160-poda`** (04:11 UTC). Su
+> `DASHBOARD_PO_IDEAS.md` tiene su seccion mas nueva en la **ronda 42**.
+> **`origin/po/hb150-poda` (5 h mas VIEJA) tiene la ronda 45.** Y `hb160` **no
+> contiene** la ronda 45:
+>
+> ```
+> git merge-base --is-ancestor 8779109 origin/po/hb160-poda   -> FALLA
+> ```
+>
+> **La causa, medida:** el PO crea la rama de cada ronda desde **`main`**, y las
+> rondas 43-45 **nunca se mergearon a main** (18 de 19 ramas `po/*` siguen sin
+> mergear). O sea que cada rama nueva **nace sin el historial del PO**, y la
+> fecha del tip sube mientras el contenido **baja**. `hb160` tiene 2 rondas
+> menos que `hb150`.
+>
+> **Por que el ciclo de hoy casi no lo ve:** el detector leyo `hb160` = ronda 42,
+> y la 42 esta marcada cerrada, asi que el conteo dio 0 Tramos y el paso 3 no
+> mando nada. **El resultado fue correcto por la razon equivocada** — igual que
+> el bug del HB#103. Con una ronda 43-45 abierta, el paso 3 habria leido "0
+> propuestas" sobre un archivo que no tiene la ronda nueva.
+>
+> **REGLA: la rama viva NO se resuelve solo por fecha. Se resuelve por
+> `MAX(ronda)` sobre TODAS las ramas `po/*`, y se lee la ronda mas alta
+> encontrada, no la primera de la lista de fechas.** Las dos condiciones hacen
+> falta, y por la misma razon que en ALERT-222: un criterio de seleccion que
+> solo mira una dimension se rompe en cuanto esa dimension deja de correlacionar
+> con lo que se busca.
+>
+> ```
+> :: medir la ronda MAX de cada rama po/* y leer la mas alta
+> git for-each-ref --format="%(refname:short)" refs/remotes/origin/po/ ^
+>   | git show "%%:DASHBOARD_PO_IDEAS.md" 2>NUL   :: se hace con node, ver abajo
+> ```
+>
+> En `node` (sin `try/catch` que trague: un catch convierte un crash en `null`
+> y 19 ramas "sin rondas" se leen como una medicion — medido en el HB#158):
+> ```js
+> const HEAD = /^## .*?ronda (\d+)/gim;   // SOLO encabezados: `/ronda (\d+)/`
+>                                         // matchea la prosa ("las rondas 45 y 46")
+> ```
+>
+> **Corolario de fondo:** el `append-only` que el PO mismo se impuso ("el conteo
+> tiene que salir de un archivo que yo no pueda reescribir despues de haber
+> contado") **no aguanta un rebase sobre `main`**. El archivo es append-only
+> *dentro* de una rama y **perdedor entre ramas**. Mergear `main` <- rama del PO
+> no es solo higiene: es lo que hace que la maxima exista en un solo lugar.
+
 ```
 git show origin/po/<rama-viva>:DASHBOARD_PO_IDEAS.md
 ```

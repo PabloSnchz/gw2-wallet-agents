@@ -6786,3 +6786,126 @@ Queda esperando tu palabra.
 - 2 chequeos del banner ejecutados contra las DOS copias: ambos **OK**.
 - `for-each-ref` presente en canonico y espejo; ninguna rama pineada.
 - BOM: no. CJK: 0. U+FFFD: 0. Delta contra el respaldo pre-canonico: 0.
+---
+
+## ALERT-227 (HB#158, 2026-10-03 04:30-05:0x UTC) — EL PASO 3 RESOLVIA LA RAMA DEL PO POR FECHA, Y LA FECHA DICE LO CONTRARIO DE LO QUE BUSCA
+
+> **No la reporto como "el PO atrasado". Es un defecto del LECTOR, medido, y el
+> ciclo de hoy casi no lo ve por suerte.**
+
+### El hallazgo
+
+El paso 3 resuelve la rama viva del PO asi:
+
+```
+git for-each-ref --sort=-committerdate ... refs/remotes/origin/po/
+```
+
+y usa **la primera**. Es decir: **la rama cuyo TIP es mas nuevo**. Medido hoy:
+
+| rama | tip (UTC) | ronda MAX de su `DASHBOARD_PO_IDEAS.md` |
+|---|---|---|
+| **`origin/po/hb160-poda`** ← la que elige el detector | 2026-10-03 04:11 | **42** |
+| `origin/po/hb150-poda` | 2026-10-03 02:07 (**5 h mas vieja**) | **45** |
+| `origin/main` | — | 42 |
+
+**La rama 5 horas mas vieja tiene 3 rondas MAS nuevas.** Y la que elige el
+detector **no contiene** la ronda 45:
+
+```
+git merge-base --is-ancestor 8779109 origin/po/hb160-poda   ->  FALLA
+```
+
+### La causa, medida (no supuesta)
+
+El PO crea la rama de cada ronda **desde `main`**, no desde su rama anterior.
+Y las rondas 43-45 **nunca se mergearon a `main`**: de 19 ramas `po/*`, **18
+siguen sin mergear** (la unica mergeada es `po/hb114-dashboard`).
+
+O sea: cada rama nueva **nace sin el historial del PO**. La fecha del tip sube
+(porque el PO commitea) mientras el contenido **baja** (porque el padre es
+`main`, que no tiene las rondas). Ordenar por fecha elige, con este patron, la
+rama **mas nueva y mas pobre**.
+
+### Por que hoy casi no lo ve — y por que eso NO lo vuelve inofensivo
+
+El detector leyo `hb160` = ronda 42, y la 42 esta marcada cerrada → el conteo
+dio **0 Tramos** → no se mando nada al Reviewer. **El resultado fue correcto por
+la razon equivocada**, exactamente como el bug del HB#103 que el banner de
+HEARTBEAT.md ya describe. Si la ronda 43-46 hubiera tenido propuestas, el paso 3
+las hubiera perdido **sin avisar**: un 0 por leer el archivo equivocado es
+indistinguible de un 0 real.
+
+### LA REGLA
+
+**La rama viva no se resuelve por FECHA. Se resuelve por `MAX(ronda)` sobre
+TODAS las ramas `po/*`, y se lee la ronda mas alta encontrada.**
+
+Las dos dimensiones hacen falta, por la misma razon que ALERT-222: un criterio
+que mira una sola dimension se rompe en cuanto esa dimension deja de correlacionar
+con lo que se busca. Y aca la dimension que se usa (fecha) esta **actively
+invertida** respecto de la que importa (contenido).
+
+### La receta (para que otro la pueda reproducir — `tools/` NO, ver abajo)
+
+```
+:: node, sin try/catch que trague el error
+const HEAD = /^## .*?ronda (\d+)/gim;        // SOLO encabezados de seccion
+const refs = git('for-each-ref','--format=%(refname:short)','refs/remotes/origin/po/')
+                .trim().split('\n');
+let best = {ref:null, max:0};
+for (const ref of refs) {
+  const t = git('show', `${ref}:DASHBOARD_PO_IDEAS.md`);
+  const rs = [...t.matchAll(HEAD)].map(m => Number(m[1]));
+  const max = rs.length ? Math.max(...rs) : 0;
+  if (max > best.max) best = {ref, max};
+}
+```
+
+**Salida medida hoy:** `RAMA_VIVA=origin/po/hb150-poda`, `RONDA_MAX=45`.
+
+> **NO se commiteo el script a `tools/`.** `tools/.gitignore` es una allowlist y
+> agrega una excepcion es decision de Pablo (regla del HB#148). El script quedo
+> en `%TEMP%`/`tools/` sin trackear y la receta vive ACA, que es donde puede
+> reproducirla cualquiera. *Un instrumento que solo existe en el disco de una
+> persona es un instrumento que otro no puede reproducir.*
+
+### Dos trampas de instrumento que me comieron HOY (familia ALERT-79)
+
+1. **`matchAll` sin el flag `g` tira `TypeError`.** Mi primer detector lo envolvio
+   en un `try/catch` que devolvia `null`, y eso paso **19 ramas "sin rondas"** que
+   se leian como una medicion ("el PO no escribio nunca"). El `catch` no evito el
+   crash: **lo disfrazo de dato**. Si una rama no se puede leer, el ciclo tiene
+   que saberlo, no contarla como vacia.
+2. **`/ronda (\d+)/` sin anclar mide PROSA.** Matchea *"las correcciones de las
+   rondas 45 y 46"* dentro de un parrafo y sube el MAX sin que exista la seccion.
+   Anclar en `^## `. Es ALERT-222 repetido, pero **en mi propio instrumento**.
+
+### Corolario de fondo (esto es lo importante)
+
+El `append-only` que el PO se impuso a si mismo —*"el conteo tiene que salir de
+un archivo que yo no pueda reescribir despues de haber contado"*— **no aguanta
+un rebase sobre `main`**. El archivo es append-only **dentro** de una rama y
+**perdedor entre ramas**.
+
+O sea: el invariante se cumple en el archivo y se pierde en el historial, que es
+donde un lector lo va a buscar. **18 de 19 ramas `po/*` sin mergear no es
+higiene: es la razon por la que el maximo no existe en ningun lado.**
+
+Mergear `main` <- rama del PO no es burocracia: es lo que hace que el maximo
+esté en un unico lugar y el detector no pueda elegir mal.
+
+### Verificacion
+
+- Dos instrumentos independientes (script con regex anclada + `findstr` sobre el
+  archivo extraido) **coinciden**: detector viejo = ronda 42, correcto = ronda 45.
+- Causa confirmada con `git merge-base --is-ancestor` (**FALLA**) y con
+  `git log origin/main..origin/po/hb160-poda` (**1 commit**, el de la poda).
+- Control negativo del detector: con una rama inexistente **falla ruidosamente**
+  (`exit 128`), no devuelve 0.
+- Merge de `f2b5a82` (la poda del PO) verificado ANTES: encoding **delta** CJK
+  0/0 y U+FFFD 0/0 contra main, sin BOM, `git apply --check` aplica y el control
+  negativo (`--reverse`) **falla** → el parche discrimina.
+- EOL: `main` y `hb160` son **LF puro los dos** (424 y 400 LF, 0 CRLF). **No** es
+  el defecto de fin de linea del HB#157: no hay mezcla. Digo esto porque el
+  numero "400 LF" parece el defecto y no lo es.
