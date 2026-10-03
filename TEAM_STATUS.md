@@ -214,6 +214,116 @@ ALERT-228/229 quedan **1 vez cada uno**.
   **32 CJK/U+FFFD HISTORICOS** (deuda vieja, no de este ciclo).
 - Por eso el control es **delta contra `origin/main`**: uno de valor absoluto marca los 32
   historicos para siempre y deja de correrse (regla del HB#151).
+# HB#158 - 2026-10-03 04:30-05:2x UTC - EL PASO 3 RESOLVIA LA RAMA DEL PO POR FECHA, Y LA FECHA DICE LO CONTRARIO DE LO QUE BUSCA
+
+> **Este ciclo no abrio ronda ni mando nada al Reviewer. Y el motivo por el que
+> NO habria que mandarlo era correcto por la razon equivocada.** Eso es el
+> hallazgo, y por eso vale mas que una ronda.
+
+## ALERT-227 - la rama mas nueva del PO tiene **menos** historial que una mas vieja
+
+**Medido, con dos instrumentos que coinciden** (script con regex anclada +
+`findstr` sobre el archivo extraido):
+
+| rama | tip (UTC) | ronda MAX de su `DASHBOARD_PO_IDEAS.md` |
+|---|---|---|
+| **`origin/po/hb160-poda`** ← la que elegia el detector | 04:11 | **42** |
+| `origin/po/hb150-poda` (**5 h mas vieja**) | 02:07 | **45** |
+| `origin/main` | — | 42 |
+
+Y la que elegia el detector **no contiene** la ronda 45:
+
+```
+git merge-base --is-ancestor 8779109 origin/po/hb160-poda   ->  FALLA
+```
+
+**Causa, medida:** el PO crea la rama de cada ronda **desde `main`**, y las rondas
+43-45 **nunca se mergearon a `main`** — de 19 ramas `po/*`, **18 siguen sin
+mergear**. Cada rama nueva **nace sin el historial del PO**: la fecha del tip
+sube, el contenido baja. Ordenar por fecha elige, con este patron, **la rama mas
+nueva y mas pobre**.
+
+**Por que hoy casi no lo ve:** el detector leyo ronda 42, esta cerrada → conteo
+**0 Tramos** → no se mando nada. Correcto por la razon equivocada, como el
+HB#103. Con una ronda 43-46 abierta, el paso 3 las pierde **sin avisar**: un 0
+por leer el archivo equivocado es indistinguible de un 0 real.
+
+**REGLA (aplicada en `HEARTBEAT.md`):** la rama viva se resuelve por **`MAX(ronda)`
+sobre todas las `po/*`**, no por fecha. Las dos dimensiones hacen falta, y la que
+se usa esta **invertida** respecto de la que importa.
+
+**Corolario de fondo:** el `append-only` que el PO se impuso a si mismo *"el
+conteo tiene que salir de un archivo que yo no pueda reescribir despues de haber
+contado"* **no aguanta un rebase sobre `main`**. Es append-only *dentro* de una
+rama y **perdedor entre ramas**. 18 de 19 sin mergear no es higiene: es la razon
+por la que el maximo no existe en ningun lado.
+
+## Dos trampas de instrumento que me comieron hoy (familia ALERT-79)
+
+1. **`matchAll` sin flag `g` tira `TypeError`.** Mi primer detector lo envolvio en
+   un `try/catch` que devolvia `null`, y eso paso **19 ramas "sin rondas"** que se
+   leian como una medicion. El catch no evito el crash: **lo disfrazo de dato**.
+2. **`/ronda (\d+)/` sin anclar mide PROSA** — matchea *"las rondas 45 y 46"* dentro
+   de un parrafo. Anclar en `^## `. Es ALERT-222 repetido, **en mi propio
+   instrumento**.
+
+Ninguna de las dos llego al commit: el control de encoding y la suite coronary.
+Pero una de las dos casi se convierte en **ALERT-228**: *"el PO no escribio
+nunca"*.
+
+## Trabajo entregado
+
+- **Mergeado `f2b5a82`** (poda de la ronda 47 del PO): reencuadra **L88
+  Coberturable** y **L242 WvW Borderlands**. Verificado **antes** de mergear:
+  encoding delta CJK 0/0 y U+FFFD 0/0 contra main, sin BOM, `git apply --check`
+  aplica y el control negativo (`--reverse`) **falla** → el parche discrimina.
+- **`HEARTBEAT.md`**: el paso 3 documenta ALERT-227 y la receta corregida.
+- **Suite: 2307 aserciones / 0 FAIL, 86 de 86 archivos.**
+
+## Cierres del ciclo
+
+| paso | resultado |
+|---|---|
+| **-1 rescate** | Arranque 04:30:08. `origin/main` 04:20:20 (**mas viejo**) + arbol limpio → normal. Re-medido a mitad: limpio. Sin escritor. |
+| **0 canal** | Inbox vacio, replies sin nuevas, 23 `overdue` (todos HB#91 a HB#147, ninguno dirigido a mi). |
+| **1 Reviewer** | `task-6cc3851b8d15` → **404** (TTL vencido, ya medido en HB#157). Confirma la nota de HB#159: el paso 1 no puede recoger nada. |
+| **3 PO** | **NO se abrio ronda.** Con el criterio corregido, la ronda viva es **45 = PAUSA** → **0 Tramos**. Control negativo = 0 → el criterio mide. |
+| **4 backlog** | **4 items abiertos** (63 checkboxes). No se toco product code: el item con mas valor esta bloqueado por el clima de la clon. |
+| **6 commit** | `87ee481` + merge `7bfd8f4`, pusheados. `main` unica, 0 duplicados por refspec, arbol limpio, rama del ciclo borrada. |
+
+## Lo que NO se hizo, y por que (regla: la justificacion se re-deriva cada ciclo)
+
+- **No se mando nada al Reviewer**: ademas de que no hay nada (PAUSA), el unico
+  tramo libre de la serie es mandarle trabajo a un agente que **devuelve sin
+  veredicto por 8o ciclo seguido** ("Max iterations (100) reached").
+- **No se commiteo el detector a `tools/`**: es una allowlist y agregar una
+  excepcion es **decision de Pablo** (regla del HB#148). La receta quedo escrita
+  en `HEARTBEAT.md` y en ALERT-227, que es donde otro la reproduce. *Un
+  instrumento que solo existe en el disco de una persona es un instrumento que
+  otro no puede reproducir.*
+- **No se borraron `_hb55_strikeclear.js` y `_rescate_hb154/`**: son de otros
+  ciclos y **estan vacios o son superseded**. No es scratch mio.
+
+## Pendiente sin cambio
+
+(1) **ALERT-41** — esperando el body crudo de `/v2/account/raids` de Pablo.
+(2) **ALERT-179** — fix mergeado, Reviewer mudo. (3) **T14/T15** — veredicto
+opcion C, precondicion medida, sin aplicar. (4) **ALERT-222** — filtro de ronda
+del paso 3, ahora **parcialmente resuelto** por el criterio de MAX(ronda).
+(5) **ALERT-225** — reenviar la pregunta al Reviewer es la septima muerte;
+partirla. (6) **Idea 57, los 4 wrappers** — viven solo en ALERT-48. (7) decision
+de **FILTRO-05**. (8) las **~51 filas con `task_id` abierto** del COMMS_LOG —
+deuda de bookkeeping de HB#30 a HB#117.
+
+## Lo nuevo que queda para el proximo ciclo
+
+**Las 18 ramas `po/*` sin mergear son ahora el problema, no el supuesto.** Con
+ALERT-227 corregido el lector ya no elige mal, pero **el maximo sigue sin existir
+en ningun lado**: la ronda 45 solo vive en `po/hb150-poda`. Mergear
+`main` <- rama del PO no es burocracia, es lo que hace que el maximo este en un
+unico sitio. **Es la accion de una sola vez que desactiva la causa de ALERT-227**
+y es decision de Pablo (su AGENTS.md dice que las ramas `po/*` son del PO).
+
 # HB#159 — 2026-10-03 04:00-04:3x UTC — LOS ONCE task_id DEL PASO 1 DAN 404, Y ESO HACE QUE UN PASO QUE NO PUEDE RECOGER NADA PAREZCA QUE HAY 7 TRABAJOS PENDIENTES
 
 > **Actualizado:** 2026-10-03 (HB#159) por el Principal.
