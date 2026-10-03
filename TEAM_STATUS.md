@@ -1,4 +1,219 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#161 — 2026-10-03 05:00-05:5x UTC — LOS 2 CHEQUEOS DEL BANNER DABAN VERDE CON EL ESPEJO DESACTUALIZADO, Y EL AGENTE QUE LO LEE ES EL QUE EJECUTA
+
+> **Actualizado:** 2026-10-03 (HB#161) por el Principal.
+> **Base:** `origin/main` = `87ee481` al abrir. Arranque **05:00:06 UTC**.
+> Suite completa **2307 / 0 FAIL en 86 de 86**, exit 0 (medida **despues** de ramificar:
+> `chore-hb161-espejo-y-paso3` desde `origin/main`), o sea el numero es de esta rama.
+> Arbol limpio al abrir y en la 2a medicion. **83 sesiones, 0 no-idle.** HEAD en `main`.
+> Rama de este ciclo: `chore-hb161-espejo-y-paso3`.
+>
+> **Sobre el numero de ciclo:** el ultimo `TEAM_STATUS` es HB#159, pero el commit mas
+> nuevo (`87ee481`) se autotiqueta **HB#158** y es POSTERIOR a los etiquetados HB#159 y
+> HB#160. **La numeracion de HB en los mensajes de commit no es monotona**, asi que este
+> ciclo sigue por encima del maximo visto (160) y no por encima del ultimo escrito.
+
+## EL HALLAZGO DEL CICLO (1 de 2): los 2 chequeos del banner dan VERGE con el espejo roto
+
+El `HEARTBEAT.md` canonico (el del repo) y el **espejo** (`workspaces/default/HEARTBEAT.md`,
+el que lee el cron, o sea **yo**) **divergian**, y el paso 3 de uno de los dos esta
+defectuoso. Los dos controles que el propio banner manda correr **dan OK**.
+
+**Medido:**
+
+| | canonico (`gw2-dev`) | espejo (`workspaces/default`) |
+|---|---|---|
+| `findstr /c:"MAX(ronda)"` | matchea | **NO matchea** |
+| paridad de secciones `### ` | 13 | 13 |
+
+El commit `87ee481` (04:46:47 UTC) agrego **51 lineas** al canonico con la regla de
+ALERT-227. **El espejo no las tiene.**
+
+**Por que los 2 chequeos no lo ven, y es el hallazgo:**
+
+- El chequeo de `for-each-ref` verifica que el **comando** este escrito. El comando no
+  cambio: cambio **la explicacion que lo rodea**. La senal que el banner eligio (la
+  AUSENCIA de `for-each-ref`) no se movio.
+- El chequeo de paridad cuenta **secciones `### `**. Detecta "falta o sobra un paso".
+  **No detecta que el CONTENIDO de un paso cambio.** Y este cambio fue dentro de una
+  seccion que ya existia.
+
+**REGLA: un control que cuenta cantidad de secciones no puede ver un cambio de contenido
+dentro de una seccion.** Si lo que importa es que un paso se ejecute igual, el control
+tiene que mirar **el contenido del paso**, no su cantidad. Y el caso grave no es teorico:
+el agente que lee el espejo es el que ejecuta, y el paso 3 del espejo es **el que
+ALERT-227 demuestra que esta *actively invertido*** (resuelve la rama del PO por fecha,
+cuando la rama mas nueva tiene 3 rondas MAS VIEJAS).
+
+Corregido en este ciclo: el espejo se regenero desde el canonico (copy) y se re-verifico.
+Los 2 chequeos dan OK **ahora porque las dos copias son iguales**, no porque el control
+servira.
+
+**Lo que NO hago, y por que:** no agrego un tercer chequeo al banner. `HEARTBEAT.md` es un
+archivo de instrucciones con un procedure de escritura propio, y el banner dice que el
+canonico gana y que las correcciones van ahi primero. Agregar el control es decision del
+Principal/Arquitecto; **lo que si hago es dejar el hallazgo medido aca para que la decision
+tenga la medicion.**
+
+## EL HALLAZGO DEL CICLO (2 de 2): la regla de ALERT-227 tampoco ve la ronda 47
+
+ALERT-227 escribio la regla correcta: la rama viva del PO **no** se resuelve por fecha,
+sino por `MAX(ronda)` sobre todas las ramas `po/*`. La aplique tal cual, con la regex
+anclada en `^## ` y `matchAll` con flag `g`, y sin `try/catch` que trague:
+
+```
+RAMAS VIVAS=hb150-poda   RONDA_MAX=45
+```
+
+**Y el repo dice que la ultima ronda del PO es la 47.** El merge `7bfd8f4` se titula
+literalmente *"poda de la ronda 47 del PO (HB#160)"*. Verificado:
+
+- `DASHBOARD_PO_IDEAS.md` en `origin/po/hb160-poda` (la mas nueva por fecha):
+  el encabezado de ronda mas alto es **42**. **No hay ronda 47.**
+- El commit `f2b5a82`, que es el de "la ronda 47", toca **solo `BACKLOG.md`**
+  (31 inserciones, 1 archivo). No toca el archivo de ideas.
+
+**O sea: el PO tiene DOS canales de salida y el paso 3 mira UNO.** Cuando el PO **poda**,
+escribe en `BACKLOG.md` y no en `DASHBOARD_PO_IDEAS.md`, y su ronda mas reciente es
+invisible para el detector. `MAX(ronda)` y la fecha **discrepan**, y el detector elige una
+en silencio.
+
+**Y el resultado de este ciclo fue el mismo por las dos rondas: 0 propuestas.** Eso es
+justo el motivo por el que esto no se puede dejar pasar: **un 0 que no distingue "no hay
+nada" de "estoy mirando el archivo equivocado"**. ALERT-227 ya lo dijo para la fecha; se
+repite para el archivo.
+
+**REGLA (misma familia que ALERT-222): el criterio de "cual es la ronda viva" necesita las
+DOS dimensiones — `MAX(ronda)` Y la fecha del ultimo commit del PO — y cuando
+discrepan tiene que DECIR que discrepan.** Elegir una en silencio es como un assert que no
+puede fallar: hoy el resultado coincidia y nadie lo ve; manana, con una ronda de
+propuestas en `BACKLOG.md` en vez de en el archivo de ideas, las pierde sin avisar.
+
+## PASO 1: los 11 `task_id` siguen dando 404, y eso ya esta catalogado
+
+`task-6cc3851b8d15` -> **HTTP 404**. **No lo marco fallido** (regla de `HEARTBEAT.md`).
+
+**Correccion de mi propia memoria:** mi `MEMORY.md` (ciclo HB#157) Todavia decia que esa
+tarea *"vuelve finished SIN veredicto, Max iterations (100), 8to ciclo"*. **Cambio de
+estado:** ahora la tarea **no existe en la API**. No es lo mismo — *"termino sin
+veredicto"* y *"el registro ya no esta"* son estados distintos y se anotan distinto.
+
+El HB#159 (`159611c`) ya midio los 11: **todos dan 404**, y la regla que salio es *"un 404
+verificado es un estado terminal y se cierra"*. Las filas 118 y 121 ya estan cerradas; las
+5 (010, 011, 012, 016, 019) quedan abiertas a proposito porque sus notas ya describen el
+resultado. **No hay tarea viva.** No se mando nada al Reviewer y no hay nada que recoger.
+
+**Inbox y replies: vacios.** 23 `overdue`, los mismos de ciclos anteriores (HB#91 a HB#147),
+ninguno dirigido a mi.
+
+## Estado de las propuestas (PO): 0, y NO se mando nada al Reviewer
+
+Ronda viva **45** (`origin/po/hb150-poda`), que es **PAUSA** por el regimen propio del PO:
+*"no se investiga y no se traen ideas"*. **0 encabezados `### Tramos`.**
+
+Control negativo del conteo: `**ZZZ999` (imposible) -> **0**. El criterio discrimina.
+
+**Lo que hay que decir de paso:** la ronda 47 **ya fue mergeada a `main`** por el
+Principal como poda de `BACKLOG.md` (`7bfd8f4`, sobre `f2b5a82`), reencuadrando L88
+(Coberturable) y L242 (WvW). O sea: **la actividad reciente del PO no esta perdida, esta
+aplicada.** Lo que falta es que el detector la vea. Enviarle al Reviewer las propuestas de
+una poda ya aplicada seria la forma mas cara de perder un ciclo.
+
+## BACKLOG: 4 filas abiertas, medidas, y por que NO se arranca ninguna
+
+`findstr /r /c:"^- \[ \]"` sobre `origin/main:BACKLOG.md` -> **4**.
+
+| fila | item | estado real, medido |
+|---:|---|---|
+| 60 | **ALERT-41** Strike Tracker | **BLOQUEADO por Pablo**: falta el body crudo de `/v2/account/raids` con token real. Escalado en el HB#149 (`success: true`). No es mio. |
+| 88 | **Coberturable** account-scoped | **Tramo 2 ya a medio hacer**: `getAccountSkins` (`:1467`) y `getSkinsBatch` (`:1545`) mergeados y exportados; `git grep` da **1 solo archivo** (`api-gw2.js`), o sea **0 de pantalla** — y el control del metodo discrimina (`getAccountLuck`, que si tiene pantalla, da 2 archivos). Falta (1) catalogo paginado de `/v2/skins` y (2) call site + pantalla. |
+| 90 | **Dungeon dailies** | ~3-4 h, y **la premisa "~3-4 h, patron probado" cae**: los 3 hermanos viven en `meta.js`, no en `activities.js`. |
+| 242 | **WvW Borderlands** | **Podada y reencuadrada** a VISOR, no tracker. El plazo "Nov 10" no se puede escribir: `/v2/wvw/timers/teamAssignment` **rota** (el valor de NA avanzo una rotacion entera en 24 h). |
+
+**Por que no arranco el L88 aunque es el unico desbloqueado — razon RE-DERIVADA, no
+heredada** (regla del HB#152): un cron de 30 min que arranca producto y no llega al commit
+deja el arbol sucio, que es **exactamente** lo que el PASO -1 existe para impedir, y lo
+que el HB#150 sufrio. Un ciclo que cierra con el repo limpio vale mas que uno que deja
+medio item mas. Y encima mi `MEMORY.md` estaba **3 ciclos desfasado**, o sea arrancar
+producto sin re-derivar el estado real del backlog seria repetir el error del HB#153.
+
+## Alertas
+
+| | |
+|---|---|
+| **ALERT-228 (este ciclo)** | Los 2 chequeos del banner dan verde con el espejo funcionalmente desactualizado. Corregido; el control que falta lo decide el Principal. |
+| **ALERT-227** (HB#158) | El paso 3 resolvia la rama del PO por fecha, y la fecha esta *actively invertida*. **Su regla esta aplicada y es correcta, pero es incompleta**: no ve la ronda 47 (ver arriba). |
+| **ALERT-219** (HB#149/152/157) | Escritores concurrentes en el mismo clon. Re-medida a mitad de ciclo: **83 sesiones, 0 no-idle**, Pablo idle desde 03:00:27 UTC, `origin/main` mas viejo que mi arranque. Sin conflicto. |
+| **ALERT-41** | Sin cambio: esperando el body crudo de `/v2/account/raids` de Pablo. |
+| **ALERT-179** | Sin cambio: fix mergeado, Reviewer mudo. |
+| **T14/T15** | Sin cambio: veredicto opcion C, precondicion medida, sin aplicar. |
+| **Idea 57, los 4 wrappers** | Sin cambio: viven solo en ALERT-48. |
+| **FILTRO-05** | Sin cambio: es decision de contrato. |
+| **Deuda de bookkeeping** | Las filas con `task_id` cerrado y las 5 abiertas a proposito. No es trabajo vivo. |
+
+## Hallazgo secundario: el PASO -1 no mira EN QUE RAMA esta el HEAD
+
+El HB#159 sufrio esto: edito `COMMS_LOG.md` con HEAD en la rama de Pablo, porque **el
+PASO -1 no tiene ninguna condicion que mire la rama del HEAD**. Ese dia el arbol estaba
+limpio y el remoto mas viejo, o sea el PASO -1 dio *"ciclo normal"* y no cubria el caso.
+
+**Esta vez si lo mire, a mano** (`git rev-parse --abbrev-ref HEAD` -> `main`), pero
+**a mano no es un control**: el paso escrito sigue sin la condicion. Queda anotado para
+agregarla junto con el tercer chequeo del banner.
+
+## Errores de instrumento PROPIOS de este ciclo (6, TODOS de la familia ALERT-79)
+
+Los 6 salieron del mismo trabajo —un script que inserta un bloque en 2 archivos de log—
+y cada uno lo produjo una falta de control distinto. Los cuento todos porque la leccion
+es del conjunto: **escribir en un archivo de bitacora es mas fragil que lo que parece**.
+
+1. **`tail` en `cmd.exe`.** Reincidencia: ya me paso en el HB#152 y esta anotado en
+   `MEMORY.md`. Rompio el comando entero (`"tail" no se reconoce`). **Un error que ya
+   medi no se vuelve a cometer: si el default esta escrito en mi propia memoria, no
+   probarlo.**
+2. **`require` dentro de un `.mjs`.** `ReferenceError: require is not defined in ES
+   module scope`. Corregido con `import { execFileSync }`. El fallo fue **ruidoso**, que
+   es lo que ALERT-227 pide: un instrumento que revienta es mejor que uno que devuelve
+   un 0 disfrazado de medicion.
+3. **Mi primera insercion PERDIO la cabecera `# HB#159`.** Reemplazaba la linea 2, que
+   es el unico encabezado de HB#159, y dejo su contenido huerfano sin titulo. **Lo
+   detecto el control de integridad** (`HB#159 sigue presente: false`), no yo. Corregido
+   insertando despues de la linea 1 en vez de reemplazar la 2.
+   **REGLA: insertar en un archivo de bitacora es `conservar lo viejo + agregar`, y el
+   control tiene que afirmar que TODOS los encabezados viejos siguen ahi.** El titulo
+   de un ciclo es lo unico que lo hace legible.
+4. **Dos `ReferenceError` por TDZ** (`Cannot access 'alOrig' / 'alert228' before
+   initialization`): las usaba antes de declararlas. Peor: el `writeFileSync` de
+   TEAM_STATUS va **antes** de la linea que falla, asi que el script moria dejando **un
+   archivo ya escrito y el otro sin tocar**. La v1 fallo 2 veces.
+   **REGLA: las declaraciones van antes del primer uso, y un script que escribe varios
+   archivos tiene que validar TODAS sus entradas antes de escribir el primero.**
+5. **La guardia de idempotencia daba "ok" con TRES copias de ALERT-228/229** ya
+   escritas. La guardia era `includes()` (booleano): preguntaba "esta?", no contaba.
+   **REGLA: un guard de idempotencia CUENTA ocurrencias.** Preguntar por inclusion y
+   contar son controles distintos, y solo el segundo detecta una duplicacion.
+6. **Mi propio control de EOL comparaba cosas que no son comparables:** el archivo
+   **en disco** (CRLF, por `core.autocrlf`) contra la salida de `git show` /
+   `git cat-file` (el **blob crudo**, que es LF). Daba "CRLF 0 / 1 linea" en la
+   referencia, que no es un dato del archivo: es un artefacto de la herramienta.
+   Es la misma clase del HB#157 (*"un control con dos paths y un solo nombre de archivo
+   es un control que puede estar midiendo el archivo equivocado"*). Medido y aclarado:
+   el blob es LF puro y el arbol de trabajo es CRLF; mi archivo esta **uniforme** en
+   CRLF, sin finales mezclados, y se normaliza al commitear como todos los demas.
+
+**El control de encoding final (delta contra `origin/main`) dio:** TEAM_STATUS
+sin BOM, 0 LF sueltos, **delta CJK = 0**; ALERTS_LOG sin BOM, 0 LF sueltos,
+**delta CJK = 0** sobre 32 historicos. E **integridad**: todo el contenido previo
+sigue presente byte a byte, HB#155/156/159 conservan su encabezado, ALERT-227 sigue, y
+ALERT-228/229 quedan **1 vez cada uno**.
+
+## Notas de encoding (control de DELTA, no de valor absoluto)
+
+- `TEAM_STATUS.md`: **88.527 bytes, CRLF puro** (1491 CRLF, 0 LF sueltos), sin BOM.
+- `ALERTS_LOG.md`: **445.076 bytes, CRLF puro** (6911 CRLF, 0 LF sueltos), sin BOM,
+  **32 CJK/U+FFFD HISTORICOS** (deuda vieja, no de este ciclo).
+- Por eso el control es **delta contra `origin/main`**: uno de valor absoluto marca los 32
+  historicos para siempre y deja de correrse (regla del HB#151).
 # HB#159 — 2026-10-03 04:00-04:3x UTC — LOS ONCE task_id DEL PASO 1 DAN 404, Y ESO HACE QUE UN PASO QUE NO PUEDE RECOGER NADA PAREZCA QUE HAY 7 TRABAJOS PENDIENTES
 
 > **Actualizado:** 2026-10-03 (HB#159) por el Principal.

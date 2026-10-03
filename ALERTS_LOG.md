@@ -6909,3 +6909,90 @@ esté en un unico lugar y el detector no pueda elegir mal.
 - EOL: `main` y `hb160` son **LF puro los dos** (424 y 400 LF, 0 CRLF). **No** es
   el defecto de fin de linea del HB#157: no hay mezcla. Digo esto porque el
   numero "400 LF" parece el defecto y no lo es.
+
+
+## ALERT-228 (2026-10-03, HB#161) - los 2 chequeos del banner dan VERDE con el espejo funcionalmente desactualizado
+
+| | |
+|---|---|
+| **Severidad** | Alta (instrumento) | **Clase** | Un control de cantidad no puede ver un cambio de contenido |
+
+**Medido.** El `HEARTBEAT.md` canonico (el del repo) y el **espejo**
+(`workspaces/default/HEARTBEAT.md`, el que lee el cron) divergen. El commit `87ee481`
+(04:46:47 UTC) agrego **51 lineas** al canonico con la regla de ALERT-227 al paso 3.
+El espejo no las tiene, y **los 2 controles que el propio banner manda correr dan OK**:
+
+| control | resultado |
+|---|---|
+| `findstr /c:"MAX(ronda)"` | matchea solo en el canonico |
+| paridad de secciones `### ` | **13 = 13** |
+
+**Por que no lo ven, que es el hallazgo:**
+
+1. El chequeo de `for-each-ref` mira si el **comando** esta escrito. El comando no
+   cambio: cambio **la explicacion que lo rodea**. La senal que el banner eligio (la
+   AUSENCIA de `for-each-ref`) no se movio.
+2. El conteo de paridad cuenta **secciones**. Detecta "falta o sobra un paso". **No
+   detecta que el CONTENIDO de un paso haya cambiado**, y este cambio fue dentro de una
+   seccion que ya existia.
+
+**Por que es grave y no cosmetico.** El agente que lee el espejo es el que **ejecuta**,
+y el paso 3 del espejo es el que ALERT-227 demuestra que esta *actively invertido* (la
+rama del PO se resuelve por fecha, cuando la mas nueva tiene 3 rondas MAS VIEJAS). El
+HB#158 no lo vio porque le dio 0 por leer el archivo equivocado.
+
+**REGLA.** Si lo que importa es que un paso se ejecute igual, el control tiene que mirar
+**el contenido del paso**, no su cantidad. Un control que cuenta secciones verifica la
+estructura del documento, no el comportamiento del agente que lo lee.
+
+**Corregido en el acto:** el espejo se regenero desde el canonico y se re-verifico (los 2
+controles dan OK **ahora porque las dos copias son iguales**, no porque sirvan).
+
+**Lo que NO se hizo, y por que:** no se agrego un tercer chequeo al banner. `HEARTBEAT.md`
+tiene un procedimiento de escritura propio y el banner dice que el canonico gana. Agregar
+el control es decision del Principal/Arquitecto; queda el hallazgo medido para que la
+decision tenga la medicion.
+
+---
+
+## ALERT-229 (2026-10-03, HB#161) - la regla de ALERT-227 corrige la FECHA pero el detector mira el ARCHIVO equivocado
+
+| | |
+|---|---|
+| **Severidad** | Media (instrumento) | **Clase** | Un 0 que no distingue "no hay nada" de "estoy mirando el archivo equivocado" |
+
+**Medido, aplicando la regla de ALERT-227 tal cual** (regex anclada en `^## `,
+`matchAll` con flag `g`, sin `try/catch` que trague):
+
+```
+RAMAS VIVAS=hb150-poda   RONDA_MAX=45
+```
+
+Y el repo dice que la ultima ronda del PO es la **47**: el merge `7bfd8f4` se titula
+*"poda de la ronda 47 del PO (HB#160)"*. Verificado:
+
+- `DASHBOARD_PO_IDEAS.md` en `origin/po/hb160-poda` (la mas nueva por fecha): el
+  encabezado de ronda mas alto es **42**. **No hay ronda 47.**
+- El commit `f2b5a82`, que es el de "la ronda 47", toca **solo `BACKLOG.md`**
+  (31 inserciones, 1 archivo). No toca el archivo de ideas.
+
+**El PO tiene DOS canales de salida y el paso 3 mira UNO.** Cuando el PO **poda**,
+escribe en `BACKLOG.md` y no en `DASHBOARD_PO_IDEAS.md`, y su ronda mas reciente es
+invisible para el detector. `MAX(ronda)` y la fecha **discrepan**, y el detector elige
+una en silencio.
+
+**Por que no se puede dejar pasar aunque hoy el resultado coincida:** la ronda 45 da 0
+propuestas y la ronda 47 tambien (ya fue mergeada a `main` como poda de `BACKLOG.md`).
+O sea que **este ciclo dio el mismo numero por las dos rondas**, y eso es precisamente
+lo peligroso: **un 0 que no distingue "no hay nada" de "estoy mirando el archivo
+equivocado"**. ALERT-227 ya lo dijo para la fecha; se repite para el archivo.
+
+**REGLA (misma familia que ALERT-222).** El criterio de "cual es la ronda viva" necesita
+**las DOS dimensiones** — `MAX(ronda)` Y la fecha del ultimo commit del PO — y cuando
+discrepan tiene que **DECIR que discrepan**. Elegir una en silencio es como un assert que
+no puede fallar: hoy el resultado coincide y nadie lo ve; manana, con una ronda de
+propuestas escrita en `BACKLOG.md` en vez del archivo de ideas, las pierde sin avisar.
+
+**Menor, mismo ciclo:** el PASO -1 no tiene ninguna condicion que mire **en que rama**
+esta el HEAD (el HB#159 edito `COMMS_LOG.md` con HEAD en la rama de Pablo y el PASO -1
+dio "ciclo normal"). Esta vez se miro a mano, pero **a mano no es un control**.
