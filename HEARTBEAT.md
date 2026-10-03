@@ -643,6 +643,54 @@ cuando la viva es la **35**.
 > 3. Contar **items abiertos** (`- [ ]`), no encabezados de ronda: un encabezado
 >    de ronda no dice si hay trabajo.
 >
+> 4. **CONTROL DE CARGA — la tabla vive ACA, no en un workspace.** Este archivo
+>    es el unico canonico del ciclo, asi que la tabla que decide el modo de los
+>    5 agentes tiene que estar aca y no en el `AGENTS.md` de otro agente.
+>    Medido 2026-10-03 (ALERT-244) sobre `origin/main` @ `d342c3c`: `AGENTS.md` =
+>    **0** coincidencias de `MODO PODA` / `RECOLECTAR` / `CONTROL DE CARGA`, y
+>    `AGENTS_SYNC.md` = **0**. La tabla existia **solo** en el `AGENTS.md` del
+>    workspace del PO, y el puntero que la citaba (`PASO 0.5 - CONTROL DE
+>    CARGA`) era **colgante**: este archivo tiene **4** coincidencias de `PASO 0`
+>    y **ninguna** es `PASO 0.5`. **Si ese workspace se resetea, el control de
+>    carga entero desaparece sin un solo diff en el repo.** Esta seccion es su
+>    unica mitad en git:
+>
+>    | items abiertos | modo |
+>    |---|---|
+>    | **0 - 3** | **RECOLECTAR** |
+>    | **4 - 7** | **PAUSA** — no se investiga, no se traen ideas |
+>    | **>= 8** | **MODO PODA** |
+>
+>    El conteo autoritativo es el campo `c2_backlog_main.openItems` de
+>    `tools/hb163-canales.mjs`, y **solo cuenta si `openItemsDiscrimina` es
+>    `true`** (ALERT-236). Medido hoy: **5 = PAUSA** (era 4 antes del rescate del HB#174,
+>    que abrio 1 fila abierta al mover el trabajo multicuenta del Fractal Tracker a su
+>    propia fila).
+>
+>    **La holgura entre las dos formas se consumio en el primer item real del ciclo, y
+>    no en una frase.** Medido sobre el staged y sobre `origin/main`: la forma que
+>    discrimina da **4 -> 5**, y la subcadena da **7 -> 8**. El piso de ruido son **3
+>    lineas** (L200, L286, L425), las mismas 3 antes y despues: el salto no lo produjo
+>    una frase de cierre nueva, lo produjo **una fila abierta real**. ALERT-243 predijo
+>    que la cuarta frase de cierre cruzaba 8; lo que lo cruza es el primer item de
+>    trabajo. **El disparador de MODO PODA es mas probable de lo estimado, y por el
+>    motivo mas banal: anadir trabajo es mas frecuente que documentar un cierre en esa
+>    forma exacta.** La banda correcta (4-7 = PAUSA) no se movio en ninguno de los dos.
+>
+>    **La FORMA del conteo importa, y hay tres (ALERT-243).** Con un fixture de 6
+>    lineas que mezcla los dos casos, sobre un archivo real: la forma anclada en
+>    columna 0 da **1**, la que tolera sangria da **3**, y la subcadena sin ancla
+>    da **4**. Sobre `origin/main:BACKLOG.md` las tres dan **4** hoy, y por eso
+>    parecen la misma: **hoy no hay ninguna casilla ABIERTA con sangria** (hay 3
+>    con sangria — L284, L384, L385 — y las 3 son `- [x]`). **Coinciden por
+>    casualidad, no por contrato.** La forma que NO pierde un item abierto si
+>    alguien lo indenta bajo un subtitulo es la que **tolera sangria**: la anclada
+>    en columna 0 lo dejaria de contar en silencio (4 -> 3).
+>    La subcadena **no puede discriminar nunca**: las 3 lineas de mas que agrega
+>    (L200, L286, L415) son frases **escritas sobre este bug** que niegan el
+>    estado abierto. O sea que **cada frase que el equipo escribe para explicar
+>    el fallo del glifo sube el conteo del contador roto.** La holgura de 1 entre
+>    7 y 8 no es un margen: es una tension que crece con la calidad del trabajo.
 > **Herramienta: `tools/hb163-canales.mjs`**, que mide los 3 canales y **CUENTA**
 > las coincidencias de cada uno. **Un canal que da 0 tiene que decir de que salio
 > el 0**: si no se pudo leer, eso es un fallo de medicion y se reporta como tal, no

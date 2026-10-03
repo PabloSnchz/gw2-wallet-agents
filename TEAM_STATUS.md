@@ -1,5 +1,129 @@
 # TEAM_STATUS — Heartbeat Principal
-# HB#173 - 2026-10-03 12:00-12:3x UTC - ALERT-243: EL EJE DE CONTEO TIENE TRES FORMAS, Y LAS DOS QUE SE COMPARARON DIFIEREN EN 3 CARACTERES
+# HB#174 - 2026-10-03 12:30-13:0x UTC - L333 NO ESTA MAL CERRADA: LA PREMISA DEL PO ERA FALSA, Y LA SALIDA CORRECTA NO ERA UNA DE LAS TRES
+**El hallazgo del ciclo, y es de metodo del PO, no mio: el PO midio que `js/fractal-tracker.js` NO EXISTE y concluyo que la fila L333 esta mal cerrada.** Las tres salidas que ofrecio (reabrir, glifo propio, cerrar de verdad) parten de esa conclusion. **Medida, la conclusion es falsa.**
+**Que existe, y es la fila entera menos una parte:**
+- `activities.js:1086` **inyecta** `<div id="fractalsBody" class="fractals-container">` dinamicamente. **No esta en `index.html` porque se construye en runtime**, y por eso no se encontro con una busqueda de markup.
+- `renderFractals()` lo puebla y pinta un aviso `.fractal-notice[data-fl-color="info"]`. Ese aviso es **literalmente lo que la capa 3 fue construida para pintar**: `fractal-tracker-theme.js` esta **cargado en `index.html`** y engancha un `MutationObserver` a `#fractalsBody`.
+- `loadCMStatus(token)` (`activities.js:896`) **funciona contra la API real**: achievements de Solitary Throne CM, con last-win por `_cmFetchId`.
+- El commit **`27b8394`** — que el PO cita en su propio mensaje — es el que elimino la rotacion inventada. **La fila ya registra que se hizo.**
+- Y la fila misma dice *"la condicion bloqueante C2 ya fue resuelta: el bloque CM de `activities.js` se queda donde esta"*. **`js/fractal-tracker.js` no se creo porque el modulo vive en `activities.js`, por decision registrada. Su ausencia es la decision, no el olvido.**
+**Lo que NO existe, y son dos cosas de naturaleza distinta:**
+- **La tabla de 17 instabilities: NO SE VA A HACER.** `instabilit` = 0 en todo `js/`, pero la razon es que **`/v2/fractals` no existe en la API GW2**, y el propio codigo lo dice (`rotationAvailable = false`, "no se inventa"). Es la regla 6 de `AGENTS.md`: no insistir con features imposibles con los datos disponibles. **La condicion que puso el Reviewer era imposible, y eso la hace no-pendiente, no pendiente.**
+- **La parte MULTICUENTA: SI FALTA Y SI ES FACTIBLE.** Es la palabra con la que abre el titulo de la fila. Medido: `loadCMStatus` es **por token de la cuenta seleccionada**, y hay **0** lineas en `js/` que combinen fractal con account/cuenta/personaje.
+**LA SALIDA QUE APLIQUE, y no es una de las tres: corregir el texto de L333 y sacar la parte multicuenta a su propia fila abierta.** Las tres que se ofrecieron fallaban por motivos distintos y medidos:
+| salida | por que no |
+|---|---|
+| **(a) reabrir a `- [ ]`** | meteria en la cola un item cuyo trabajo de datos **ya esta hecho y ya no puede completarse**. Y ademas **cruza el umbral**: la forma por subcadena va de **7 a 8 = MODO PODA**, y la holgura de 1 que protegia al conteo **se consume entera** (ALERT-243, del ciclo anterior). |
+| **(b) glifo `[~]`** | mezcla "hecho" y "aplazado" en un glifo, y deja el trabajo multicuenta **fuera de toda cola**, porque `[~]` no cuenta como abierto. Es el *"por invisible no lo ejecuta nadie"* que el propio HB#125 escribio en L354-360. |
+| **(c) cerrar de verdad** | es la correcta, **pero exige corregir el texto**: hoy dice *"DESBLOQUEADO, listo para arrancar"*, que es la parte falsa. Sin esa correccion (c) deja de mentir la fila y se limita a callar. |
+**Lo que aplico:** L333 a `[x]` con el texto que dice lo que es cierto (implementado en `activities.js`, sin archivo propio por decision C2, sin rotacion inventada, sin 17 instabilities porque la API no las da), **mas una fila nueva abierta** en `## Pendientes (prioridad media)` con la parte multicuenta sola. El conteo va de **4 a 5 — el mismo numero que (a) queria, pero por el motivo correcto: se cuenta el trabajo que FALTA, no se reabre el que esta HECHO.** Verificado con instrumentos que tienen caso sano: `COL0=5`, `SANGRIA=5`, glifos `62 [x] + 5 [ ] = 67` coherente, `SUBCADENA=8` (la forma que ALERT-243 marco como incorrecta). La forma anclada — la que usa el control del PO — da **PAUSA**.
+**Precedente que el PO no cito y que aplica:** `## Pendientes que el control de carga no contaba (HB#125)` (L354-370), 3 casillas `[x]` con decision viva. Es el mismo caso — un renglon que mezcla estados — y el equipo ya lo resolvio **nombrando la seccion, no glificando**. Pero aqui el caso difiere en un punto que importa: en HB#125 lo `[x]` era **correcto** (algo se hizo y hay decision de dejarlo asi). En L333 lo `[x]` era **parcialmente falso**. Por eso la salida es *corregir + separar*, no *glificar*.
+**Un dato de alcance que corrige una afirmacion del PO:** el detector "capa 3 sin capas 1 y 2" (theme sin `X.js` al lado) da **4 de 8 themes huerfanos, y 3 son falsos positivos**: `wv-theme.js` -> `wv-shop-ui.js`, `wallet-theme.js` y `commerce-delivery-theme.js` -> otros modulos. **El theme se llama por la PANTALLA y el modulo por la IMPLEMENTACION**, asi que el nombre del archivo no dice nada. La forma que si discrimina es buscar el **selector** del theme en los demas archivos.
+**PASO -1, y el hallazgo del ciclo (ALERT-246): `origin/main` NO es el remoto, es un cache.** El paso dice "mide el remoto: `git log -1 --format=%ci origin/main`", y ese comando mide el **ref local**, que es lo que el remoto tenia en el ultimo fetch. Medi: `origin/main` = `ac205dc`; conclui que `d342c3c` era un commit local sin pushear; el push respondio **`Everything up-to-date`**, y con fetch se confirmo que ya estaba en el remoto y que no habia ninguno remoto que yo no tuviera. **No habia rescate: mi cache estaba vieja.** El riesgo real es el caso simetrico: si el remoto esta adelante y el arbol limpio, la rama "MAS NUEVO que tu arranque" no se dispara. **`git fetch origin` tiene que ser el primer comando del ciclo.**
+**PASO -1 (resto):** arranque **12:13:01 UTC**, arbol **LIMPIO**, en `main`, sin sesion `running`. Post-fetch: **ambas puntas vacias** (ALERT-230). **Banner:** `hb164-espejo.mjs` **13 controles OK**, paridad `<!--`/`-->` **136/136** en ambos, sin EOL mixto.
+**PASO 0/1:** inbox **vacio**, replies sin novedades, **23 `overdue`** (HB#91-147, historicos). `task-6cc3851b8d15` -> **404, 12o ciclo**, terminal.
+**PASO 3:** el mensaje del PO (ronda 49-corregida) es el canal ganador y trae **0 propuestas al Reviewer** y una peticion de decision. Sus 2 correcciones de medido (L88 son 11 endpoints y no 12; L174 confirma la correccion de premisa de la ronda 40) son consistentes con lo que yo tenia. **Nada al Reviewer: no hay codigo, y las tres salidas posibles eran sobre `BACKLOG.md`, que es archivo mio.**
+**ERRORES DE INSTRUMENTO PROPIOS (6, familia ALERT-79), en orden de coste:**
+1. **El `]` suelto (ALERT-246): 3 regex dieron 0 sobre 66 casillas.** Compilan, no lanzan, y no matchean nunca. Lo detecto el caso sano del instrumento, que por una vez estaba bien puesto — pero mi **tabla de esperados mal calculada** (mire `[x]` donde debia mirar `[ ]`) fue lo que casi lo deja pasar: **un guard con el esperado mal calculado no detecta nada.**
+2. **`split(CRLF)` sobre un archivo LF puro**, con un guard ausente: `LINEAS=1` sobre **117.544 bytes**, y los tres ejes dando 0. Sin el `BYTES=` impreso al lado, eso se reporta como "el archivo del PO se rompio" — **y el archivo estaba sano: el que media con la forma equivocada era el instrumento.** Queda el guard: `bytes > 1000 && lineas <= 2 => instrumento roto, no dato`.
+3. **El rango de una fila se autoexcluia**: `rangeOf(TARGET - 1)` probaba la propia fila contra el criterio "termino en la proxima casilla" y devolvia `L333 -> L332 (0 lineas)`. En la primera version eso era invisible porque el criterio de seccion la cortaba antes y el numero parecia razonable.
+4. **Dos literales de string larguisimos de prosa en un `.mjs`**: uno perdi el cierre de comilla (387 chars, apertura en la posicion 0, ninguna de cierre) y otro rompio el archivo con `\'` dentro de comilla simple. **La prosa va en un archivo, no embebida en codigo** — septima reincidencia de la misma clase en el ecosistema.
+5. **`git ls-tree -r` sobre un archivo con acentos** (iconos de raids) escribe `fatal:` en stderr y el script lo devuelve dentro del stdout: hay que filtrar, o el dato y el error se mezclan en la misma linea.
+6. **`git log -1 origin/main` como "el remoto"** (ALERT-246, caso 2). No rompio nada — el push fue no-op — pero la conclusion "hay que rescatar" era falsa y se sostenia en un cache.
+**CICLO:** `BACKLOG.md` **11 inserciones / 1 borrado** (el borrado es la linea vieja de L333, verificada por inspeccion). Sin `js/` ni `tests/` tocados, asi que **la suite NO aplica y no la corro por costumbre**. Blobs: `BACKLOG.md` **LF PURO, sin BOM**; `TEAM_STATUS.md` **CRLF PURO** con sus **130 CR-suelto preexistentes intactos** (corte de bytes crudo); `ALERTS_LOG.md` **LF PURO**. Encoding **DELTA 0/0** en los tres — el blob base de `ALERTS_LOG.md` tiene **31 CJK y 1 U+FFFD preexistentes**, y un control absoluto los marcaria para siempre.
+**PENDIENTE SIN CAMBIO:** (1) **ALERT-41** (falta el body crudo de `/v2/account/raids` con token real de Pablo); (2) **ALERT-179**; (3) **T14/T15**; (4) los **7 del patron B**; (5) **Idea 57**, los 4 wrappers; (6) **FILTRO-05**; (7) **ALERT-235 ABIERTA** (los 2 `PRE_BACKLOG.md`); (8) `task-6cc3851b8d15` **404**, 12o ciclo; (9) **nuevo**: la parte **multicuenta** del Fractal Tracker es la unica fila que este ciclo abrio, y **su prioridade la decide Pablo**; (10) **ALERT-246** aplicar `git fetch` como primer comando del PASO -1 del banner; (11) **deuda visible**: `_hb55_strikeclear.js` y `_rescate_hb154` en la raiz (**NO son mios**), ~100 ramas locales, **29 worktrees**.
+
+# HB#175 - 2026-10-03 13:00-13:4x UTC - EL CICLO MUERTO TENIA DOS ALERT-244, Y NADA EN EL REPO COMPRUEBA QUE NO SEAN UNO
+
+> **Arranque 13:00:14 UTC.** `origin/main` = `d342c3c` (12:12:55 UTC). Arbol **SUCIO**, 7 archivos, mtimes 12:32-12:45, todas **anteriores** a mi arranque. Sin sesion `running` (`qwenpaw chats list` | findstr running = 0). **Las dos puntas vacias** antes y despues del `git fetch`. Remoto = `origin` (`gw2-wallet-agents`).
+
+## 1. Tareas en curso
+
+- **Rescate del HB#174.** Muerto, y con el trabajo **TERMINADO**: 202 lineas en 5 archivos, ninguna commiteada. Es el caso 3 del PASO -1 (arbol sucio con mtimes viejos), no WIP para descartar.
+- **ALERT-247 (nueva, de este ciclo)**: un ciclo puede escribir DOS alertas con el mismo ID, y el duplicado no lo ve ningun control vivo.
+- **B1 del PO**: falta 1 clausula en la definicion de "item abierto" del banner. Medido, **no aplicado** (ver 3).
+
+## 2. Completadas en este ciclo
+
+- **Rescate verificado y commiteado.** Antes de commitear, revisei que habia escrito el ciclo muerto y medi el resultado.
+- **ALERT-246 renumerada** (el identificador duplicado que encontre).
+- **Punto 6 + "el patron comun" de ALERT-246, completados.** `_hb244add.mjs` nunca se ejecuto y apuntaba a `_hb244.md` (scratch), no a `ALERTS_LOG.md`.
+- **El numero del control de carga en el canonico era stale**: 4 -> 5. Actualizado en `HEARTBEAT.md`, con la medicion del cruce.
+- **Banner re-verificado**: 13/13 controles OK, espejo regenerado, `<!--`/`-->` 136/136 en los dos, 13 = 13 secciones, LF los dos.
+
+### HALLAZGO DEL CICLO (ALERT-247): DOS `## ALERT-244` EN EL MISMO ARCHIVO
+
+El HB#174 escribio la alerta de la tabla de control de carga como **244** (venia del PO), y despues escribio **su propia** alerta de instrumentos con el mismo numero, sin mirar que 244 ya estaba usado. Los 2 bloques coexistian en el staged:
+
+```
+## ALERT-244 - LA TABLA QUE DECIDE EL MODO DE LOS 5 AGENTES NO ESTA EN NINGUN ARCHIVO DEL REPO
+## ALERT-245 - UNA FILA `[x]` QUE DICE "LISTO PARA ARRANCAR"
+## ALERT-243 - ...
+## ALERT-244 - EL NOMBRE DEL INSTRUMENTO PROMETE UNA COSA Y MIDE OTRA
+```
+
+**Lo grave no es que este duplicado: es que nada lo detecta.** `tools/audit-alert-refs.mjs` corre y dice **`CONTROL ok: 190 ALERT definidos (>=100)`** con los 2 alive. El chequeo es de **cantidad**, no de **unicidad**. Los 4 controles vivos del banner tampoco lo miran.
+
+**Y no es un caso aislado.** Medido contra `origin/main`: `ALERTS_LOG.md` tiene **124** encabezados `## ALERT-N` y **3 IDs duplicados** (`ALERT-194` x2, `ALERT-197` x2, `ALERT-226` x2). Los 3 son preexistentes; los confirme contra la base para no atribuirle al ciclo muerto lo que ya estaba. Con el que encontro este ciclo serian **4**.
+
+**REGLA: asignar IDs de alerta necesita un control que CUENTE, no que pregunte por inclusion.** Es la misma regla de ALERT-213 (una fila duplicada en `COMMS_LOG.md` hacia que "cuantas filas hay" dejara de ser una pregunta con respuesta) y la misma que ya me aplico a los guards de idempotencia: **preguntar "esta?" y contar son controles distintos, y solo el segundo detecta una duplicacion.** Un ciclo que escribe 2+ alertas tiene que contar su propio bloque antes de cerrar.
+
+**NO renumere los 3 preexistentes.** Renumerar rompe referencias en `COMMS_LOG.md`, `SESSION_LOG.md` y `TEAM_STATUS.md`, que son 1685 citas. Queda como deuda medida.
+
+### SECUNDARIO: LA HOLGURA ENTRE LAS DOS FORMAS SE CONSUMIO EN UN ITEM REAL
+
+Actualice el conteo del banner porque el rescate lo movio, y al medirlo aparecio algo mejor:
+
+| forma | base | staged | banda |
+|---|---|---|---|
+| anclada en columna 0 | 4 | **5** | PAUSA (4-7) |
+| que tolera sangria | 4 | **5** | PAUSA (4-7) |
+| subcadena sin ancla | 7 | **8** | **MODO PODA** (>=8) |
+
+**Mi hipotesis era que una frase de cierre nueva habia subido el piso de ruido. Falsa.** Medidas las 3 lineas de ruido: son las **mismas 3** antes y despues (`L200`, `L286`, `L425` / `L415` en la base). El salto de 7 a 8 lo produjo **una fila abierta real** que el HB#174 abrio al separar la parte multicuenta del Fractal Tracker.
+
+**Eso es mas probable de lo que ALERT-243 estimo.** La regla decia que la cuarta frase de cierre cruzaba 8. Lo que cruza 8 es el **primer item de trabajo**, porque el equipo anade trabajo mas seguido de lo que documenta un cierre en esa forma exacta. El disparador de MODO PODA no es un accidente raro de prosa: es el ciclo normal del equipo, y por eso hay que corregir la forma del conteo antes de que llegue, no despues.
+
+## 3. Pendientes (la razon se RE-DERIVO, no se heredo)
+
+1. **ALERT-41** - falta el body crudo de `/v2/account/raids` con token real de Pablo. **Bloqueo externo**: no es alcanzable desde un cron.
+2. **ALERT-179** - fix mergeado, Reviewer mudo.
+3. **T14/T15** - veredicto opcion C, precondicion medida, **sin aplicar**.
+4. Los **7 del patron B**.
+5. **Idea 57**, los 4 wrappers - capa de datos, sin tocar (ALERT-48).
+6. **FILTRO-05** - decision de contrato.
+7. **ALERT-235 ABIERTA** - los 2 `PRE_BACKLOG.md`.
+8. `task-6cc3851b8d15` -> **404, 13o ciclo**, terminal. No se reenvia.
+9. **La parte multicuenta del Fractal Tracker** (fila que el rescate abrio). Es **producto + decision de producto**, y un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio, que es lo que el PASO -1 existe para impedir. **No la arranco.**
+10. **B1**: la definicion de "item abierto" en el banner nombra solo `- [ ]`. El PO dice que no cambia ningun conteo ni el modo, asi que **no va a Pablo**. Es una clausula de 1 linea en el canonico, pero decide si `[~]` es "abierto": **no la escribo yo**, es semantica y B1/B2 ya la pelean como dos salidas.
+11. **Los 3 IDs duplicados** (194, 197, 226): deuda medida, no tocada.
+12. **Deuda visible**: `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**), ~100 ramas locales, **29 worktrees**.
+
+## 4. Alertas
+
+- **ALERT-247 (nueva)** - un ciclo puede duplicar su propio ID de alerta y `audit-alert-refs` da `CONTROL ok`: **cuenta, no verifica unicidad**. 3 preexistentes + 1 de este ciclo.
+- **ALERT-246** - el nombre del instrumento promete una cosa y mide otra. Renumerada hoy desde un `ALERT-244` duplicado.
+- **ALERT-245** - una fila `[x]` que dice "LISTO PARA ARRANCAR".
+- **ALERT-244** - la tabla que decide el modo de los 5 agentes no esta en ningun archivo del repo, y el puntero que la cita es colgante. **Medido y escrito** (rescate del HB#174): la tabla quedo en el canonico de `HEARTBEAT.md`.
+- **ALERT-243 / 242 / 240** - sin cambio de estado.
+
+## 5. Estado de propuestas al Reviewer
+
+**0 enviadas, 0 candidatas.** Los 3 canales **NO coinciden**: **45** (rama por ronda MAX), **47** (`BACKLOG.md`, prosa), **49** (`PRE_BACKLOG.md` del workspace del PO). Gana el **49** por ser el mas alto, y es **PAUSA (podado)**: 0 propuestas. `openItems: 4` con `openItemsDiscrimina: true`, banda 4-7 = **PAUSA**. **La conclusion NO se apoya en ningun conteo de prosa**: la sostiene el veredicto de la ronda 49.
+
+## 6. Errores de instrumento PROPIOS (5, familia ALERT-79)
+
+1. **Confie en `origin/main` antes de fetchear** (ALERT-246, caso 2). Corri `git log origin/main` y **saque el veredicto del PASO -1** antes del `git fetch`. El veredicto sobrevivio al fetch, asi que nada me desvio - pero **lei la regla despues de romperla, y en el mismo ciclo que la escribio el ciclo muerto**. Y `SESSION_LOG.md:3572` ya lo decia: `git fetch` primero. No es nuevo, es una reincidencia.
+2. **Identificador CJK en un `.mjs`**: escribi `function 列出(...)`. 2a vez en este ciclo de vida y ~9a del archivo. Lo caze releyendo **antes** de correr. Regla: los `.mjs` se escriben en ASCII.
+3. **`find /c /v ""` sobre salida vacia devuelve exit 1**, que rompio 2 cadenas `&&` y se comio el resto del comando en silencio. 2 viajes de ida y vuelta perdidos. Regla: contar con `findstr /n .` o con `find /c /v ""` **sembrado con una linea**, nunca sobre una salida que puede estar vacia.
+4. **`cli.py` hay que correrlo desde el workspace, no desde `_comms`**: el comando se niega a adivinar el agente. El guard acierta - leer la bandeja de otro agente en silencio es peor que no leer.
+5. **`more +0` en una tuberia** rompio el pipeline del inbox. Reincidencia de un error de instrumentacion de shell que ya cometi antes.
+
+## 7. Archivos de este ciclo
+
+`ALERTS_LOG.md`, `BACKLOG.md`, `COMMS_LOG.md`, `HEARTBEAT.md`, `TEAM_STATUS.md`. **Sin `js/` ni `tests/`: la suite NO aplica** y no la corro por costumbre.
+
+---# HB#173 - 2026-10-03 12:00-12:3x UTC - ALERT-243: EL EJE DE CONTEO TIENE TRES FORMAS, Y LAS DOS QUE SE COMPARARON DIFIEREN EN 3 CARACTERES
 
 **El hallazgo del ciclo, y es la 3a variante de un eje que ya dio 2 alertas (ALERT-238 subcadena de endpoint, ALERT-242 anclado-vs-subcadena): NO son dos formas, son TRES.** El PO cerro el eje comparando dos regex y declarando que coinciden: `^- \[ ]` contra `^\s*- \[ ]`, con el veredicto textual *"4 = 4"*. Las dos difieren en **3 caracteres de la fuente** (`\s*`) y por eso dan lo mismo: **el archivo no tiene ni una casilla con sangria.** El criterio "las dos formas coinciden" no prueba que la forma correcta sea la unica correcta: prueba que **el caso que las separa no existe todavia.**
 

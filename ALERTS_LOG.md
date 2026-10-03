@@ -1,4 +1,128 @@
+## ALERT-244 - LA TABLA QUE DECIDE EL MODO DE LOS 5 AGENTES NO ESTA EN NINGUN ARCHIVO DEL REPO, Y SU PUNTERO ES COLGANTE EN LOS DOS EXTREMOS
+
+**Hallazgo del PO (HALLAZGO NUEVO 1, al responder ALERT-243), verificado en el mismo ciclo
+por el Principal con control positivo y negativo. Los 5 se sostienen.**
+
+**Que falta.** La tabla de control de carga (`<=3 RECOLECTAR` / `4-7 PAUSA` / `>=8 MODO PODA`)
+que decide el modo de corrida de los **5 agentes** del ecosistema, medida sobre
+`origin/main` @ `d342c3c`:
+
+| archivo en `origin/main` | `MODO PODA` | `RECOLECTAR` | `CONTROL DE CARGA` | `PASO 0.5` |
+|---|---:|---:|---:|---:|
+| `AGENTS.md` | **0** | **0** | **0** | **0** |
+| `AGENTS_SYNC.md` | **0** | **0** | **0** | **0** |
+| `HEARTBEAT.md` | **0** | **0** | **0** | **0** |
+
+`HEARTBEAT.md` tiene **4** coincidencias de `PASO 0` y **ninguna** es `PASO 0.5`: las 4 son
+`PASO 0 del ciclo`. La tabla existe **unicamente** en el `AGENTS.md` del workspace del PO
+(L342-344).
+
+**El puntero es colgante en los DOS extremos.** No hay seccion `PASO 0.5` a la que apuntar
+(0 de 4 coincidencias de `PASO 0` la nombran), y la tabla que esa seccion deberia contener
+no esta en el repo.
+
+**Por que es ALERT y no observacion de estilo.** Es la invariante que **yo** ejecuto en cada
+paso 3, y lo que decide no es decorativo: decide si el ciclo investiga o poda. Si el
+workspace del PO se resetea, **el control de carga entero desaparece sin un solo diff en el
+repo**, y el sintoma no seria "falta una tabla" sino un equipo que vuelve a `RECOLECTAR` con
+13 items abiertos y sin forma de saber por que. **Un invariante que solo existe en una copia
+de trabajo no es un invariante: es una costumbre con copia de seguridad.**
+
+**Correccion aplicada en el mismo ciclo** (via correcta: el canonico primero, el espejo
+despues, segun la regla de escritura del banner): punto 4 de `PASO 3` en `HEARTBEAT.md`
+canonico, con la tabla, el nombre del campo autoritativo
+(`c2_backlog_main.openItems`, **solo si `openItemsDiscrimina` es `true`** - ALERT-236) y la
+regla de las tres formas (ALERT-243). Insercion pura de **36** lineas, secciones `### `
+**13 -> 13**, delta de encoding **0/0/0/0**, espejo regenerado **identico byte a byte**.
+
+**Lo que NO se hizo, y por que.** No se toco el `AGENTS.md` del workspace del PO: es suyo, y
+su propio `AGENTS.md` le prohibe escribir `BACKLOG.md` y compania. El canonico de esta
+regla ahora esta en git, que es lo que sobrevive a que se borre un workspace.
+
+---
+
+## ALERT-245 - UNA FILA `[x]` QUE DICE "LISTO PARA ARRANCAR": EL CASO RARO ESTA DEL LADO QUE EL DETECTOR NO MIRA
+
+**Hallazgo del PO al responder ALERT-243, verificado por el Principal contra
+`origin/main` @ `d342c3c` con control positivo y negativo en las 5 mediciones.**
+
+`BACKLOG.md:333`, dentro de `## Completed (referencia historica)` (abre en L329):
+
+> `- [x] **Fractal Tracker multicuenta (Idea 39 del PO)** - DESBLOQUEADO, listo para arrancar.`
+
+| que afirma la fila | medido | control |
+|---|---|---|
+| el modulo existe | **`js/fractal-tracker.js` NO EXISTE.** De 53 archivos en `js/`, **1** tiene "fractal": `js/fractal-tracker-theme.js`. | pos: `js/raid-tracker.js` = **true** |
+| constante de 17 instabilidades | **`instabilit` en `js/` = 0 archivos.** | pos: `CACHE_KEYS_EXACT` = **1** archivo |
+| arranca sobre datos reales | `index.html`: **2** lineas con "fractal" - el `<option value="fractal">` del filtro de Meta y el `<script>` del theme. **Ninguna ruta.** | pos: "legendary" = **14** lineas |
+
+Lo unico cargado es la **capa 3 de CSS** (`js/fractal-tracker-theme.js?v=1.0.1`): **la capa 3
+se cargo antes que las capas 1 y 2.** Mismo mecanismo que ALERT-84.
+
+**La regla, y es la generalizacion de un detector que ya conocia su propio punto ciego.**
+El criterio "decision viva" que ya existe da **0** sobre las 4 filas **abiertas** (correcto)
+y **9** sobre las cerradas. O sea: **el detector encuentra una fila cerrada con decision
+viva solo cuando la mira a proposito.** La fila de un tracker inexistente cae
+exactamente del lado que el criterio no barre por defecto. **Un detector que solo mira un
+lado del conjunto no es un detector parcial: es un detector con un lado ciego
+estructural, y un dia de esos es el que importa.**
+
+**REGLA: un `- [x]` que dice "listo para arrancar" es PEOR que un `- [ ]`.** Una fila
+abierta se relee porque se ve en el conteo de carga; una cerrada **no se vuelve a mirar
+nunca**, y su texto contradictorio queda sin releer para siempre. El control de carga cuenta
+`- [ ]`, asi que **la mentira se apoya en la misma asimetria que el control que deberia
+detectarla.**
+
+**NO se toco `BACKLOG.md`, y el motivo es que las 2 salidas las elige Pablo:** (a) reabrirla
+a `- [ ]` sube el conteo de 4 a 5 (sigue en PAUSA, no cambia el modo), o (b) dejarla cerrada
+y sacarle el `[x]` hacia un glifo propio. La (b) **ademas** necesita una clausula en la linea
+que define que es un item abierto, porque hoy nombra **solo** `- [ ]`: **un simbolo cuyo
+significado no esta escrito al lado del simbolo es exactamente la falla que produjo las 3
+lineas falsas de L200/L286/L415** (ALERT-243). Y la dicotomia "cambia el modo / no lo
+cambia" tiene una **tercera opcion honesta**: *no cambia nada y aun asi hay que escribirlo.*
+
 ## ALERT-243 - EL EJE DE CONTEO TIENE TRES FORMAS, Y COMPARAR DOS VECINAS CIERRA EL EJE SOBRE UN CASO QUE NO EXISTE TODAVIA
+## ALERT-246 - EL NOMBRE DEL INSTRUMENTO PROMETE UNA COSA Y MIDE OTRA: UN `]` SUELTO Y UN REF DE CACHE
+
+**Son dos casos de la misma regla, y los dos me fallaron hoy. El segundo es del PASO -1 del ciclo.**
+
+### CASO 1 - UN CORCHETE DE CIERRE DE CLASE SIN ESCAPAR NO ES UN LITERAL CONFIABLE
+
+Escribi tres regex para contar `- [ ]` en `BACKLOG.md` y las tres dieron **0** sobre un archivo con **66 casillas**. La forma era `^-\[ ]`: corchete de apertura escapado, **corchete de cierre suelto**. Medido linea por linea sobre la cadena `- [ ] a`:
+
+| forma | resultado |
+|---|---|
+| `/^\[ ]/` (cierre suelto) | **NO MATCH** |
+| `/^\[ \]/` (ambos escapados) | **MATCH** |
+| `/^- \[ \]/` (ambos escapados) | **MATCH** |
+| `startsWith("- [ ]")` | **MATCH** |
+
+**La forma de fallo es la peor de las posibles: un 0.** No es excepcion, no es `NaN`, no es un archivo vacio: es un numero que dice "el dato no esta". Un instrumento mal formado y un dato ausente **salen con el mismo numero y el mismo nombre de campo**, y en un conteo eso se lee como medicion.
+
+**Y lo compounds: el rango "funciono".** La regex de seccion (`^## `) si era correcta, asi que el corte de bloque de una fila devolvio un numero plausible mientras la de casillas, a treinta centimetros, daba 0. **Un instrumento a medio camino es peor que uno roto: produce salida que no se ve mal, y por eso no se mira.**
+
+### CASO 2 - `origin/main` NO ES EL REMOTO: ES UN CACHE
+
+El PASO -1 dice, textual: *"Mide el remoto: `git log -1 --format=%ci origin/main`"*. Ese comando mide **el ref local `origin/main`**, que es lo que el remoto tenia **la ultima vez que hice fetch**. No es lo mismo, y la diferencia se nota en el nombre: el comando promete "el remoto" y entrega "mi ultima copia del remoto".
+
+**Medido hoy.** Al abrir el ciclo, `origin/main` apuntaba a `ac205dc`. Mi conclusion: *"hay un commit local sin pushear, hay que rescatarlo"*. Al hacer `git push` la respuesta fue **`Everything up-to-date`**. Con `git fetch`: `d342c3c` **ya estaba en el remoto**, y `git log ac205dc..origin/main` confirma que no habia ningun commit remoto que yo no tuviera. **No habia rescate: mi cache estaba vieja.**
+
+**El riesgo real no es el falso rescate (un push no-op), es el caso simetrico:** si el remoto estuviera **adelante** y mi arbol local limpio, la rama *"MAS NUEVO que tu arranque Y arbol LIMPIO"* no se dispara y un escritor vivo no se ve. El arbol limpio se ve, asi que el veredicto sigue siendo "nada que hacer" — **correcto por la razon equivocada**, que es la sexta vez que la registro.
+
+### REGLA (una sola para los dos, y generaliza ALERT-241/242/243)
+
+1. **El nombre de un instrumento es una afirmacion sobre lo que mide, y hay que verificarla como cualquier otra.** Un `]` de cierre se escapa **siempre**, este dentro o fuera de la clase. Y **un literal de 5 caracteres se mide con `startsWith`/`indexOf`**, no con una regex: la regex agrega cuatro formas de fallo (anclaje, escapado, clase, flags) sobre un dato que no necesita ninguna.
+2. **`git fetch origin` es el PRIMER comando del ciclo, antes de mirar `origin/*`.** Cuesta dos segundos y es lo que convierte un cache en una medicion. Un `origin/*` sin fetch es un numero de conveniencia, y **un numero que uno no vuelve a medir deja de ser una medicion**.
+3. **El caso sano va PRIMERO y con el rasgo que la forma discrimina.** Aqui el guard funciono, pero solo porque mi tabla de esperados miraba `[x]` donde debia mirar `[ ]`: **un guard con el esperado mal calculado no detecta nada**, hay que derivar el esperado contando a mano.
+4. **Un 0 de conteo que convive con el dato visible en la misma pantalla no es un dato: es un instrumento.** El control mas barato que me salvo fue ver `GLIFOS {}` con 0 elementos mientras la linea de arriba mostraba filas que empezaban con `- [x]`. **Mirar la forma es antes que mirar la regex.**
+5. **La prosa va en un archivo, no embebida en codigo.** Este alerta empezo con dos literales de string larguisimos en un `.mjs` y perdí el cierre de comilla de uno (387 chars, comilla de apertura en la posicion 0 y ninguna de cierre) con un `SyntaxError` que señalaba la linea de al lado. **Es la septima vez de la misma clase en el ecosistema**: la prosa escrita dentro de codigo no tiene control de sintaxis.
+
+6. **Todo indice de corte va sobre el BUFFER, nunca sobre el STRING.** El em-dash (U+2014) de la cabecera de `TEAM_STATUS.md` son **3 bytes** en UTF-8, asi que el indice del primer LF en el string es **2 menor** que en el buffer: `buffer.slice(0, corte)` se comia los ultimos 2 bytes de `Principal` y el diff lo mostraba como un **"1 borrado" en la cabecera del archivo**. Con los 31 CJK de `ALERTS_LOG.md` pasa lo mismo, pero ahi el ancla estaba antes del primer multibyte y salio **0 borrados por suerte**. **Un indice de string sobre un buffer UTF-8 no se ve mal: se come el FINAL de la linea anterior.** Y es la segunda vez que un `1 borrado` resulta ser la senal — la primera (HB#163) fue el ancla que se comio el encabezado `# HB#168`.
+
+**El patron comun de los tres casos, y es el hallazgo que los abarca:** los tres fallaron **en silencio y con un numero que parecia bien.** Un `0` de conteo, un `Everything up-to-date`, y un `1 borrado` en la cabecera. **Ninguno lanzo una excepcion.** Un instrumento que falla ruidosamente se arregla solo; uno que falla devolviendo un numero plausible hay que cazarlo con un control que mire **la forma** y no la cifra.
+
+**ALCANCE MEDIDO, con su cota honesta.** El escaner que uso sobre `tools/*.mjs` cuenta cualquier regex literal terminada en `]`, asi que el numero que da es **cota superior**: incluye patrones donde el `]` si esta correctamente cerrado. Hay que abrir los candidatos uno por uno antes de citarlos como defectos. Los controles VIVOS del banner (`hb163`, `hb164`, `hb169`) **no** aparecen en el escaneo porque viven en git y el escaneo mira el arbol de trabajo.
+
 
 **El hallazgo.** El control de carga del PO declara el eje cerrado asi: dos regex, `^- \[ ]` y
 `^\s*- \[ ]`, con veredicto *"4 = 4"*. Las dos difieren en **3 caracteres de la fuente**
