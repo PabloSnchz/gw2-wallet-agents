@@ -1,5 +1,70 @@
 # TEAM_STATUS — Heartbeat Principal
 
+> **Actualizado:** 2026-10-04 16:1x UTC (HB#192, por pedido de la ronda 62 del PO) por el Principal.
+> **QUE SE APLICO:** el podado que la ronda 62 del PO **midio y no aplico** porque su `AGENTS.md`
+> le prohibe escribir `BACKLOG.md`. Commit **`82f66cd`**, push `5c496d3..82f66cd` a
+> `gw2-wallet-agents` (DEV). `git ls-remote --heads origin` → `refs/heads/main` **1 sola vez**.
+> **Numeracion:** el ultimo `TEAM_STATUS` es HB#189 y el PO etiqueta este ciclo **HB#192**. Uso
+> la etiqueta del PO. La numeracion de HB **no es monotona** en este repo (ya anotado antes).
+>
+> **EL CONTROL DEL PO, Y POR QUE NO SE PUDO CORRER COMO LO PIDIO** (medido; es lo nuevo del ciclo):
+> la instruccion era *"CONTROL POST-EDICION OBLIGATORIO: openItems debe dar 3 y controles_ok
+> true; si da otra cosa, la edicion esta mal y hay que git checkout"*. **Correr el instrumento
+> sobre el worktree da 5 sobre una edicion correcta**, porque **`tools/hb163-canales.mjs:89` lee
+> `git show origin/main:BACKLOG.md`** — el **BLOB remoto**, no el archivo del worktree. O sea el
+> control **no es post-edicion: es post-push**. Y su modo de fallo es el peor de los dos: dar 5
+> dispara el `git checkout` de la propia instruccion, que **descarta un edit bueno**. Medido las
+> dos veces: `findstr` sobre el worktree = **3**, instrumento = **5**. Post-push = **3** +
+> `controles_ok true`. **REGLA: un control que lee `origin/main` no puede gatear un cambio que
+> todavia no esta en `origin/main`.** O se corre post-push, o se mide el worktree.
+>
+> **EL EOL, Y EL INVERSO DE HB#172:** `origin/main:BACKLOG.md` es **LF PURO** (0 CRLF / 498 LF)
+> y el worktree es **CRLF PURO** (498/498), con `core.autocrlf=true` y sin `.gitattributes`.
+> Mi `MEMORY.md` dice *"stage con `git -c core.autocrlf=false add`"*, y **esa regla habria
+> commiteado CRLF dentro de un blob LF** → diff de 501/499. Con `git add` normal la normalizacion
+> reproduce el modo del blob y el diff queda en **4 inserciones / 2 borrados**.
+> **Es la 2a vez que una regla mia correcta falla contra el archivo equivocado (HB#172), y al
+> reves: alla era "no dejes que autocrlf toque nada", aca es "no dejes que autocrlf normalice".**
+> Una regla que no dice contra que blob se midio no es una regla.
+>
+> **LO QUE SE ARCHIVO, Y LA REGLA QUE YA ESTABA ESCRITA EN EL REPO:** L298 (Fractal Tracker,
+> iterar las 27 cuentas) y L352 (WvW VISOR de `/v2/wvw/objectives`). Ambas **declaran su
+> condicion de salida en su propia prosa** — *"Prioridad: la decide Pablo ... Estimado: no se
+> escribe, porque depende de una decision de producto que todavia no existe"* (L298) y
+> *"Prioridad: la decide Pablo. Hoy no existe ningun `js/` que pinte esto, y agregarlo es
+> producto"* (L352). L298 **ademas no espera veredicto**: el Reviewer **ya concedio**
+> (`task-d3355a858009`, 2026-09-29, APROBO CON CAMBIOS). Se uso el sello que ya existe en
+> **L312** (Homestead tracker, ronda 40 del PO): la razon va en la fila, **`NO CERRADA`
+> explicito**, `Revisar: 2026-11-01`. El glifo `[x]` aca significa *"archivada con fecha"* y
+> **NO** "cerrada": el sello lo nombra en vez de dejarlo implicito, que es la confusion que la
+> ronda 49 del PO ya habia medido. **El contenido NO se borro** — las dos filas siguen enteras
+> arriba, con su medicion y su veredicto. **NO se movieron de seccion** (decision de Pablo):
+> quedan donde estaban las 6 podadas del 10-02.
+>
+> **RESULTADO:** `openItems 5 → 3`, `openItemsAnclada 3`, `openItemsQueLaAncladaPierde 0`,
+> `openItemsDiscrimina true`, `controles_ok true`. **3 = RECOLECTAR** (banda 0-3) y **13 rondas
+> seguidas en PAUSA quedan cerradas**. Las 3 filas abiertas que quedan: **L60** (ALERT-41),
+> **L88** (Coberturable), **L174** (Dungeon dailies).
+>
+> **LO QUE NO HICE, Y POR QUE:** (a) **no archive L60**, aunque por el criterio del PO tiene la
+> misma forma — dice *"decision de producto, falta un token"* y su condicion de cierre es *una
+> llamada de Pablo*—, el PO la clasifico como *"contenido tecnico real"* y **no es mio** re-litigar
+> su censo. **Queda anotada como candidata para que el PO la resuelva.** (b) No movi las filas de
+> seccion. (c) **No marque nada CERRADO:** `[x]` = archivada con fecha. (d) No toque
+> `PRE_BACKLOG.md`, `DASHBOARD_PO_IDEAS.md` ni ningun log del PO: la rama `po/hb192-*` es suya.
+>
+> **ERRORES PROPIOS, 4, todos ANTES del push** (familia ALERT-79): (1) `["cat-file","p",...]`
+> **sin el guion del flag** → `fatal: invalid object type "p"`; (2) el archivo de mensaje del
+> commit quedo en el workspace y lo commitee con ruta relativa desde el repo → **el commit no
+> ocurrio** (el branch si se creo, y no se publico nada a medias); (3) **`BOM` en el subject del
+> commit**, enesima reincidencia → detectado leyendo `git log -1 --format=%s`, **amendado** antes
+> de tocar el remoto; (4) `write_file` **metio BOM en los 2 archivos de sello**, detectado por
+> control explicito y quitado antes de insertar. El modo del archivo se midio **contra el blob**
+> (worktree CRLF / blob LF) y no solo "el parche no movio fin de linea".
+>
+> **PENDIENTE SIN CAMBIO:** ALERT-41 (espera el body crudo de `/v2/account/raids` con un token
+> real de Pablo), ALERT-179, T14/T15, los 7 del patron B, Idea 57 (los 4 wrappers), FILTRO-05.
+> **Deuda visible:** `?? _r56_wt/` (clon del PO, **NO es mio**), ~100 ramas locales, 35 worktrees.
 > **Actualizado:** 2026-10-04 15:30-16:0x UTC (HB#189) por el Principal.
 > **PASO -1 RESCATE:** arranque **15:30:06 UTC**. `origin/main` = `af21cdf` @ **12:15:27 UTC** = ANTERIOR.
 > Arbol **LIMPIO** (solo `?? _r56_wt/`, clon ajeno del PO). Sin sesion `running` (`qwenpaw chats list` = 0).
