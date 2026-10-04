@@ -1,4 +1,116 @@
 # TEAM_STATUS — Heartbeat Principal
+
+> **Actualizado:** 2026-10-04 15:30-16:0x UTC (HB#189) por el Principal.
+> **PASO -1 RESCATE:** arranque **15:30:06 UTC**. `origin/main` = `af21cdf` @ **12:15:27 UTC** = ANTERIOR.
+> Arbol **LIMPIO** (solo `?? _r56_wt/`, clon ajeno del PO). Sin sesion `running` (`qwenpaw chats list` = 0).
+> **Cero commits perdidos, pero un commit invisible:** `origin/main..main` daba VACIO y aun asi
+> `HEAD` no estaba en `main` (estaba en `chore-hb188-desambiguar-fractal`) con **`436e92e` sin pushear**.
+> **El control de las DOS puntas miraba `main`, no `HEAD`.** Es ALERT-230Applied en su forma inversa:
+> la punta "no hay trabajo sin pushear" dio verde **porque la rama estaba fuera de `main`**, y el trabajo
+> existia igual. La rama del rescate de HB#188 es la razon por la que la medicion no lo vio.
+
+> **HALLAZGO DEL CICLO: la ronda 61 del PO pide un trabajo que mi propio rescate habia hecho, y el PO
+> la escribio 88 minutos ANTES de que ese commit existiera.** No es un PO que ignora el repo: es un PO
+> que leyo `origin/main` correctamente, midi lo que habia, y pidio lo que faltaba **en ese instante**.
+> La cronologia lo confirma:
+> | que | cuando |
+> |---|---|
+> | ronda 61 escrita en el workspace del PO | **12:10:59 UTC** |
+> | `origin/main` avanza a `af21cdf` (merge de `po/hb184`) | **12:15:27 UTC** |
+> | `436e92e` commiteado (rescate HB#188) | **13:38:18 UTC** |
+> | arranque de este ciclo | **15:30:06 UTC** |
+> El PO escribio **4 min antes** de que `main` recibiera el merge, y **87 min antes** de que yo commiteara
+> el rescate. **Medir "el pedido sigue vigente" exige volver a medirlo contra `origin/main` en el momento de
+> cumplirlo, no contra el `origin/main` que el PO leyo cuando escribio.** Un pedido verificado al escribir
+> caduca igual que una fila de backlog, y por la misma razon: el disco se movio.
+
+> **Lo que quedo después del rescate, medido sobre el BLOB de `origin/main`:**
+> | fila | estado |
+> |---|---|
+> | L298 Fractal Tracker | **YA aplicada** por `436e92e` (Tramo A de la ronda 61) |
+> | L352 WvW VISOR | sigue como esta, y **no es una fila del Fractal** (era el 3er registro del nombre) |
+> | `openItems` | **5** = PAUSA (15a seguida). El rescate **no movio** el conteo. |
+> **El Tramo A de la ronda 61 pidio desambiguar TRES filas que un solo nombre designaba. HAY 2, no 3:**
+> son L298 (iterar las 27 cuentas en CM) y L364 (panel de CM de cuenta unica). La tercera que el PO
+> llevo en la cabeza era **L352 WvW**, que es un producto distinto con otro nombre. Esa confusion es
+> **exactamente la que `436e92e` elimino** al desambiguar las dos filas Fractal. **No hay un tercer
+> registro que arreglar, y la ronda 61 no pide uno.**
+
+> **HALLAZGO SECUNDARIO, y es de la familia ALERT-227: `po/hb185-indice-podado` NO descendende de lo
+> que esta en `main`, y mergearla tal cual perderia 805 lineas.**
+> | archivo | `origin/main` | `origin/po/hb185-indice-podado` |
+> |---|---|---|
+> | `PRE_BACKLOG.md` bytes | **320.468** | **249.467** |
+> | `PRE_BACKLOG.md` lineas | **4.957** | **3.693** |
+> | ronda 56 presente | **NO** | **SI** |
+> Comparacion linea a linea (no vacias): **SOLO_EN_hb185 = 51** (la ronda 56), **SOLO_EN_main = 805**.
+> O sea: hb185 tiene 51 lineas propias y **le faltan 805 que si estan en `main`**. Ramo desde un `main`
+> viejo, antes del merge de `po/hb184`. **Un merge normal resuelve el conflicto y se lleva las 805**;
+> un `git checkout hb185 -- PRE_BACKLOG.md` las perderia en silencio. **La rama del PO tiene menos
+> historial del PO que `main`, y es la tercera vez que esa forma aparece (ALERT-227).**
+> **NO LA MERGEIE.** Es del PO (`su AGENTS.md` le prohibe escribir `BACKLOG.md`, y las ramas `po/*` son suyas),
+> y el pedido #3 de su ronda 56 es explicitamente una **decision de Pablo** sobre cual `PRE_BACKLOG.md` es
+> el canonico. Reencamino al PO con la medicion.
+
+> **LOS 3 PEDIDOS DE LA RONDA 56, MEDIDOS UNO POR UNO:**
+> | # | pedido | veredicto |
+> |---|---|
+> | 1 | mergear `po/hb184-entrega-prebacklog` | **YA HECHO**: `git merge-base --is-ancestor` = exit 0, mergeado en `af21cdf` @ 12:15:27 UTC. **2 h despues** de que el PO escribiera la ronda. **Nadie se lo aviso.** |
+> | 2 | convencion `Idea NN` en el titulo de la fila | **MEDIDO**: **12** ideas distintas en `BACKLOG.md`; **12 de 68** filas de titulo la llevan; **3 filas mas la citan en el cuerpo y NO en el titulo** (L52 Idea 48, L60, L264). **Aplicable, 3 lineas, riesgo bajo.** NO la aplico: es una convencion que el PO decidio usar "en adelante" y tocar 68 titulos esDecision suya. |
+> | 3 | cual `PRE_BACKLOG.md` es el bueno | **NO ME CORRESPONDE**: el PO lo escalo a decision de Pablo. Y ahora tiene un dato nuevo que no tenia al escribir (la divergencia de 805 lineas). |
+
+> **PASO 3 — los 3 canales medidos, y NO coinciden:** `tools/hb163-canales.mjs` (controles OK):
+> **42 / 45 / 61**. Gana el **61** = el `PRE_BACKLOG.md` del workspace del PO. **0 propuestas al Reviewer:**
+> la ronda 61 es **PAUSA (13a seguida)** y su corrida entera fue de podado, con **0 items podadas**.
+> El `0` de `c3_pre_backlog_ws.openItems` **no es medicion** (`marcadorPresente: 0`): ese archivo no usa
+> checklists. **La conclusion se sostiene por la PROSA de la ronda 61, no por el `0`.**
+> **Y el 61 no lo da ninguno de los dos criterios de rama**: el `for-each-ref --sort=-committerdate`
+> devuelve `po/hb187-destino-podado` (head 54) y el `MAX(ronda)` tambien (54). El 61 esta **solo en el
+> workspace**, fuera de git, asi que ningun control de git lo puede ver. **Es ALERT-235 en su forma mas
+> neta: un canal entero que un reset del workspace borra sin dejar diff.**
+
+> **PASO 0:** `inbox` **vacio**, `replies` **sin novedades** (corridos desde el workspace, no desde el clon:
+> el `cd /d` al repo hacia fallar el `cli.py inbox` sin avisar).
+> **PASO 1:** `task-6cc3851b8d15` -> **404**, **12o ciclo**, terminal. No se renvia.
+
+> **BANNER:** `tools/hb164-espejo.mjs` **13 controles OK**, exit 0. Canonico y espejo sanos.
+
+> **ERRORES DE INSTRUMENTO PROPIOS (5, familia ALERT-79), todos antes del commit:**
+> 1. **`^` de revision es el caracter de ESCAPE de `cmd.exe`.** `git log -1 "436e92e^"` devolvio el propio
+>    `436e92e`, y `git merge-base --is-ancestor 436e92e^ origin/main` leyo un **blob** (`9e335b0`) como si
+>    fuera el padre. **Sin comillas, `^` desaparece.** Con `"436e92e^"` responde bien. Regla: **en cmd.exe,
+>    toda revision con `^` va entre comillas dobles.**
+> 2. **`&&`/`||` con `echo` cortan la cadena en cmd.exe** y devuelven el codigo del `echo`, no del
+>    `git`. Medi `PADRE_EN_ORIGIN=NO` sobre un padre que si estaba, y el "control negativo" me dio
+>    `NEGATIVO_EXIT=0` (= correcto) cuando el caso **debia** dar 1. Los dos numeros en verdura eran
+>    un artefacto de `cmd.exe`. **Regla: cualquier medicion que dependa del exit code va por `spawnSync` y se
+>    imprime el `status`, nunca por `%errorlevel%` detras de un `&`.**
+> 3. **Mi primer control negativo estaba mal elegido:** use `af21cdf~1` para probar que el padre no estaba
+>    en `origin/main`, cuando **`af21cdf~1` SI esta** (es ancestro de si mismo). Un control negativo que
+>    **no puede fallar** es el caso ALERT-165/SIN-CONTROL: no prueba nada y ocupa el lugar de la prueba.
+>    Rehago con `436e92e` (que debe **no** estar) y `af21cdf` (que debe **si**): exit 1 / exit 0.
+> 4. **`dir _r56_wt` no listo nada y salio con exit 1** en vez de dar error claro: `dir` sobre un
+>    directorio grande con `findstr /b /c:"d"` filtra los nombres de una forma que no es la que quiero. Use
+>    `node` con `readdirSync` y `statSync`, que ademas dan el mtime sin parsear salida localizada.
+> 5. **`git log -1 --format=%ci` con `-0300`:** mi comparacion de "anterior vs posterior" la hice a ojo contra
+>    el string. El `origin/main` que leia `af21cdf 09:15:27 -0300` es **12:15:27 UTC**, no 09:15 UTC.
+>    Worked porque los dos valores tenian el mismo offset, pero **un `-0300` mezclado con un `Z` compara
+>    como texto y da el veredicto al reves.** Regla: **normalizar a epoch con `Date.parse` antes de
+>    comparar fechas de dos fuentes distintas.**
+
+> **CICLO:** rama `chore-hb189-rescate-y-ronda61` desde `436e92e`. Push del rescate **por `main`**, con
+> `git push origin 436e92e:refs/heads/main` (**no** `HEAD:main`: `HEAD` era la rama del rescate y
+> habria publicado la rama, no el commit). `af21cdf..436e92e` fast-forward. Post-push: **42 refs**,
+> `main` **1 sola copia**, **0 duplicados por refspec**. **Sin `js/` ni `tests/` tocados => la suite NO
+> aplica** y no la corro por costumbre.
+
+> **PENDIENTE SIN CAMBIO:** (1) **ALERT-41** (falta el body crudo de `/v2/account/raids` con token real
+> de Pablo); (2) **ALERT-179**; (3) **T14/T15**; (4) los **7 del patron B**; (5) **Idea 57**, los 4
+> wrappers; (6) **FILTRO-05**; (7) **ALERT-235 ABIERTA** — ahora con la divergencia de 805 lineas
+> medida; (8) **ALERT-230Applied**: el control de las dos puntas tiene que mirar **`HEAD`**, no `main`;
+> (9) **nuevo:** `po/hb185-indice-podado` no descendende de `main` (51/805) — no mergear hasta que el PO
+> rebase o el PO decida; (10) `task-6cc3851b8d15` **404**, **12o ciclo**, terminal; (11) **deuda visible**:
+> `_r56_wt/` (clon del PO, **no mio**), `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**).
 > **Actualizado:** 2026-10-04 06:3x UTC (HB#186) por el Principal.
 > **PASO -1 RESCATE:** arranque **06:30:05 UTC**, `origin/main` @ `219ed5f`
 > (**2026-10-04 05:40:57 UTC**) = **ANTERIOR** al arranque; arbol **SUCIO** con
