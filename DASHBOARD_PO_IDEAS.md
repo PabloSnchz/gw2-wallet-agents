@@ -1,3 +1,94 @@
+## ACTUALIZACION 2026-10-04 — HB#192 — PAUSA: 2 de las 5 filas abiertas no son trabajo, y el repo ya lo dice
+
+**Estado: PAUSA.** `BACKLOG.md` @ `5c496d3` = **5 items abiertos** (`openItems` = `openItemsAnclada` = 5,
+`controles_ok: true`). **Decimotercera PAUSA seguida.** Corrida entera de **podado**: sin web, sin idea nueva.
+
+### La trayectoria, que ninguna de las 6 rondas anteriores midio
+
+Contando sobre los **65 commits que tocan `BACKLOG.md`** (control: fixture de 6 lineas da anclada 1 / tolerante 2):
+
+- **2026-09-27 `7e00470` = 2** — ultima vez en RECOLECTAR.
+- **2026-10-02 `3c3af8a` = 4** — **ULTIMA BAJADA** (venia de 6).
+- **2026-10-03 `7ffab62` = 5** — **ULTIMA SUBIDA** (4 -> 5).
+- Hoy: **5**.
+
+**Las 3 podas (23 -> 16 -> 10 -> 6 -> 4) caben en un dia** y fueron el unico mecanismo que bajo el numero
+alguna vez. Desde entonces: **7 commits, 1 subida, 0 bajadas.** El sistema quedo clavado en la banda que no
+permite investigar, y **para volver a investigar hace falta <= 3**.
+
+*Control externo:* mi contador reproduce 2 de 3 afirmaciones de los mensajes de commit (10 y 6); la tercera
+dice 16, da 13, y **el propio equipo la corrigio 2 commits despues** ("16 a 10, **no 13**").
+
+### El hallazgo: la fila que nos saco de RECOLECTAR nacio con su condicion de salida escrita
+
+El commit `7ffab62` **crea la fila L298 (Fractal)** — la que sube 4 -> 5 — y su cuarta linea, en ese mismo
+commit, ya dice:
+
+> *"**Prioridad: la decide Pablo.** ... **Estimado: no se escribe, porque depende de una decision de
+> producto que todavia no existe.**"*
+
+El mismo commit **cierra** la fila de Completed (`L364` -> `- [x]` IMPLEMENTADO). Cerro una fila y abrio otra
+que no era estimable. **Esa fila es la razon por la que no estamos investigando, y ella misma lo dice.**
+
+### El censo, que discrimina 2 de 5 y no "todas"
+
+| fila | "la decide Pablo" | "es producto" |
+|---|---:|---:|
+| L60 ALERT-41 | 0 | 0 |
+| L88 Coberturable | 0 | 0 |
+| L174 Dungeon dailies | 0 | 0 |
+| **L298 Fractal** | **2** | 0 |
+| **L352 WvW** | **1** | **1** |
+
+Las otras tres tienen contenido tecnico real. Ademas L298 tiene el **veredicto del Reviewer ya CONCEDIDO**
+(COMM 015, `task-d3355a858009`, 2026-09-29): no espera veredicto, espera que alguien lo priorice.
+
+### Y la regla que hace el corte **ya estaba escrita en el repo**
+
+`L312` (Homestead tracker, archivada en la ronda 40) dice textual:
+
+> *"La razon de archivar y no de cerrar: 40+ heartbeats en 0% y un item que depende de una decision de
+> producto **no es cola de trabajo, es una pregunta.**"*
+
+Ese es el precedente, y son ~124 caracteres: `- [x]` + `ARCHIVADA CON FECHA` + razon + `Revisar: 2026-11-01.`
+
+### EL PODADO (NO LO APLICO: `AGENTS.md` me prohibe escribir `BACKLOG.md`)
+
+Archivar L298 y L352 con ese sello: **5 -> 3 = RECOLECTAR**, que es lo que el sistema lleva 13 rondas sin
+permitir. Edicion exacta y control post-edicion en `PRE_BACKLOG.md` § RONDA 62.
+
+### Hipotesis mia que MURIO en la medicion (la reporto igual)
+
+Crei que las 5 filas eran dossiers de investigacion y que por eso nadie las poda. **Falso, y el error fue
+mio**: mi primer cortador de filas absorptiono 47 KB en L174 porque sus limites estaban escritos a mano en dos
+arrays paralelos en vez de derivarse del archivo. Medido bien: **las 5 filas pesan 14.8 KB en total.**
+
+### Errores mios, 3, los 3 antes de reportar
+
+1. El cortador de filas mal formado -> una hipotesis entera muerta sobre dossiers.
+2. El harness dio el titular al reves **2 veces por el orden del array** (`serie` queda nuevo -> viejo y
+   busque el ultimo indice). "Rango actual" imprimio **0 = 0** sobre un archivo con 5. Relegi los 3 numeros
+   del titular de la tabla ya impresa en orden viejo -> nuevo.
+3. El control externo dio **2 de 3**, y no lo di por suficiente: lo acepto porque el que no coincide estaba
+   **autodeclarado** por el equipo, no porque yo lo hiciera cuadrar.
+
+### Regla que sale
+
+**Una fila que se escribe con su condicion de salida en el mismo commit no esta esperando trabajo: esta
+esperando que alguien lea la fila.** El control cuenta glifos; una condicion de salida escrita en prosa no se
+cuenta.
+
+**Corolario, y es el que mueve el numero:** la regla para podar esta vez ya estaba escrita en el repo, en
+una fila archivada de la ronda 40. Las rondas 51, 55 y 61 midieron las 5 filas tres veces y respondieron
+"no hay pregunta decidible" — la respuesta correcta a una pregunta mal hecha.
+
+**Lo mas general:** una banda de control con un numero que solo baja por decision manual **es un control sin
+mecanismo**. Dijimos "PAUSA, no se investiga" y la consecuencia de que no haya bajadas no fue "no se puede
+investigar": fue **no se puede investigar y tampoco se puede dejar de estar en PAUSA**.
+
+---
+
+## ACTUALIZACION 2026-10-03 12:20 UTC — HB#173 — ALERT-243: el conteo del backlog esta a 1 de disparar MODO PODA
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
