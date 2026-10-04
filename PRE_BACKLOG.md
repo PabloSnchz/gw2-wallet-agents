@@ -3510,3 +3510,1448 @@ ALTA si es rama 2. MEDIA si es rama 1.
 En cualquier caso va **antes** que las ideas de contenido (42, 44, 43): no tiene sentido
 sumar un tracker nuevo de mazmorras si el tracker de raids y strikes que ya existe puede
 estar mintiendo.
+
+## Ronda 37 — T19: la app tiene un mecanismo de multi-pestaña que funciona, cubre 1 clave, y la clave que no cubre es la que Pablo está mirando.
+
+**Medido sobre `origin/main` @ `5f4688f`, con `git fetch` primero.**
+
+La ronda 36 dejó T16/T17/T18 y, entre otras cosas, dejó escrita esta escena como
+**caso de uso real** de Pablo: *"Pablo copia la URL y la abre en otra pestaña"*.
+Esa frase quedó escrita y no la seguí. La pregunta de esta ronda sale de ahí y
+no es "¿qué feature falta?":
+
+> **Si Pablo abre la Bóveda en dos pestañas — cosa que ya hacemos constar que
+> hace —, ¿la app sabe que la otra existe?**
+
+---
+
+## 🔴 T19 — el filtro del handler es de 1 clave, y el dominio que escribe son 2
+
+**Censo, medido sobre los 46 módulos de `js/`:**
+
+```
+git grep -n "addEventListener('storage'" -- js
+  js/app.js:804
+  js/wv-purchase-detail.js:2168
+```
+
+**2 listeners en toda la app.** El de cuentas, verbatim (`app.js:798-821`):
+
+```js
+_watchOtherTabs() {
+  if (this._watching) return;
+  this._watching = true;
+  window.addEventListener('storage', (e) => {
+    if (!e || e.key !== Storage.STORAGE_KEYS.ACCOUNT_KEYS) return;   // ← el filtro
+    ...
+    // Si la seleccion era una cuenta que la otra pestaña borro, se anula
+    if (this.selected && !this.list.some(k => k.value === this.selected)) {
+      this.selected = null;
+      try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}   // app.js:815
+    }
+    this.refreshSelects();
+  });
+},
+```
+
+**Lo que hay que mirar es la línea 815 contra la línea 805.** El handler
+**escribe** `ACCOUNT_SELECTED` y **se niega a observarla**. No es que no sepa
+que la clave existe: la nombró tres líneas más arriba, en el comentario, y la
+borra con intención.
+
+Y el filtro no es una omisión de la lista: **es una guarda de igualdad sobre
+una clave, en un objeto que escribe dos.** `KeyManager` es dueño de
+`ACCOUNT_KEYS` (`app.js:791`) y de `ACCOUNT_SELECTED` (`app.js:827`), y las dos
+están a 32 líneas de distancia, en el mismo objeto.
+
+**Y el filtro sale más caro de lo que parece, por `MIRROR_MAP`** (`storage.js:209-214`):
+`gn:account:selected` **está en el mapa**, así que `Storage.set` hace **2
+`setItem`** y el navegador emite **2 eventos `storage`**. El handler descarta los
+2 con la misma línea. Medido: **2 eventos, 0 reacciones.**
+
+---
+
+## Arnés `_hb117_t19.mjs` — 3 casos, y el CONTROL discrimina
+
+Handlers verbatim de `app.js:780-828` y `storage.js:291-299`. Lo único simulado
+es el reloj: por spec el evento `storage` no se dispara en la pestaña que escribe.
+
+```
+CONTROL — A agrega una cuenta, B está mirando la lista
+   eventos que recibió B : gn:account:keys, gw2_keys
+   reacciones de B       : lista de cuentas actualizada
+   B ve ahora            : 28 cuentas
+   -> el listener EXISTE y funciona. Es lo que el handler sabe hacer.
+
+CASO REAL — A cambia a CUENTA-14, B abierta al lado
+   eventos que recibió B : gn:account:selected, gw2_selected_key_v1
+   reacciones de B       : (NINGUNA)
+   A muestra             : CUENTA-14
+   B muestra             : CUENTA-01      <-- lo que Pablo ve en la otra pestaña
+   en disco              : key-13
+
+CASO 2 — Pablo le da F5 a la B
+   B pasa de mostrar     : CUENTA-01 -> CUENTA-14
+   URL en A y en B       : idéntica (#/wallet/dashboard)
+   la cuenta depende de QUÉ pestaña recarga
+
+CASO 3 — A y B en CUENTA-05, y A borra esa cuenta
+   reacciones de B       : seleccion anulada (la cuenta ya no existe)
+   disco                 : (borrada)   <- lo borró B para protegerse
+   eventos que recibió A : gn:account:selected, gw2_selected_key_v1
+   reacciones de A       : (NINGUNA)
+   A sigue pintando      : CUENTA-05     <-- cuenta que ya no existe
+```
+
+**El CONTROL es lo que lo convierte en hallazgo:** el mecanismo está escrito,
+funciona, y se probó en la misma corrida. Lo que falta no es la capacidad: es
+**una segunda clave**.
+
+**Lo que Pablo paga, en el orden en que lo va a notar:**
+
+1. **La segunda pestaña no es una copia de la primera.** Misma URL, misma ruta,
+   cuentas distintas. Y **eso probablemente es lo que él quiere** (con 27
+   cuentas, mirar dos cuentas en paralelo es el uso natural de una segunda
+   pestaña). Por eso el bug **no es** que B no reaccione.
+2. **El F5 decide qué cuenta ves.** Caso 2: Pablo está leyendo CUENTA-01 en la
+   pestaña B, va a la A a agregar una key nueva, vuelve y recarga la B — y la B
+   ahora muestra CUENTA-14. **Sin mensaje, sin aviso, con la misma URL.** Es la
+   fricción de "el F5 pierde el contexto" que arrastro desde el perfil, pero acá
+   tiene mecanismo y se puede nombrar.
+3. **Caso 3, la que más me gusta porque el mecanismo la produce:** B se
+   protege (anula su selección y **borra la clave compartida**), y A recibe los
+   2 eventos y no reacciona a ninguno. Resultado: **el estado en memoria de A y
+   el estado en disco divergen, y solo se limpia uno de los dos.** A sigue
+   pintando una cuenta que ya no existe.
+
+**Severidad honesta del caso 3: media, no alta.** Es transitorio — al recargar,
+A lee la clave y arranca sin selección (`app.js:744`). No lo vendo como rotura de
+datos; lo vendo como **la demostración de que el mecanismo tiene un
+contra-producto**, que es lo que hace la ronda.
+
+---
+
+## Lo que NO afirmo (3 cosas que empecé a redactar y descarté antes de reportar)
+
+1. **"Los módulos siguen a la otra pestaña."** FALSO, y por poco. Hay **4**
+   lectores a pelo de la legacy `gw2_selected_key_v1` — `inventory-hub.js:163`,
+   `raid-tracker.js:921`, `strike-tracker.js:415`, `wv-purchase-detail.js:1842` —
+   y los 4 leen **primero el `<select>`** y solo caen a localStorage si no
+   existe. O sea que en una pestaña normal siguen a la de arriba. **Casi
+   reporto un bug de media app siguiendo a la otra.**
+2. **"El handler cubre 0 claves."** El CONTROL lo desmiente: cubre 1, y bien.
+   El titular honesto es **1 de 2**.
+3. **El censo de "cuántas claves debería mirar".** Lo intenté y mi primer script
+   dio **7** `Storage.set` con clave literal, cuando el repo tiene **63**
+   literales `gn:` distintos — porque la mayoría pasa por constante o por helper.
+   Es la cuarta vez que un script enumera menos que la realidad **sin delatarlo**;
+   por eso **no abro idea con ese número**: no lo cerré.
+
+---
+
+## Decisión de producto que NO es mía (y es la que define el tamaño del fix)
+
+Si B **debía** seguir a A, el arreglo es 🟢: cambiar `!==` por un `includes` de
+las dos claves y ya está.
+
+**Pero con 27 cuentas, el caso de uso probable de Pablo es el contrario**: abrir
+la segunda pestaña *precisamente para ver otra cuenta*. Si lo sincronizamos, le
+matamos el motivo por el que la abrió.
+
+**Y en ese caso el arreglo no es sincronizar: es no mentir.** La pestaña B es
+internamente coherente (su `<select>` dice CUENTA-01 y sus datos son de
+CUENTA-01). Lo único que miente es el **F5**, que cambia de cuenta sin aviso.
+
+**Pregunta para Pablo, textual:** *¿la segunda pestaña es "otra cuenta a
+propósito" o "la misma, y la que no se enteró"?* De la respuesta depende si esto
+es un 🟢 de una línea o un 🟡 de copy.
+
+---
+
+## Tramos
+
+**T19-a 🟢 (~20 min), y es el único que pido sin esperar la respuesta de Pablo.**
+Caso 3. Cuando el handler anula su propia selección porque la cuenta desapareció,
+**que el token muerto no pueda seguir en memoria**: hoy la lista se actualiza
+(`this.list = fresh`) pero `this.selected` solo se limpia en el `if` de adentro,
+y en A — que no pasó por el `if` — queda. Lo honesto es **una guarda después de
+`this.list = fresh`**, que es el mismo lugar donde ya se sabe la lista nueva.
+Con 2 tests de los 3 casos del arnés.
+
+**T19-b 🟡 (espera la respuesta de Pablo).** Si la respuesta es "otra cuenta a
+propósito": el F5 de la pestaña B **no debería cambiar lo que muestra sin
+decirlo**. 🟢 si es un aviso de una línea en el rótulo de cuenta (que ya existe:
+`el.ownerLabel`), 🟡 si es un toast.
+
+**T19-c 🟢 (15 min, sin preguntas).** Los **4 lectores a pelo** de
+`gw2_selected_key_v1` (`inventory-hub.js:163`, `raid-tracker.js:921`,
+`strike-tracker.js:415`, `wv-purchase-detail.js:1842`) deberían usar
+`Storage.get(ACCOUNT_SELECTED)` como el resto. Hoy funcionan **por el espejo**,
+no por contrato — y `MIRROR_MAP` existe justamente porque el acceso a pelo es lo
+que rompe las cosas (ronda 23, `wv-shop-ui.js:222/228`). **No lo mezclo con
+T19-a**: es otro archivo y otra clase.
+
+---
+
+## Web de la ronda 37: 37 de 37 sin aporte
+
+| destino | código | |
+|---|---|---|
+| `reddit.com/r/GuildWars2/search.json` | **403** | 37 de 37 |
+| `old.reddit.com/.../hot.json` | **302** | sin destino |
+| `gw2treasures.com/feeds/new_items` | **307 → 404** | 37 de 37 (ahora con redirect, sigue 404) |
+| `wiki.guildwars2.com/wiki/Main_Page` | **200** | responde, no aporta |
+
+No reintento ninguna. Con 0 aporte externo, forzar una idea sería inventarla:
+la ronda 22 lo estableció y 15 rondas después no cambió.
+
+**T19 no viene de la web y no necesita venir.** Sale de **leer mi propia ronda 36
+y preguntar qué hice con una frase que escribí como caso de uso** — que es la
+misma fuente que la ronda 36 usó (leer el veredicto del Reviewer y preguntarle
+"¿esta pregunta está bien formulada?").
+
+---
+
+## Errores míos de esta ronda, todos antes de reportar
+
+1. **El arnés emitía 1 evento donde el navegador emite 2.** Corregí `StorageSet`
+   para despachar por `setItem` y **olvidé `StorageRemove`**. Salió en el caso 3
+   (A recibió 1 en vez de 2) y lo delató el número, no el CONTROL. Segunda vez
+   en el mismo archivo.
+2. **El caso 3 salía con los rótulos cruzados:** la línea decía "eventos que
+   recibió A" yendo a la variable de B. Los dos labels del caso 3 estaban
+   cambiados y por eso el caso salía con las reacciones de B. Un rótulo mal
+   puesto es un dato mal reportado: lo saqué leyendo la salida, no el código.
+3. **El censo automático dio 7 donde hay 63** (ver arriba). No abre idea.
+
+---
+
+## Cerradas y estado
+
+| | |
+|---|---|
+| **T13-a/b** (ronda 34) | aplicadas: `1e5aedb`. **Cerrada** |
+| **T12** (ronda 33) | aplicada: `9c93300` |
+| **T14/T15/T16/T17/T18** (rondas 35-36) | **abiertas**, esperando veredicto del Reviewer + respuesta de Pablo a T17-b |
+| T8 (ronda 27) | aplicada: `loadSeq` |
+| T7 / T6 (rondas 26-27) | aplicadas en `1f0fd6e` / `2593306` |
+| T1 / T1-bis / T3 | aplicadas / decididas |
+| Idea 64 / 63 / 61 | aplicadas en `origin/main` |
+| Idea 44 (homestead/dungeons) | **fuera de la tabla**: 0%, `homestead-tracker.js` es código muerto |
+
+## Prioridades
+
+1. **T19-a 🟢 20 min** — el token muerto del caso 3. Es lo único que pido sin
+   esperar a nadie.
+2. **T19-c 🟢 15 min** — los 4 lectores a pelo de `gw2_selected_key_v1`.
+3. **T19-b** — **bloqueado por la pregunta a Pablo** (no por código).
+4. **T17-b 🟢 15 min — decisión de PABLO:** `#/account/strikes` es una ruta sin
+   ningún botón que la alcance. O hay un botón "Strikes" en el menú, o la ruta
+   se borra. **Es la que más cambia el producto.**
+5. **T17-a 🟢 20 min** — el hash se actualiza al cambiar de vista con el toggle.
+6. **T18-a 🟡 30 min** — `showPanel()` y `setActiveView()` no se pisan.
+7. **Opción (c) de T14/T15 🟡 ~1 h** — una sola pareja de botones.
+8. **T14-b 🟢 20 min** — el test que evita el caso 6, después de (c).
+9. T11 🟢 · 49G → 47/57 → 49D → 49F/49E → 42 → 45.
+
+**Y una regla que sale de la ronda 37, que es la que me la llevo:**
+
+> *Un mecanismo que cubre 1 de las 2 claves que su propio objeto escribe no está
+> terminado: está escrito a la mitad, y la mitad que falta es la que el
+> comentario de al lado ya nombra.* La línea 815 del handler **borra**
+> `ACCOUNT_SELECTED` desde dentro de un handler que **filtra** `ACCOUNT_KEYS`.
+> La capacidad estaba; faltaba la segunda línea de una guarda.
+---
+
+
+
+## Heartbeat PO 2026-10-02 02:00 UTC - T20: el boton de "Sincronizar desde la nube" dice 0 de las 7 cosas que el boton hermano dice las 7
+
+**Metodo:** 38a ronda de web research y **la 38a en 38 sin una feature nueva**
+(Reddit 403, `gw2treasures/feeds/new_items` 404, wiki 200). La pregunta **no** fue
+"que feature falta" sino una que sale de leer mi propia ronda 37: esa ronda
+describio que el backup es lo que sostiene las 27 cuentas, y en la 22 ya habia
+descubierto que el camino del Gist es **una de las 3 puertas** por donde entra
+una API key. Entonces: **que pasa si aprieto "Sincronizar desde la nube"?**
+
+Arnes `_hb119_arnes.js`, con `downloadAndSync()` **verbatim** de
+`origin/main @ 4fe38bc` y deps inyectadas.
+
+### El hallazgo
+
+Los **dos** botones de restauracion hacen **exactamente lo mismo** y **dicen cosas
+distintas**:
+
+| | boton | que dice el confirm |
+|---|---|---|
+| **archivo** | `settings-manager.js:593` | `'Se sobrescribiran:\n• API Keys (' + keyCount + ' claves)\n• Wizard\'s Vault...'` - **las 7 categorias, con la cifra** |
+| **Gist** | `gist-sync.js:451` | `'Esto sobrescribira tu configuracion local.\n\n¿Continuar?'` - **0 categorias, 0 cifras** |
+
+Los dos terminan en `applyImportData()` (`settings-manager.js:483`), o sea las
+mismas 7 escrituras. **La capacidad ya existe y esta escrita 60 lineas antes, en
+el mismo archivo.** No hay que descubrir nada para arreglarlo: hay que copiar.
+
+Y hay un dato que hace que esto sea un hallazgo y no una observacion de estilo:
+**el boton de Gist es el que puede perder las cuentas, y las cuentas no se
+recuperan.** Una API key de GW2 no se descarga de la pagina de ArenaNet otra
+vez: si no la guardaste, hay que crear una nueva. Todo lo demas del export (pins
+de wallet, favoritos, home nodes) se regenera con un click. **La lista de
+`apiKeys` es el unico elemento del backup que no tiene segunda copia.**
+
+### El arnes, con CONTROL que discrimina
+
+```
+CONTROL  remoto==local (27/27), ACEPTA   27 -> 27   perdidas 0
+CASO 1   remoto mas viejo (27/12), ACEPTA 27 -> 12   perdidas 15   <- la escena
+CASO 2   remoto mas viejo (27/12), CANCELA 27 -> 27  perdidas 0
+CASO 3   remoto mas NUEVO (3/27), ACEPTA  3 -> 27   perdidas -24
+
+el confirm menciona una cifra?  false  (los 4 casos)
+el confirm menciona una fecha?   false  (los 4 casos)
+```
+
+El CONTROL discrimina: 27/27 deja 27 y 27/12 deja 12, o sea el overwrite no es
+una suposicion mia, se ejecuto. Y en **los 4** el confirm no dice ni un numero
+ni una fecha.
+
+### El dato para arreglarlo ya esta escrito, y no lo lee nadie
+
+`exportData()` escribe `exportedAt: new Date().toISOString()`
+(`settings-manager.js:209`). **Cero lecturas en todo el repo:** `exportedAt` = 0
+ocurrencias fuera de sus 2 escrituras, y 0 dentro de `gist-sync.js`. El
+timestamp de la foto remota existe en el archivo y se descarta.
+
+Y el otro ya esta **en pantalla**: `updateGistStatus()` pinta
+*"Ultima sincronizacion: \<fecha\>"* (`index.html:1235`), en el mismo modal, a
+centimetros del boton que sobreescribe. `gist.updated_at` se lee una vez
+(`gist-sync.js:456`) y solo para el `return`.
+
+### Por que el equipo no lo vio (y por que importa)
+
+HB#104 si lo vio, pero de otra cosa. El comentario de `applyImportData`
+(`settings-manager.js:475`) dice textual:
+
+> *"Por que el camino del Gist no lo tenia: gist-sync.js:451 confirma y :452
+> importa, o sea el ahi siempre fue correcto. Solo el de archivo estaba
+> invertido, y por eso es un descuido y no una decision."*
+
+Eso es cierto **sobre el ORDEN**, y es por ahi que se dejo. El problema de esta
+ronda no es el orden: es que **"el confirm esta en el lugar correcto" no es
+"el confirm dice la verdad"**, y las dos cosas se confundieron. El mismo archivo
+tiene la regla escrita en la v1.0.4 (`:15`): un `confirm()` tiene que decir la
+cifra real, no una enumeracion que se pudre. Se aplico al boton de **liberar
+cache**. No se aplico al de **borrar cuentas**.
+
+### Tramos
+
+- **T20-a (verde, 15 min, 3 lineas):** el confirm del Gist dice las mismas 7
+  categorias + `keyCount`, calcualo con `configData.data.apiKeys.list.length`
+  que ya esta en la mano, dos lineas antes del `confirm`. Precedente literal:
+  `settings-manager.js:593`. Sin tocar `settings-manager.js`.
+- **T20-b (amarillo, ~1 h):** **la direccion**. Si `exportedAt` del remoto es mas
+  viejo que el ultimo cambio local, el confirm lo dice y nombra la diferencia
+  ("el remoto es del 20/09 y tiene 12 cuentas; tenes 27"). Sin esto, T20-a le
+  muestra a Pablo "12 claves" y aun asi no puede saber si son sus 12 o las 15
+  que le faltan. Este es el tramo que de verdad salva las cuentas: T20-a solo
+  hace el boton honesto, T20-b hace la decision informada.
+- **T20-c (verde, 30 min):** **una foto local antes de sobrescribir.**
+  `exportData()` ya sabe armar el JSON; escribirlo en `localStorage` con un
+  timestamp antes del `confirm` convierte un restore en reversible. Es el
+  principio que HB#104 establecio ("cancelar era indistinguible de aceptar, y el
+  backup anterior ya no existia") aplicado al otro camino. Sin el, el error de
+  T20-b no tiene red: si Pablo acepta por error, las 15 cuentas se fueron.
+
+**T20-c es el unico de los 3 que evita la perdida en vez de contarla.**
+
+### Lo que NO afirmo
+
+1. **No afirmo que Pablo pierda cuentas.** Es el escenario: depende de que el Gist
+   este mas viejo que el local, y el backup es manual (0 `setInterval` en
+   `gist-sync.js` y `index.html`: **no hay auto-sync**, verificado). Lo que
+   afirmo es que **el boton no dice con queDecision se esta tomando**, y que el
+   dato para decirlo esta escrito y sin leer.
+2. **No afirmo que el boton de archivo este bien.** Dice la cifra y las
+   categorias, pero tampoco dice la direccion: T20-b sirve para los dos.
+3. **No abro idea sobre el cifrado del Gist.** El token va en claro al Gist
+   (lo revise el PO en 2026-09-28 y quedo anotado en el backlog como "tokens
+   sin encriptar en gist-sync.js, amarillo"). Es tema del Principal, no mio.
+
+---
+---
+
+
+## Ronda 40 — PODA: 13 items abiertos -> 7, y 2 filas cuya premisa estaba FALSA
+
+— PODA por control de carga: 13 items abiertos → 7
+
+**Método:** PASO 0.5 primero (regla dura de Pablo). `BACKLOG.md` en `origin/main` @
+`de42a69` tiene **13** `- [ ]`. 13 ≥ 8 → **MODO PODA**. Esta corrida entera es el
+podado y nada más: **no hubo web research**, no se abrió Reddit, ni la Wiki, ni
+gw2treasures. (39 rondas seguidas sin aporte externo; una más no cambia la regla.)
+
+**Árbol de trabajo:** worktree propio y limpio `wt-r40`, rama
+`po/hb125-poda` desde `origin/main` @ `de42a69`. **No toqué el clon compartido**
+(`docs-hb113-logs`, con untracked ajenos). **No mergeo.**
+
+---
+
+## La regla que anybody que lea esto tiene que saber antes de contar
+
+Mi AGENTS.md dice, textual: **el PO no puede escribir `BACKLOG.md`**. La regla de
+poda dice que "el podado es tu entrega de la corrida". Las dos chocan.
+
+**Resolución que tomo:** el podado se entrega como **parches exactos** para que los
+aplique el Principal, no como edición directa del archivo. Podar nunca destruye
+trabajo real, pero escribir un archivo que el permissions-check me va a negar
+produce el peor resultado posible: un rechazo a mitad de la corrida, con las
+mediciones ya hechas y sin poder Guardarlas. **La medición va primero al
+`PRE_BACKLOG.md` (que sí es mío), el parche va después, en el mensaje.**
+
+---
+
+## 1. Lo que SE QUEDA (7), y por qué cada uno se queda
+
+| Fila | Por qué no se poda |
+|---|---|
+| **ALERT-41** Strike Tracker (`:60`) | Bloqueada por una llamada de Pablo con token real. Es la fila que ya absorbió a otras dos. Un bloqueador con **condición de cierre única y escrita** no es basura de cola: es la fila que remembers cuando alguien pregunte por qué el módulo no marca nada. |
+| **Coberturable account-scoped multicuenta** (`:88`) | El gap medido más grande que existe: 12 endpoints `/v2/account/*` sin tocar, la Bóveda usa ~10 de ~50. |
+| **Dungeon dailies** (`:90`) | Idea real — pero **corregida abajo**, porque su premisa estaba mal. |
+| **Legendary Armory Phase 3** (`:91`) | **Avanzando**: `6e6287b` (ayer) "1.2 - el modal de materiales, y los cuatro estados del contrato". Una fila que tiene commits de ayer no es cola. |
+| **Estilos inline inventory-dashboard** (`:98`) | Re-verificado en `de42a69`: **siguen los 2** `border-radius` inline (`:764` y `:885`). Violación real de la CSS de 3 capas. |
+| **WvW Borderlands beta tracker** (`:221`) | Tiene **fecha externa** (Nov 10). Lo único con deadline real de toda la cola. |
+| **Idea 57** (`:106`) | No se poda: **se corrige**. Ver §3. |
+
+---
+
+## 2. Lo que SE PASA A "Archivadas con fecha" (6), con la razón escrita
+
+Nunca se borra una idea sin decir por qué. Estas 6 van a `PRE_BACKLOG.md` con
+`revisar: <fecha>`.
+
+### 2.1 — Idea 49 (resto de la fila) → **lo que queda es una frase, no un item**
+
+La fila (`:115`) ya dice, textual, desde la ronda 39: *"lo que queda abierto es
+**una sola cosa, y no es un bug: una deuda**"* y *"una fila de 15 líneas cuyo único
+pendiente es un `grep` de 30 segundos **no es un item de backlog, es una nota**"*.
+
+**Verificado en `de42a69`:** el comentario de cabecera `api-gw2.js:15` que dice
+*"`cacheClear` sigue con 0 callers y el botón sigue sin existir"* **sigue mintiendo
+en las dos mitades**: `git grep -n cacheClear` devuelve `settings-manager.js:737`,
+`:742` y `:769` (3 callers, no 0), y `api-gw2.js:2056` lo expone en el return.
+El botón existe (`index.html`, vía `settings-manager.js`).
+
+Es 1 línea de comentario. **Razón de la poda:** la fila ya se auto-describió como
+nota, y un item que su propio texto llama nota no puede seguir contando como item.
+**Revisar: 2026-11-15** (o antes, si se toca la cabecera de `api-gw2.js`).
+
+### 2.2 — Homestead tracker: completar wiring → **40+ heartbeats en 0%, y es decisión de producto**
+
+Medido en `de42a69`: `js/homestead-tracker.js` está commiteado (blob `e03b07c`) y
+**sigue inerte**: `git grep homestead origin/main -- js/api-gw2.js index.html
+js/router.js` devuelve **3 líneas, todas comentarios de `router.js:1504-1505`**,
+**cero** wrappers, **cero** `<script>`, **cero** route. El último commit que lo
+tocó es `680f051`, del **Heartbeat #17**. El icono
+`assets/icons/Cuentas/homestead-icon.png` sigue sin existir.
+
+**Razón de la poda:** la fila dice *"PENDIENTE DECISIÓN"* hace 40+ rondas. No es
+trabajo que yo pueda desbloquear ni que el Principal pueda estimar sin Pablo, y la
+regla de oro del propio AGENTS.md (*código a construir vs a deprecar*) dice que no
+se diagnóstica lo que quizá se borre. **Archivada, no cerrada: la decisión sigue
+viva.** **Revisar: 2026-11-01.**
+
+### 2.3 — Homestead decoration collection tracker → **FUNDIDA con 2.2**
+
+Es la *misma* fila contada dos veces: este item **depende** de que 2.2 se mergee
+(el wiring es lo que no existe). `git ls-tree` del icono da **nada**. 837+
+decorations y ~15-20h de estimado sobre una base que no está construida.
+
+**Razón:** "construir el tracker" y "construir la cosa que el tracker trackea" son
+el mismo item con distinto verbo. **Revisar: 2026-11-01**, junto con 2.2.
+
+### 2.4 — Verificar encoding → **medido dos veces, no es un item de backlog**
+
+La fila (`:214`) dice: *"MEDIDO de nuevo en la ronda 39: la cifra decía 17, ahora
+son 9. No se tocó ningún archivo"* y *"la lista de 17 **no se reusa**: hay que
+releerla antes de tocar nada"*.
+
+**Volver a medir en `de42a69`** (extrayendo el árbol de verdad con `git archive`, no
+con `git show`, que normaliza): siguen siendo **los mismos 9**, los mismos
+nombres: `achievements-theme.js`, `analytics.js`, `converter-modal.js`, `meta.js`,
+`sidebar-nav.js`, `wv-objectives-dashboard.js`, `wv-objectives-ui.js`,
+`wv-season-storage.js`, `wv-theme.js`. **9 de 9, sin cambios.**
+
+**Razón de la poda:** (a) es una tarea de *higiene*, no de producto — un BOM no
+rompe nada que el usuario vea; (b) la fila **ella misma avisa que su lista está
+caducada**, o sea que el trabajo no es "quitar 9 BOM" sino "re-medir y después
+decidir si vale un cambio masivo con validación del Reviewer", que es una
+**pregunta**, no una fila; (c) se ha medido en dos rondas consecutivas sin que
+nadie la ejecute, y una fila que nadie ejecuta dos veces seguidas es una fila que
+nadie va a ejecutar. **Revisar: 2026-11-15.**
+
+### 2.5 — Mobile PWA enhancement → **8-12h sin dependencia, sin deadline, sin bloqueador**
+
+Es una idea buena y es *mía* (viene del análisis UX del flujo de API Key, el punto
+que más me dolió como usuario: *"la Bóveda anda lenta"* no es lo mismo que *"la
+Bóveda anda mal"*). Pero no depende de nada, no tiene fecha, y hoy hay 6 items
+**antes** que ella en la cola. **No se pierde: se archiva con fecha.**
+**Revisar: 2026-11-01.**
+
+### 2.6 — Inventory cleanup tool → **15-20h, el más caro de la cola, sin deadline**
+
+Gap competitivo real contra MetaForge WARDOGS. Pero es el item **más caro** de los
+13 y no tiene fecha ni dependencia. **Revisar: 2026-11-01.**
+
+---
+
+## 3. Dos filas que NO se podan pero cuya **premise estaba FALSA** — corregidas con medición
+
+Esto es lo que hace la poda útil: no baja el número a costa de perder el detalle.
+
+### 3.1 — 🔴 Idea 57: la fila dice "Tramo 2 PENDIENTE". El Tramo 2 **está hecho, con test y control negativo.**
+
+La fila (`:106`) dice *"**TRAMO 1 HECHO, TRAMO 2 PENDIENTE DE VEREDICTO**"* y
+*"va con veredicto del Reviewer, que es exactamente por qué el PO no lo mandé"*.
+
+**Medido en `de42a69`:**
+
+- `git log --oneline origin/main..a621767` → **`a621767 fix(idea57): Tramo 2 - los 3 wrappers de inventario ya no degradan la FORMA a []`**. Está escrito, con mensaje largo que documenta el por qué.
+- `git merge-base --is-ancestor a621767 origin/main` → **NO**. O sea: **implementado, sin mergear.**
+- El commit trae `tests/idea57-t2-forma-propaga.test.js` (225 líneas, 21 aserciones), **control negativo real** (`tools/hb113-control-negativo.mjs`: 13 pass / **8 FAIL** sin el fix) y **suite 1359 pass / 0 FAIL en 54 archivos**.
+- El fix cubre `getAccountBank` (`:1180`), `getAccountMaterials` (`:1220`) y `getAccountLegendaryArmory` (`:1260`) — **los 3 que la fila nombra**.
+
+**Lo que la fila tiene que decir y no dice:** el Tramo 2 **no está esperando
+veredicto; está esperando merge.** Y encima hay un segundo hecho: la fila cuenta
+"11 sitios" y el Tramo 1 dijo que el umbral bajaba **8 → 7** al aplicarlo, o sea
+que el número que la fila expone al que lea va a quedar viejo otra vez.
+
+**Acción para el Principal:** revisar si `a621767` se mergea, y si se mergea,
+**cambiar el "11" de la fila por "7"** con su porque, que es lo que el propio test
+de la Idea 57 pide.
+
+### 3.2 — 🟡 Dungeon dailies: "activities.js ya trackea dailycrafting, worldbosses y mapchests". **2 de los 3 no están en `activities.js`.**
+
+La fila (`:90`) dice: *"`activities.js` ya trackea `dailycrafting`, `worldbosses` y
+`mapchests`; falta `dungeons` (8 mazmorras, verificado 401 = existe). **Patrón ya
+probado, es el de menor riesgo de los tres**"* — y de ahí sale el "~3-4h, la más
+barata de la familia".
+
+**Medido en `de42a69`:**
+
+- `git grep -niE "worldboss|mapchest|mapchests" origin/main -- js/activities.js` → **0 resultados**. Las dos familias viven en **`meta.js`** (`:100`, `:101`, `:228`, `:236`, `:377-380`, `:837-838`, `:844`) — el módulo de **Meta & Eventos**, que es otro módulo con otro ciclo de vida y otra capa de render.
+- `dailycrafting` sí está en `activities.js`, pero **dentro del bloque de "Ecto"** (`:748-751`), o sea que no es una familia de tracker: es un `fetch` crudo dentro de un panel.
+- `/v2/account/dungeons` → **confirmado en `/v2.json`** (catálogo oficial, 184 rutas): la fila tenía razón en que existe.
+
+**Por qué importa:** el estimado "~3-4h, la de menor riesgo, patrón ya probado"
+sale **literalmente** de la premisa de que los 3 hermanos están en el mismo módulo.
+No lo están. El trabajo real es *traer una familia nueva a `activities.js` desde
+otro módulo*, que es otra cosa. **No se poda el item: se corrige el estimado, y se
+avisa de que "el patrón ya está probado" no es un argumento en favor.**
+
+---
+
+## 4. Método: tres cosas que casi me hacen reportar mal, y las tres las vi antes de reportar
+
+1. **Un regex que no matchea devuelve 0, y un 0 no se distingue de una medición.**
+   Busqué `/v2/account/homestead/decorations` en `/v2.json` con
+   `Select-String` y salió **0**. Con `findstr` salió **1** — existe. Casi reporto
+   "el endpoint de Homestead decorations no está en el catálogo". Es la misma clase
+   de la ronda 12 (el rango mal, el total bien) y de la ronda 34 (el `reduce` sobre
+   array vacío que da 0 sin error). **El `findstr` es el que gana.**
+
+2. **`git show` normaliza y `git archive` no.** Para medir los BOM saqué el árbol
+   con `git archive origin/main js | tar -x`, que da los bytes del blob. Con
+   `git show` + `Out-String` el conteo dio 0 para los 9 archivos — no porque
+   ninguno tenga BOM, sino porque el pipeline de texto se los come. Si hubiera reportado
+   el 0, habría podado una fila que sigue teniendo 9 archivos.
+
+3. **Comparar la fila contra el commit que la escribió, no contra el recuerdo.**
+   Todas estas filas se escribieron contra `d61483e`. `origin/main` ya va en
+   `de42a69` (HB#124). Reverificar todo contra el árbol actual cambió 2 veredictos
+   (§3.1 y §3.2). Es la regla de la ronda 37 aplicada a un archivo entero: **una
+   fila sin commit no tiene unidad.**
+
+---
+
+## 5. Lo que NO afirmo
+
+- **No toqué `BACKLOG.md`.** Mis permisos lo excluyen. Los 6 parches van en el
+  mensaje al Principal, con línea exacta.
+- **No mergeé nada.** Rama `po/hb125-poda`, worktree `wt-r40`.
+- **No toqué el clon compartido** ni ningún worktree ajeno.
+- **No web research**, porque MODO PODA.
+- **No afirmo que las 6 podadas sean malas.** 5 son ideas que quiero; están
+  archivadas con fecha y con su razón, no descartadas. La que sí es deuda
+  —la Idea 49— tiene 1 línea de comentario, y esa línea la empujo yo si me
+  dejan, no desde acá.
+
+---
+
+## Ronda 37 — T19: la app tiene un mecanismo de multi-pestaña que funciona, cubre 1 clave, y la clave que no cubre es la que Pablo está mirando.
+
+**Medido sobre `origin/main` @ `5f4688f`, con `git fetch` primero.**
+
+La ronda 36 dejó T16/T17/T18 y, entre otras cosas, dejó escrita esta escena como
+**caso de uso real** de Pablo: *"Pablo copia la URL y la abre en otra pestaña"*.
+Esa frase quedó escrita y no la seguí. La pregunta de esta ronda sale de ahí y
+no es "¿qué feature falta?":
+
+> **Si Pablo abre la Bóveda en dos pestañas — cosa que ya hacemos constar que
+> hace —, ¿la app sabe que la otra existe?**
+
+---
+
+## 🔴 T19 — el filtro del handler es de 1 clave, y el dominio que escribe son 2
+
+**Censo, medido sobre los 46 módulos de `js/`:**
+
+```
+git grep -n "addEventListener('storage'" -- js
+  js/app.js:804
+  js/wv-purchase-detail.js:2168
+```
+
+**2 listeners en toda la app.** El de cuentas, verbatim (`app.js:798-821`):
+
+```js
+_watchOtherTabs() {
+  if (this._watching) return;
+  this._watching = true;
+  window.addEventListener('storage', (e) => {
+    if (!e || e.key !== Storage.STORAGE_KEYS.ACCOUNT_KEYS) return;   // ← el filtro
+    ...
+    // Si la seleccion era una cuenta que la otra pestaña borro, se anula
+    if (this.selected && !this.list.some(k => k.value === this.selected)) {
+      this.selected = null;
+      try { Storage.remove(Storage.STORAGE_KEYS.ACCOUNT_SELECTED); } catch {}   // app.js:815
+    }
+    this.refreshSelects();
+  });
+},
+```
+
+**Lo que hay que mirar es la línea 815 contra la línea 805.** El handler
+**escribe** `ACCOUNT_SELECTED` y **se niega a observarla**. No es que no sepa
+que la clave existe: la nombró tres líneas más arriba, en el comentario, y la
+borra con intención.
+
+Y el filtro no es una omisión de la lista: **es una guarda de igualdad sobre
+una clave, en un objeto que escribe dos.** `KeyManager` es dueño de
+`ACCOUNT_KEYS` (`app.js:791`) y de `ACCOUNT_SELECTED` (`app.js:827`), y las dos
+están a 32 líneas de distancia, en el mismo objeto.
+
+**Y el filtro sale más caro de lo que parece, por `MIRROR_MAP`** (`storage.js:209-214`):
+`gn:account:selected` **está en el mapa**, así que `Storage.set` hace **2
+`setItem`** y el navegador emite **2 eventos `storage`**. El handler descarta los
+2 con la misma línea. Medido: **2 eventos, 0 reacciones.**
+
+---
+
+## Arnés `_hb117_t19.mjs` — 3 casos, y el CONTROL discrimina
+
+Handlers verbatim de `app.js:780-828` y `storage.js:291-299`. Lo único simulado
+es el reloj: por spec el evento `storage` no se dispara en la pestaña que escribe.
+
+```
+CONTROL — A agrega una cuenta, B está mirando la lista
+   eventos que recibió B : gn:account:keys, gw2_keys
+   reacciones de B       : lista de cuentas actualizada
+   B ve ahora            : 28 cuentas
+   -> el listener EXISTE y funciona. Es lo que el handler sabe hacer.
+
+CASO REAL — A cambia a CUENTA-14, B abierta al lado
+   eventos que recibió B : gn:account:selected, gw2_selected_key_v1
+   reacciones de B       : (NINGUNA)
+   A muestra             : CUENTA-14
+   B muestra             : CUENTA-01      <-- lo que Pablo ve en la otra pestaña
+   en disco              : key-13
+
+CASO 2 — Pablo le da F5 a la B
+   B pasa de mostrar     : CUENTA-01 -> CUENTA-14
+   URL en A y en B       : idéntica (#/wallet/dashboard)
+   la cuenta depende de QUÉ pestaña recarga
+
+CASO 3 — A y B en CUENTA-05, y A borra esa cuenta
+   reacciones de B       : seleccion anulada (la cuenta ya no existe)
+   disco                 : (borrada)   <- lo borró B para protegerse
+   eventos que recibió A : gn:account:selected, gw2_selected_key_v1
+   reacciones de A       : (NINGUNA)
+   A sigue pintando      : CUENTA-05     <-- cuenta que ya no existe
+```
+
+**El CONTROL es lo que lo convierte en hallazgo:** el mecanismo está escrito,
+funciona, y se probó en la misma corrida. Lo que falta no es la capacidad: es
+**una segunda clave**.
+
+**Lo que Pablo paga, en el orden en que lo va a notar:**
+
+1. **La segunda pestaña no es una copia de la primera.** Misma URL, misma ruta,
+   cuentas distintas. Y **eso probablemente es lo que él quiere** (con 27
+   cuentas, mirar dos cuentas en paralelo es el uso natural de una segunda
+   pestaña). Por eso el bug **no es** que B no reaccione.
+2. **El F5 decide qué cuenta ves.** Caso 2: Pablo está leyendo CUENTA-01 en la
+   pestaña B, va a la A a agregar una key nueva, vuelve y recarga la B — y la B
+   ahora muestra CUENTA-14. **Sin mensaje, sin aviso, con la misma URL.** Es la
+   fricción de "el F5 pierde el contexto" que arrastro desde el perfil, pero acá
+   tiene mecanismo y se puede nombrar.
+3. **Caso 3, la que más me gusta porque el mecanismo la produce:** B se
+   protege (anula su selección y **borra la clave compartida**), y A recibe los
+   2 eventos y no reacciona a ninguno. Resultado: **el estado en memoria de A y
+   el estado en disco divergen, y solo se limpia uno de los dos.** A sigue
+   pintando una cuenta que ya no existe.
+
+**Severidad honesta del caso 3: media, no alta.** Es transitorio — al recargar,
+A lee la clave y arranca sin selección (`app.js:744`). No lo vendo como rotura de
+datos; lo vendo como **la demostración de que el mecanismo tiene un
+contra-producto**, que es lo que hace la ronda.
+
+---
+
+## Lo que NO afirmo (3 cosas que empecé a redactar y descarté antes de reportar)
+
+1. **"Los módulos siguen a la otra pestaña."** FALSO, y por poco. Hay **4**
+   lectores a pelo de la legacy `gw2_selected_key_v1` — `inventory-hub.js:163`,
+   `raid-tracker.js:921`, `strike-tracker.js:415`, `wv-purchase-detail.js:1842` —
+   y los 4 leen **primero el `<select>`** y solo caen a localStorage si no
+   existe. O sea que en una pestaña normal siguen a la de arriba. **Casi
+   reporto un bug de media app siguiendo a la otra.**
+2. **"El handler cubre 0 claves."** El CONTROL lo desmiente: cubre 1, y bien.
+   El titular honesto es **1 de 2**.
+3. **El censo de "cuántas claves debería mirar".** Lo intenté y mi primer script
+   dio **7** `Storage.set` con clave literal, cuando el repo tiene **63**
+   literales `gn:` distintos — porque la mayoría pasa por constante o por helper.
+   Es la cuarta vez que un script enumera menos que la realidad **sin delatarlo**;
+   por eso **no abro idea con ese número**: no lo cerré.
+
+---
+
+## Decisión de producto que NO es mía (y es la que define el tamaño del fix)
+
+Si B **debía** seguir a A, el arreglo es 🟢: cambiar `!==` por un `includes` de
+las dos claves y ya está.
+
+**Pero con 27 cuentas, el caso de uso probable de Pablo es el contrario**: abrir
+la segunda pestaña *precisamente para ver otra cuenta*. Si lo sincronizamos, le
+matamos el motivo por el que la abrió.
+
+**Y en ese caso el arreglo no es sincronizar: es no mentir.** La pestaña B es
+internamente coherente (su `<select>` dice CUENTA-01 y sus datos son de
+CUENTA-01). Lo único que miente es el **F5**, que cambia de cuenta sin aviso.
+
+**Pregunta para Pablo, textual:** *¿la segunda pestaña es "otra cuenta a
+propósito" o "la misma, y la que no se enteró"?* De la respuesta depende si esto
+es un 🟢 de una línea o un 🟡 de copy.
+
+---
+
+## Tramos
+
+**T19-a 🟢 (~20 min), y es el único que pido sin esperar la respuesta de Pablo.**
+Caso 3. Cuando el handler anula su propia selección porque la cuenta desapareció,
+**que el token muerto no pueda seguir en memoria**: hoy la lista se actualiza
+(`this.list = fresh`) pero `this.selected` solo se limpia en el `if` de adentro,
+y en A — que no pasó por el `if` — queda. Lo honesto es **una guarda después de
+`this.list = fresh`**, que es el mismo lugar donde ya se sabe la lista nueva.
+Con 2 tests de los 3 casos del arnés.
+
+**T19-b 🟡 (espera la respuesta de Pablo).** Si la respuesta es "otra cuenta a
+propósito": el F5 de la pestaña B **no debería cambiar lo que muestra sin
+decirlo**. 🟢 si es un aviso de una línea en el rótulo de cuenta (que ya existe:
+`el.ownerLabel`), 🟡 si es un toast.
+
+**T19-c 🟢 (15 min, sin preguntas).** Los **4 lectores a pelo** de
+`gw2_selected_key_v1` (`inventory-hub.js:163`, `raid-tracker.js:921`,
+`strike-tracker.js:415`, `wv-purchase-detail.js:1842`) deberían usar
+`Storage.get(ACCOUNT_SELECTED)` como el resto. Hoy funcionan **por el espejo**,
+no por contrato — y `MIRROR_MAP` existe justamente porque el acceso a pelo es lo
+que rompe las cosas (ronda 23, `wv-shop-ui.js:222/228`). **No lo mezclo con
+T19-a**: es otro archivo y otra clase.
+
+---
+
+## Web de la ronda 37: 37 de 37 sin aporte
+
+| destino | código | |
+|---|---|---|
+| `reddit.com/r/GuildWars2/search.json` | **403** | 37 de 37 |
+| `old.reddit.com/.../hot.json` | **302** | sin destino |
+| `gw2treasures.com/feeds/new_items` | **307 → 404** | 37 de 37 (ahora con redirect, sigue 404) |
+| `wiki.guildwars2.com/wiki/Main_Page` | **200** | responde, no aporta |
+
+No reintento ninguna. Con 0 aporte externo, forzar una idea sería inventarla:
+la ronda 22 lo estableció y 15 rondas después no cambió.
+
+**T19 no viene de la web y no necesita venir.** Sale de **leer mi propia ronda 36
+y preguntar qué hice con una frase que escribí como caso de uso** — que es la
+misma fuente que la ronda 36 usó (leer el veredicto del Reviewer y preguntarle
+"¿esta pregunta está bien formulada?").
+
+---
+
+## Errores míos de esta ronda, todos antes de reportar
+
+1. **El arnés emitía 1 evento donde el navegador emite 2.** Corregí `StorageSet`
+   para despachar por `setItem` y **olvidé `StorageRemove`**. Salió en el caso 3
+   (A recibió 1 en vez de 2) y lo delató el número, no el CONTROL. Segunda vez
+   en el mismo archivo.
+2. **El caso 3 salía con los rótulos cruzados:** la línea decía "eventos que
+   recibió A" yendo a la variable de B. Los dos labels del caso 3 estaban
+   cambiados y por eso el caso salía con las reacciones de B. Un rótulo mal
+   puesto es un dato mal reportado: lo saqué leyendo la salida, no el código.
+3. **El censo automático dio 7 donde hay 63** (ver arriba). No abre idea.
+
+---
+
+## Cerradas y estado
+
+| | |
+|---|---|
+| **T13-a/b** (ronda 34) | aplicadas: `1e5aedb`. **Cerrada** |
+| **T12** (ronda 33) | aplicada: `9c93300` |
+| **T14/T15/T16/T17/T18** (rondas 35-36) | **abiertas**, esperando veredicto del Reviewer + respuesta de Pablo a T17-b |
+| T8 (ronda 27) | aplicada: `loadSeq` |
+| T7 / T6 (rondas 26-27) | aplicadas en `1f0fd6e` / `2593306` |
+| T1 / T1-bis / T3 | aplicadas / decididas |
+| Idea 64 / 63 / 61 | aplicadas en `origin/main` |
+| Idea 44 (homestead/dungeons) | **fuera de la tabla**: 0%, `homestead-tracker.js` es código muerto |
+
+## Prioridades
+
+1. **T19-a 🟢 20 min** — el token muerto del caso 3. Es lo único que pido sin
+   esperar a nadie.
+2. **T19-c 🟢 15 min** — los 4 lectores a pelo de `gw2_selected_key_v1`.
+3. **T19-b** — **bloqueado por la pregunta a Pablo** (no por código).
+4. **T17-b 🟢 15 min — decisión de PABLO:** `#/account/strikes` es una ruta sin
+   ningún botón que la alcance. O hay un botón "Strikes" en el menú, o la ruta
+   se borra. **Es la que más cambia el producto.**
+5. **T17-a 🟢 20 min** — el hash se actualiza al cambiar de vista con el toggle.
+6. **T18-a 🟡 30 min** — `showPanel()` y `setActiveView()` no se pisan.
+7. **Opción (c) de T14/T15 🟡 ~1 h** — una sola pareja de botones.
+8. **T14-b 🟢 20 min** — el test que evita el caso 6, después de (c).
+9. T11 🟢 · 49G → 47/57 → 49D → 49F/49E → 42 → 45.
+
+**Y una regla que sale de la ronda 37, que es la que me la llevo:**
+
+> *Un mecanismo que cubre 1 de las 2 claves que su propio objeto escribe no está
+> terminado: está escrito a la mitad, y la mitad que falta es la que el
+> comentario de al lado ya nombra.* La línea 815 del handler **borra**
+> `ACCOUNT_SELECTED` desde dentro de un handler que **filtra** `ACCOUNT_KEYS`.
+> La capacidad estaba; faltaba la segunda línea de una guarda.
+---
+
+
+---
+
+## Ronda 39 — MODO PODA: el control de carga dio 23, y 7 de esos 23 no describian trabajo
+
+**Método:** el PASO 0.5 del HEARTBEAT dice que el conteo de items abiertos de
+`BACKLOG.md` decide si esta corrida investiga o poda. Dio **23 abiertos / 42
+cerrados** sobre `origin/main` @ `d61483e` → **≥ 8 → MODO PODA**. Toda la corrida
+es bajar el número. **Cero web research, cero ideas nuevas**, y eso es lo
+correcto: producir ideas es gratis y por eso se produce sin parar.
+
+**Lo que encontró la poda, y es lo que no iba a buscar:** de los 23 abiertos,
+**7 no eran trabajo pendiente**. No eran "cosas raras": eran filas cuyo propio
+texto las declaraba cerradas.
+
+**Las dos falsas de verdad, y son la misma clase de las que ya me avisaron.**
+`ALERT-84 T3` (ronda 18) decía, textual, que `loadLegendaryData()` *"es un stub"*
+en `legendary-tracker.js:331` y que su cuerpo *"dice literalmente `not implemented
+(Phase 2)`"*. Medido: **esta en `:452` y tiene 53 lineas de cuerpo** — `allSettled`
+sobre armería+banco+materiales, `readErrors` separado por endpoint, y el
+comentario *"«No pude leer» != «no tenes»"*. **Las tres premisas de la fila
+(linea, cantidad de call sites, cuerpo) estan viejas.** Y la hermana T3+T4 pedía
+implementar `registerRender`: **esta implementada y exportada** (`:624`, en el
+return de `:700`), `render-catologo.js` la llama **5 veces**, y **las 3 firmas
+exigidas existen con esa forma exacta**. Dos filas pidiendo implementar algo que
+ya estaba implementado, una de ellas con el veredicto del Reviewer pegado encima.
+
+**El patrón que las dos confirman, y es la 2a vez que lo veo (ALERT-171):** un
+detector que declara un item por donde lo busca, no por lo que es. El HB#117 dio
+esta misma fila **cerrada** porque buscó el símbolo en `router.js`; el HB#118 la
+abrió porque buscó en el archivo correcto y creyó lo que decía la fila; el de
+este ciclo casi la vuelve a cerrar. **El unico detector estable es el que abre el
+archivo y lee el cuerpo de la funcion.**
+
+**Tres fusionadas en un bloqueador.** "Badge CM: la corona no dice si vos lo
+completaste" y "Idea 53 — re-apuntarlo a logros o borrarlo" son el mismo bloqueo
+que `ALERT-41`: *falta UNA llamada de Pablo con token real a `/v2/account/raids`*.
+La fila Idea 53 lo reconocia textualmente ("es la pregunta que ALERT-41 ya dejo
+abierta"). **Un bloqueador, tres filas abiertas: el conteo las contaba 3 veces**,
+y el conteo es justamente el numero que decide si el PO investiga o poda.
+Reverifiqué las dos premisas que las hacian urgentes y **son ciertas**: `cm: true`
+sigue siendo constante del archivo de datos y `completedStrikes` sigue siendo
+lista de strings. **Poda, no cierre** — el hallazgo sigue vivo, estaba repetido.
+
+**Dos filas con la premisa de urgencia ya arreglada por el equipo.**
+Idea 50 decía que sus 3 Tramos "habilitan" trabajo y **3 de sus 4 premisas son
+falsas hoy**: `lsDel` tiene **3** callers (no 0), `cacheClear` **sí** toca
+localStorage desde la v2.29.0, y el botón **existe** (`index.html:289`). Idea 49
+decía *"la cache muere en silencio"* y *"no hay escape"*: `lsSet` **ya cuenta y
+avisa** el `QuotaExceededError` (`api-gw2.js:531`) y el botón existe. **La
+premisa que hacía urgente una fila era la parte que el equipo ya había
+arreglado.** Una fila de diagnóstico cuyo trabajo ya está hecho produce el
+"siguiente" de un item que ya se cerró — exactamente lo que pasó con Idea 56.
+
+**Y una que se angosta en vez de cerrarse.** Idea 49 queda con **una sola cosa
+abierta, y es deuda, no bug**: las 3 rutas con `fetch` crudo siguen sin
+`fetchBatchWithRepair` (verificado: 0 resultados fuera de `api-gw2.js`). No la
+pido: hoy no hay pérdida. Y el item de encoding decía **17 archivos con BOM;
+son 9** — porque los archivos se reescribieron al trabajarlos, no porque alguien
+lo arreglara a propósito. **La lista de 17 no se reutiliza.**
+
+**Resultado: 23 → 16.** Los 7 podados quedan con la razón escrita en la fila, no
+borrados. Y las 3 mediciones de la 49G (3.24 MB reales; techo de ~2.700 a
+~6.900 logros por cuenta; `max` no se puede podar) sobreviven acá, porque una
+poda no puede ser una pérdida.
+
+### Reglas que salen de esta ronda
+
+1. **El control de carga no mide trabajo: mide filas.** Por eso Finds filas
+   cerradas disfrazadas de abiertas, y por eso podar es una corrida completa y
+   no un trámite. 7 de 23 no describían trabajo.
+2. **Una fila que dice "SUPERADO por otro item" y sigue abierta es un bug de
+   conteo**, no de backlog: infla exactamente el número que decide el modo de la
+   corrida siguiente. La vi tachada (`~~...~~`) y abierta a la vez.
+3. **Un detector que afirma por *dónde busca* en vez de por *qué es* es
+   inestable en las dos direcciones** (2ª vez: ALERT-171). La fila de ALERT-84
+   fue cerrada, abierta, y por cerrar otra vez en 3 ciclos.
+4. **La premisa de urgencia de una fila tiene fecha de expiración.** "No hay
+   escape" era cierto cuando la escribí y el equipo lo arregló después; nadie
+   volvió a mirarla porque la fila no se reabrió, se heredó.
+5. **Reutilizar un conteo viejo es un bug con apariencia de dato.** El 17 de los
+   BOM es 9, y la lista de archivos ya no corresponde.
+6. **Apendar al `PRE_BACKLOG.md` que tengo, nunca reemplazarlo.** Hay dos copias
+   (workspace 252 KB / repo 244 KB) y la del workspace va **adelante**: tiene la
+   ronda 37 y el repo no. Reemplazar el archivo del repo por el mío, o al revés,
+   borra 250 KB de mediciones. Es la regla de la ronda 37, y se cumple.
+
+### Lo que NO afirmo
+
+- **No arreglé nada de código.** 0 líneas de `js/` tocadas. Solo `BACKLOG.md`.
+- **No fusioné a `main`.** Rama `po/hb122-poda` @ `f41ab87`, pusheada a
+  `origin` = **gw2-wallet-agents (desarrollo, NO producción)**. El merge es del
+  Principal.
+- **No toqué el clon compartido** (`docs-hb113-logs`, con untracked ajenos).
+  Trabajé en worktree propio y limpio `wt-r39`.
+- **ALERT-41 sigue bloqueada** y es lo único de ese cluster que queda: la
+  decisión de borrar el módulo (o arreglarlo) sigue siendo de Pablo y depende
+  de una llamada con token real.
+- **No web research.** En MODO PODA no corresponde; las últimas 39 rondas ya
+  dieron 39 de 39 sin aporte externo.
+
+## ⟱ Heartbeat PO 2026-10-02 ~13:00 UTC (ronda 44) — la regla se instaló para la DEGRADACIÓN y no para la CUENTA, y la cuenta se quedó escrita a mano
+
+**Método:** 44ª ronda, y la **segunda vez que NO investigo**: el control de carga (paso 0.5) dio **5 items abiertos** en `BACKLOG.md` de `origin/main` @ `e118c97` — banda **4–7 = PAUSA**. Mi entrega de la corrida es el podado, y el podado no es "borrar filas": es **verificar que las 5 filas abiertas sean reales**. La pregunta de la ronda salió de una fila que estaba abierta y cuya línea de estado mentía, y la forma de verificar un item que se llama "la REGLA" es preguntarse si la regla **mide lo que su nombre dice**.
+
+**El conteo, medido primero (sin esto no hay poda):** `- [ ]` en `origin/main:BACKLOG.md` = **5**. Las 5 son reales: `account/dungeons` → **0 referencias** en `js/`, los 12 endpoints account-scoped de "Coberturable" (`skins`, `outfits`, `finishers`, `minis`, `novelties`, `gliders`, `mailcarriers`, `dyes`, `titles`, `mounts/*`, `home/cats`) → **0 referencias**, `borderlands` → 1 coincidencia y es una regex de logros, no un tracker. **Ninguna se poda por estar hecha.** La que sí tenía algo que corregir es la 5ª.
+
+**🔴 EL HALLAZGO — la Idea 57 wrote the rule for one of its two jobs.** La fila se llama, textual, *"la REGLA del contrato de FORMA, no el fix del caso N"*, y su línea de estado decía **"TRAMO 1 HECHO, TRAMO 2 HECHO Y MERGEADO"**.
+
+1. **La regla está y tiene dientes.** Los 4 tests de la Idea 57 corren **62 aserciones, 0 FAIL** (`forma-contracts` 14/0, `jsdoc-honesto` 13/0, `idioma-contrato` 14/0, `t2-forma-propaga` 21/0), y el primero tiene el anti-vacío explícito (*"el alcance de la regla no se achicó sin querer, >= 7 sitios"*). Esto es lo que la Idea 57 se propuso y lo **`✅`**.
+2. **Pero la regla cubre la DEGRADACIÓN, no la CUENTA.** La v2.25.0 de `api-gw2.js` dice, textual: *"Acertar el número no era la tarea; reemplazar el número por una regla, si"*, y lo hizo — reemplazó el conteo de degradados por la etiqueta `FORMA: degrada|propaga`. **La cuenta de los que QUEDAN MIGRAR volvió a ser un número escrito a mano, en el mismo archivo, en la misma versión.** `api-gw2.js:96` dice **"Los 5 wrappers que faltan migrar"**.
+3. **Y el número no coincide nunca — se escribió mal y después quedó mal por un merge.** Instrumento propio `_hb136_forma3.js`, **el mismo extractor corrido sobre dos versiones**: en `a3d0b5b` (el commit que escribió el "5") la marca `Migracion = Tramo 2` estaba en **7** sitios; hoy está en **4** (`getCommerceTransactionsBuys` :957, `getCommerceTransactionsSells` :1001, `getCommerceDelivery` :1077, `getCommercePrices` :1177). **5 ≠ 7 y 5 ≠ 4.** No es que el número envejeciera: nació viejo.
+4. **Y hay un segundo número a mano que se contradice con el primero:** `api-gw2.js:1174` dice que `getCommercePrices` es *"la única de las **nueve**"*. Dos cuentas, mismo archivo, ninguna verificada, y **el único test del item no mira ninguna de las dos**.
+
+**Por qué no es cosmético, y no lo digo por analogy:** el propio Pablo lo arregló **hoy a las 03:42** en `fd8e579`, y el commit dice el motivo: *"una cabecera que describe mal el código pesa más que un comentario ausente"*, porque el *"sigue"* hacía que un item ya hecho pareciera pendiente. **Acá el daño es al revés y peor:** la línea invita a contar **5** cuando hay **4**, así que un equipo que confíe en el número **no sabe si le falta migrar uno o ya está**. Un número que no se puede usar para decidir es peor que un número faltante.
+
+**Lo que propongo (3 cosas, todas del Principal, ninguna mía):** (1) `api-gw2.js:96` → *"MEDIDO EN `e118c97`: 4"*, con el criterio de `fd8e579` (el paréntesis en su tiempo, sin reescribir la historia de la v2.28.0); (2) `api-gw2.js:1174` ("las nueve") se corrige o se borra; (3) 🟢 **el test de la Idea 57 suma la asercion que falta**: que ningún número de *"cuántos faltan"* escrito a mano sobreviva sin equivalente medido — **es la misma regla de la v2.25.0, aplicada a la cuenta**. Los **4 wrappers siguen pendientes** de migrar, y migrarlos es capa de datos con veredicto del Reviewer (ALERT-48): **no es de esta fila y no lo pido.**
+
+**Lo que NO afirmo:** (a) que el "5" haya causado una decisión equivocada — no hay evidencia de que alguien contara sobre él; lo que afirmo es que **no puede usarse**. (b) No propongo tocar `api-gw2.js` ni sus tests: es código del Principal y el cambio (3) es suyo por ALERT-48.
+
+**Dos errores de método, ambos antes de reportar, y el segundo es nuevo:** (a) mi primer arnés dio `null` en la segunda cuenta porque el patrón cruzaba un salto de línea con un `//` en el medio — `la unica de las nueve` está partida en dos líneas. **Un `null` de un extractor no es un "no existe": es un extractor que no matchea**, la misma trampa del `findstr` que me dio un conteo de 63 contra 7 en la ronda 37. Lo detecté porque **imprimí el valor crudo** en vez de convertirlo en un `FAIL` y seguir. (b) El primer intento de correr los tests **falló con ENOENT** porque dejé scratch files en la raíz del clon compartido y los tests resuelven la raíz subiendo directorios; lo resolví creando **worktree propio** (`wt-r44`), que es la práctica correcta igual.
+
+**Estado:** `origin/main` @ **`e118c97`**. Rama **`po/hb136-poda`**, **+1/-1 en `BACKLOG.md` solamente** (corrección de la fila 107; la conteo de abiertas sigue en **5** porque los 4 wrappers siguen reales). **No mergeo.** Worktree `wt-r44` en mi workspace. Instrumentos: `_hb136_forma.js`, `_hb136_forma2.js`, `_hb136_forma3.js`, `_hb136_aplica.js`, `_corr107.txt`.
+
+**Reglas que salen:**
+1. *Una regla que se instala para **una** de las dos cosas que su nombre nombra, deja la otra a mano.* La Idea 57 hizo exactamente eso: el patrón `FORMA: degrada` es regla, y el "5 wrappers que faltan" es un número escrito a mano **en el mismo archivo, a 70 líneas de la regla**. **Revisar el nombre del item contra sus dos verbos, no contra su historia.**
+2. *Un número que se escribió mal y después quedó mal por un merge no es un número que envejeció: es un número que nació viejo.* La distinción importa porque la primera se arregla rethinking y la segunda se arregla midiendo — y las dos se ven iguales en el diff.
+3. *Verificar un item que se llama "la REGLA" es preguntarse qué deja de medir la regla. Acá: la degradación la cubre, la cuenta no.*
+4. **Control de carga, aplicado y no saltada:** la fila que se poda en la ronda 44 no se borró — se **corrigió**, porque "5 items abiertos" era un número que uso para decidir, y resultó ser tan poco confiable como el que encontré en el código. **Si mi propio conteo puede mentir, el primer uso del conteo es auditarlo.**
+
+
+# Ronda 52 del PO - 2026-10-03 20:00 UTC (PAUSA, con T1 medido)
+
+## Control de carga
+
+`origin/main` @ `2e29ed6`. `BACKLOG.md` = **5 abiertas** ancladas
+(L60 ALERT-41, L88 Coberturable, L174 Dungeon dailies, L298 Fractal multicuenta,
+L344 WvW visor) = **PAUSA** (11ma seguida). Ronda entera de podado, sin web.
+
+**Nota de instrumento:** el conteo con sangria dio **4** y es **FALSO**. Son
+4 menciones de `- [ ]` en prosa dentro de filas `- [x]` (L200, L286, L451:
+"estaba como `- [ ]`"). El conteo anclado (5) es el que gobierna.
+
+**PASO -1:** 6 "Esperando" en total, **0 dirigidas a mi** (retraccion del
+HB#175 confirmada por segunda vez). Los 6 son del Principal.
+
+## T1 (medido, nuevo): e420a94 borro 3 columnas pero dejo 3 endpoints pidiendo red
+
+`e420a94` quito del Wallet Dashboard las columnas MF base / Apariencias /
+Personajes / Raids. La tabla hoy dibuja `Cuenta` + `Suerte (MF)` + las divisas
+elegidas (`wallet-dashboard.js:817-825`). **Pero las 4 promesas de
+`loadAccountSummary` siguen disparandose**, y el comentario que las justifica
+dice una cosa distinta de la que hacen:
+
+```js
+// :406-408  "Las 4 promesas se crean siempre. La tabla ya no tiene columnas de
+//            resumen, pero 'luck' alimenta el KPI 'Mejor MF base'..."
+var charP  = root.GW2Api.getCharacterCount(token, { nocache: nocache }); // :409
+var apP    = root.GW2Api.getAccountInfo(token,   { nocache: nocache }); // :410
+var raidsP = root.GW2Api.getAccountRaids(token,  { nocache: nocache }); // :411
+var luckP  = root.GW2Api.getAccountLuck(token,   { nocache: nocache }); // :412
+```
+
+El comentario cuenta 4 promesas y luego nombra **una** como la que queda. Las
+otras 3 se siguen pidiendo, se siguen esperando (`:436-450`) y se siguen
+escribiendo en `summary`.
+
+**Medido, con controles que discriminan:**
+
+| campo | escrituras | lecturas reales |
+|---|---|---|
+| `summary.luck` | `:456-469` | **7** (`:297`, `:749`, `:750`, `:756`, `:871`) |
+| `summary.characters` | `:436-437` | **0** |
+| `summary.ap` | `:442-443` | **0** |
+| `summary.raids` | `:448-449` | **0** |
+
+Idem los `_errors`: `_errors.characters` aparece en `:437` y en el comentario
+`:28`; `_errors.raids` en `:449` y `:28`; `_errors.achievements` en `:443`. El
+unico con lector real es `_errors.luck` (`:871`).
+
+**CONTROLES:** el escaneo por `.campo` sobre todo `js/` discrimina - `luck`
+devuelve 9 no-escrituras con 5 lectures de render, `characters`/`raids`/`ap`
+devuelven 0 lecturas de render (los `.characters` de `characters.js` e
+`inventory-hub.js` son `state.characters`, otro objeto). Control negativo
+`summary.zzzNoExiste` = 0 y `_errors.zzz` = 0.
+
+**LO QUE AFIRMO Y LO QUE NO:**
+- **Si:** 3 requests por cuenta quedan sin consumidor visible en el render.
+- **No:** no afirmo que sean 81 requests inútiles sin medir el consumidor
+  entero. `loadAccountSummary` corre 1 vez por cuenta (`:485`, llamada desde el
+  pool de `loadAllWallets:497-520`, `MAX = 3`), o sea **3 endpoints x 27
+  cuentas = 81 requests por carga completa** del dashboard. Con ~200 req/min
+  son ~25 s de permiso. **Medido de la estructura, no de una traza de red.**
+- **No:** no abro idea nueva. Es una fila que se poda o se cierra en el
+  encabezado de "Coberturable" (L88), que ya es el gap de endpoints
+  account-scoped.
+
+**TRAMO, si Pablo lo quiere:** 🟢 borrar `charP`/`apP`/`raidsP` y sus 3 bloques
+`try/catch`, dejar `luckP`. Ojo: `_errors.characters/raids/achievements`
+tambien se van, y hay 1 test que los nombra (`idea57t2-luck-sindato.test.js`).
+
+## Las 5 filas, una por una
+
+| fila | veredicto de esta ronda | por que |
+|---|---|---|
+| L60 ALERT-41 | **bloqueo vacio** (ronda 51, sin cambio) | la prueba de la fila da 404 tambien para ids que SI existen |
+| L88 Coberturable | **cierta, y avanza** | skins: wrapper + batch listos, **0 callers** al dia de hoy |
+| L174 Dungeon dailies | **cierta, premisa sigue falsa** | `dailycrafting` = 1 sola mencion en `js/` (`:748`, dentro del bloque Ecto) |
+| L298 Fractal multicuenta | **cierta** | `loadCMStatus` se llama con `state.token` en `:1216`, `:1249`, `:1272`; 0 lineas cruzan fractal con cuenta |
+| L344 WvW visor | **incompleta** | el texto de la fila sigue partido en varias lineas fisicas |
+
+## Errores mios de esta ronda
+
+1. **Mi clasificador de escritura/lectura etiqueta mal.** Da 0 escrituras y 3
+   lecturas para `summary.characters` cuando las 3 lineas son
+   `summary.characters = ...`. El dato crudo (numero de linea + texto) si era
+   inequivoco; la etiqueta no. Lo dejo escrito porque es la 5a vez que un
+   instrumento mio falla y **el control no lo caza** porque los controles eran
+   de conteo, no de clasificacion.
+2. **`git grep -n 'SUMMARY_ENDPOINTS.characters'` dio 0 usos** y casi lo
+   reporto como mapa muerto. No lo es: las claves se pasan como **strings**
+   (`unreadableReason(e, 'characters')`). **Un 0 por la forma equivocada de la
+   clave es indistinguible de un 0 real**, y por eso el control con `.luck`
+   tiene que existir antes del titular.
+
+## Regla que sale
+
+**Un comentario que justifica una llamada tiene que nombrarla.** `:406-408`
+dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
+documenta la justificacion de la que se borro, y por eso no dispara la alarma
+nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
+**la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**
+
+
+---
+
+## ARCHIVADAS CON FECHA — indice de heartbeat (creado en la ronda 53, 2026-10-04)
+
+> **Por que existe esta seccion:** el `AGENTS.md` me manda al podado aca
+> ("Idea + `revisar: 2026-11-XX`"). La seccion **no existia**: 0 menciones de
+> "Archivadas con fecha" en 3513 lineas. Veinte rondas no tuvieron donde ir, y por
+> eso se fueron a `MEMORY.md` (workspace) y a `DASHBOARD_PO_IDEAS.md` (repo).
+>
+> **Lo que esto deja de lado:** `PRE_BACKLOG.md` se detuvo el **2026-09-30**
+> (ultima entrada: Idea 48). `DASHBOARD_PO_IDEAS.md` llega a la **ronda 41**
+> (2026-10-02 07:30, 2479 lineas). `MEMORY.md` llega a la **ronda 52**.
+> **Tres archivos, tres alcances, ninguno completo.**
+>
+> **Y esto es lo que hay que mirar antes que el tamano:** el `AGENTS.md` usa
+> *"PRE_BACKLOG.md esta en 241 KB / 3766 lineas"* como prueba de que se producen
+> ideas sin parar. Ese numero es **del 2026-09-30**. El archivo que de verdad
+>registro los ultimos hallazgos
+> (`DASHBOARD_PO_IDEAS.md`, 177 KB) es el que
+> nadie mira para decidir el modo.
+
+| Ronda | Fecha | Hallazgo | Donde quedo | Revisar |
+|---|---|---|---|---|
+| 12 | 09-30 | Idea 57: 9 wrappers degradan a `[]`, el contrato dice 7 | BACKLOG cerrada; capitulo en MEMORY | 2026-11-04 |
+| 18 | 09-30 23:00 | ALERT-84 al dashboard; una cita de linea sin arbol = cita sin unidad | Dashboard | 2026-11-04 |
+| 21 | 10-01 03:00 | La app autoriza una API key que la API no acepta (2 de 7 permisos) | T1/T3 mergeadas; T2 abierta | 2026-11-04 |
+| 22 | 10-01 04:00 | La puerta exige 7, pero hay 3 caminos de entrada; el Gist no pasa por la puerta | T1/T3 cerradas; T2-mini/T4 | 2026-11-04 |
+| 23 | 10-01 05:00 | Mi premisa era falsa: `MIRROR_MAP` no era `FALLBACK_MAP` | Retractado en su sitio | — |
+| 24 | 10-01 06:00 | T6: 364 chars en un toast de 2500 ms, y 3 politicas distintas | Dashboard | 2026-11-04 |
+| 27 | 10-01 09:00 | T8: dos cargas se pisan y el desplegable dice una cuenta y el wallet otra | Dashboard | 2026-11-04 |
+| 34 | 10-01 18:00 | T13: 5 modulos tienen `deactivate()` y el router no lo llama (latch) | Tramos al Reviewer | 2026-11-04 |
+| 37 | 10-02 00:40 | T19: multi-pestana cubre 1 de las 2 claves que escribe | T19-a abierta | 2026-11-04 |
+| 38 | 10-02 02:00 | T20: el boton del Gist no dice las 7 categorias que el de archivo si dice | T20-a/b/c propuestas | 2026-11-04 |
+| 39-49 | 10-02 a 10-03 | **SIN REGISTRO en ningun archivo.** Doce rondas sin registro. | — | 2026-11-04 |
+| 50 | 10-03 16:00 | El "45 items" era una RONDA de mi dashboard | Dashboard | 2026-11-04 |
+| 51 | 10-03 18:00 | ALERT-41: la condicion de cierre es inalcanzable; la prueba de la fila da 404 tambien para ids buenos | Fila sigue viva, con la razon | 2026-11-04 |
+| 52 | 10-03 20:00 | T1: `loadAccountSummary` pide 4 promesas y solo `luck` se lee; las 4 se siguen pidiendo | Fila, no idea | 2026-11-04 |
+| **53** | **10-04** | **Este bloque.** El denominador de la fila L88 esta desactualizado y su nota al pie esta mal dimensionada | PRE_BACKLOG + Principal | **2026-11-04** |
+
+> **La fila "39-49" es la que mas duele y no la puedo reconstruir.** No tengo el
+> registro de esas doce rondas en ningun archivo. Si algo de ahi sirve, hay que
+> buscarlo en `recall_history`, no en estos archivos.
+
+---
+
+## RONDA 53 (2026-10-04) — upkeep de la fila L88, y el "12" que no vuelve al codigo
+
+**Modo:** PAUSA (12a seguida). `BACKLOG.md` @ `2e29ed6` = **5 abiertas
+ancladas** (L60 ALERT-41, L88 Coberturable, L174 Dailies, L298 Fractal,
+L344 WvW). 6 comunicaciones "Esperando", **0 a mi**. Corrida entera de podado:
+no hubo web ni idea nueva.
+
+**Que se mido y por que.** No repiti "medir las 5 filas". La pregunta fue
+**"de que esta hecha la fila mas grande del backlog abierto?"**: L88 tiene 6
+cifras propias y ninguna dice de cuando es. Todas se re-midieron hoy contra
+`/v2.json` en vivo y contra `origin/main` @ `2e29ed6`.
+
+| Cifra de L88 | Dice | Medido HOY | Veredicto |
+|---|---|---|---|
+| denominador | "43 rutas `account/*` privadas" | **46** | desactualizado (+3) |
+| catalogo de dyes | "`dyes` (643)" | **`/v2/dyes` = 404**; `/v2/colors` = 643 | el 643 es de otro endpoint |
+| catalogo de mounts | "`mounts` (488)" | **sin `X-Result-Total`**: no se puede medir en publico | cifra sin fuente reproducible |
+| catalogo de skins | "`skins` (10.632)" | **10.635** | +3 (parche) |
+| otros 8 catalogos | 136/70/983/236/148/16/496/35 | los **8 exactos** | correctos |
+| trabajo de skins | "es **1 llamada + 1 vista**" | `/v2/account/skins` es 1 request **por token** | cuenta un token, no 27 |
+
+**🔴 El hallazgo que tiene dientes: la nota al pie esta mal dimensionada, y eso
+es lo que la mantiene en el pie.** `skins` es la unica de las 11 con la capa
+escrita y probada (`getAccountSkins` v2.32.0 + `getSkinsBatch` v2.33.0,
+`SKINS_BATCH_MAX=200`, test `hb154-skins-catalogo.test.js`). Sus dos
+justificaciones, medidas hoy:
+
+- **"cero llamadores" -> CIERTO.** `getAccountSkins`, `getSkinsBatch` y
+  `account_skins` aparecen **solo** en `js/api-gw2.js` y en `tests/`. Ni
+  `router.js` ni `index.html` los mencionan. (El unico hit del contador era
+  una *mencion en el docblock de la v2.32.0*, linea 41: no es una llamada.)
+  Control: `getAccountRaids` da **3**, uno de ellos en `wallet-dashboard.js:69`
+  — el instrumento distingue capa de pantalla. `getAccountZZZ999` da 0.
+- **"1 llamada + 1 vista" -> NO ALCANZA para una fila que se llama
+  MULTICUENTA.** 1 request de `/v2/account/skins` es por token. Y el catalogo
+  son lotes de 200 sobre los ids que faltan. *Esto es topologia leida, no red
+  medida: no se cuanto lotes salen sin saber cuantas skins tiene cada cuenta.*
+
+**🔴 El "12" no vuelve al codigo.** `js/api-gw2.js:43` (docblock de la v2.32.0,
+escrito el 2026-10-02) dice **"12 endpoints `/v2/account/*` sin tocar"**. La fila
+L88 ya corrigio ese 12 a 11 — porque contaba `mounts/skins` y `mounts/types`
+como 2 endpoints. **La correccion de premisa quedo en la fila y no en el
+codigo**, y el codigo es lo que se lee cuando alguien implementa. Y
+`tests/hb154-skins-catalogo.test.js` **no asserta ninguna cifra** (su unico
+`assert` es el `require`), asi que **nada falla si el numero esta mal**.
+
+**🔴 El campo `active` del indice oficial no lo usa ninguna fila.** 15 rutas
+marcadas `active: false`. La unica account-scoped es **`/v2/account/mail`**, que
+yo deje anotada en la Idea 42 como *"503 hoy, no confirmable"*. **Ahora la
+confirma ArenaNet como inactiva.** Se cierra esa pregunta.
+
+**Que pido al Principal (no toco `BACKLOG.md`, el AGENTS.md me lo prohibe):**
+tres correcciones textuales sobre L88 — (1) 43 -> 46, (2) `dyes` -> `colors` y
+`mounts` sin cifra sin fuente, (3) sacar `skins` de la nota al pie y dejarlo
+como fila propia, porque su dimensionamiento es el unico que no nombra las 27
+cuentas y por eso nadie lo toma.
+
+**No afirmo:** cuantas llamadas cuesta la vista de skins en la practica, ni que
+el gap real sean 46 filas (varias de las 46 ya se usan por `fetch` crudo o por
+otra capa; mi primer cruce dio "38 sin wrapper" y **era falso**, porque confunde
+"sin wrapper `getAccount*`" con "sin capa" — el mismoinstrumento que la fila ya
+advierte).
+
+**Reglas que salen:**
+1. **Una correccion de premisa no viaja al codigo que la origino.** El 12 se
+   corrigio en la fila y sigue en el docblock de ayer, y el test no lo asserta:
+   las tres condiciones para que un numero errado sobreviva, juntas.
+2. **La dimensionacion que mantiene una tarea en una nota al pie es la primera
+   que hay que medir.** "1 llamada + 1 vista" es lo que hace aceptable el pie, y
+   esta en singular dentro de una fila que dice multicuenta.
+3. **La propia regla de carga puede estar mirando el archivo equivocado.** Medir
+   "cuanta idea hay" sobre el archivo mas viejo es medir 2026-09-30.
+
+
+## Heartbeat PO 2026-10-04 (ronda 54) — L88 nombra como molde la parte que un test verde certifica como rota
+
+**Control de carga:** `openItems` = **5** @ `cb369e5` = **PAUSA** (13ª seguida). Corrida entera de
+podado: no hubo web, no se abrió idea. **PASO -1:** 7 "Esperando", **0 a mí**.
+Clon compartido en `rescate/hb181-logs-armeria` — **no lo toqué**; trabajé en worktree propio.
+
+La pregunta **no** fue "medir las 5 filas" (6ª vez, ya no rinde). Fue: `origin/main` pasó de `2e29ed6`
+a **`cb369e5`**, y la fila más grande de la cola — **L88** — nombra como molde de la pantalla que
+quiere **`legendary-tracker.js`**. Ese módulo acaba de aterrizar en `main` (5 archivos + 8 tests).
+**¿El molde sigue en pie?**
+
+### 🔴 1. L88 propone copiar un módulo cuya barra de filtros no filtra — y el certificado es un test VERDE
+
+L88:109-112, textual: *"con el molde exacto de `legendary-tracker.js` (`#/account/legendary-armory`),
+que ya es una coleccion account-scoped con card por desbloqueo, grid y **barra de filtros**."*
+La barra de filtros se nombra como **argumento a favor**. Medido en `cb369e5`:
+
+| vista | usa `passesFilters`? |
+|---|---|
+| `catalogItems()` `legendary-tracker.js:355-357` | **sí** |
+| `ownershipCounts()` `:347-352` | **sí** |
+| `queueItems()` `:229-234` | **NO** — mapea `state.queue` directo |
+
+`renderQueuePanel()` (`:863-864`) llama `queueItems()`. **O sea: el filtro recorta en 2 de 3 vistas,
+y la tercera es "Cola de crafteo".**
+
+Y esto **no es mi inferencia, es un certificado del equipo**: `tests/hb148-filtro05-guardia-cognitiva.test.js`
+está en `main`, L39 dice *"ESTADO A — el filtro NO recorta la cola (producto actual, el defecto)"*,
+L168 asserta 5 filas pintadas bajo un filtro que excluye a las 5, y el `extra` de L170 dice
+**"0 = el defecto ya se ARREGLO"**. O sea: **el test está verde porque el defecto está.** Es un
+tripwire invertido, declarado a propósito (L490), no un test roto.
+
+🔴 **El problema de la fila, no del módulo:** el registro de esto está en **L489, CERRADA** —
+*"DESCARTADA POR VEREDICTO DE PRODUCTO — PODADA en la ronda 45"*, **401 líneas más abajo de L88**.
+Quien lea L88 **no puede verlo**. La fila nombra la barra de filtros del molde sin la única
+advertencia que ese molde tiene sobre ella.
+
+**Qué pido:** 🟢 **1 línea de copy en L88** al lado del "molde exacto", con el alcance real
+("filtra catálogo y progreso; **la cola de crafteo no**") y una pregunta de producto para la pantalla
+de Skins: **¿una skin entra en una cola de crafteo?** Si no, la omisión del molde es irrelevante y
+L88 puede quedarse como está. **No abro idea: es una corrección de una fila abierta.**
+Es el mismo movimiento por el que `skins` bajó de la nota al pie en la ronda 53: **una fila se
+dimensiona con lo que el molde tiene de bueno y calla lo que tiene de malo.**
+
+### 🟡 2. "1 llamada + 1 vista": el único molde que funciona hace 3 endpoints y tiene 2 consumidores
+
+L88: *"es 1 llamada + 1 vista; los otros 10 son endpoint + wrapper + pantalla cada uno."*
+Medido sobre el único account-scoped que hoy funciona completo, `getAccountLegendaryArmory`:
+
+- **2 call sites reales de producción:** `legendary-tracker.js:1072` y **`inventory-hub.js:234`**
+  — este último es **otro módulo**. (Control de forma: DEF=1, EXPORT=8; los otros 6 "usos" en
+  producción son docblock y el guard `typeof`; los 11 restantes están en `tests/`.)
+- **3 endpoints bajo un `Promise.allSettled`** en `loadLegendaryData` `:1071-1080` (armería + banco +
+  materiales), con `readErrors` `:1088-1094` separando *"no pude leer"* de *"no tenes"*.
+
+⇒ El molde que funciona es **3 llamadas por token × 2 consumidores**. L88 cuenta **1 × 1**.
+Y la unidad del "1" sigue siendo por token: **1 llamada es 1 request por token, no 1.**
+
+**Lo que sale, y es la parte útil:** la dimensión que le falta a L88 **no es "1 vs 3 llamadas"** —
+eso es lo que ya se mide en lotes. Es **el segundo consumidor**. `inventory-hub.js:234` es lo que
+hace que ese endpoint valga la pena: no es una hoja, es una pieza que otro módulo reutiliza.
+**Skins no tiene segundo consumidor hoy** — y eso es una **decisión de Pablo**, no un fallo medido.
+Que la fila no lo diga es lo que la deja subdimensionada otra vez.
+
+### 🟢 3. El "12" de `api-gw2.js` — con las fechas, y con mi error de media ronda
+
+`api-gw2.js:43` (bloque **v2.32.0**) dice *"12 endpoints `/v2/account/*` sin tocar"*.
+**El mismo archivo dice "once" dos veces** (`:170`, `:250`), y `:282` registra la política:
+*"NO se corrigio el conteo 'a mano'. Siete->once escrito a mano seria..."*.
+**La corrección está DENTRO del archivo, dos veces.** El diagnóstico de la ronda 53 —"la corrección
+quedó en la fila y no en el código"— era demasiado fuerte: lo que hay son **dos números conviviendo**
+y una política escrita que el mismo commit que agregó el endpoint incumplió.
+
+Y `:7` (bloque **v2.33.0, 2026-10-03**) **cita `BACKLOG.md L88` por número de línea** — control:
+**1** cita de ese tipo en todo el archivo. L88, desde las 09:37 UTC del 10-03, abre con
+**"11 endpoints"** y lleva un ⚠️ que dice que el 12 estaba mal. **El archivo cita a la autoridad y
+no la lee, 36 líneas más abajo.**
+
+🔴 **Lo que NO afirmo, y es lo que me costó media ronda:** "alguien reescribió ayer el docblock
+teniendo la corrección a 12 líneas y no la aplicó" es **FALSO**. Medido con `merge-base`:
+
+| commit | qué | UTC |
+|---|---|---|
+| `1094c26` | escribe el **12** en `api-gw2.js` | 2026-10-03 **01:08** |
+| `23e2fea` | v2.33.0, **cita L88** | 2026-10-03 **01:50** |
+| `2d13d7c` | **último** commit que toca `api-gw2.js` | 2026-10-03 **03:09** |
+| `2561416` | corrige L88 a **11** + el ⚠️ | 2026-10-03 **09:37** |
+
+⇒ **El 12 del código es 7h45m más viejo que el 11 de la fila**, y **`api-gw2.js` no tiene ni un
+commit en las 6h28m siguientes.** La conclusión cambia de tamaño y de dueño: **no es negligencia,
+es un ticket de 🟢 1 línea que ya está encolado** — la costumbre del proyecto es escribir el
+docblock en cada versión, así que la próxima versión pasa por esa línea. Lo único que falta es
+que nadie sepa que se debe.
+
+### Las 4 filas restantes, una por una — 0 podadas
+
+| fila | veredicto | medición en `cb369e5` |
+|---|---|---|
+| **L60 ALERT-41** | **cierta, e inalcanzable** | `STRIKES_BY_EXPANSION` sigue con 15 ids (`strike-tracker.js:23/698-700`). Sin cambio. |
+| **L174 Dungeon dailies** | **premisa FALSA, y ahora se por qué exacto** | `dailycrafting` = **1** mención en producción (`activities.js:748`, el fetch) contra **7** de `worldbosses` y **7** de `mapchests`. Los otros dos tienen el patrón de **3 partes** (estado `:100/:101` → fetch `:230/:238` → consumo `:377-380`); **`dailycrafting` no declara el Set ni lo consume.** No es "familia ya implementada 3/4": es **2 de 3**, y el tercero es una línea de fetch sin destino. |
+| **L298 Fractal multicuenta** | **cierta** | `fractal` (case-insensitive): 110 en producción. Las únicas 2 líneas con `state.token` son `activities.js:1216` y `:1249`, y son **el mismo call site por dos caminos** (`Fractals.loadCMStatus(state.token)`). Sin cambio. |
+| **L344 WvW visor** | **cierta en `/v2/wvw/objectives`** | **0** ocurrencias del literal. Ojo con el nombre: `js/wv-objectives-dashboard.js` y `wv-objectives-ui.js` son **Wizard's Vault**, no WvW — dos archivos con "objectives" en el nombre y otro dominio. El **rango** de WvW ya se pinta en `characters.js` (ronda 51); **objetivos** no. |
+
+**Control del arnés:** `getAccountZZZ999` → **0**, `getAccountRaids` → **18**. Discrimina.
+
+### Errores míos de esta ronda (4, los 4 antes de reportar)
+
+1. 🔴 **Casi reporté al revés por no fechar las dos puntas.** Escribí "v2.33.0 se escribió ayer
+   teniendo la corrección a 12 líneas" y lo publiqué como titular en mi borrador **antes** de medir
+   `merge-base`. Las fechas dicen lo contrario: la corrección llegó **7h45m después**. Un control de
+   forma que discrimina bien **no alcanza**: para una afirmación causal hay que fechar **los dos
+   extremos**, no uno.
+2. 🔴 **Mi regex de versión no matcheó por el acento y no me di cuenta.** `/Versi..n:/` contra
+   `Versión:` — `..` son 2 caracteres y "ón" ya son 2, así que la clase miraba 3. El arnés imprimió
+   `(precedente al primer bloque)` en las 7 líneas y **yo lo leí como si fuera un dato**. Un campo
+   que sale con valor centinela en todas las filas es un instrumento roto, no un resultado.
+3. `sinTildes()` revienta porque le pasé un **array** (`.forEach(l => sinTildes(normAll))`).
+4. Conté `pegue el body crudo de /v2/account/raids` contra **archivos de código**, siendo una frase
+   de `BACKLOG.md`. El 0 no medía nada y casi lo reporto. *Un grep cuyo needle vive en otro archivo
+   mide el archivo del needle, no el del código.*
+
+### Reglas que salen
+
+1. **Lo que se nombra como molde se audita como código, no como referencia.** L88 gasta 10 líneas
+   probando que `Characters` no es subvista de `InventoryHub`, y **0** verificando que el molde que
+   elige filtra. Lo único que verifiqué de ese molde fue lo que su propio comentario de cabecera
+   alaba, nunca lo que su código hace.
+2. **Un certificado verde de un defecto y un test verde de una garantía tienen la misma forma.**
+   `hb148-...test.js` está verde **porque** el defecto sigue, y su propio `extra` lo dice. Leer
+   "verde" sin leer **qué** afirma es leer la mitad — y cuando el certificado está en una fila
+   **CERRADA**, ni siquiera llega a leerse.
+3. **Para una afirmación causal hay que fechar los dos extremos con `merge-base`.** Es hermana de la
+   fila que se cita a sí misma: *la explicación sobrevive al refactor y nadie vuelve a leerla.*
+4. **"La corrección no llegó al código" era demasiado fuerte.** Puede estar en el código, en otra
+   parte del archivo, conviviendo con el número viejo. Lo que hay que preguntarse no es *"¿la
+   corrección viajó?"* sino **"¿cuántos números distintos conviven en el archivo que afirma tener la
+   respuesta?"** — y si el archivo tiene una política escrita sobre cómo contar, si la cumplía.
+
+## Heartbeat PO 2026-10-04 04:00 UTC (ronda 55) — la fila mas grande del backlog abierto no es un endpoint: son 1311 lineas medidas que nadie mergeo
+
+**Control de carga:** `openItems` = **5** @ `cb369e5` = **PAUSA** (14a seguida). Corrida entera de
+podado: no hubo web, no se abrio idea. **PASO -1:** 7 "Esperando", **0 a mi**.
+Clon compartido en `rescate/hb181-logs-armeria` con WIP ajeno (`ALERTS_LOG.md`, `PRE_BACKLOG.md`
+`MM`, `TEAM_STATUS.md` `MM`): **no lo toque**. Trabaje en worktree propio `_hb184_wt`.
+
+**Aviso de numeracion:** esta es la **ronda 55, no la 54**. La 54 ya existe: `ca77a78`, fechada
+**2026-10-04 02:09 UTC**, 2 horas antes de que arrancara esta corrida. Su tema era el *molde* de L88
+y es ortogonal a este. Lo lei entero antes de escribir para no duplicarlo.
+
+La pregunta **no** fue "medir las 5 filas" (7a vez, ya no rinde) ni "revisar el molde de L88"
+(la 54, hace 2 h). Fue: **"cuando entregue mi ronda anterior, ¿donde quedo?"**
+
+### 🔴 1. Siete entregas de podado. Seis en ramas, una en el indice de otro agente. Cero en `main`.
+
+Medido sobre `origin/main` @ `cb369e5`:
+
+| destino | lineas | donde esta |
+|---|---|---|
+| `po/hb117-dashboard` / `hb119` | +253 / +114 | ronda 37 y 38, 2 ramas |
+| `po/hb125-poda` | +558 | ronda 39/40 |
+| `po/hb136-poda` | +29 | ronda 44 |
+| **`INDEX del clon compartido`** | **+101** | **ronda 52 — no es un commit** |
+| `po/hb181-censo-coberturable` | +118 | ronda 53 |
+| `po/hb182-l88-molde` | +138 | ronda 54 |
+
+**Las 6 de rama son appends puros** (`N insertions(+), 0 deletions`), o sea que su unico problema
+es que nadie las mergeo. **Y `origin/main:PRE_BACKLOG.md` termina en `## [2026-09-30] Idea 48`**:
+su ultimo heading y su ultima fecha en todo el archivo son del **30 de septiembre**. Medido:
+6 fechas distintas en 3512 lineas, la mas reciente `2026-09-30`.
+
+🔴 **La de la ronda 52 es la que duele.** `git log --all --grep="ronda 52"` → **vacio**.
+*Control positivo:* el mismo grep con `"ronda 53"` y `"ronda 54"` **si** encuentra `d1679dc` y
+`ca77a78`. O sea que el grep discrimina: **las 101 lineas medidas de la ronda 52 no estan en ningun
+commit de ninguna ref.** Viven en el **staging area** del clon compartido (`MM PRE_BACKLOG.md`,
+`git diff --cached --numstat` = `101 0`). **Un `git checkout`, un `reset --hard` o la limpieza de
+worktrees que pide mi propio `AGENTS.md` las borran sin dejar rastro.** Las recupere de ahi para
+esta entrega; el original sigue en riesgo.
+
+### 🔴 2. El archivo que decide el podado no tiene los 3 de los 4 destinos que mi regla le asigna
+
+Mi `AGENTS.md` manda mandar cada idea podada a uno de 4 lugares. Censados con `/i` sobre el archivo
+(base `origin/main`):
+
+| marcador | ocurrencias |
+|---|---|
+| `Descartada` | **31** |
+| `Aprobada` | 8 |
+| `Cerrada` | 7 |
+| `Fusionada` | **0** |
+| `Archivada` | **0** |
+| `Adoptada` | **0** |
+
+*Control:* `/descartad/` **sin** `/i` → 0; **con** `/i` → 31. El flag es la diferencia y el extractor
+**discrimina** (Encuentra 31/8/7 y 0/0/0). Los ceros son reales, no la forma de la clave.
+
+**Lo que eso produce, y es la parte util:** el podado deja de ser una accion de ida y vuelta.
+Una idea que ya esta en `BACKLOG.md` **sigue siendo indistinguible** de una que nunca se propuso,
+porque en el archivo del PO no hay nada que lo diga. Por eso 13 rondas de PAUSA terminan en 0 con
+la misma justificacion: **la pregunta "esta counted?" no tiene un lugar donde responder.**
+
+Y el **"archivada"** es el destino del caso que mas se repite — *"buena, pero no ahora"* — y no
+existe. Las ideas buenas no se pierden: se **quedan** en el archivo, mezcladas con todo lo demas.
+
+### Lo que hice, que es el podado de esta corrida
+
+Consolide las 7 entregas en **una sola rama mergeable**, por concatenacion en orden cronologico
+(cherry-pick no sirve: 6 de 7 dan conflicto, porque todas appendean a la misma cola).
+
+- **`+1318 / -0`** contra `origin/main`. Puro append.
+- **Base intacta:** las primeras **3513** lineas son **identicas** a `origin/main` (comparadas linea
+  por linea, no por diffstat).
+- **0 fugas de diff:** las 80 lineas que empiezan con `---` son las 80 lineas horizontales de
+  markdown. Las 80. Comprobado una por una.
+- **Sin duplicados: 6 hashes SHA-1 distintos sobre 6 bloques.** Dedupe por hash del parche, porque
+  `e9d901f` y `63cb2e1` son **la misma ronda 37** en dos ramas; concatenar sin dedupe la duplicaba.
+- **Sin BOM**, **0** caracteres `U+FFFD` (el texto no esta corrupto). Ronda mas reciente: **54**.
+
+**NO mergeo** (no es mio), **NO toco `BACKLOG.md`** (mi `AGENTS.md` me lo prohibe) y **NO toco el
+indice del clon compartido**: el original de la ronda 52 sigue ahi, sin commitear, y eso es del
+Principal.
+
+### Las 5 filas, una por una — 0 podadas, y por que
+
+Ninguna es falsa y ninguna se puede podar sin una decision de Pablo:
+
+| fila | por que sigue abierta |
+|---|---|
+| **L60 ALERT-41** | espera un body que la ronda 51 demostro **inalcanzable**: los 15 ids de `STRIKES_BY_EXPANSION` son 0 de 36 en `/v2/raids`. No espera un dato, espera una decision. |
+| **L88 Coberturable** | la ronda 53 mostro que el trabajo real es **multicuenta** y la 54 que el molde propuesto **no filtra en 1 de 3 vistas**. Sin la linea de copy no baja dedimensionada. |
+| **L174 Dungeon dailies** | premisa falsa (rondas 40 y 54): `dailycrafting` = **1** mencion contra 7 y 7; no declara el Set ni lo consume. Es **2 de 3**, no 3 de 4. |
+| **L298 Fractal multicuenta** | cierta y sin cambios: `state.token` en `activities.js:1216` y `:1249`, el mismo call site por dos caminos. |
+| **L344 WvW visor** | cierta: **0** ocurrencias del literal `/v2/wvw/objectives`. Ojo con el nombre: `wv-objectives-*.js` es **Wizard's Vault**, otro dominio. |
+
+### Errores mios (6, los 6 antes de reportar)
+
+1. 🔴 **Mi filtro de ramas comparaba el ULTIMO SEGMENTO contra `^po\/`**, asi que ninguna rama
+   `po/*` podia coincidir. Reporto *"ninguna rama entrega PRE_BACKLOG.md sin mergear"* — **falso**,
+   y era justo el titular. **Sexta vez en 72 h que un 0 mio esta a punto de ser afirmacion.**
+2. 🔴 **`| ` en `--format=%H|%at|%s`**: el pipe es operador de `cmd.exe`. Partia el comando entero y me
+   devolvia 0 entregas sin error visible. Separador `~`.
+3. **Mi autocontrol de headings fallaba** porque escribi `['### sin nada detras', false]` esperando
+   que fuera no-heading: **es un heading valido**. El helper estaba bien y la expectativa era la
+   falsa. Lecorrecto el helper correcto.
+4. **Mi veredicto automatique sobre "Descartada" (31 vs 1) dijo "no ve plurales"**: era **mayusculas**.
+   Un veredicto escrito por el arnés es una hipotesis, no una medicion.
+5. **`import` en un `.cjs`** — lo que mi propia memoria ya registra como regla. La violo al reves.
+6. **Cherry-pick para appends**: 6 de 7 en conflicto. Y dejo la rama con ronda 40 commiteada, asi que
+   la primera consolidacion dio `-557` y casi la reporto como fallo mio. *Una insercion que borra mas
+   de lo que agrega no es una insercion* — y aqui era un reset que no hice.
+
+### Reglas que salen
+
+1. **Una entrega que no esta commiteada no existe, y no por eso es menos real.** 101 lineas medidas
+   estaban en el staging area de otro agente y un reset las habria llevado. **Lo que se escribe en
+   la memoria del PO tiene que estar en un commit antes de que el ciclo continue.**
+2. **La accion que se repite 13 veces sin efecto tiene su causa en el instrumento, no en la voluntad.**
+   Trece rondas de PAUSA que terminan en 0 no son trece decisiones de no podar: es que **la pregunta
+   "¿esto ya esta contado?" no tiene un lugar donde responderse.** Los 0 de `Fusionada` y `Archivada`
+   *son* esa respuesta, y estan en cero.
+3. **Un 0 es real solo si el instrumento que lo produce encuentra algo en otro lado.** Tres veces hoy
+   un 0 mio casi se vuelve afirmacion (filtro de ramas, pipe de cmd, conteo por prosa). El control
+   tiene que discriminar **antes** del titular, no despues.
+4. **Cherry-pick no sirve para appends a la misma cola.** Se concatena, y se deduplica por hash del
+   parche, porque la misma idea llega por dos ramas con dos commits distintos.
