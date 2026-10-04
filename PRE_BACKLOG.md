@@ -4955,3 +4955,122 @@ Ninguna es falsa y ninguna se puede podar sin una decision de Pablo:
    tiene que discriminar **antes** del titular, no despues.
 4. **Cherry-pick no sirve para appends a la misma cola.** Se concatena, y se deduplica por hash del
    parche, porque la misma idea llega por dos ramas con dos commits distintos.
+## RONDA 64 - HB#196 (20:0x UTC) - RECOLECTAR. **11 ramas tocan `PRE_BACKLOG.md` y ninguna esta mergeada: el archivo del repo termina en la ronda 55 y las dos reglas que lo gobiernan se niegan entre si.**
+
+**Que es distinto en esta corrida.** Hoy corrio este mismo cron **por tercera vez** (R63 a las 17:35,
+R63-bis a las 18:05, esta a las 20:0x). Las dos anteriores entregaron sus secciones y ninguna esta en `main`.
+No escribo una idea nueva: mido **por que el trabajo de las rondas anteriores no llega al archivo**, y el
+numero que sale es el que decide si las siguientes valen algo.
+
+**Control de carga (re-medido, 2 instrumentos):** `openItems` = **3** @ `482e5bf` = **RECOLECTAR**.
+Instrumento propio (`/^- \[ \]/m` anclado) con control positivo; confirmado con `findstr`. 3 filas: L60,
+L88, L174. **Primer RECOLECTAR en 14 rondas** (venían 14 en PAUSA), y la causa ya está en git: `82f66cd`
+("archiva L298 y L352, 5 -> 3 items abiertos").
+
+**PASO -1:** **6** comunicaciones "Esperando", **0 dirigidas a mí** (5 al Code-Reviewer, 1 a Pablo).
+Columnas derivadas del encabezado, no fijadas a mano: `c[3]` = `A`.
+
+### R1. 🔴 EL HALLAZGO: 27 ramas `po/*` sin mergear, y el archivo compartido de las rondas entre ellas
+
+Medido sobre `git ls-remote --heads origin` (**31 ramas `po/*`**), con el diff de **tres puntos** (que cambia
+el commit, no los arboles), `controles_ok: true`:
+
+| | cantidad |
+|---|---:|
+| ramas `po/*` remotas | **31** |
+| ya mergeadas en `main` | 4 |
+| **sin mergear** | **27** |
+| de las sin mergear, **solo tocan archivos del PO** (`PRE_BACKLOG.md` / `DASHBOARD_PO_IDEAS.md`) | **19** |
+| de las sin mergear, **tocan archivos de otros** (`BACKLOG.md`, `SESSION_LOG.md`, scripts `_hb*` sueltos) | 8 |
+| **sin mergear que tocan `PRE_BACKLOG.md`** | **11** |
+
+**El dato que lo hace un hallazgo y no una queja:** `PRE_BACKLOG.md` en `origin/main` **tiene una sola
+seccion de ronda, la RONDA 53**, y el ultimo commit que lo toco hoy fue `7bf1cba` ("ronda 55 (PAUSA, 14a) -
+7 entregas de podado, **0 en main**; consolido las 7 en una sola rama"). **O sea: hay 64 rondas y el archivo
+del repo termina en la 55.** Las rondas 56 a 64 viven en 11 ramas.
+
+### R2. El deadlock, con las dos reglas que se niegan, citadas textuales
+
+1. **Mi `AGENTS.md`:** *"El Principal es el unico que hace merge a `agents/main`... Vos NO mergeas."*
+2. **El Principal, en `dcaf4f0` (ayer, en `main`):** *"Los 2 commits de `chore-hb193-banda-medida` ya estaban
+   en `origin` pero nunca entraron a `main`; **no los mergeo porque son del PO**."*
+
+**Ninguno de los dos mergea. Las 27 ramas se acumulan.** Y no es teoria: el rescate **manual ya esta
+pasando y se nota en el costo** - `2c46496` ("rescate del HB#194") metio a mano en `BACKLOG.md` el bloque de
+una ronda del PO que murio sin commitear, y **de ese rescate salieron ALERT-257 y ALERT-258** (2 findings
+nuevos, uno de ellos el bug de CRLF de `core.autocrlf`). El rescate funciona, pero **cuesta un ciclo entero
+del Principal por ronda perdida**.
+
+### R3. Lo que la ronda anterior ya habia dicho, y por que esta la cierra
+
+La ronda `po/hb193-banda-medida-en-git` (17:35) ya escribio el diagnostico: *"Este archivo del repo **termina
+en la ronda 55**, y la razon de una poda de hoy no estaba en el."* **Tenia razon en el hecho y le faltaba la
+cifra.** Hoy: **11 ramas tocan ese archivo, 27 sin mergear en total, y la mas vieja (`po/hb56-forma-raids`)
+esta 303 commits atrasada.** Sin el numero, "el archivo esta atrasado" no mueve a nadie; con el, se ve que
+atrasarse es el estado normal y no un olvido.
+
+### R4. La propuesta (decidirla es del Principal, no mia)
+
+Tres salidas, con la que recomiendo marcada:
+
+| | propuesta | costo | riesgo |
+|---|---|---|---|
+| **(a)** | **El PO mergea `PRE_BACKLOG.md` y `DASHBOARD_PO_IDEAS.md` a `main` el mismo**, sin esperar. Son **2 archivos `.md`, cero `js/`, cero `tests/`**. | 1 linea de `AGENTS.md` | ninguno: la suite **no aplica** a `.md` |
+| **(b)** | El Principal mergea las **19 ramas limpias** en una sola pasada y deja de leer las sucias. | 1 pasada | ninguno, si se filtra por "solo `.md` del PO" |
+| **(c)** | Nada. Seguir rescues manuales. | 0 | 1 ciclo del Principal por ronda perdida |
+
+**Recomiendo (a), y (b) como limpieza de una sola vez.** La razon de fondo: **la regla que evita que el PO
+toque el codigo de produccion se extendio a los archivos que el PO escribe y nadie mas lee, y ahi si produce
+el costo.** Mi `AGENTS.md` me prohibe `BACKLOG.md` y con razon. `PRE_BACKLOG.md` es mio. Que el mecanismo que
+me protege del error equivocado tambien me impida entregar el trabajo es el que produce 11 ramas.
+
+**Lo que NO hago en esta corrida:** no abro idea nueva (3 de las 4 fuentes web estan muertas, y las 2 rondas
+de hoy ya cubrieron la cobertura de `L88`), no toco `BACKLOG.md`, no toco `TEAM_STATUS.md` ni `ALERTS_LOG.md`
+(ALERT-258: `TEAM_STATUS.md` es **CRLF puro** en el blob y `core.autocrlf=true` sin `.gitattributes` lo
+reescribe entero - verificado: mi worktree esta en LF y mis 2 archivos estan **LF puro**, asi que no toco
+ninguno de los dos), y **no mergeo**.
+
+### R5. Correccion de premisa que R63-bis ya no puede publicar
+
+La seccion de R63-bis (rama `po/hb193-emotes`) ya esta **superada en sustancia**: `2c46496` aplico a
+`BACKLOG.md` el hallazgo del denominador de L88 (**46 rutas `/v2/account*`, 45 activas**, la unica inactiva
+`/v2/account/mail`) y `dcaf4f0` (ALERT-257) **corrigio** el punto de R63-bis que decia "los `getAccount*` del
+repo son 17, no 10": **no son 17**, son 10 wrappers + 6 helpers de presentacion, y el prefijo nombra una
+*convencion*, no una capa. **Las dos ramas de hoy se pueden descartar sin perdida de contenido**; lo que
+sobro es la leccion del metodo. **No las vuelvo a acumular ni las junto a mano:** que las descarte el Principal es
+la aplicacion de (b).
+
+### Errores mios (4, los 4 antes de reportar)
+
+1. 🔴 **El control me salvó de un titular FALSO, y era el titular mas grave posible.** Mi primer diff fue de
+   **dos puntos** (`git diff A B`) y dio `ALERTS_LOG.md 0/101`, `TEAM_STATUS.md 235/623`, `BACKLOG.md 1/37`.
+  lei: *"la rama de rescate revierte los archivos del Principal, incluido el podado de hoy"*. **Es falso**: es
+   que la rama esta **3 commits atrasada**, y `origin/main` avanzo **durante** mi corrida (`fcaee40` ->
+   `482e5bf`). Con **tres puntos** las ramas tocan solo 2 archivos `.md`. **Un diff de dos puntos contra una
+   base que se mueve parece un revert. Es el tercer error de esta clase hoy** (los otros dos: `r.route` vs
+   `r.path`, y `scope` por ruta, ambos de R63-bis).
+2. 🔴 **`.map(p => p[0])` me devolvio el sha en vez del ref** -> 2 intentos perdidos con
+   `origin/undefined..origin/main`.
+3. **`\r` de `cmd.exe`**: `$` no matchea antes de `\r`, y `.` no lo cruza. Salida de shell tratada como
+   `LF`.
+4. **`edit_file` con `old_text` identico a `new_text`: no-op silencioso.** Busque la *declaracion*
+   (`const tocanPre`) y no el *uso* (`toccanPre`), asi que "corregi" el typo equivocado y crei haberlo
+   arreglado. Por eso el numero final salio a mano una vez: **no cuento a mano, corro el arnes**.
+
+### Reglas que salen
+
+1. **Una regla de proteccion que se extiende a un archivo que nadie mas lee deja de ser proteccion y pasa a
+   ser bloqueo.** El PO no puede escribir `BACKLOG.md` (bien). No poder *mergear* `PRE_BACKLOG.md` es otra
+   cosa: no protege nada y cuesta un ciclo del Principal por ronda.
+2. **Un diff de dos puntos contra una base que se mueve durante la corrida produce un "revert" fantasma.**
+   Cuando el titular dice "borra 623 lineas de otro", la primera pregunta es si la rama esta atrasada, y la
+   segunda es que `...` (tres puntos) no coincide. **Y la tercera: la base se movio durante la medicion?**
+3. **"El archivo esta atrasado" no es un hallazgo hasta que tiene cifra.** `PRE_BACKLOG.md` termina en la
+   ronda 55 es un dato; **11 ramas tocan ese archivo** es el dato que lo convierte en cola de trabajo.
+
+### Entregado
+
+`BACKLOG.md`: **NO LO TOCO** (`AGENTS.md` me lo prohibe). Esta corrida no abre idea.
+Rama **`po/hb196-una-sola-ronda`**, sobre `origin/main` @ `482e5bf`.
+Archivos tocados: **2, ambos `.md`, ambos LF puro**. Verificado append puro (prefijo identico byte a byte).
+**No mergeo. No toco `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `BACKLOG.md`.**

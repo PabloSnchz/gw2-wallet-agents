@@ -1,3 +1,82 @@
+## ACTUALIZACION 2026-10-04 20:1x UTC — Heartbeat PO ronda 64 — RECOLECTAR: 3 items abiertos. **27 ramas `po/*` sin mergear; 11 tocan `PRE_BACKLOG.md` y el archivo del repo termina en la ronda 55.**
+
+> **Espejo de la ronda 64 del PO.** Tercera corrida del mismo cron hoy (17:35, 18:05, 20:0x).
+> Las dos anteriores entregaron su seccion y **ninguna esta en `main`**. Esta no abre idea nueva:
+> mide **por que el trabajo de las rondas anteriores no llega al archivo**, porque el numero que sale
+> decide si las siguientes valen algo.
+> Control de carga: **`openItems` = 3** @ `482e5bf` = **RECOLECTAR**, 2 instrumentos, `controles_ok: true`.
+> **Primer RECOLECTAR en 14 rondas**; la causa esta en git (`82f66cd`, archiva L298 y L352).
+> PASO -1: **6 "Esperando", 0 dirigidos a mi** (5 al Code-Reviewer, 1 a Pablo).
+
+### El numero
+
+| | cantidad |
+|---|---:|
+| ramas `po/*` remotas | **31** |
+| ya mergeadas en `main` | 4 |
+| **sin mergear** | **27** |
+| de las sin mergear, **solo tocan archivos del PO** (`.md`) | **19** |
+| de las sin mergear, tocan archivos de otros (`BACKLOG.md`, `SESSION_LOG.md`, `_hb*`) | 8 |
+| **sin mergear que tocan `PRE_BACKLOG.md`** | **11** |
+
+`PRE_BACKLOG.md` en `origin/main` **tiene una sola seccion de ronda, la RONDA 53**. Hay 64 rondas.
+La mas vieja sin mergear (`po/hb56-forma-raids`) esta **303 commits atrasada**.
+
+### El deadlock, con las dos reglas citadas
+
+1. **Mi `AGENTS.md`:** *"El Principal es el unico que hace merge... Vos NO mergeas."*
+2. **El Principal, en `dcaf4f0` (hoy, en `main`):** *"no los mergeo porque son del PO."*
+
+**Ninguno de los dos mergea.** Y el rescate manual ya esta pasando y se nota en el costo: `2c46496`
+metio a mano el bloque del HB#194 en `BACKLOG.md`, y **de ese rescate salieron ALERT-257 y ALERT-258**.
+
+### La propuesta (la decide el Principal)
+
+| | propuesta | costo | riesgo |
+|---|---|---|---|
+| **(a) RECOMENDADA** | **El PO mergea `PRE_BACKLOG.md` y `DASHBOARD_PO_IDEAS.md` a `main` el mismo.** 2 archivos `.md`, cero `js/`, cero `tests/`: la suite **no aplica**. | 1 linea de `AGENTS.md` | ninguno |
+| **(b)** | Merge en una pasada de las **19 ramas limpias**, filtrando por "solo `.md` del PO". | 1 pasada | ninguno |
+| **(c)** | Nada. Seguir rescates manuales. | 0 | 1 ciclo del Principal por ronda perdida |
+
+### Prioridades de esta corrida
+
+| # | | estado |
+|---|---|---|
+| 1 | **Resolver el deadlock de merge** — 11 ramas con el contenido de 9 rondas, ninguna en el archivo | **P1, es del Principal** |
+| 2 | **L88 Coberturable** — la unica de las 3 filas que es trabajo real y no una pregunta (10 wrappers sobre 45 endpoints activos; denominador ya corregido a 46/45 en `2c46496`) | P2, viva |
+| 3 | **L60 ALERT-41** — su bloqueador esta **vacio**: los 15 ids de strike no existen en lo que `/v2/account/raids` puede devolver. El token no produce trabajo. Es una pregunta de producto con forma de fila | P2, **espera a Pablo** |
+| 4 | **L174 Dungeon dailies** — su premisa sigue falsa (`dailycrafting` = 1 mencion en `js/`) | P3, re-encuadrar |
+
+### Errores mios (4, los 4 antes de reportar)
+
+1. 🔴 **Mi primer diff fue de DOS puntos y decia que la rama de rescate revertia 623 lineas de
+   `TEAM_STATUS.md` y el podado de hoy. FALSO**: la rama esta 3 commits atrasada y `origin/main` **avanzo
+   durante mi medicion** (`fcaee40` -> `482e5bf`). Con **tres puntos** las ramas tocan solo 2 `.md`.
+2. 🔴 `.map(p => p[0])` devolvio el **sha** en vez del ref -> 2 intentos con `origin/undefined..main`.
+3. `\r` de `cmd.exe`: `$` no matchea antes de `\r`.
+4. `edit_file` con `old_text` identico a `new_text` = **no-op silencioso**; corri el uso, no la declaracion.
+
+### Reglas que salen
+
+1. **Una regla de proteccion extendida a un archivo que nadie mas lee deja de ser proteccion y pasa a ser
+   bloqueo.** El PO no puede escribir `BACKLOG.md` (bien). No poder *mergear* `PRE_BACKLOG.md` no protege
+   nada y cuesta un ciclo del Principal por ronda.
+2. **Un diff de dos puntos contra una base que se mueve produce un "revert" fantasma.** Si el titular dice
+   "borra 623 lineas de otro", la primera pregunta es si la rama esta atrasada; la segunda, si `...` da lo
+   mismo; la tercera, **si la base se movio durante la medicion**.
+3. **"El archivo esta atrasado" no es un hallazgo hasta que tiene cifra.**
+
+### Entregado
+
+Rama **`po/hb196-una-sola-ronda`** sobre `origin/main` @ `482e5bf`. **2 archivos `.md`.**
+`PRE_BACKLOG.md` **+120/-1** (verificado prefijo identico byte a byte, LF en el blob).
+**No mergeo. No toco `BACKLOG.md`, `TEAM_STATUS.md` ni `ALERTS_LOG.md`** (ALERT-258: `TEAM_STATUS.md` es
+CRLF puro en el blob; mis 2 archivos se stagearon con el modo del worktree, no con el del blob).
+
+**Sin web research util: 3 de 4 fuentes muertas** (Reddit 403, `gw2treasures/feeds` 404 ×2). La 4ta
+(`/v2/changelog`) ya la midio R63-bis como 404. **0 features nuevas — y no abro idea de relleno.**
+
+
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
