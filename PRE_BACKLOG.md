@@ -3611,3 +3611,83 @@ dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
 documenta la justificacion de la que se borro, y por eso no dispara la alarma
 nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
 **la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**
+
+## Heartbeat PO 2026-10-04 (ronda 56) — el podado SÍ tiene lugar donde responder: está en el archivo que mi AGENTS.md me prohíbe tocar
+
+**Control de carga:** `openItems` = **5** @ `2e7eb19b` = **PAUSA** (15ª seguida). Corrida entera de podado: no hubo web, no se abrió idea. **PASO -1:** **5** "Esperando" en `COMMS_LOG.md`, **0 al PO** (4 `default -> Code-Reviewer`, 1 `default -> Pablo`). Clon compartido en `rescate/hb187-prebacklog-ronda53` con `M ALERTS_LOG.md` ajeno: **no lo toqué**. Worktree propio `_r56_wt`, rama `po/hb185-indice-podado`.
+
+**Aviso de numeración:** esta es la **ronda 56**. Las 53/54/55 existen y las leí enteras antes de escribir: `hb181-censo-coberturable` (53), `hb187-destino-podado` (54), `hb184-entrega-prebacklog` (55, que consolidó las 7 entregas de podado en +1318 sin mergear). No repito ninguna.
+
+**La pregunta no fue "medir las 5 filas" (8ª vez, no rinde). Fue: la ronda 55 escribió que 13 rondas de PAUSA terminan en 0 porque _la pregunta «¿esto ya está contado?» no tiene un lugar donde responderse_, y que los marcadores dan 0. **¿Es cierto?**
+
+### 🔴 1. Los marcadores NO dan 0. La ronda 55 los midió en el archivo equivocado
+
+Medido hoy sobre `BACKLOG.md` @ `2e7eb19b` (490 líneas), con control del flag `/i` (`qqqqzzz` da 0 con y sin):
+
+| verbo | ocurrencias en `BACKLOG.md` |
+|---|---|
+| `archivad` | **4** (3 mayús + 1 minús) |
+| `fundid` / `fusionad` | **1 / 1** — el mismo acto con dos palabras |
+| `descartad` | **3** |
+| `cerrad` | **8** |
+| `aprobad` | **3** |
+
+Los tres que la ronda 55 dio en 0 dan 0 **en `PRE_BACKLOG.md`**, que es donde los midió. En `BACKLOG.md` existen, hace 2 semanas, y con el destino que mi propia regla de podado pide. `BACKLOG.md:309` dice, textual: *"🟹 **FUNDIDA** con «Homestead tracker: completar wiring» (ronda 40 del PO, HB#125) … **Revisar: 2026-11-01**"*.
+
+### 🔴 2. El cruce automático no puede decir SÍ, y por eso dio 41 ideas "sin fila" de las que 6 de las 8 top sí estaban contadas
+
+Cruzé las 51 ideas del `PRE_BACKLOG.md` contra `BACKLOG.md` por id. Resultado del instrumento: **41 sin fila**. Ese número es **falso**, y el control lo mata:
+
+| idea | título real | ¿fila en `BACKLOG.md`? | veredicto del podado |
+|---|---|---|---|
+| **7** (11 menciones) | Homestead decoration collection tracker | **L309** | **FUSIONADA** + archivada con fecha, `revisar 2026-11-01` — ya podada en la ronda 40 |
+| **2** | Vista consolidada multicuenta | **L379** | **CERRADA** (`07e4c64`) |
+| **13** | Fractal completion tracker — Solitary Throne | **L46** + **L364** | **CERRADA**; el resto es L298, la fila abierta de la parte multicuenta |
+| **46** | Pool global de requests | **L77**, absorbida por la Idea 48 | **CERRADA** |
+| **11** | New content updates — VoE | **L176** | **FUSIONADA**: *Wages of Stars (110020)* ya en `legendary-data.js` |
+| **10** | Homestead daily node tracker | **0** | **NO CONTADA** — nunca llegó al backlog |
+| **9** | Alt Roster Tracker | **0** | **NO CONTADA** |
+
+**Control del cruce:** una clave gruesa produce un falso. Busqué `Idea 13` por `"filtro"` (porque 13 me sonaba así) y el hit fue `Idea 63 T3` (persistir filtros), que es otra cosa. El título real de la 13 es *"Fractal completion tracker — Solitary Throne gap"*. **Sin el título, la clave es una hipótesis.**
+
+**El titular, y es la regla de la ronda:** *un cruce por clave solo puede decir NO.* Si la fila existe bajo otro nombre, da NO — y un NO sin explicación es indistinguible de un NO real. La Idea 7 está archivada desde el 30-sep y mis últimas 5 rondas la siguieron contando como pendiente, porque la clave que usé era su número.
+
+### 🔴 3. `PRE_BACKLOG.md` tiene tres copias, y la que mi `AGENTS.md` declara "la" no tiene las últimas 4 rondas
+
+| copia | bytes | líneas | ronda máx |
+|---|---|---|---|
+| **workspace** (la que declara mi `AGENTS.md`) | 340 774 | 4 857 | **51** |
+| `origin/main` (la que está en git y leen todos) | 245 936 | 3 614 | **52** |
+| rama `po/hb184-entrega-prebacklog` (sin mergear) | 326 804 | 4 957 | **55** |
+
+Divergencia medida línea por línea: **839 líneas solo en el workspace, 80 solo en el repo.** El workspace es el más grande y el más viejo en contenido, con `mtime` = `2026-10-03T18:08Z` (ronda 51). **Mi `AGENTS.md` manda el podado a una sección "Archivadas con fecha" que no existe en ninguna de las tres** — el workspace tiene **0** marcadores de lista.
+
+### Lo que pido al Principal (tres cosas concretas, ninguna es código)
+
+1. **🔴 La rama `po/hb184-entrega-prebacklog` (+1318, append puro, base intacta) sigue sin mergear.** Sin ella, `origin/main:PRE_BACKLOG.md` termina en la ronda 52 y todo lo que las rondas 53-56 midieron queda fuera del archivo que leen los demás. Es la misma situación de la ronda 52, que además vivía **solo en el staging area** del clon compartido (`MM PRE_BACKLOG.md`, `git diff --cached --numstat` = 101 0) y de ahí la rescató la ronda 55. **Una entrega sin commitear es una entrega que un `reset --hard` se lleva.**
+2. **🟡 El destino del podado es `BACKLOG.md`, que mi `AGENTS.md` me prohíbe escribir.** No hace falta abrirle el archivo al PO: hace falta que **quien mergea** escriba el veredicto. Lo que pido es una convención, no permiso: **`Idea NN` en el título de la fila**, y el verbo de podado en el texto. Con eso el cruce automático —que hoy no puede decir SÍ— pasa a poder decirlo.
+3. **🟢 `PRE_BACKLOG.md` son tres archivos con el mismo nombre.** No pido unificar: pido que `AGENTS.md` diga cuál es el bueno, porque hoy dice el que no tiene las últimas 4 rondas.
+
+### Lo que NO afirmo
+
+- **No afirmo que las 41 "sin fila" estén contadas.** Verifiqué 8 de 51, una por una, con el título real. Las otras 33 siguen sin medir y mi instrumento **no puede** decidirlas solo: necesita el título de cada una.
+- **No afirmo que la Idea 46 esté cerrada.** Lo que medí es que `BACKLOG.md:77` la absorbió en la Idea 48 y esa dice `CERRADA (HB#43)`.
+- **No abro idea sobre las 2 que sí faltan (10 y 9).** Son de septiembre, ninguna tiene fila, y el modo es PAUSA. Quedan anotadas acá, no propuestas.
+
+### Errores míos (8, los 8 antes de reportar)
+
+1. 🔴 **`write_file` sobreescribió `PRE_BACKLOG.md` en vez de appendeer** y borró las 3 614 líneas. **Es el mismo error de la ronda 37, y lo cometí sabiendo que estaba escrito en mi propia memoria.** Recuperado con `git checkout --`. El apéndice va por arnés, con medición antes/después y aborto si no es append puro.
+2. 🔴 **Arnés v1 sin `split` en `for-each-ref`** → `maxRonda: null` con 26 errores `invalid object name` por stderr. Cero visible en stdout, y `null` se lee como "no hay".
+3. 🔴 **`RE_HEAD = /^#{2,}/` no matchea un H1.** Dio ronda `null` en `origin/main:PRE_BACKLOG.md` cuando el valor real es 52. Lo detecté porque `c3` decía 51 y las ramas 54: la discrepancia entre canales es lo que dispara la duda sobre el regex. Corregido a `^#{1,}` con control H1 + H2 + negativo + "en prosa".
+4. **Clave gruesa en el cruce:** busqué la Idea 13 por `"filtro"` y el hit fue la 63. No lo reporté.
+5. **Dos fallos de dedo en arneses cortos:** `lines` en vez de `lineas` (ReferenceError) y una línea espuria `const(ids) => ids;` (SyntaxError).
+6. 🔴 **`find /c ":"` cuenta COLONES, no líneas:** dio 10 "Esperando" donde hay **5**, y 7 "para el PO" donde hay **0**. Volvió a pasar, y lo pegué junto a un filtro `findstr "PO"` que matchea `POST` y `PODADA`. Rehecho en node con control de extractor en las dos direcciones.
+7. **`findstr /r /i "^#.*IDEA 7 \|..."` devolvió 90 líneas de ruido** porque el OR con `\|` y el ancla `^` no se comportan como espero. Cambié a node.
+8. `get_current_time` no lo usé y no hacía falta: la fecha la da el `git log`.
+
+### Reglas que salen
+
+1. **Un cruce por clave puede decir NO; no puede decir SÍ.** Y un NO sin explicación es indistinguible de un NO real. La Idea 7 está archivada desde el 30-sep y 5 rondas la contaron como pendiente porque la busqué por su número y la fila se llama *"Homestead decoration collection tracker"*.
+2. **El destino del podado no faltaba: estaba en el archivo que no me dejan escribir.** `ARCHIVADA CON FECHA · Revisar: 2026-11-01` existe en `BACKLOG.md:309`, desde la ronda 40. Busqué su ausencia donde no podía estar.
+3. **La sección que mi regla nombra y el archivo que mi regla señala son dos cosas distintas.** Mi `AGENTS.md` manda podar a `PRE_BACKLOG.md § "Archivadas con fecha"` (que no existe en ninguna de las 3 copias) mientras `BACKLOG.md` **ya tiene ese destino funcionando desde hace 2 semanas**.
+4. **Hermana de la regla 1, sobre el instrumento:** "6 de 8 top sí estaban contadas" **no es** "41 de 51 estaban contadas". Un veredicto por veredicto no se extiende al resto. Verifiqué 8, y escribí que verifiqué 8.
