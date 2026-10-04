@@ -3611,3 +3611,147 @@ dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
 documenta la justificacion de la que se borro, y por eso no dispara la alarma
 nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
 **la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**
+
+## Heartbeat PO 2026-10-04 (ronda 54) — el molde que L88 nombra no filtra, y su certificado está en una fila CERRADA 401 líneas más abajo
+
+**Control de carga:** `openItems` = **5** @ `219ed5f` = **PAUSA** (13ª seguida). Corrida entera de
+podado: no hubo web, no se abrió idea. **PASO -1:** 7 "Esperando", **0 a mí**.
+Clon compartido en `rescate/hb185-logs-183` con `ALERTS_LOG.md` sin commitear — **no lo toqué**;
+trabajé en worktree propio `wt-r54` (rama `po/hb186-poda`), removido al terminar.
+
+La pregunta **no** fue "medir las 5 filas" (6ª vez, ya no rinde). Fue: la fila más grande de la
+cola nombra como **molde** un módulo que acaba de aterrizar en `main`, y ese molde tiene un test
+**verde**. **¿El molde sigue en pie?**
+
+### 🔴 1. L88 elige como molde un módulo cuya barra de filtros NO filtra — y el equipo lo sabe
+
+L88:110-112, textual: *"con el molde exacto de `legendary-tracker.js` (`#/account/legendary-armory`),
+que ya es una coleccion account-scoped con card por desbloqueo, grid y **barra de filtros**."*
+La barra de filtros se nombra como **argumento a favor**. Medido en `219ed5f`:
+
+| vista | usa `passesFilters`? |
+|---|---|
+| `catalogItems()` `legendary-tracker.js:355-357` | **sí** |
+| `ownershipCounts()` `:347-352` | **sí** |
+| `queueItems()` `:229-234` | **NO** — mapea `state.queue` directo |
+
+`renderQueuePanel()` (`:863-864`) llama `queueItems()`. **El filtro recorta en 2 de 3 vistas, y la
+tercera es "Cola de crafteo".**
+
+Y esto no es inferencia mía: es **un certificado del equipo**.
+`tests/hb148-filtro05-guardia-cognitiva.test.js` (`0eb87b9`, de Pablo) está en `main`: L39 dice
+*"ESTADO A — el filtro NO recorta la cola (producto actual, el defecto)"*, L168 asserta 5 filas
+pintadas bajo un filtro que excluye a las 5, y el `extra` de L170 dice **"0 = el defecto ya se
+ARREGLO"**. **El test está verde porque el defecto está.** Es un tripwire invertido, declarado a
+propósito (L490), no un test roto.
+
+🔴 **El problema es de la fila, no del módulo:** el registro de esto vive en **L489, CERRADA** —
+401 líneas más abajo de L88. Quien lee L88 no puede verlo.
+
+**Qué pido:** 🟢 **1 línea de copy en L88** al lado del "molde exacto", con el alcance real (*"filtra
+catálogo y progreso; **la cola de crafteo no**"*) y una pregunta de producto para la pantalla de
+Skins: **¿una skin entra en una cola de crafteo?** Si no, la omisión del molde es irrelevante y L88
+queda como está. **No abro idea: es una corrección de una fila abierta.**
+
+### 🟢 2. El numerador que L88 nunca midió — y que hoy se puede medir entero
+
+L88 afirma *"de los **10** wrappers `getAccount*` que existen, **9** tienen pantalla"*. Medido hoy
+(`_hb186censo.mjs`, con control negativo `getAccountZZZ999` → 0):
+
+- **10 wrappers definidos** en `api-gw2.js` ✅ — el denominador es cierto.
+- **9 tienen call site de producción** ✅ — pero `getAccountSkins` es el único sin, y coincide con lo
+  que L88 ya decía.
+- 🔴 **"9 tienen pantalla" no es un hecho verificable**: `index.html` declara **16** `*Panel`, y el
+  mapeo wrapper→panel por nombre da **4** (`LegendaryArmory→legendaryArmoryPanel`,
+  `Wallet→walletPanel`, `Achievements→achievementsPanel`, `WVListings→wvPanel`). Los otros 5
+  (`Info`, `Raids`, `Bank`, `Materials`, `Luck`) **pintan** pero no con un panel que lleve su nombre
+  — `raidTrackerPanel`, `inventoryPanel`, `walletDashboardPanel`. **O sea: el 9 es cierto como
+  "tienen consumers" y **no comprobable** como "tienen pantalla".**
+
+No pido corregirlo: pido **cambiar las palabras por las que sí se pueden medir** (*"9 tienen
+consumers"*), porque una fila que nombra un panel que no se puede encontrar es una fila que el
+próximo que la lea no puede verificar. **Es la misma clase del docblock del "12".**
+
+### 🟡 3. "1 llamada + 1 vista": el único molde que funciona hace 3 endpoints y tiene 2 consumidores
+
+L88: *"es 1 llamada + 1 vista; los otros 10 son endpoint + wrapper + pantalla cada uno."*
+Medido sobre `getAccountLegendaryArmory`:
+
+- **2 call sites de producción, en 2 módulos distintos:** `legendary-tracker.js:1072` e
+  **`inventory-hub.js:234`**. (Del `.getAccountLegendaryArmory(` en `tracker`: 3, pero L14 y L1037
+  son docblock y L1060 es el guard `typeof`.)
+- **3 endpoints bajo un `Promise.allSettled`** en `loadLegendaryData`, con `readErrors`
+  separando *"no pude leer"* de *"no tenes"*.
+
+⇒ El molde que funciona es **3 llamadas por token × 2 consumidores**. L88 cuenta **1 × 1**.
+
+**Lo útil:** la dimensión que le falta a L88 no es "1 vs 3 llamadas" — es **el segundo consumidor**.
+`inventory-hub.js:234` es lo que hace que ese endpoint valga: no es una hoja, es una pieza que otro
+módulo reutiliza. **Skins no tiene segundo consumidor hoy, y eso es una decisión de Pablo, no un fallo
+medido.** Que la fila no lo diga es lo que la deja subdimensionada por tercera ronda.
+
+### 🔴 4. El "12" del docblock y el "once" NO son el mismo número — y por eso el "12" no está mal
+
+Este corrige a **las dos** rondas previas, que estiraron el hallazgo más allá de lo que la
+medición daba.
+
+`api-gw2.js:43` (v2.32.0) dice *"12 endpoints `/v2/account/*` sin tocar"*. El mismo archivo dice
+"once" en **5** líneas (`:170/:250/:279/:282/:303`). Medido: **el 12 cuenta endpoints, el once cuenta
+wrappers que degradan por FORMA.** Son dominios distintos — y el 12 es **correcto para su fecha**:
+la corrección de L88 a 11 (commit `2561416`, 2026-10-03 09:37) es **7h30 posterior** al docblock
+(`1094c26`, 2026-10-03 01:08).
+
+Contra `/v2.json` en vivo (184 rutas, **45** `account/*` privadas): **los 11 nombrados existen
+todos**, y **1 de 11 tiene wrapper** (`skins`). Control: `/v2/account/zzz999` no existe ✅; y
+`/account` sin prefijo `/v2` → **0** rutas (⚠️ el prefijo importa: es la 3ª vez que un 0 mío por
+prefijo mal cortado está a punto de ser afirmación).
+
+**Lo que sale:** el "12" **no está mal**: está fechado. Lo que sí es cierto es que la fila L88 y el
+docblock cuentan cosas distintas y ambos dicen "la lista". 🟢 Corrección de 1 línea en el `:43` cuando
+se toque la próxima versión — **no es urgente**, y esa es la diferencia con lo que dijeron las rondas 52/53.
+
+### Las 4 filas restantes, una por una — 0 podadas
+
+| fila | veredicto | medición en `219ed5f` |
+|---|---|---|
+| **L60 ALERT-41** | **cierta, e inalcanzable** | `STRIKES_BY_EXPANSION` sigue con **15** ids. El filtro de `completed` (`strike-tracker.js:1135-1136`) sigue presente: mismo criterio, **línea distinta** a la citada por la ronda 51 (`:1106` → `:1135`). |
+| **L174 Dungeon dailies** | **premisa FALSA, y ahora el porqué exacto** | `dailycrafting` = **1** mención en producción, contra **8** de `worldbosses` y **8** de `mapchests`. En `meta.js`: `worldbosses`/`mapchests` tienen las 3 partes (estado `:100/:101` → fetch `:230/:238` → consumo `:377-380/:522/:823`), **`dailycrafting` tiene 0 en `meta.js`**. No es "3/4": es **2 de 3**, y el tercero es una línea de fetch sin destino. |
+| **L298 Fractal multicuenta** | **cierta** | `fractal` (ci): **142** en producción. Las 2 únicas líneas con `state.token` son `activities.js:1216` y `:1249`, y son **el mismo call site por dos caminos** (`Fractals.loadCMStatus(state.token)`). |
+| **L344 WvW visor** | **cierta** | **0** ocurrencias del literal `/v2/wvw/objectives`. ⚠️ `wv-objectives-dashboard.js` y `wv-objectives-ui.js` son **Wizard's Vault** (control: ambos matchean `wv-objectives` y ninguno matchea `v2/wvw/objectives`). Hay **1** sola mención de `/v2/wvw/` en todo `js/` — el rango, que ya se pinta en `characters.js`. |
+
+### Errores míos de esta ronda (4, los 4 antes de reportar)
+
+1. 🔴 **Mi primer needle buscó "molde exacto" en UNA línea y concludes que L88 no lo contenía.**
+   La cita está en L110-112, dentro del rango de la fila (L88-**172**, 85 líneas). **Una fila de
+   `BACKLOG.md` no es una línea**: es un bloque. *Un needle de una línea contra una fila de 85 líneas
+   produce un "no está" que parece un hallazgo.*
+2. 🔴 **`^function` anclado a columna 0 dio 0 wrappers donde PowerShell dio 10.** Los wrappers van
+   **indentados 2 espacios**. Cero falso, la misma clase del HB#175. El control de instrumento
+   (`:279` en `hb163-canales.mjs`) habría detectado el 0; lo puse después.
+3. 🔴 **Filtré `/v2.json` por `/account` sin el prefijo `/v2` → 0 rutas** y el informe decía
+   *"45 rutas `account/*` privadas"* con un `0` adelante. 3ª vez en 72 h que un 0 por prefijo
+   mal cortado queda a punto de ser afirmación. Lo cazó el control de prefijo explícito.
+4. `git log --format=%h|%cI` con `execSync` pasa por `cmd.exe`, que se come `%` y `|`.
+   **`execFileSync` con argv no pasa por shell.** Instrumento, no dato.
+
+*(El bloque `_r54_bloque.md` que había en el workspace, sin entregar, traía 3 de estos 4 errores ya
+horneados. Leí su contenido, lo verifiqué entero contra `origin/main`, y 3 de sus afirmaciones no
+sostenían. No entrego nada de eso sin medirlo.)*
+
+### Reglas que salen
+
+1. **Un tripwire y una garantía tienen la misma forma: un test verde.** `hb148-...test.js` está
+   verde **porque** el defecto sigue, y su propio `extra` lo dice. Leer "verde" sin leer **qué**
+   afirma es leer la mitad — y cuando el certificado está en una fila **CERRADA** (L489, 401
+   líneas abajo), ni siquiera llega a leerse.
+2. **Lo que se nombra como molde se audita como código.** L88 gasta 10 líneas probando que
+   `Characters` no es subvista de `InventoryHub`, y **0** verificando que el molde que elige filtra.
+3. **Un número y su palabra no son lo mismo que otro número con la misma palabra.** El "12" cuenta
+   endpoints y el "once" cuenta wrappers que degradan: los dos están en el mismo archivo, a 130
+   líneas, y son **dominios distintos**. Un solo número, corregido por el otro, es un titular
+   inventado — y es lo que hicieron las rondas 52 y 53 con este mismo archivo.
+4. **Para una afirmación causal hay que fechar los dos extremos.** El "12" del docblock **no está
+   mal**: está fechado, y la corrección de la fila llegó **7h30 después**. Es un 🟢 encolado, no una
+   negligencia. Corregir el titular cambia quién tiene el problema.
+5. **Una fila de `BACKLOG.md` es un bloque, no una línea.** Y un needle de una línea contra un
+   bloque de 85 produce un "no está" indistinguible de un hallazgo.
