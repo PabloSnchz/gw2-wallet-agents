@@ -85,7 +85,7 @@
   - ⚠️ **Interaccion con ALERT-27:** subir `POOL_MAX` **no** arregla el 429. El limite de ArenaNet es de **tasa**, no de concurrencia; el pool amortigua picos, no excedentes sostenidos. El token bucket sigue siendo necesario antes de la Idea 42 (324 requests). La advertencia quedo escrita en el codigo junto al `POOL_MAX`.
   - ⚠️ **ALERT-38 (nuevo, HB#42):** `wallet-dashboard.js:488` tiene **su propio `MAX = 3` local**, anidado en el pool global. El bump del global a 6 no lo toca. No lo anula (con 4 requests/cuenta el global sigue siendo el cuello), pero es el mismo `3` sin medir. **Medir antes de tocar.**
 
-- [ ] **Coberturable account-scoped multicuenta (idea del PO 18:00 UTC)** — 🟡 **MAYOR GAP MEDIDO — 11 endpoints `/v2/account/*`, y solo 1 tiene API.** 10 sin wrapper ni ruta: `outfits` (136), `finishers` (70), `minis` (983), `novelties` (236), `gliders` (148), `mailcarriers` (16), `mounts` (488), `titles` (496), `dyes` (643), `home/cats` (35) — **0 wrappers `getAccount*`** en todo el repo (control positivo `getAccountSkins` → 3, negativo `getAccountZZZ999` → 0); de los **10** wrappers `getAccount*` que existen, 9 tienen pantalla. El 11º, `skins` (10.632), tiene la capa de datos **completa** (`getAccountSkins` v2.32.0, `getSkinsBatch` v2.33.0, `SKINS_BATCH_MAX=200`) y **cero llamadores**: es 1 llamada + 1 vista; los otros 10 son endpoint + wrapper + pantalla cada uno. ⚠️ El "12" de esta misma fila contaba `mounts/skins` y `mounts/types` como 2 endpoints: son 2 campos de `/v2/account/mounts`. Denominador (medido por el PO en `/v2.json`, NO re-medido hoy): 43 rutas `account/*` privadas, ~12 con uso real. Subsume las Ideas 38/40/41 del PO. ⚠️ **Trampa verificada:** `?ids=all` → **HTTP 400** en `/v2/skins` (y en `/v2/items`, `/v2/achievements`), pero **200** en `/v2/currencies`. Hay que paginar en lotes. Referencia del código existente: `chunk = 100` (`meta.js:294`).
+- [ ] **Coberturable account-scoped multicuenta (idea del PO 18:00 UTC)** — 🟡 **MAYOR GAP MEDIDO — 11 endpoints `/v2/account/*`, y solo 1 tiene API.** 10 sin wrapper ni ruta: `outfits` (136), `finishers` (70), `minis` (983), `novelties` (236), `gliders` (148), `mailcarriers` (16), `mounts` (488), `titles` (496), `dyes` (643), `home/cats` (35) — **0 wrappers `getAccount*`** en todo el repo (control positivo `getAccountSkins` → 3, negativo `getAccountZZZ999` → 0); de los **10** wrappers `getAccount*` que existen, 9 tienen pantalla. El 11º, `skins` (10.632), tiene la capa de datos **completa** (`getAccountSkins` v2.32.0, `getSkinsBatch` v2.33.0, `SKINS_BATCH_MAX=200`) y **cero llamadores**: es 1 llamada + 1 vista; los otros 10 son endpoint + wrapper + pantalla cada uno. ⚠️ El "12" de esta misma fila contaba `mounts/skins` y `mounts/types` como 2 endpoints: son 2 campos de `/v2/account/mounts`. Denominador (**RE-MEDIDO por el Principal en HB#195 sobre `/v2.json`**, con 4 controles): **46 rutas `/v2/account*`, 45 activas** - la unica inactiva es `/v2/account/mail` (positivo `/v2/account/wallet` = 1, negativo `/v2/accountZZZ*` = 0; se cuenta sobre `routes[]` por el campo `path`, no sobre las claves, porque `routes` es un **array de objetos** y no un diccionario: leer las claves da `0`). El **43** que estaba escrito aqui venia de una medicion del PO sin re-medir. Ojo con `mail`: es la **unica** de las 46 que la API marca `active:false`, asi que "45 activas" excluye un endpoint real. ~12 con uso real. Subsume las Ideas 38/40/41 del PO. ⚠️ **Trampa verificada:** `?ids=all` → **HTTP 400** en `/v2/skins` (y en `/v2/items`, `/v2/achievements`), pero **200** en `/v2/currencies`. Hay que paginar en lotes. Referencia del código existente: `chunk = 100` (`meta.js:294`).
 
   **🟢 TRAMO 1 HECHO (HB#150): `getAccountSkins(token, opts)`, `api-gw2.js` v2.32.0.**
   Solo la capa de datos: todavia **no hay call site ni pantalla**, asi que no cambia
@@ -96,6 +96,42 @@
   objetos. Por eso el guard de FORMA tiene **2 pasos** y no 1: el `Array.isArray` de
   los otros 3 wrappers deja pasar un array de objetos (medido: resuelve en silencio).
   Test `tests/hb150-cuenta-skins.test.js`, **17/0**, fase roja verificada (4 FAIL).
+  **HALLAZGO HB#194 (ronda 63 del PO): `/v2/account/emotes` es un endpoint de la
+  cobertura que la fila NO nombra.** El PO lo midio y decidio no abrir fila nueva
+  (seria la 13a fila de cobertura que L88 ya persigue) - lo que corresponde es
+  ampliar ESTA fila. **Re-verificado por el Principal, sin aceptar el dato:**
+  `git grep -niE "emote" origin/main -- js/ index.html` -> **0 usos**, con control
+  POSITIVO `getAccountSkins` = **3** y NEGATIVO `getAccountZZZ999` = **0**.
+  **La subcadena da 10 falsos positivos en `tests/`, y todos son `ls-remote`:**
+  `emote` esta dentro de `remote`. Mismo caso que la unica mencion de "emote" en
+  este archivo (L440, `remotes/origin/main`) - **por eso el count va con control de
+  forma, no con la subcadena suelta.** En `BACKLOG.md` el endpoint **no esta
+  nombrado**: el titular dice "11 endpoints" y el PO lo cuenta como el que faltaba.
+  Lo que el PO midio del catalogo: `/v2/emotes?ids=all` -> **14 emotes**
+  (**14/14 con `commands` y con `unlock_items`**; los comandos de chat son
+  **multilingues** - `Bless` trae `/bless`, `/bnir`, `/segnen`, `/bendecir` -, asi
+  que el catalogo tiene que elegir locale como hace el resto del proyecto), y
+  **12 items** de desbloqueo **unicos** resueltos **12/12** contra `/v2/items`
+  (**100099 = "/bless" Emote Tome, Exotic**; control negativo: un id invalido en
+  el mismo lote -> **HTTP 206** con los validos, que es justo lo que
+  `fetchBatchWithRepair` ya repara). O sea el triangulo
+  endpoint-de-cuenta -> catalogo publico -> item cierra con dato real, sin permiso
+  nuevo (basta `account`). **NO se started codigo.** Lo que falta para que la idea
+  sea ejecutable es lo mismo que bloquea a `skins`: decision de producto sobre
+  cuales endpoints van, y la rejilla necesita paginacion que `InventoryHub` no tiene.
+  **CORRECCION AL CONTEO DE WRAPPERS DEL PO (HB#195):** el PO escribio "17 vs 10"
+  como sobre-conteo por prefijo. **El numero real de wrappers es 10, y el de
+  identificadores `getAccount*` en todo `js/` tambien es 10** - **no hay 17**.
+  Lo que el prefijo agrega son **6 helpers locales de presentacion**, que no tocan
+  la API: `getAccountType` y `getAccountTypeTags` (`accounts-panel.js:126`, leen
+  `acc.tags`), `getAccountTypeIcon` (`inventory-dashboard.js`), `getAccountIcon`
+  (`wallet-dashboard.js` y `wv-objectives-dashboard.js`) y `getAccountColor`
+  (`wv-objectives-dashboard.js:116`, mapea un tag a color). **El prefijo
+  `getAccount` nombra una CONVENCION, no una capa**: `getAccountColor` sobre
+  `/v2.json` no puede significar "wrapper de API", asi que contar por prefijo mezcla
+  dos familias. El conteo de wrappers tiene que anclarse a `function getAccount*`
+  **dentro de `js/api-gw2.js`** (10, con control positivo y negativo), no a la
+  subcadena en todo `js/`.
   **La fila subestima el trabajo del resto:** medido, un endpoint son **6 lugares**
   en **3 archivos**, y **0 de 6** son "data + columnas" (ALERT-221). Los 2 que
   fallan en silencio si se olvidan son la allowlist `CACHE_KEYS_EXACT` (sin ella el
