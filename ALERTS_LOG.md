@@ -1,3 +1,64 @@
+# ALERT-257 (HB#195): EL PREFIJO `getAccount` ES UNA CONVENCION DE NOMBRE, NO UNA CAPA — Y
+# CONTAR POR PREFIJO MEZCLA WRAPPERS DE API CON HELPERS DE PRESENTACION
+
+> **Medido 2026-10-04 19:0x UTC (HB#195) por el Principal** sobre `origin/main` @ `fcaee40`.
+> Instrumento: `git grep` + `[regex]::Matches` sobre el blob de `js/api-gw2.js` y los 4 archivos
+> de UI que usan el prefijo. Con control positivo y negativo.
+
+## EL HALLAZGO
+
+El PO reporto, como error propio, *"17 vs 10: un grep por prefijo mezcla wrappers con helpers
+locales de presentacion"*. **La premisa es falsa: no hay 17.** Medido:
+
+| medicion | forma | resultado |
+|---|---|---|
+| wrappers reales | `function getAccount*` **dentro de `js/api-gw2.js`** | **10** |
+| identificadores unicos | `getAccount*` en todo `js/` | **10** |
+| helpers de presentacion | `function getAccount*` en los otros 4 archivos | **6** |
+
+Los 6 que el prefijo agrega **no tocan la API**:
+
+- `getAccountColor` — `wv-objectives-dashboard.js:116`, mapea un **tag a color**
+- `getAccountIcon` — `wallet-dashboard.js` y `wv-objectives-dashboard.js`
+- `getAccountType`, `getAccountTypeTags` — `accounts-panel.js:126`, leen **`acc.tags`**
+- `getAccountTypeIcon` — `inventory-dashboard.js`
+
+**REGLA:** el prefijo `getAccount` nombra una **convencion** (dato de una cuenta), no una **capa**
+(capa de API). `getAccountColor` sobre `/v2.json` no puede significar "wrapper de API". Una cuenta
+por prefijo **mezcla las dos familias** y el total no es de ninguna de las dos.
+**El conteo de wrappers tiene que anclarse al ARCHIVO** (`js/api-gw2.js`, con
+`function getAccount*`), no al prefijo.
+
+## EL HERMANO DE ESTE: `/v2.json` NO ES UN DICCIONARIO DE RUTAS, Y LEERLO MAL DA 0
+
+Mismo error de forma, en otro lado, y **mas caro porque el numero sale en 0**:
+
+`/v2.json` devuelve `{langs, routes}` y **`routes` es un ARRAY DE OBJETOS**, no un mapa por clave.
+
+| forma probada | resultado | por que |
+|---|---|---|
+| claves de `routes` (`-like '/v2/account*'`) | **0** | `routes` no tiene claves de ruta: es una lista |
+| propiedades de `$j` (leidas como si fueran rutas) | **8** | contaba `langs` y `routes`, o sea el contenedor |
+| **`$j.routes[]` por el campo `path`** | **46** | la forma correcta |
+
+Con 4 controles: positivo `/v2/account/wallet` = **1**, negativo `/v2/accountZZZ*` = **0**, total
+de rutas = **184**, `/v2/account/emotes` = `active:true auth:true`. Resultado: **46 rutas
+`/v2/account*`, 45 activas**, y la unica inactiva es **`/v2/account/mail`** — que es un endpoint
+real, asi que "45 activas" **excluye uno que existe**.
+
+**REGLA: un `0` que sale de leer una estructura con la forma equivocada es indistinguible de
+"no existe".** Es la misma familia de ALERT-243 (el eje de conteo tiene tres formas), pero aca la
+manifestacion es nueva: **la forma mala da 0 en vez de un numero alto**, y un 0 se lee como verdad
+sin_discussion. El denominador de L88 estaba en **43** con la etiqueta *"medido por el PO, NO
+re-medido hoy"*; **corregido a 46/45 en este ciclo**.
+
+## CONSECUENCIA PRACTICA
+
+Un conteo que mezcla 2 familias no se arregla summando bien: **no hay total que valga**. O se
+ancla al archivo (wrappers de API) o a la firma (helper de presentacion). El "17 vs 10" no era un
+sobre-conteo que se podía corregir restando: era una **pregunta mal hecha** que no tenia respuesta
+en ese numero.
+
 # ALERT-256 (HB#186): LA DIVERGENCIA DEL CANAL 1 **NO TIENE SIGNO**, Y ESO ROMPE LA
 # FORMA EN QUE ALERT-255 LA DESCRIBIO
 

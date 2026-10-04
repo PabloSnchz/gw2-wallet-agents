@@ -1,5 +1,157 @@
 # TEAM_STATUS — Heartbeat Principal
 
+> **Actualizado:** 2026-10-04 19:00 UTC (HB#195) por el Principal.
+>
+> **HALLAZGO DEL CICLO — ALERT-250: EL PREFIJO `getAccount` NO NOMBRA UNA CAPA, Y POR ESO EL
+> CONTEO DE WRAPPERS DEL PO DIO 17.** El PO reporto, como error propio del conteo, *"17 vs 10:
+> un grep por prefijo mezcla wrappers con helpers locales"*. **La premisa es falsa: no hay 17.**
+> Medido en `origin/main` @ `fcaee40`:
+>
+> | medicion | forma | resultado |
+> |---|---|---|
+> | wrappers reales | `function getAccount*` **dentro de `js/api-gw2.js`** | **10** |
+> | identificadores unicos | `getAccount*` en todo `js/` | **10** |
+> | helpers de presentacion | `function getAccount*` en los otros 4 archivos | **6** |
+>
+> Los 6 que el prefijo agrega **no tocan la API**: `getAccountColor`
+> (`wv-objectives-dashboard.js:116`, mapea un tag a color), `getAccountIcon`
+> (`wallet-dashboard.js` y `wv-objectives-dashboard.js`), `getAccountType` y
+> `getAccountTypeTags` (`accounts-panel.js:126`, leen `acc.tags`), `getAccountTypeIcon`
+> (`inventory-dashboard.js`). O sea **10 + 6 = 16**, y el PO conto 17: hay una diferencia de 1
+> que **no importa porque el numero real de wrappers ya esta bien** (10). Lo que sale del
+> ciclo no es "el PO exagero en 7", es que **el prefijo `getAccount` es una CONVENCION de
+> nombre, no una capa**: `getAccountColor` sobre `/v2.json` no puede significar "wrapper de API",
+> y una cuenta por prefijo mezcla las dos familias. El conteo tiene que anclarse al **archivo**
+> (`js/api-gw2.js`), no al prefijo.
+>
+> **SEGUNDO HALLAZGO, Y ES DE INSTRUMENTO: `/v2.json` NO ES UN DICCIONARIO DE RUTAS.**
+> `/v2.json` devuelve `{langs, routes}` y **`routes` es un ARRAY DE OBJETOS**, no un mapa por
+> clave. Mis dos primeros intentos de conteo dieron **`RUTAS_ACCOUNT=0`** y **`TOTAL_RUTAS=8`**:
+>
+> | forma | resultado | por que |
+> |---|---|---|
+> | claves de `routes` (`-like '/v2/account*'`) | **0** | `routes` no tiene claves de ruta: es una lista |
+> | propiedades de `$j` (leidas como si fueran rutas) | **8** | contaba `langs` y `routes`, o sea el contenedor |
+> | **`$j.routes[]` por el campo `path`** | **46** | la forma correcta |
+>
+> Con 4 controles: positivo `/v2/account/wallet` = **1**, negativo `/v2/accountZZZ*` = **0**,
+> total de rutas = **184**, **`/v2/account/emotes` = `active:true auth:true`**. Medido: **46
+> rutas `/v2/account*`, 45 activas**, y la unica inactiva es **`/v2/account/mail`** — que es un
+> endpoint real, asi que "45 activas" **excluye uno que existe**. L88 decia **43** y lo marcaba
+> como *"medido por el PO, NO re-medido hoy"*: **corregido a 46/45 en este ciclo.**
+>
+> **REGLA: un `0` que sale de leer una estructura con la forma equivocada es indistinguible de
+> "no existe".** Las dos filas que no discriminan estan en la misma tabla y por eso se reportan
+> juntas. Es ALERT-243 (el eje de conteo tiene tres formas) aplicado a una respuesta de API en
+> vez de a un archivo de markdown.
+>
+> **PASO -1 (rescate): hubo un HB#194 que MURIO antes del commit.** `origin/main` @ `fcaee40`
+> (16:19 UTC) es **ANTERIOR** a mi arranque (19:00 UTC) → remoto sin conflictos. Pero HEAD estaba
+> en **`chore-hb193-banda-medida`** (no `main`) con **`BACKLOG.md` modificado y sin commitear**,
+> **mtime 18:41 UTC = 19 min ANTES de mi arranque**, y **0 de 112 sesiones `running`** (112
+> `idle`). Regla del punto 3 del PASO -1: escritor **MUERTO y trabajo TERMINADO** → es rescate,
+> no WIP. Sus 2 commits ya estaban en `origin` pero **nunca entraron a `main`**. Rescate: rama
+> nueva `chore-hb195-rescate-hb194` desde `origin/main`, `stash push` + `pop` para no arrastrar
+> la rama del otro ciclo, y el bloque commiteado en **`2c46496`**.
+> **NO acepté el dato del HB#194 sin re-mezarlo** (ALERT-218): todo re-verificado por mí, y las
+> 2 correcciones de arriba salieron de esa re-verificacion, no de leerlo.
+
+> ## 1. Tareas en curso
+>
+> - **Ninguna de codigo.** El rescate de `BACKLOG.md` (`2c46496`) es lo unico que produce este
+>   ciclo, y es documentacion verificada, no producto.
+> - **3 items abiertos** en `BACKLOG.md` (`openItems: 3`, `openItemsDiscrimina: true`,
+>   `controles_ok: true`) = **RECOLECTAR** (banda 0-3). **Bajo de 5** por el podado que aplico el
+>   HB#192 (`82f66cd`), que cerro 2 filas. **La banda se movio dentro del mismo ciclo que la
+>   escribio**, y por eso el numero de hoy no es el de ayer: no es una medida de esta sesion.
+
+> ## 2. Completadas en este ciclo
+>
+> - **PASO -1**: rescate medido, con las 2 puntas y las 112 sesiones.
+> - **Ronda 63-bis del PO leida COMPLETA** (L1-L62 con el corte correcto de ALERT-240: hasta el
+>   proximo encabezado de ronda, L63). Con el corte por nivel habria dado un fragmento.
+> - **`hb164-espejo.mjs`: 13 controles OK**, paridad de secciones **13=13**, `<!--`/`-->` **136/136**
+>   en los dos. El banner esta sano y el espejo esta al dia.
+> - **`BACKLOG.md`**: rescate del HB#194 + denominador de L88 corregido a 46/45 + la correccion
+>   del conteo de wrappers. **`openItems` no se movio** (3) y se **re-corro** despues de editar:
+>   editar texto dentro de una fila `- [x]` cerrada no puede cambiar el control de carga, y lo
+>   verifique en vez de asumirlo.
+
+> ## 3. Pendientes (razon RE-DERIVADA, no heredada)
+>
+> | item | razon vigente |
+> |---|---|
+> | **ALERT-41** | Bloqueo **externo**, 100% ajeno al equipo: espera el body crudo de `/v2/account/raids` con token real de Pablo. No es alcanzable desde un cron. |
+> | **ALERT-179** | Sin cambio: fix mergeado, Reviewer mudo. |
+> | **T14/T15** | Sin cambio: veredicto "opcion C", precondicion medida, **sin aplicar**. |
+> | **Idea 57** (4 wrappers) | Sin cambio: capa de datos, sinpantalla (ALERT-48). |
+> | **FILTRO-05** | Sin cambio: es decision de contrato, no codigo. |
+> | **ALERT-235** | ABIERTA: 2 canonicos de `PRE_BACKLOG.md` (git vs workspace del PO). La decide el PO/Arquitecto, no yo. |
+> | **ALERT-250 (nueva)** | **El prefijo `getAccount` es una convencion, no una capa.** El conteo de wrappers se tiene que anclar al archivo. Escrito en `BACKLOG.md`. |
+> | **2 commits de `chore-hb193-banda-medida` sin entrar a `main`** | Ya estan en `origin`, pero `main` no los tiene. **No los mergeo sin revisar el contenido** — son del PO y la regla de ramas es suya. |
+> | **ALERT-41 / ronda 63** | La ronda 63-bis **NO abrio item nuevo** y lo dice: *"no es una Idea nueva, es la 13a fila de cobertura que L88 ya describe"*. Ampliada L88, que es lo que corresponde. |
+
+> ## 4. Alertas
+>
+> - **ALERT-250 (nueva)** — el conteo por prefijo mezcla 2 familias (wrappers de API + helpers de
+>   presentacion). **10 wrappers reales**, no 17. Medido con la forma anclada al archivo.
+> - **ALERT-243 (familia)** — el eje de conteo tiene tres formas; aca la cuarta manifestacion es que
+>   **la forma equivocada da 0 en vez de un numero alto**, y un 0 se lee como "no existe".
+> - **ALERT-244** — `## Completed` **NO esta vacia** (17 items). La premisa del Tramo A del PO, otra vez.
+> - **ALERT-240** — el corte de seccion, no el contenido, decide que hay trabajo. **Reaplicado con
+>   exito**: la ronda 63-bis dio **62 lineas** leidas, no el fragmento de 8 del corte por nivel.
+> - **ALERT-249** — `openItems` es la forma **tolerante a sangria**; hoy `3 = 3` con la anclada, y
+>   el control `control_sangria` mide la diferencia (2 vs 1). Sin inconsistencia.
+> - **Sin cambio:** ALERT-41, ALERT-179, ALERT-235 (abierta), ALERT-248, T14/T15, Idea 57, FILTRO-05.
+
+> ## 5. Estado de propuestas al Reviewer
+>
+> - **0 enviadas, 0 candidatas.** Los 3 canales del PO dan **63 / 62 / 3**: gana el **63**
+>   (`origin/po/hb193-emotes`, lo mas alto = ALERT-231), que es **RECOLECTAR** con **0 Tramos**.
+> - **El 3 no es una propuesta:** es `PRE_BACKLOG.md` del workspace del PO, y su
+>   `openItemsDiscrimina: false` — **un 0 cuyo cero no significa nada** (ALERT-236). El instrumento
+>   lo declara bien en `openItems_VACIOS_no_son_medicion`.
+> - **La conclusion NO sale del 0 de un canal:** sale de leer la **prosa** de la ronda 63-bis, que
+>   dice explicitamente *"NO es una Idea nueva"*. **Correcto por la razon correcta**, que es lo
+>   contrario de las 9 veces anteriores que anoto como "correcto por la razon equivocada".
+> - **El denominador que se corrige (43 → 46) es del PO y lo re-medí yo.** No lo reenvio: es una
+>   correccion de dato sobre una fila de `BACKLOG.md`, y mandarle al revisor de codigo una
+>   correction de denominador seria gastar el canal en algo que ya esta escrito.
+
+> ## 6. Errores de instrumento PROPIOS (4, familia ALERT-79), todos antes del commit
+>
+> 1. **`-like '/v2/account*'` sobre las claves de `routes` → 0.** `/v2.json` tiene `routes` como
+>    **array de objetos**, no diccionario. Dos instrumentos mas dao **8** (propiedades del
+>    contenedor). Solo el tercero —`$j.routes[]` por `path`— da **46**. **Sin los 4 controles no
+>    lo distinguisse de "la API no expone esas rutas".**
+> 2. **`$e = @(... | ConvertFrom-Json)` dio `EMOTES=1`.** `ConvertFrom-Json` ya devuelve el array;
+>    envolverlo en `@()` sobre un pipeline de un solo objeto lo cuenta como 1. `.Count` sobre el
+>    array directo da **14**. **Un conteo de 1 sobre un catalogo de 14 items** es indistinguible de
+>    "el catalogo tiene 1 emote".
+> 3. **`git grep -ohE ... | sort /u` NO deduplico** y devolvio ~150 lineas en UTF-16 (un caracter
+>    NUL entre cada letra). Causa: `-oh` + la codificacion de la consola. Rehecho con PowerShell
+>    `[regex]::Matches` sobre el blob leido: **10**.
+> 4. **`ConvertFrom-Json` sobre `j.routes` leido como si fuera un mapa** → `TOTAL_RUTAS=8` y
+>    `RUTAS_ACCOUNT=0`. Es el mismo defecto que (1), en una forma distinta: probe el campo de
+>    nivel equivocado y el 0 salio pareciendo una verdad.
+>
+> **REGLA que sale de los 4:** los tres primeros son **el mismo error**: probe una estructura con
+> la forma equivocada y **no mire el numero antes de escribir la frase**. El denominador de L88
+> estaba en 43 por una medicion vieja sin re-medir, y mi primer conteo daba **0** — un numero que
+> **no distingue "no existe" de "no lo se buscar"**.
+
+> ## 7. Archivos de este ciclo
+>
+> - `BACKLOG.md` — rescate del HB#194 + 2 correcciones. Commit **`2c46496`**.
+> - `TEAM_STATUS.md` — esta seccion.
+> - **Sin `js/` ni `tests/` → la suite NO aplica** y no la corro por costumbre.
+> - **0 worktrees creados.** Los 2 directorios `_r56_wt/` y `_wt193/` son **preexistentes y no
+>   mios**: `_wt193` esta en la rama `po/hb193-emotes` (**del PO**) y `_r56_wt` en
+>   `po/hb185-indice-podado`. **No los borro** (no puedo atribuirlos a mi ciclo; borrarlos seria
+>   trabajo del PO) y los dejo anotados como deuda visible.
+
+> **Actualizado:** 2026-10-04 16:1x UTC (HB#192, por pedido de la ronda 62 del PO) por el Principal.
+
 > **Actualizado:** 2026-10-04 16:1x UTC (HB#192, por pedido de la ronda 62 del PO) por el Principal.
 > **QUE SE APLICO:** el podado que la ronda 62 del PO **midio y no aplico** porque su `AGENTS.md`
 > le prohibe escribir `BACKLOG.md`. Commit **`82f66cd`**, push `5c496d3..82f66cd` a
@@ -602,111 +754,217 @@ Consecuencia directa: **reescribir el archivo entero desde node colapsa los 236 
 - **Rescate de 6 documentos** (sin commitear desde 00:20-00:23 UTC): `CHANGELOG.md`, `PRE_BACKLOG.md`, `README.md`, `docs/BRIEFING.md`, `docs/Modulos JS Referencia.md`, `docs/ONBOARDING.md`. Documentacion de la Armeria Legendaria, +554 lineas.
 - **Sin `js/` ni `tests/`**: la suite **NO aplica** y no se corrio por costumbre.
 
-# HB#180 - 2026-10-03 21:00-21:4x UTC - RESCATE: HB#179 MURIO CON UN WIP SIN CERRAR, Y EL WIP ESTA VERDE SOLO SI LO CORRES SOLO
-
-**El hallazgo del ciclo, y es un caso raro: el rescate era REAL y el trabajo NO era mergeable.** No son las dos cosas que se oponen: el arbol tenia un commit de producto sin mergear, con su test en verde, y sin embargo mergearlo iba a dejar `main` en rojo. Las dos preguntas del PASO -1 ("hay trabajo que rescatar?" y "ese trabajo esta terminado?") tienen respuestas **independientes**, y aca la primera es que si y la segunda es que no.
-
-## PASO -1: lo que encontre, medido
-
-| medicion | valor |
-|---|---|
-| hora de arranque | **21:00:06 UTC** |
-| `origin/main` al abrir | `2e29ed6` @ **18:27:54 UTC** → **ANTERIOR** |
-| HEAD al abrir | **`fix-armeria-materiales-tengo`** @ `71797b1` (**NO `main`**) |
-| `origin/main..main` / `main..origin/main` | **ambos vacios** (ALERT-230) |
-| arbol | **SUCIO**: `M PRE_BACKLOG.md` (20:04:17 UTC), `?? _mut2.js` (19:04:16 UTC) |
-| commits de la rama **no** en `origin/main` | **1** → `71797b1` `wip(rescate-hb179) ... - sin cerrar` |
-| sesion `Heartbeat Principal` (84255c15) | `last_finished_at` **20:36:36 UTC**, ~24 min ANTES de mi arranque |
-
-Los 3 mtimes son **anteriores** a mi arranque y el escritor esta **MUERTO y el trabajo TERMINADO**: es trabajo para rescatar (paso 3 del PASO -1), no WIP para descartar. **El nombre del commit lo decia solo: `sin cerrar`.** Eso es una pista de phase, y una pista de phase escrita por el propio autor se respeta: el trabajo estaba a medio hacer, no a medio terminar.
-
-## EL WIP Y POR QUE NO LO MERGEE
-
-`71797b1` toca producto y test: `js/api-gw2.js` (nuevo `getAccountInventory`, v2.34.0), `js/legendary-tracker.js` (4a fuente de "tengo" + refresco al abrir el modal) y `tests/armeria-materiales-owned.test.js` (nuevo, **16 aserciones**).
-
-El sintoma que hace esto importante: **el test del WIP pasa 16/0, y la suite esta en ROJO con 5 archivos.**
-
-| corrida | resultado |
-|---|---|
-| `node tests\armeria-materiales-owned.test.js` (el test del WIP, **solo**) | **16 pass / 0 FAIL** |
-| suite en la rama del WIP | **4956 pass / FAIL=5 en 87** |
-| suite en `origin/main` (worktree base `2e29ed6`) | **4575 pass / **0 FAIL** en 86** |
-
-O sea: el test del WIP esta verde **y el WIP no es mergeable**. Un test propio en verde no alcanza: el WIP rompio **4 archivos que ya existian**, y ninguno de los 4 es suyo.
-
-**El `0 FAIL` de la base es lo que convierte esto de "hay trabajo" en "el trabajo esta a medio cerrar".** Sin la base, los 5 FAIL se leen como "el WIP esta roto"; con la base, se leen como "el WIP los rompio a ellos", que es un problema distinto y con un arreglo distinto.
-
-## LOS 5 FAIL, y son 4 CAUSAS
-
-| archivo | FAIL | causa |
-|---|---:|---|
-| `idea47-commit2.propagate` | 1 | **JSDoc robado** |
-| `idea57t3-jsdoc-honesto` | 1 | **el mismo JSDoc robado** |
-| `idea50f.cacheclear-real` | 4 | **plumbing ALERT-220 incompleto** |
-| `armeria-modal-iconos-nombre` | 1 | cambio de contrato de `openItemModal` |
-| `armeria-materiales-owned` (propio) | 16 | **solo en la suite**: ALERT-206 |
-
-### 1. EL JSDOC ROBADO — 2 de los 5, y es una sola insercion
-
-El diff mete `function getAccountInventory` **entre el bloque JSDoc de `getAccountLegendaryArmory` y la funcion misma**. Verificado leyendo el archivo: en `:1352-1374` esta el cuerpo de `getAccountMaterials`, y el comentario de `getAccountLegendaryArmory` quedo **adherido a la funcion nueva**. Resultado: `getAccountLegendaryArmory` **perdio su `@throws`**, y por eso caen los dos tests de JSDoc.
-
-Es **ALERT-221 (el vecino) exacto**: insertar codigo entre un doc y su owner. El fix es mover la funcion nueva **arriba del** bloque JSDoc, no tocar los tests.
-
-### 2. `idea50f.cacheclear-real` — 4 FAIL, y son los 6 lugares de ALERT-220 a medias
-
-El WIP **si** agrego `'account_inventory'` a `CACHE_KEYS_EXACT` en `api-gw2.js:2172` (con un comentario que razona bien el prefijo). Lo que **no** hizo es el resto de la plumbing, y los 4 FAIL lo nombran uno por uno: `faltan: ["account_inventory"]` en la allowlist **del test**; el registro "tiene 19 exactas" **obtenido: 20**; "el alcance total son 25 bases" **obtenido: 26**.
-
-**La allowlist tiene DOS fuentes de verdad y se mueven juntas** (regla de ALERT-220, escrita en el HB#150 y no violada: el WIP toco una y no la otra). El WIP entendio el criterio y no completo la ejecucion. **Es el mismo item de plumbing de siempre, no uno nuevo.**
-
-### 3. `armeria-modal-iconos-nombre` — 1 FAIL, y es un CAMBIO DE CONTRATO deliberado
-
-`Lo que cayo: (3) la produccion pidio ids [pidio: null]`. El WIP **reescribio `openItemModal`**: la pintura pasa a ser sincrona y el `ensurePrecursors` se movio **dentro** del `.then()` de `loadLegendaryData`. O sea: hoy abrir el modal **ya no** pide iconos de forma observable al test.
-
-El propio comentario del WIP dice que esto es **intencional** ("el pintado NO espera a la red... cambio de CONTRATO, no un refactor"). **Entonces el FAIL es real y el contrato viejo esta asertado**: hay un test que afirma que abrir el modal pide ids. **No lo "arreglo"**: cambiar un contrato asertado es decision de producto, y el WIP no toco ese test porque no lo vio. **Es el unico de los 5 que NO puedo cerrar sin Pablo.**
-
-### 4. `armeria-materiales-owned` — 16 FAIL **solo en la suite** (ALERT-206)
-
-`16 pass / 0 fail` **suelto**, `FAIL=16` **en la suite**, con `pass=380` acumulado en la corrida. Es la firma de ALERT-206: *el archivo cambia durante la corrida*. Y aca la causa **no es un WIP ajeno**: mi unico scratch (`_mut2.js`, 19:04 UTC) **reescribe `js/legendary-tracker.js` en disco** — es la fase roja del arnes propio. Un archivo que muta la fuente bajo los pies del runner explica exactamente "pasa solo, falla en la suite".
-
-**No lo persigo en este ciclo**: la causa es mi scratch de esta misma sesion, no un defecto del WIP. **Lo borro antes de commitear** y el runner queda sin mutador. Queda anotado como pendiente de verificar: si con `_mut2.js` ausente sigue fallando en la suite, **pasa a ser un hallazgo nuevo y no mio**.
-
-## LO QUE HICE, Y LO QUE NO
-
-- **NO mergee el WIP.** `main` sigue en `2e29ed6`, que es la unica punta que se midio en verde.
-- **NO arregle los 3 FAIL cerrables** (el JSDoc y la allowlist): son cambios de producto y este ciclo arranco a las 21:00 UTC con un cron de 30 min que **tiene que dejar el arbol limpio**. Arranque de producto sin llegar al commit es exactamente lo que el PASO -1 existe para impedir (lo pagaron HB#150/151/154). **El WIP esta a salvo en su rama**, que es donde pertenece un trabajo sin cerrar.
-- **NO toque `BACKLOG.md` ni `HEARTBEAT.md`** (criterio de alcance de HB#170: son del PO, y el banner exige ademas regenerar el espejo).
-- **`PRE_BACKLOG.md` (Ronda 52 del PO, +101 lineas) NO lo commitee**: es del PO y su `AGENTS.md` le prohibe escribirlo aca. Queda como estaba.
-- **`_mut2.js`: borrado**, con el contenido mirado antes (fase roja de `ownedMap`,que muta `js/legendary-tracker.js`).
-
-## LO QUE QUEDA, EN ORDEN DE COSTE
-
-1. **Mover `getAccountInventory` arriba del JSDoc de `getAccountLegendaryArmory`** → cierra 2 FAIL. Un relocate, no un fix de logica.
-2. **`account_inventory` en la allowlist del `idea50f` + los 2 conteos (20 y 26)** → cierra 3 FAIL. Es ALERT-220, ya medio hecho por el WIP.
-3. **Decidir el contrato de `openItemModal`** con Pablo (pide ids al abrir, si o no). **No es mio.**
-4. **Revisar `armeria-materiales-owned` en suite sin `_mut2.js`.** Si sigue rojo, es nuevo.
-
-Los 3 primeros juntos dejan el WIP en 1 solo FAIL, y ese 1 es de producto. **El WIP es recuperable y esta a salvo; el arbol quedo limpio y `main` quedo en la punta que se midio verde.**
-
-## ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79)
-
-1. **`findstr` con varios archivos y conteo de lineas no distingue "el archivo fallo" de "el archivo no existe"**: los 4 tests que fallan con `linea-de-fallo` noaban nada con `findstr /r /c:"Error"` y medi **0 lineas**, que es indistinguible de "el grep no encontro nada". **Salieron con `Select-String` sobre un archivo volcado.**
-2. **`find /c /v ""` como conteo de matches** me dio `1`, `0`, `65`, `12` para 4 archivos: es el conteo de **lineas del stream**, no de coincidencias. Lo descarte por incoherente con lo que ya sabia; elinstrumento correcto es `Select-String`.
-3. **Redirigir la suite a archivo y despues buscar por patron en el archivo** funciono, pero el primer intento (`... > file && powershell ... Select-String`) **mato el `&&`**: la suite sale con **exit 1** porque hay FAIL, y `&&` cortocircuita. **Un runner que falla es un runner que no se encadena**: el `&&` hay que sacarlo antes de aprender que el comando es correcto.
-
-**REGLA, y es la 3a vez en este ciclo de trabajo:** cuando el comando falla, **la primera pregunta es si fallo por lo que mide o porque encadene el comando equivocado.** Un `exit 1` de la suite es un DATO (hay FAIL), no un error mio. Encadenarlo con `&&` convierte el dato en un "fallo de herramienta" que se reportaria como error de instrumento y no como resultado.
-
-## PENDIENTE (sin cambio de estado, re-derivado)
-
-1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con token real de Pablo. Bloqueo externo.
-2. **ALERT-179**. 3. **T14/T15**. 4. Los **7 del patron B**. 5. **Idea 57**, los 4 wrappers. 6. **FILTRO-05**.
-7. **ALERT-235 ABIERTA** — los 2 `PRE_BACKLOG.md` (git vs workspace). Ronda 52 del PO esta en el de git, sin commitear.
-8. **ALERT-240** → aplicar al banner de `HEARTBEAT.md`. 9. Los 3 scripts historicos con la forma de ALERT-241, sin verificar.
-10. **nuevo:** el WIP `71797b1` con 4 puntos de cierre, el **3o de ellos es de Pablo**.
-11. **Deuda visible:** ~100 ramas locales, **30 worktrees** (cree 1 basal en `%TEMP%` y lo borre), y `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**).
-
-## COMUNICACIONES
-
-`inbox` **vacio**, `replies` sin novedades, **23 `overdue`** (HB#91-147, historicos). **0 propuestas al Reviewer**: la ronda 52 del PO es **PODA** (`PROPUESTA_NUEVA: 0`) y sus 2 acciones (`TRAMO A`, `TRAMO B`) son sobre `BACKLOG.md`, que es del PO. Mandarle al revisor de codigo una mudanza de un log seria gastar el canal.
+# HB#180 - 2026-10-03 21:00-21:4x UTC - RESCATE: HB#179 MURIO CON UN WIP SIN CERRAR, Y EL WIP ESTA VERDE SOLO SI LO CORRES SOLO
+
+
+
+**El hallazgo del ciclo, y es un caso raro: el rescate era REAL y el trabajo NO era mergeable.** No son las dos cosas que se oponen: el arbol tenia un commit de producto sin mergear, con su test en verde, y sin embargo mergearlo iba a dejar `main` en rojo. Las dos preguntas del PASO -1 ("hay trabajo que rescatar?" y "ese trabajo esta terminado?") tienen respuestas **independientes**, y aca la primera es que si y la segunda es que no.
+
+
+
+## PASO -1: lo que encontre, medido
+
+
+
+| medicion | valor |
+
+|---|---|
+
+| hora de arranque | **21:00:06 UTC** |
+
+| `origin/main` al abrir | `2e29ed6` @ **18:27:54 UTC** → **ANTERIOR** |
+
+| HEAD al abrir | **`fix-armeria-materiales-tengo`** @ `71797b1` (**NO `main`**) |
+
+| `origin/main..main` / `main..origin/main` | **ambos vacios** (ALERT-230) |
+
+| arbol | **SUCIO**: `M PRE_BACKLOG.md` (20:04:17 UTC), `?? _mut2.js` (19:04:16 UTC) |
+
+| commits de la rama **no** en `origin/main` | **1** → `71797b1` `wip(rescate-hb179) ... - sin cerrar` |
+
+| sesion `Heartbeat Principal` (84255c15) | `last_finished_at` **20:36:36 UTC**, ~24 min ANTES de mi arranque |
+
+
+
+Los 3 mtimes son **anteriores** a mi arranque y el escritor esta **MUERTO y el trabajo TERMINADO**: es trabajo para rescatar (paso 3 del PASO -1), no WIP para descartar. **El nombre del commit lo decia solo: `sin cerrar`.** Eso es una pista de phase, y una pista de phase escrita por el propio autor se respeta: el trabajo estaba a medio hacer, no a medio terminar.
+
+
+
+## EL WIP Y POR QUE NO LO MERGEE
+
+
+
+`71797b1` toca producto y test: `js/api-gw2.js` (nuevo `getAccountInventory`, v2.34.0), `js/legendary-tracker.js` (4a fuente de "tengo" + refresco al abrir el modal) y `tests/armeria-materiales-owned.test.js` (nuevo, **16 aserciones**).
+
+
+
+El sintoma que hace esto importante: **el test del WIP pasa 16/0, y la suite esta en ROJO con 5 archivos.**
+
+
+
+| corrida | resultado |
+
+|---|---|
+
+| `node tests\armeria-materiales-owned.test.js` (el test del WIP, **solo**) | **16 pass / 0 FAIL** |
+
+| suite en la rama del WIP | **4956 pass / FAIL=5 en 87** |
+
+| suite en `origin/main` (worktree base `2e29ed6`) | **4575 pass / **0 FAIL** en 86** |
+
+
+
+O sea: el test del WIP esta verde **y el WIP no es mergeable**. Un test propio en verde no alcanza: el WIP rompio **4 archivos que ya existian**, y ninguno de los 4 es suyo.
+
+
+
+**El `0 FAIL` de la base es lo que convierte esto de "hay trabajo" en "el trabajo esta a medio cerrar".** Sin la base, los 5 FAIL se leen como "el WIP esta roto"; con la base, se leen como "el WIP los rompio a ellos", que es un problema distinto y con un arreglo distinto.
+
+
+
+## LOS 5 FAIL, y son 4 CAUSAS
+
+
+
+| archivo | FAIL | causa |
+
+|---|---:|---|
+
+| `idea47-commit2.propagate` | 1 | **JSDoc robado** |
+
+| `idea57t3-jsdoc-honesto` | 1 | **el mismo JSDoc robado** |
+
+| `idea50f.cacheclear-real` | 4 | **plumbing ALERT-220 incompleto** |
+
+| `armeria-modal-iconos-nombre` | 1 | cambio de contrato de `openItemModal` |
+
+| `armeria-materiales-owned` (propio) | 16 | **solo en la suite**: ALERT-206 |
+
+
+
+### 1. EL JSDOC ROBADO — 2 de los 5, y es una sola insercion
+
+
+
+El diff mete `function getAccountInventory` **entre el bloque JSDoc de `getAccountLegendaryArmory` y la funcion misma**. Verificado leyendo el archivo: en `:1352-1374` esta el cuerpo de `getAccountMaterials`, y el comentario de `getAccountLegendaryArmory` quedo **adherido a la funcion nueva**. Resultado: `getAccountLegendaryArmory` **perdio su `@throws`**, y por eso caen los dos tests de JSDoc.
+
+
+
+Es **ALERT-221 (el vecino) exacto**: insertar codigo entre un doc y su owner. El fix es mover la funcion nueva **arriba del** bloque JSDoc, no tocar los tests.
+
+
+
+### 2. `idea50f.cacheclear-real` — 4 FAIL, y son los 6 lugares de ALERT-220 a medias
+
+
+
+El WIP **si** agrego `'account_inventory'` a `CACHE_KEYS_EXACT` en `api-gw2.js:2172` (con un comentario que razona bien el prefijo). Lo que **no** hizo es el resto de la plumbing, y los 4 FAIL lo nombran uno por uno: `faltan: ["account_inventory"]` en la allowlist **del test**; el registro "tiene 19 exactas" **obtenido: 20**; "el alcance total son 25 bases" **obtenido: 26**.
+
+
+
+**La allowlist tiene DOS fuentes de verdad y se mueven juntas** (regla de ALERT-220, escrita en el HB#150 y no violada: el WIP toco una y no la otra). El WIP entendio el criterio y no completo la ejecucion. **Es el mismo item de plumbing de siempre, no uno nuevo.**
+
+
+
+### 3. `armeria-modal-iconos-nombre` — 1 FAIL, y es un CAMBIO DE CONTRATO deliberado
+
+
+
+`Lo que cayo: (3) la produccion pidio ids [pidio: null]`. El WIP **reescribio `openItemModal`**: la pintura pasa a ser sincrona y el `ensurePrecursors` se movio **dentro** del `.then()` de `loadLegendaryData`. O sea: hoy abrir el modal **ya no** pide iconos de forma observable al test.
+
+
+
+El propio comentario del WIP dice que esto es **intencional** ("el pintado NO espera a la red... cambio de CONTRATO, no un refactor"). **Entonces el FAIL es real y el contrato viejo esta asertado**: hay un test que afirma que abrir el modal pide ids. **No lo "arreglo"**: cambiar un contrato asertado es decision de producto, y el WIP no toco ese test porque no lo vio. **Es el unico de los 5 que NO puedo cerrar sin Pablo.**
+
+
+
+### 4. `armeria-materiales-owned` — 16 FAIL **solo en la suite** (ALERT-206)
+
+
+
+`16 pass / 0 fail` **suelto**, `FAIL=16` **en la suite**, con `pass=380` acumulado en la corrida. Es la firma de ALERT-206: *el archivo cambia durante la corrida*. Y aca la causa **no es un WIP ajeno**: mi unico scratch (`_mut2.js`, 19:04 UTC) **reescribe `js/legendary-tracker.js` en disco** — es la fase roja del arnes propio. Un archivo que muta la fuente bajo los pies del runner explica exactamente "pasa solo, falla en la suite".
+
+
+
+**No lo persigo en este ciclo**: la causa es mi scratch de esta misma sesion, no un defecto del WIP. **Lo borro antes de commitear** y el runner queda sin mutador. Queda anotado como pendiente de verificar: si con `_mut2.js` ausente sigue fallando en la suite, **pasa a ser un hallazgo nuevo y no mio**.
+
+
+
+## LO QUE HICE, Y LO QUE NO
+
+
+
+- **NO mergee el WIP.** `main` sigue en `2e29ed6`, que es la unica punta que se midio en verde.
+
+- **NO arregle los 3 FAIL cerrables** (el JSDoc y la allowlist): son cambios de producto y este ciclo arranco a las 21:00 UTC con un cron de 30 min que **tiene que dejar el arbol limpio**. Arranque de producto sin llegar al commit es exactamente lo que el PASO -1 existe para impedir (lo pagaron HB#150/151/154). **El WIP esta a salvo en su rama**, que es donde pertenece un trabajo sin cerrar.
+
+- **NO toque `BACKLOG.md` ni `HEARTBEAT.md`** (criterio de alcance de HB#170: son del PO, y el banner exige ademas regenerar el espejo).
+
+- **`PRE_BACKLOG.md` (Ronda 52 del PO, +101 lineas) NO lo commitee**: es del PO y su `AGENTS.md` le prohibe escribirlo aca. Queda como estaba.
+
+- **`_mut2.js`: borrado**, con el contenido mirado antes (fase roja de `ownedMap`,que muta `js/legendary-tracker.js`).
+
+
+
+## LO QUE QUEDA, EN ORDEN DE COSTE
+
+
+
+1. **Mover `getAccountInventory` arriba del JSDoc de `getAccountLegendaryArmory`** → cierra 2 FAIL. Un relocate, no un fix de logica.
+
+2. **`account_inventory` en la allowlist del `idea50f` + los 2 conteos (20 y 26)** → cierra 3 FAIL. Es ALERT-220, ya medio hecho por el WIP.
+
+3. **Decidir el contrato de `openItemModal`** con Pablo (pide ids al abrir, si o no). **No es mio.**
+
+4. **Revisar `armeria-materiales-owned` en suite sin `_mut2.js`.** Si sigue rojo, es nuevo.
+
+
+
+Los 3 primeros juntos dejan el WIP en 1 solo FAIL, y ese 1 es de producto. **El WIP es recuperable y esta a salvo; el arbol quedo limpio y `main` quedo en la punta que se midio verde.**
+
+
+
+## ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79)
+
+
+
+1. **`findstr` con varios archivos y conteo de lineas no distingue "el archivo fallo" de "el archivo no existe"**: los 4 tests que fallan con `linea-de-fallo` noaban nada con `findstr /r /c:"Error"` y medi **0 lineas**, que es indistinguible de "el grep no encontro nada". **Salieron con `Select-String` sobre un archivo volcado.**
+
+2. **`find /c /v ""` como conteo de matches** me dio `1`, `0`, `65`, `12` para 4 archivos: es el conteo de **lineas del stream**, no de coincidencias. Lo descarte por incoherente con lo que ya sabia; elinstrumento correcto es `Select-String`.
+
+3. **Redirigir la suite a archivo y despues buscar por patron en el archivo** funciono, pero el primer intento (`... > file && powershell ... Select-String`) **mato el `&&`**: la suite sale con **exit 1** porque hay FAIL, y `&&` cortocircuita. **Un runner que falla es un runner que no se encadena**: el `&&` hay que sacarlo antes de aprender que el comando es correcto.
+
+
+
+**REGLA, y es la 3a vez en este ciclo de trabajo:** cuando el comando falla, **la primera pregunta es si fallo por lo que mide o porque encadene el comando equivocado.** Un `exit 1` de la suite es un DATO (hay FAIL), no un error mio. Encadenarlo con `&&` convierte el dato en un "fallo de herramienta" que se reportaria como error de instrumento y no como resultado.
+
+
+
+## PENDIENTE (sin cambio de estado, re-derivado)
+
+
+
+1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con token real de Pablo. Bloqueo externo.
+
+2. **ALERT-179**. 3. **T14/T15**. 4. Los **7 del patron B**. 5. **Idea 57**, los 4 wrappers. 6. **FILTRO-05**.
+
+7. **ALERT-235 ABIERTA** — los 2 `PRE_BACKLOG.md` (git vs workspace). Ronda 52 del PO esta en el de git, sin commitear.
+
+8. **ALERT-240** → aplicar al banner de `HEARTBEAT.md`. 9. Los 3 scripts historicos con la forma de ALERT-241, sin verificar.
+
+10. **nuevo:** el WIP `71797b1` con 4 puntos de cierre, el **3o de ellos es de Pablo**.
+
+11. **Deuda visible:** ~100 ramas locales, **30 worktrees** (cree 1 basal en `%TEMP%` y lo borre), y `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**).
+
+
+
+## COMUNICACIONES
+
+
+
+`inbox` **vacio**, `replies` sin novedades, **23 `overdue`** (HB#91-147, historicos). **0 propuestas al Reviewer**: la ronda 52 del PO es **PODA** (`PROPUESTA_NUEVA: 0`) y sus 2 acciones (`TRAMO A`, `TRAMO B`) son sobre `BACKLOG.md`, que es del PO. Mandarle al revisor de codigo una mudanza de un log seria gastar el canal.
+
+
 # HB#174 - 2026-10-03 12:30-13:0x UTC - L333 NO ESTA MAL CERRADA: LA PREMISA DEL PO ERA FALSA, Y LA SALIDA CORRECTA NO ERA UNA DE LAS TRES
 **El hallazgo del ciclo, y es de metodo del PO, no mio: el PO midio que `js/fractal-tracker.js` NO EXISTE y concluyo que la fila L333 esta mal cerrada.** Las tres salidas que ofrecio (reabrir, glifo propio, cerrar de verdad) parten de esa conclusion. **Medida, la conclusion es falsa.**
 **Que existe, y es la fila entera menos una parte:**
@@ -1811,87 +2069,168 @@ ALERT-228/229 quedan **1 vez cada uno**.
   **32 CJK/U+FFFD HISTORICOS** (deuda vieja, no de este ciclo).
 - Por eso el control es **delta contra `origin/main`**: uno de valor absoluto marca los 32
   historicos para siempre y deja de correrse (regla del HB#151).
-## CIERRE DEL CICLO (HB#161) - RESCATE: `main` local tenia un commit sin pushear que el PASO -1 no puede ver
-
-**Esto paso despues de medir todo lo de arriba, y es lo mas importante que dejo.** Al
-hacer el merge a `main`, git abortó con *"Diverging branches can't be
-fast-forwarded"*. Medido antes de tocar nada:
-
-```
-solo en main local :  da474c0  2026-10-03 04:51:53 UTC
-                       "docs(hb158): seccion de TEAM_STATUS del ciclo - ALERT-227 y el detector del paso 3"
-solo en origin/main : (vacio)
-```
-
-O sea: **`main` local estaba 1 commit adelante y ese commit nunca se pusheo.** Es el
-trabajo del ciclo HB#158, escrito a las 04:51:53 UTC, **5 minutos despues** del
-`origin/main` que yo venia usando como referencia, y **9 minutos antes de que yo
-arrancara**.
-
-**Mi rama se creo desde `origin/main`, asi que ese trabajo no estaba en ella.** Si
-hubiera hecho `git merge` normal y push, el resultado habria sido exactamente el que
-ALERT-219 y ALERT-227 previenen. **Lo que lo impidio fue el `--ff-only`**, no yo: yo
-iba a pushear `main` sin haber mirado que commit sobraba.
-
-### Por que el PASO -1 no lo vio, y por que es un hueco de verdad
-
-El PASO -1 mide **`git log -1 --format=%ci origin/main`** contra la hora de arranque.
-Un commit que **nunca salio del clon no existe en `origin/main`**, asi que la medicion
-dio *"remoto mas viejo que mi arranque -> nada que hacer"* y el ciclo se declaro
-normal. La fecha era correcta **para lo que el control pregunta** y la respuesta
-estaba incompleta: la pregunta es *"hay otro escritor?"*, y hay una tercera respuesta
-que el control no contempla —**"hay trabajo terminado que nadie publico"**.
-
-**REGLA.** Antes de escribir, hay que mirar **las DOS puntas**: `origin/main` **y**
-`main` local, con `git log --oneline origin/main..main` y `git log --oneline
-main..origin/main`. Si la primera lista no esta vacia, hay trabajo sin pushear: se
-rescata, no se descarta. **Un commit local sin pushear es trabajo terminado invisible
-para un control que solo mira el remoto.**
-
-### El rescate, verificado por igualdad exacta y no por inspeccion
-
-| paso | resultado |
-|---|---|
-| hogar para `da474c0` antes de mover `main` | rama `rescate/hb158-teams-status` (un commit al que no apunta ninguna rama se pierde en el proximo `gc`) |
-| realinear `main` | `git branch -f main origin/main` (**no** `reset --hard`: mueve el puntero sin borrar archivos) |
-| extraer el bloque HB#158 e insertarlo entre HB#161 y HB#159 | 110 lineas, orden cronologico descendente |
-| **control** | **quitar HB#161 y HB#158 del archivo deja `origin/main` byte a byte** |
-
-El control importa mas que la inspeccion: con el, `da474c0` queda **probado** como
-"no aporta nada mas alla de su bloque", y por eso el realinear `main` es seguro en vez
-de una apuesta. Con una lectura a ojo, es una apuesta.
-
-### El EOL: por que ese commit se veia como "reescribio el archivo entero"
-
-`git diff origin/main da474c0` marca **1652 inserciones / 1491 borrados** sobre un
-archivo de 1492 lineas. **No reescribio el contenido: paso el archivo de CRLF a LF.**
-Medido: `core.autocrlf = true`, y aun asi el blob de `origin/main:TEAM_STATUS.md`
-tiene **CRLF (1491)**. O sea hay archivos con CRLF **commiteados** a pesar de la
-configuracion.
-
-La consecuencia concreta: **el fin de linea es parte del contrato del archivo** (lo
-decia ALERT-157) y dos ciclos que toquen el mismo log alternando EOL se pelean
-indefinidamente, porque cada uno ve *"todo el archivo cambio"*. Aqui se respeto el EOL
-de `origin/main` (CRLF) y el bloque se inserto en ese EOL, y el diff del rescate
-queda en **110 inserciones y 0 borrados**.
-
-### Resultado
-
-```
-87ee481..fe90587  HEAD -> main     (fast-forward)
-33 refs | main 1 vez | 0 duplicados por refspec
-TEAM_STATUS.md: HB#161 (este ciclo) + HB#158 (rescatado) + HB#159..HB#146, todos con encabezado
-ALERTS_LOG.md  : ALERT-227 (previo) + ALERT-228 y ALERT-229 (este ciclo)
-```
-
-La rama del ciclo y la de rescate **nunca se pushearon**: `origin/main` es el unico
-ref que este ciclo toco.
-
-**Nota sobre el numero de ciclo.** La numeracion en los mensajes de commit no es
-monotona: el commit mas reciente al abrir (`87ee481`) se autotiqueta **HB#158** y es
-POSTERIOR a los etiquetados HB#159 y HB#160. Este ciclo se numero **HB#161** por
-encima del maximo visto, no por encima del ultimo escrito. Un archivo de bitacora con
-numeracion que se repite es un archivo donde dos entradas se confunden.
+## CIERRE DEL CICLO (HB#161) - RESCATE: `main` local tenia un commit sin pushear que el PASO -1 no puede ver
+
+
+
+**Esto paso despues de medir todo lo de arriba, y es lo mas importante que dejo.** Al
+
+hacer el merge a `main`, git abortó con *"Diverging branches can't be
+
+fast-forwarded"*. Medido antes de tocar nada:
+
+
+
+```
+
+solo en main local :  da474c0  2026-10-03 04:51:53 UTC
+
+                       "docs(hb158): seccion de TEAM_STATUS del ciclo - ALERT-227 y el detector del paso 3"
+
+solo en origin/main : (vacio)
+
+```
+
+
+
+O sea: **`main` local estaba 1 commit adelante y ese commit nunca se pusheo.** Es el
+
+trabajo del ciclo HB#158, escrito a las 04:51:53 UTC, **5 minutos despues** del
+
+`origin/main` que yo venia usando como referencia, y **9 minutos antes de que yo
+
+arrancara**.
+
+
+
+**Mi rama se creo desde `origin/main`, asi que ese trabajo no estaba en ella.** Si
+
+hubiera hecho `git merge` normal y push, el resultado habria sido exactamente el que
+
+ALERT-219 y ALERT-227 previenen. **Lo que lo impidio fue el `--ff-only`**, no yo: yo
+
+iba a pushear `main` sin haber mirado que commit sobraba.
+
+
+
+### Por que el PASO -1 no lo vio, y por que es un hueco de verdad
+
+
+
+El PASO -1 mide **`git log -1 --format=%ci origin/main`** contra la hora de arranque.
+
+Un commit que **nunca salio del clon no existe en `origin/main`**, asi que la medicion
+
+dio *"remoto mas viejo que mi arranque -> nada que hacer"* y el ciclo se declaro
+
+normal. La fecha era correcta **para lo que el control pregunta** y la respuesta
+
+estaba incompleta: la pregunta es *"hay otro escritor?"*, y hay una tercera respuesta
+
+que el control no contempla —**"hay trabajo terminado que nadie publico"**.
+
+
+
+**REGLA.** Antes de escribir, hay que mirar **las DOS puntas**: `origin/main` **y**
+
+`main` local, con `git log --oneline origin/main..main` y `git log --oneline
+
+main..origin/main`. Si la primera lista no esta vacia, hay trabajo sin pushear: se
+
+rescata, no se descarta. **Un commit local sin pushear es trabajo terminado invisible
+
+para un control que solo mira el remoto.**
+
+
+
+### El rescate, verificado por igualdad exacta y no por inspeccion
+
+
+
+| paso | resultado |
+
+|---|---|
+
+| hogar para `da474c0` antes de mover `main` | rama `rescate/hb158-teams-status` (un commit al que no apunta ninguna rama se pierde en el proximo `gc`) |
+
+| realinear `main` | `git branch -f main origin/main` (**no** `reset --hard`: mueve el puntero sin borrar archivos) |
+
+| extraer el bloque HB#158 e insertarlo entre HB#161 y HB#159 | 110 lineas, orden cronologico descendente |
+
+| **control** | **quitar HB#161 y HB#158 del archivo deja `origin/main` byte a byte** |
+
+
+
+El control importa mas que la inspeccion: con el, `da474c0` queda **probado** como
+
+"no aporta nada mas alla de su bloque", y por eso el realinear `main` es seguro en vez
+
+de una apuesta. Con una lectura a ojo, es una apuesta.
+
+
+
+### El EOL: por que ese commit se veia como "reescribio el archivo entero"
+
+
+
+`git diff origin/main da474c0` marca **1652 inserciones / 1491 borrados** sobre un
+
+archivo de 1492 lineas. **No reescribio el contenido: paso el archivo de CRLF a LF.**
+
+Medido: `core.autocrlf = true`, y aun asi el blob de `origin/main:TEAM_STATUS.md`
+
+tiene **CRLF (1491)**. O sea hay archivos con CRLF **commiteados** a pesar de la
+
+configuracion.
+
+
+
+La consecuencia concreta: **el fin de linea es parte del contrato del archivo** (lo
+
+decia ALERT-157) y dos ciclos que toquen el mismo log alternando EOL se pelean
+
+indefinidamente, porque cada uno ve *"todo el archivo cambio"*. Aqui se respeto el EOL
+
+de `origin/main` (CRLF) y el bloque se inserto en ese EOL, y el diff del rescate
+
+queda en **110 inserciones y 0 borrados**.
+
+
+
+### Resultado
+
+
+
+```
+
+87ee481..fe90587  HEAD -> main     (fast-forward)
+
+33 refs | main 1 vez | 0 duplicados por refspec
+
+TEAM_STATUS.md: HB#161 (este ciclo) + HB#158 (rescatado) + HB#159..HB#146, todos con encabezado
+
+ALERTS_LOG.md  : ALERT-227 (previo) + ALERT-228 y ALERT-229 (este ciclo)
+
+```
+
+
+
+La rama del ciclo y la de rescate **nunca se pushearon**: `origin/main` es el unico
+
+ref que este ciclo toco.
+
+
+
+**Nota sobre el numero de ciclo.** La numeracion en los mensajes de commit no es
+
+monotona: el commit mas reciente al abrir (`87ee481`) se autotiqueta **HB#158** y es
+
+POSTERIOR a los etiquetados HB#159 y HB#160. Este ciclo se numero **HB#161** por
+
+encima del maximo visto, no por encima del ultimo escrito. Un archivo de bitacora con
+
+numeracion que se repite es un archivo donde dos entradas se confunden.
+
 # HB#158 - 2026-10-03 04:30-05:2x UTC - EL PASO 3 RESOLVIA LA RAMA DEL PO POR FECHA, Y LA FECHA DICE LO CONTRARIO DE LO QUE BUSCA
 
 > **Este ciclo no abrio ronda ni mando nada al Reviewer. Y el motivo por el que
@@ -2242,55 +2581,104 @@ la fila L88; faltan `outfits`, `finishers`, `minis`, `novelties`, `gliders`,
 > `rescate/` x2, `tools/`). Remoto = `origin` (`gw2-wallet-agents`): la forma
 > correcta aca es `git push origin HEAD:main`.
 >
-> **LO QUE HIZO ESTE CICLO (HB#158): rescatar el trabajo TERMINADO del
-> HB#157, que murio antes del commit.** Medido, no supuesto: arranque
-> **03:00:12 UTC**, arbol sucio con mtimes 02:47-02:59, `origin/main` en
-> **02:31:56 UTC** (MAS VIEJO que mi arranque). Cero sesiones `running`.
-> El test nuevo se identifica solo — su encabezado dice *"LA MEDICION PREVIA
-> (HB#157)"*. Suite completa **2307 / 0 FAIL en 86 de 86**. Rescatado sin tocar
-> una linea: commit `2d13d7c`.
->
-> **EL HALLAZGO DEL CICLO, y es el 3er caso de la misma familia (ALERT-219): el
-> ciclo anterior no solo trabajo sin commitear, trabajo `DESPUES` de la hora que
-> firmo en su propio `MEMORY.md`.** `MEMORY.md` dice que HB#157 fue
-> 02:30-02:47. Los mtimes llegan a **02:59:25**, y `HEARTBEAT.md` a **03:00:15**:
-> tres segundos DESPUES de que yo arrancara. O sea que la hora de cierre que un
-> ciclo escribe en su memoria **no es un dato del ciclo, es una intencion**: el
-> ciclo apunto cuando CREYO que terminaba y followo trabajando 12 minutos mas.
-> **REGLA: la hora que un ciclo escribe sobre si mismo no cierra nada. Lo que
-> cierra es el mtime del ultimo archivo que toco.** Y como el mtime puede caer
-> despues de mi arranque, la comprobacion tiene que ser REPETIDA a mitad de ciclo
-> (lo hice: `HEARTBEAT.md` quedo estable 3 min, mtime y longitud constantes).
-> Si la segunda medicion cambia, hay escritor vivo y el ciclo es de solo lectura.
->
-> **LO QUE SI FUE FALSO EN ESTE CICLO, Y LA REGLA QUE DEJA.** Mi primer
-> `qwenpaw chats list` devolvio todas las sesiones y me dio a leer `idle` en
-> todas, o sea "no hay escritor". Con el mtime de `HEARTBEAT.md` a 03:00:15 y
-> mi arranque a 03:00:12, la conclusion correcta era "hay alguien escribiendo y
-> acaba de parar", no "no hay escritor". **Un estado `idle` es un instante, como
-> un `running`; lo que decide es si el arbol CAMBIO durante el ciclo.** La
-> segunda medicion es la que decide, y la primera sola no alcanza.
->
-> **PASO 3: no se abrio ronda, 5to ciclo.** Rama viva `origin/po/hb150-poda` @
-> 19:07:32 del 10-02, 18 refs `po/*`, sin mover. Ronda MAX **45 = PAUSA** por el
-> regimen propio del PO. **Y el conteo de `HEARTBEAT.md` dio 10, no 0** — el
-> defecto de ALERT-222, que ya diagnostique: las 10 son rondas 16-38, todas
-> atendidas hace ciclos, y al criterio le falta el filtro de "ronda posterior al
-> ultimo corte". Control negativo 0, asi que el criterio mide; lo que le falta es
-> el dato del corte, que no existe en ningun archivo. **No se mando nada al
-> Reviewer**: ademas de no haber nada nuevo, el unico tramo libre de la serie es
-> mandarle trabajo a un agente que viene perdendo iteraciones.
->
-> **PASO 1: `task-6cc3851b8d15` (Reviewer) volvio SIN veredicto**, "Max
-> iterations (100) reached" — **9o ciclo seguido**. Confirma ALERT-225 y su
-> regla: reenviar la misma pregunta es la septima muerte; hay que PARTIRLA.
-> Las **27 filas con `task_id` abierto** de `COMMS_LOG.md` son de HB#30 a
-> HB#121: deuda de bookkeeping, no tareas vivas.
->
-> **Suite: 2307 aserciones / 0 FAIL en 86 de 86 archivos**, alcance completo.
-> **STEP: nada se abrio.** El trabajo rescatado era el pendiente natural y
-> cerro el ciclo.
-
+> **LO QUE HIZO ESTE CICLO (HB#158): rescatar el trabajo TERMINADO del
+
+> HB#157, que murio antes del commit.** Medido, no supuesto: arranque
+
+> **03:00:12 UTC**, arbol sucio con mtimes 02:47-02:59, `origin/main` en
+
+> **02:31:56 UTC** (MAS VIEJO que mi arranque). Cero sesiones `running`.
+
+> El test nuevo se identifica solo — su encabezado dice *"LA MEDICION PREVIA
+
+> (HB#157)"*. Suite completa **2307 / 0 FAIL en 86 de 86**. Rescatado sin tocar
+
+> una linea: commit `2d13d7c`.
+
+>
+
+> **EL HALLAZGO DEL CICLO, y es el 3er caso de la misma familia (ALERT-219): el
+
+> ciclo anterior no solo trabajo sin commitear, trabajo `DESPUES` de la hora que
+
+> firmo en su propio `MEMORY.md`.** `MEMORY.md` dice que HB#157 fue
+
+> 02:30-02:47. Los mtimes llegan a **02:59:25**, y `HEARTBEAT.md` a **03:00:15**:
+
+> tres segundos DESPUES de que yo arrancara. O sea que la hora de cierre que un
+
+> ciclo escribe en su memoria **no es un dato del ciclo, es una intencion**: el
+
+> ciclo apunto cuando CREYO que terminaba y followo trabajando 12 minutos mas.
+
+> **REGLA: la hora que un ciclo escribe sobre si mismo no cierra nada. Lo que
+
+> cierra es el mtime del ultimo archivo que toco.** Y como el mtime puede caer
+
+> despues de mi arranque, la comprobacion tiene que ser REPETIDA a mitad de ciclo
+
+> (lo hice: `HEARTBEAT.md` quedo estable 3 min, mtime y longitud constantes).
+
+> Si la segunda medicion cambia, hay escritor vivo y el ciclo es de solo lectura.
+
+>
+
+> **LO QUE SI FUE FALSO EN ESTE CICLO, Y LA REGLA QUE DEJA.** Mi primer
+
+> `qwenpaw chats list` devolvio todas las sesiones y me dio a leer `idle` en
+
+> todas, o sea "no hay escritor". Con el mtime de `HEARTBEAT.md` a 03:00:15 y
+
+> mi arranque a 03:00:12, la conclusion correcta era "hay alguien escribiendo y
+
+> acaba de parar", no "no hay escritor". **Un estado `idle` es un instante, como
+
+> un `running`; lo que decide es si el arbol CAMBIO durante el ciclo.** La
+
+> segunda medicion es la que decide, y la primera sola no alcanza.
+
+>
+
+> **PASO 3: no se abrio ronda, 5to ciclo.** Rama viva `origin/po/hb150-poda` @
+
+> 19:07:32 del 10-02, 18 refs `po/*`, sin mover. Ronda MAX **45 = PAUSA** por el
+
+> regimen propio del PO. **Y el conteo de `HEARTBEAT.md` dio 10, no 0** — el
+
+> defecto de ALERT-222, que ya diagnostique: las 10 son rondas 16-38, todas
+
+> atendidas hace ciclos, y al criterio le falta el filtro de "ronda posterior al
+
+> ultimo corte". Control negativo 0, asi que el criterio mide; lo que le falta es
+
+> el dato del corte, que no existe en ningun archivo. **No se mando nada al
+
+> Reviewer**: ademas de no haber nada nuevo, el unico tramo libre de la serie es
+
+> mandarle trabajo a un agente que viene perdendo iteraciones.
+
+>
+
+> **PASO 1: `task-6cc3851b8d15` (Reviewer) volvio SIN veredicto**, "Max
+
+> iterations (100) reached" — **9o ciclo seguido**. Confirma ALERT-225 y su
+
+> regla: reenviar la misma pregunta es la septima muerte; hay que PARTIRLA.
+
+> Las **27 filas con `task_id` abierto** de `COMMS_LOG.md` son de HB#30 a
+
+> HB#121: deuda de bookkeeping, no tareas vivas.
+
+>
+
+> **Suite: 2307 aserciones / 0 FAIL en 86 de 86 archivos**, alcance completo.
+
+> **STEP: nada se abrio.** El trabajo rescatado era el pendiente natural y
+
+> cerro el ciclo.
+
+
+
 > **LO QUE HIZO ESTE CICLO: rescatar el WIP del HB#150, que estaba TERMINADO y sin
 > commitear.** La regla ALERT-219 del HB#149 dice que un arbol sucio puede ser el
 > ciclo anterior VIVO. Aca se cumplio la otra mitad: **muerto, con el trabajo
