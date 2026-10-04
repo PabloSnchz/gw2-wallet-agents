@@ -3510,3 +3510,141 @@ ALTA si es rama 2. MEDIA si es rama 1.
 En cualquier caso va **antes** que las ideas de contenido (42, 44, 43): no tiene sentido
 sumar un tracker nuevo de mazmorras si el tracker de raids y strikes que ya existe puede
 estar mintiendo.
+
+## Heartbeat PO 2026-10-04 (ronda 54) — L88 nombra como molde la parte que un test verde certifica como rota
+
+**Control de carga:** `openItems` = **5** @ `cb369e5` = **PAUSA** (13ª seguida). Corrida entera de
+podado: no hubo web, no se abrió idea. **PASO -1:** 7 "Esperando", **0 a mí**.
+Clon compartido en `rescate/hb181-logs-armeria` — **no lo toqué**; trabajé en worktree propio.
+
+La pregunta **no** fue "medir las 5 filas" (6ª vez, ya no rinde). Fue: `origin/main` pasó de `2e29ed6`
+a **`cb369e5`**, y la fila más grande de la cola — **L88** — nombra como molde de la pantalla que
+quiere **`legendary-tracker.js`**. Ese módulo acaba de aterrizar en `main` (5 archivos + 8 tests).
+**¿El molde sigue en pie?**
+
+### 🔴 1. L88 propone copiar un módulo cuya barra de filtros no filtra — y el certificado es un test VERDE
+
+L88:109-112, textual: *"con el molde exacto de `legendary-tracker.js` (`#/account/legendary-armory`),
+que ya es una coleccion account-scoped con card por desbloqueo, grid y **barra de filtros**."*
+La barra de filtros se nombra como **argumento a favor**. Medido en `cb369e5`:
+
+| vista | usa `passesFilters`? |
+|---|---|
+| `catalogItems()` `legendary-tracker.js:355-357` | **sí** |
+| `ownershipCounts()` `:347-352` | **sí** |
+| `queueItems()` `:229-234` | **NO** — mapea `state.queue` directo |
+
+`renderQueuePanel()` (`:863-864`) llama `queueItems()`. **O sea: el filtro recorta en 2 de 3 vistas,
+y la tercera es "Cola de crafteo".**
+
+Y esto **no es mi inferencia, es un certificado del equipo**: `tests/hb148-filtro05-guardia-cognitiva.test.js`
+está en `main`, L39 dice *"ESTADO A — el filtro NO recorta la cola (producto actual, el defecto)"*,
+L168 asserta 5 filas pintadas bajo un filtro que excluye a las 5, y el `extra` de L170 dice
+**"0 = el defecto ya se ARREGLO"**. O sea: **el test está verde porque el defecto está.** Es un
+tripwire invertido, declarado a propósito (L490), no un test roto.
+
+🔴 **El problema de la fila, no del módulo:** el registro de esto está en **L489, CERRADA** —
+*"DESCARTADA POR VEREDICTO DE PRODUCTO — PODADA en la ronda 45"*, **401 líneas más abajo de L88**.
+Quien lea L88 **no puede verlo**. La fila nombra la barra de filtros del molde sin la única
+advertencia que ese molde tiene sobre ella.
+
+**Qué pido:** 🟢 **1 línea de copy en L88** al lado del "molde exacto", con el alcance real
+("filtra catálogo y progreso; **la cola de crafteo no**") y una pregunta de producto para la pantalla
+de Skins: **¿una skin entra en una cola de crafteo?** Si no, la omisión del molde es irrelevante y
+L88 puede quedarse como está. **No abro idea: es una corrección de una fila abierta.**
+Es el mismo movimiento por el que `skins` bajó de la nota al pie en la ronda 53: **una fila se
+dimensiona con lo que el molde tiene de bueno y calla lo que tiene de malo.**
+
+### 🟡 2. "1 llamada + 1 vista": el único molde que funciona hace 3 endpoints y tiene 2 consumidores
+
+L88: *"es 1 llamada + 1 vista; los otros 10 son endpoint + wrapper + pantalla cada uno."*
+Medido sobre el único account-scoped que hoy funciona completo, `getAccountLegendaryArmory`:
+
+- **2 call sites reales de producción:** `legendary-tracker.js:1072` y **`inventory-hub.js:234`**
+  — este último es **otro módulo**. (Control de forma: DEF=1, EXPORT=8; los otros 6 "usos" en
+  producción son docblock y el guard `typeof`; los 11 restantes están en `tests/`.)
+- **3 endpoints bajo un `Promise.allSettled`** en `loadLegendaryData` `:1071-1080` (armería + banco +
+  materiales), con `readErrors` `:1088-1094` separando *"no pude leer"* de *"no tenes"*.
+
+⇒ El molde que funciona es **3 llamadas por token × 2 consumidores**. L88 cuenta **1 × 1**.
+Y la unidad del "1" sigue siendo por token: **1 llamada es 1 request por token, no 1.**
+
+**Lo que sale, y es la parte útil:** la dimensión que le falta a L88 **no es "1 vs 3 llamadas"** —
+eso es lo que ya se mide en lotes. Es **el segundo consumidor**. `inventory-hub.js:234` es lo que
+hace que ese endpoint valga la pena: no es una hoja, es una pieza que otro módulo reutiliza.
+**Skins no tiene segundo consumidor hoy** — y eso es una **decisión de Pablo**, no un fallo medido.
+Que la fila no lo diga es lo que la deja subdimensionada otra vez.
+
+### 🟢 3. El "12" de `api-gw2.js` — con las fechas, y con mi error de media ronda
+
+`api-gw2.js:43` (bloque **v2.32.0**) dice *"12 endpoints `/v2/account/*` sin tocar"*.
+**El mismo archivo dice "once" dos veces** (`:170`, `:250`), y `:282` registra la política:
+*"NO se corrigio el conteo 'a mano'. Siete->once escrito a mano seria..."*.
+**La corrección está DENTRO del archivo, dos veces.** El diagnóstico de la ronda 53 —"la corrección
+quedó en la fila y no en el código"— era demasiado fuerte: lo que hay son **dos números conviviendo**
+y una política escrita que el mismo commit que agregó el endpoint incumplió.
+
+Y `:7` (bloque **v2.33.0, 2026-10-03**) **cita `BACKLOG.md L88` por número de línea** — control:
+**1** cita de ese tipo en todo el archivo. L88, desde las 09:37 UTC del 10-03, abre con
+**"11 endpoints"** y lleva un ⚠️ que dice que el 12 estaba mal. **El archivo cita a la autoridad y
+no la lee, 36 líneas más abajo.**
+
+🔴 **Lo que NO afirmo, y es lo que me costó media ronda:** "alguien reescribió ayer el docblock
+teniendo la corrección a 12 líneas y no la aplicó" es **FALSO**. Medido con `merge-base`:
+
+| commit | qué | UTC |
+|---|---|---|
+| `1094c26` | escribe el **12** en `api-gw2.js` | 2026-10-03 **01:08** |
+| `23e2fea` | v2.33.0, **cita L88** | 2026-10-03 **01:50** |
+| `2d13d7c` | **último** commit que toca `api-gw2.js` | 2026-10-03 **03:09** |
+| `2561416` | corrige L88 a **11** + el ⚠️ | 2026-10-03 **09:37** |
+
+⇒ **El 12 del código es 7h45m más viejo que el 11 de la fila**, y **`api-gw2.js` no tiene ni un
+commit en las 6h28m siguientes.** La conclusión cambia de tamaño y de dueño: **no es negligencia,
+es un ticket de 🟢 1 línea que ya está encolado** — la costumbre del proyecto es escribir el
+docblock en cada versión, así que la próxima versión pasa por esa línea. Lo único que falta es
+que nadie sepa que se debe.
+
+### Las 4 filas restantes, una por una — 0 podadas
+
+| fila | veredicto | medición en `cb369e5` |
+|---|---|---|
+| **L60 ALERT-41** | **cierta, e inalcanzable** | `STRIKES_BY_EXPANSION` sigue con 15 ids (`strike-tracker.js:23/698-700`). Sin cambio. |
+| **L174 Dungeon dailies** | **premisa FALSA, y ahora se por qué exacto** | `dailycrafting` = **1** mención en producción (`activities.js:748`, el fetch) contra **7** de `worldbosses` y **7** de `mapchests`. Los otros dos tienen el patrón de **3 partes** (estado `:100/:101` → fetch `:230/:238` → consumo `:377-380`); **`dailycrafting` no declara el Set ni lo consume.** No es "familia ya implementada 3/4": es **2 de 3**, y el tercero es una línea de fetch sin destino. |
+| **L298 Fractal multicuenta** | **cierta** | `fractal` (case-insensitive): 110 en producción. Las únicas 2 líneas con `state.token` son `activities.js:1216` y `:1249`, y son **el mismo call site por dos caminos** (`Fractals.loadCMStatus(state.token)`). Sin cambio. |
+| **L344 WvW visor** | **cierta en `/v2/wvw/objectives`** | **0** ocurrencias del literal. Ojo con el nombre: `js/wv-objectives-dashboard.js` y `wv-objectives-ui.js` son **Wizard's Vault**, no WvW — dos archivos con "objectives" en el nombre y otro dominio. El **rango** de WvW ya se pinta en `characters.js` (ronda 51); **objetivos** no. |
+
+**Control del arnés:** `getAccountZZZ999` → **0**, `getAccountRaids` → **18**. Discrimina.
+
+### Errores míos de esta ronda (4, los 4 antes de reportar)
+
+1. 🔴 **Casi reporté al revés por no fechar las dos puntas.** Escribí "v2.33.0 se escribió ayer
+   teniendo la corrección a 12 líneas" y lo publiqué como titular en mi borrador **antes** de medir
+   `merge-base`. Las fechas dicen lo contrario: la corrección llegó **7h45m después**. Un control de
+   forma que discrimina bien **no alcanza**: para una afirmación causal hay que fechar **los dos
+   extremos**, no uno.
+2. 🔴 **Mi regex de versión no matcheó por el acento y no me di cuenta.** `/Versi..n:/` contra
+   `Versión:` — `..` son 2 caracteres y "ón" ya son 2, así que la clase miraba 3. El arnés imprimió
+   `(precedente al primer bloque)` en las 7 líneas y **yo lo leí como si fuera un dato**. Un campo
+   que sale con valor centinela en todas las filas es un instrumento roto, no un resultado.
+3. `sinTildes()` revienta porque le pasé un **array** (`.forEach(l => sinTildes(normAll))`).
+4. Conté `pegue el body crudo de /v2/account/raids` contra **archivos de código**, siendo una frase
+   de `BACKLOG.md`. El 0 no medía nada y casi lo reporto. *Un grep cuyo needle vive en otro archivo
+   mide el archivo del needle, no el del código.*
+
+### Reglas que salen
+
+1. **Lo que se nombra como molde se audita como código, no como referencia.** L88 gasta 10 líneas
+   probando que `Characters` no es subvista de `InventoryHub`, y **0** verificando que el molde que
+   elige filtra. Lo único que verifiqué de ese molde fue lo que su propio comentario de cabecera
+   alaba, nunca lo que su código hace.
+2. **Un certificado verde de un defecto y un test verde de una garantía tienen la misma forma.**
+   `hb148-...test.js` está verde **porque** el defecto sigue, y su propio `extra` lo dice. Leer
+   "verde" sin leer **qué** afirma es leer la mitad — y cuando el certificado está en una fila
+   **CERRADA**, ni siquiera llega a leerse.
+3. **Para una afirmación causal hay que fechar los dos extremos con `merge-base`.** Es hermana de la
+   fila que se cita a sí misma: *la explicación sobrevive al refactor y nadie vuelve a leerla.*
+4. **"La corrección no llegó al código" era demasiado fuerte.** Puede estar en el código, en otra
+   parte del archivo, conviviendo con el número viejo. Lo que hay que preguntarse no es *"¿la
+   corrección viajó?"* sino **"¿cuántos números distintos conviven en el archivo que afirma tener la
+   respuesta?"** — y si el archivo tiene una política escrita sobre cómo contar, si la cumplía.

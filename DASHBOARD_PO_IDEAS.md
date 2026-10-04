@@ -1,3 +1,43 @@
+## ACTUALIZACION 2026-10-04 UTC - Heartbeat PO ronda 54 - PAUSA: 5 items abiertos, y el molde que L88 propone copiar tiene un test verde que certifica que no filtra
+
+> **Espejo de la ronda 54 del PO.** Control de carga: `openItems` = **5** @ `cb369e5`
+> = **PAUSA** (13ª seguida), corrida entera de podado. PASO -1: 7 "Esperando", **0 a mí**.
+> El detalle esta en `PRE_BACKLOG.md`, seccion "Heartbeat PO 2026-10-04 (ronda 54)".
+>
+> **Lo que cambia para el equipo, en una linea:** `main` paso de `2e29ed6` a `cb369e5` y la
+> fila mas grande de la cola (**L88**, Coberturable account-scoped) nombra como molde de la pantalla
+> de Skins a `legendary-tracker.js` **citando su barra de filtros**. Medido: el filtro recorta en
+> **2 de 3** vistas (`catalogItems()` y `ownershipCounts()` si, `queueItems()` **no**), y eso lo
+> certifica `tests/hb148-filtro05-guardia-cognitiva.test.js`, que esta **verde porque el defecto
+> sigue** (su propio `extra` dice "0 = el defecto ya se ARREGLO"). El certificado esta en **L489,
+> CERRADA** ("DESCARTADA POR VEREDICTO DE PRODUCTO", ronda 45), **401 lineas mas abajo de L88**:
+> quien lea L88 no puede verlo. **Correccion de 1 linea en L88, no idea nueva.**
+>
+> **Segunda correccion a la misma fila:** L88 dimensiona `skins` como "1 llamada + 1 vista". El
+> unico account-scoped que hoy funciona completo hace **3 endpoints bajo un `Promise.allSettled`**
+> (`loadLegendaryData`:1071-1080) y tiene **2 consumidores** (`legendary-tracker.js`:1072 y
+> **`inventory-hub.js`:234**, otro modulo). La dimension que falta no es "1 vs 3": es **el segundo
+> consumidor**, y para Skins esa es una decision de Pablo, no un fallo medido.
+>
+> **Tercera, y con fechas:** el "12 endpoints" de `api-gw2.js`:43 convive con **"once"** en el
+> mismo archivo (:170, :250), y :7 cita `BACKLOG.md L88` por linea — que desde el 10-03 09:37 UTC
+> dice **11** y explica el error. Medido con `merge-base`: el 12 del codigo es **7h45m mas viejo**
+> que el 11 de la fila y `api-gw2.js` no tiene **ningun commit** desde las 6h28m siguientes. O sea
+> **no es negligencia: es un ticket de 1 linea que la costumbre del proyecto ya tiene encolado.**
+>
+> **Las 5 filas, 0 podadas** (la prueba de que no hay nada que podar tambien es entrega):
+> L60 ALERT-41 **cierta e inalcanzable** (15 ids intactos) | L174 Dungeon dailies **premisa FALSA,
+> y ahora se por que**: `dailycrafting` tiene **1** mencion (el fetch) contra **7+7** de
+> `worldbosses`/`mapchests`, y los otros dos tienen el patron de 3 partes (estado -> fetch ->
+> consumo) que `dailycrafting` **no tiene**: no declara el Set ni lo consume | L298 Fractal
+> **cierta** (las 2 lineas con `state.token` son el mismo call site por dos caminos) | L344 WvW
+> **cierta** en `/v2/wvw/objectives` (0 ocurrencias; ojo: `wv-objectives-*.js` es **Wizard's
+> Vault**, no WvW).
+>
+> **Error mio de la ronda, y es el que mas me costo:** redacte "v2.33.0 se escribio ayer teniendo la
+> correccion a 12 lineas" y lo deje como titular **antes** de medir `merge-base`. Era al reves: la
+> correccion llego 7h45m DESPUES. Para una afirmacion causal hay que fechar **los dos extremos**.
+
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
