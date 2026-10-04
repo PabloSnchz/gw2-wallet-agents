@@ -4955,3 +4955,124 @@ Ninguna es falsa y ninguna se puede podar sin una decision de Pablo:
    tiene que discriminar **antes** del titular, no despues.
 4. **Cherry-pick no sirve para appends a la misma cola.** Se concatena, y se deduplica por hash del
    parche, porque la misma idea llega por dos ramas con dos commits distintos.
+## RONDA 63-bis — HB#193 (2a corrida del mismo cron, 18:05 UTC) — RECOLECTAR. **Un endpoint activo que ni la fila que lo persigue lo nombra: `/v2/account/emotes`.**
+
+**Por que esta corrida existe:** la corrida anterior de este mismo cron (17:35 UTC) escribio la RONDA 63 y
+cerro con R63-bis, que decidio **no** mandar mensaje al Principal. Entre una corrida y la otra el trabajo
+**publicado** era cero y el **modo era RECOLECTAR**, o sea trabajo por hacer. Esta corrida lo hace: la Ronda 63
+midio la banda y no investiga nada, asi que aqui va la investigacion que la banda liberaba.
+
+**Control de carga (re-medido):** `openItems` = **3** @ `fcaee40` = **RECOLECTAR**. `controles_ok: true`
+(control positivo 1, control negativo 0). Confirmado con un segundo instrumento (`findstr`), 3 filas: L60,
+L88, L174.
+**PASO -1:** **56** comunicaciones dirigidas a mi, **0 en espera**. (Las 6 "Esperando" del total son del
+Code-Reviewer y de Pablo.)
+
+### R6. Las 3 fuentes web: 2 muertas, y la que sobrevive cambio de conclusion
+
+| fuente | resultado |
+|---|---|
+| `gw2treasures/feeds/new_items` | **404** (otra vez; no reintento) |
+| `reddit.com/r/GuildWars2/new.json` | **403** (otra vez) |
+| `api.guildwars2.com/v2/changelog` | **404** — probe con `curl`, no solo `web_fetch` |
+| `wiki.guildwars2.com/wiki/API:2` | **200** — la unica que dio contenido |
+
+### R7. 🔴 El hallazgo: `/v2/account/emotes` esta activo en la API y el repo tiene **0 usos**. L88 no lo nombra.
+
+Medido, con las 3 fuentes de verdad y controles que discriminan:
+
+- **`/v2.json`** declara `/v2/account/emotes` con **`auth: true`, `active: true`**. Vive entre `mail` y `home`.
+- **Sonda en vivo:** `GET /v2/account/emotes` -> **401 Unauthorized** (= existe, pide token).
+  **CONTROL POSITIVO** `/v2/account/wallet` -> 401. **CONTROL NEGATIVO** `/v2/account/inventario` -> 404.
+  La sonda distingue "existe" de "no existe"; sin ese control un 404 tambien se lee como "no hay nada".
+- **El repo:** `git grep -niE "emote" origin/main -- js/ index.html` -> **0 resultados**.
+  `account/emotes` -> **0 archivos**. Con control: `getAccountSkins` -> 1, `getAccountWallet` -> 3,
+  `zzz_no_existe_999` -> 0.
+
+**Por que no lo nombra L88, y por que eso importa:** la fila L88 lista 10 endpoints sin cobertura. **El
+universo de L88 es la nav de la wiki, no `/v2.json`.** Re-derivado hoy desde `/v2.json` (fuente oficial,
+la que L88 mismo declara como la que uso): **46 rutas `/v2/account*`**, de las cuales **45 activas**
+(la unica `active:false` es `/v2/account/mail`, que la sonda confirma: **503 "API not active"**).
+L88 sigue diciendo **43** y su propio texto dice *"medido en `/v2.json`, NO re-medido hoy"*. **Hoy: 46.**
+
+**El gap real, medido contra el codigo:** **10 wrappers** `getAccount*` definidos en `api-gw2.js`
+(`Achievements`, `Bank`, `Info`, `LegendaryArmory`, `Luck`, `Materials`, `Raids`, `Skins`, `WVListings`,
+`Wallet`) sobre 45 endpoints activos. O sea: **la app toca 10 de 45.**
+
+**Y el denominador de L88 tambien esta mal por una razon que nadie escribio:** los `getAccount*` del repo
+son **17**, no 10 — porque **`getAccountColor`, `getAccountIcon`, `getAccountType`, `getAccountTypeIcon` y
+`getAccountTypeTags` no son wrappers: son claves de un objeto de cuenta.** Un grep por prefijo cuenta 17; un
+grep por definicion cuenta 10. **Los 5 de mas son el mismo error de forma de la ronda 62 (paths a mano),
+en el otro sentido: aqui el sobre-conteo viene de un nombre, no de una lista escrita a mano.**
+
+### R8. Lo que el endpoint trae, y por que es producto y no filling
+
+`GET /v2/emotes?ids=all` -> **14 emotes**. Cada uno trae **los comandos de chat en español** y **el item que
+lo desbloquea**. Verificado extremo a extremo:
+
+| id | comando es | item que lo desbloquea |
+|---|---|---|
+| `Bless` | `/bless`, **`/bénir`**, `/segnen`, `/bendecir` | **100099 "/bless" Emote Tome**, Consumable, **Exotic** |
+| `Heroic` · `Paper` · `Possessed` · `Rock` · `Scissors` | cada uno con sus `/…` | 12 items en total |
+| `geargrind` · `playdead` · `rockout` · `shiver` · `shuffle` · `step` · `Shiverplus` | idem | idem |
+
+12 items de desbloqueo, resueltos contra `/v2/items`: **100099 = "/bless" Emote Tome, Exotic.** El triangulo
+**endpoint de cuenta -> catalogo publico -> item** cierra con dato real.
+
+**Lo que esto le da a Pablo con 27 cuentas, en una pantalla:** *de las 27, cuantas tienen cada emote, y que
+item les falta para el que no tienen.* `/bénir` es de la Anniversary; el Tome es Exotic. **Eso es una
+consulta de completion account-scoped que la Bóveda no puede responder hoy**, y no es una idea de relleno: es
+el mismo patron que el Coberturable de la fila L88 pero con 3 fuentespublicas que ya existen, sin endpoint raro y
+sin permiso nuevo (basta `account`, que la puerta ya exige).
+
+🟢 **Tramo unico:** 1 llamada por cuenta (`/v2/account/emotes`) + 2 catalogos publicos (14 emotes + 12 items),
+grid de 14 con los 4 comandos por fila y el item que falta, columna multicuenta. **Rejilla de la idea de L88,
+14 filas en vez de 10.632.**
+
+### R9. Una hipotesis mia que MURIO en la medicion (la reporto igual)
+
+Crei que **la wiki omitia `emotes`**: la subpagina `API:2/account/skins` que traje **no lo enlazaba**, y de ahi
+saque "la nav esta incompleta". **Falso:** la pagina principal `API:2` (200, 47 KB) **si lo enlaza** — mi
+control lo tumbo antes de reportarlo (`CONTROL: la wiki NO debe enlazar /v2/account/emotes -> FALLA`).
+Habia medido una subpagina y generalizado a la wiki. **Una subpagina no es la fuente primaria cuando la
+fuente primaria esta a un click.**
+
+### Errores mios (6, los 6 antes de reportar — y 2 de ellos casi me hacen publicar un titular falso)
+
+1. 🔴 **Instrumento con el nombre de la clave equivocado:** leí `r.route` y `/v2.json` tiene `r.path` -> TypeError.
+   Es la **2a vez en historia** que el mismo error (ronda 49). Lo que lo salve fue que la exception es ruidosa;
+   si el campo hubieraexistido con valor `null`, el filtro habria dado **0 sin error**.
+2. 🔴 **`scope` por ruta NO existe en `/v2.json`.** Mi memoria de la ronda 21 lo daba por presente. Dio **0 de 46**
+   y yo estaba a punto de reportar "el indice oficial no declara ningun scope". **El control positivo
+   (`/v2/account/wallet` presente) fallo y por eso no lo publique.** El scope vive en la wiki, no en el indice.
+3. 🔴 **MAP de wrappers escrito a mano** -> "17 de 17 sin wrapper", imposible (L88 dice 10 sin wrapper). Lo
+   derive del codigo: **10 definiciones reales**.
+4. 🔴 **Regex que atraviesa dos capas de shell** (cmd.exe + node) se escapo mal -> dio **45 de 46 sin citar**,
+   con `/v2/account/wallet` ausente. **Su propio control lo tumbo.** Instrumento inservible, descartado.
+5. `router.js` no esta en la raiz (`js/router.js`) y `curl -o /dev/null` da exit 23 en Windows; `for` de bash
+   no corre en cmd.exe; `|` dentro de un `-e` inline parte la linea. 3 intentos perdidos. Regla ya escrita.
+6. `'` suelto en una linea muerta de un script mio -> SyntaxError.
+
+**Tasa de aciertos del ciclo:** de 6 instrumentos, **3 murieron en el control** (1, 2, 4) y **3 dieron el
+titular** (3 -> el MAP, que se corrigio; R7, que es el hallazgo; R9, que es la hipotesis muerta). **El control
+no es burocracia: es lo unico que impidio que 3 ceros falsos llegaran al equipo.**
+
+### Reglas que salen
+
+1. **El universo de una fila hay que re-derivarlo de la fuente que la fila declara usar.** L88 dice "medido en
+   `/v2.json`" y su lista viene de la wiki. Son dos fuentes y **por eso su denominador (43) no es el de
+   `/v2.json` (46)**: el gap crece y **el hallazgo nuevo (`emotes`) cae justo en la diferencia**.
+   *El Instrumento de la fila y el dato de la fila pueden venir de fuentes distintas, y el desacuerdo se
+   escribe como si los dos fueran del mismo origen.*
+2. **Un prefijo que es nombre de funcion y nombre de campo a la vez no se census por prefijo.** Los 17
+   `getAccount*` son 10 wrappers + 5 claves de objeto. *Un conteo por prefijo necesita un control de
+   definicion, no solo un control de no-vacio.*
+3. **Una subpagina de la wiki no es la wiki.** Hipotesis muerta, pero la dejaria escrita.
+
+### Entregado
+
+`BACKLOG.md`: **NO LO TOCO** (`AGENTS.md` me lo prohibe). Lo de esta corrida va aca.
+`DASHBOARD_PO_IDEAS.md` + la entrada de arriba. Rama **`po/hb193-emotes`**. **No mergeo.**
+`/v2/account/emotes` **no lo propose como Idea nueva todavia**: es la **13a fila** de cobertura que L88 ya
+describe, asi que lo correcto es **ampliar L88 con el endpoint que faltaba**, no abrir una fila. Lo digo
+explicitamente para que no se cuente dos.

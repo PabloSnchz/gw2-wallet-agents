@@ -1,3 +1,65 @@
+## ACTUALIZACION 2026-10-04 18:05 UTC - Heartbeat PO ronda 63-bis - RECOLECTAR: **`/v2/account/emotes` existe, es activo, y el repo tiene 0 usos**
+
+> **Espejo de la ronda 63-bis del PO.** Control de carga (PASO 3 de HEARTBEAT.md, punto 4):
+> `openItems` = **3** @ `fcaee40` = **RECOLECTAR**, `controles_ok: true`, confirmado con 2 instrumentos
+> (node `^- \[ \] ` y `findstr`). La corrida anterior de este mismo cron (17:35 UTC, ronda 63) midio la banda
+> y **cerro sin reportar**; esta corrida hace la investigacion que la banda liberaba.
+> **PASO -1:** 56 comunicaciones dirigidas al PO, **0 en espera**.
+
+### Lo medido (todo con control positivo y negativo)
+
+| que | resultado |
+|---|---|
+| `gw2treasures/feeds/new_items` | **404** |
+| `reddit.com/r/GuildWars2/new.json` | **403** |
+| `api.guildwars2.com/v2/changelog` | **404** (probe con `curl`, no solo `web_fetch`) |
+| `wiki.guildwars2.com/wiki/API:2` | **200** - la unica fuente viva del ciclo |
+
+- **`/v2.json` declara `/v2/account/emotes` con `auth:true`, `active:true`.**
+- **Sonda viva: 401** (= existe, pide token). CONTROLES: `/v2/account/wallet` 401, `/v2/account/inventario` 404.
+- **Repo: 0 usos.** `git grep -niE "emote" origin/main -- js/ index.html` -> **0 resultados**.
+  Controles del grep: `getAccountSkins` 1, `getAccountWallet` 3, `zzz_no_existe_999` 0.
+- **Universo correcto: 46 rutas `/v2/account*`, 45 activas** (la unica `active:false` es `/v2/account/mail`,
+  que la sonda confirma con **503 "API not active"**). **L88 dice 43.**
+- **10 wrappers `getAccount*` definidos** en `api-gw2.js` sobre 45 endpoints activos. **La app toca 10 de 45.**
+
+### El denominador de L88 esta mal, y el error tiene una causa escribible
+
+L88 dice *"11 endpoints `/v2/account/*`"* y *"43 rutas `account/*`, medido en `/v2.json`, NO re-medido hoy"*.
+**Hoy son 46, y la lista de L88 viene de la nav de la wiki, no de `/v2.json`.** Son dos fuentes distintas y
+el desacuerdo se escribe como si fueran la misma. **El hallazgo nuevo cae exactamente en la diferencia.**
+
+**Y el sobre-conteo tiene nombre:** los `getAccount*` del repo son **17**, no 10 - porque
+`getAccountColor`, `getAccountIcon`, `getAccountType`, `getAccountTypeIcon` y `getAccountTypeTags`
+**no son wrappers, son claves de un objeto de cuenta**. Un grep por prefijo cuenta 17; uno por definicion, 10.
+
+### El endpoint (verificado extremo a extremo)
+
+`GET /v2/emotes?ids=all` -> **14 emotes**, cada uno con **los comandos de chat en español** y **el item que
+lo desbloquea**. Resuelto contra `/v2/items`: **100099 = "/bless" Emote Tome, Consumable, Exotic.**
+Ej.: `Bless` -> `/bless`, **`/bénir`**, `/segnen`, `/bendecir`.
+
+**Lo que Pablo puede responder con 27 cuentas y hoy no:** *de las 27, cuantas tienen cada emote y que item les
+falta.* Mismo patron que el Coberturable de L88, con 3 fuentes publicas ya existentes, sin endpoint raro y sin
+permiso nuevo (basta `account`, que la puerta ya exige). **Grid de 14 filas en vez de 10.632.**
+
+**NO es una Idea nueva:** es la **13a fila de cobertura que L88 ya describe**. Lo correcto es **ampliar L88**
+con el endpoint que faltaba, no abrir una fila. **El PO no puede escribir `BACKLOG.md`** (`AGENTS.md`).
+
+### Hipotesis que MURIO (se reporta igual)
+
+Crei que la wiki omitia `emotes` porque la subpagina `API:2/account/skins` no lo enlaza. **Falso:** la pagina
+principal `API:2` si lo enlaza. **El control lo tumbo antes de reportarlo.** *Una subpagina no es la fuente
+primaria cuando la fuente primaria esta a un click.*
+
+### Errores del ciclo (6, los 6 antes de reportar)
+
+**De 6 instrumentos, 3 murieron en el control** y 3 dieron el titular. Los controlesDetectaron:
+`r.route` vs `r.path` (2a vez en historia), `scope` que **no existe** por ruta en `/v2.json` (0 de 46),
+y un regex que atraviesa dos capas de shell (dio 45 de 46, con `wallet` ausente).
+**El control no es burocracia: es lo unico que impidio que 3 ceros falsos llegaran al equipo.**
+
+Rama **`po/hb193-emotes`**. **No mergeo.** Detalle completo en `PRE_BACKLOG.md`.
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
