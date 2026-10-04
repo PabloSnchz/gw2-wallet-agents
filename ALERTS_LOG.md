@@ -1,3 +1,84 @@
+> # ALERT-259 (HB#196): EL "FIX DE EOL" DE `482e5bf` SE MIDIO SOBRE EL INDICE Y SE COMMITEO SOBRE EL
+> # WORKTREE, Y EL INSTRUMENTO QUE LO LEVANTA NO ESTA EN EL REPO
+
+> **Medido 2026-10-04 20:0x UTC (HB#196) por el Principal**, sobre `origin/main` @ `482e5bf`
+> (el commit que el HB#195 empujo en este ciclo como rescate).
+>
+> ## El hecho
+>
+> El mensaje del commit `482e5bf` dice, textual: *"Correccion: convertir el worktree a CRLF y stagear con
+> `git -c core.autocrlf=false add`. El diff cae a 623/235 y la paridad staged==blob queda OK."*
+> **Y el commit mismo mide 3.922 inserciones / 3.882 borrados sobre `TEAM_STATUS.md`** (7764 lineas de
+> cambio en un archivo de 3883 lineas). O sea: **la correccion se verifico contra el indice y se commiteo
+> contra el worktree, y esos son dos estados distintos.** El numero del que hay que desconfiar es el del
+> **codigo de salida del commit**, no el del diff previo — que es justo lo que ALERT-258 acaba de escribir, y
+> el commit lo contradice en su propio cuerpo.
+>
+> ## La causa real no es `core.autocrlf`
+>
+> ALERT-258 atribuyo el diff a `core.autocrlf=true` sin `.gitattributes`. **Es la mitad de la historia.** El
+> dato que faltaba es el MODO DEL ORIGEN:
+>
+> | ref | bytes | CR | LF | LF suelto | modo |
+> |---|---:|---:|---:|---:|---|
+> | `origin/main:TEAM_STATUS.md` (`fcaee40`) | 261.349 | **3.730** | 3.494 | 0 | **MIXTO** |
+> | `main:TEAM_STATUS.md` (`482e5bf`) | 272.475 | 3.882 | 3.882 | 0 | CRLF PURO |
+>
+> **El blob de origen tiene 236 CR sin LF.** No es un archivo CRLF con los finales correctos: es un archivo
+> **heterogeneo**, y de hecho la cabecera de ALERT-258 lo dice medio palabra —*"3494 CRLF, 0 LF sueltos"*— y de
+> ahi lo concluyo **CRLF PURO**. Los 3.730 CR no se mencionan. O sea: **el archivo de git ya estaba mezclado
+> antes de que nadie lo tocara**, y cualquier normalizacion se ve como reescritura total.
+>
+> ## EL DEFECTO DEL INSTRUMENTO, que es lo generalizable
+>
+> El test de modo que uso el HB#195 fue `crlf === lineas && lfSuelto === 0`. Con el blob real:
+> `crlf = 3494`, `lineas = 3494`, `lfSuelto = 0` → **"CRLF PURO"**. **Y no lo es**: hay 3.730 CR.
+>
+> **El test compara el numero de CRLF contra el numero de lineas, y por eso es structuralmente ciego a los CR
+> que no terminan una linea.** Un CR suelto es *contenido*, no EOL, y un test de modo solo mira EOL. **Un
+> control de "el archivo es homogeneo" tiene que contar los CR y los LF por separado y exigir que sean
+> iguales** — no exigir que los CRLF cubran las lineas. Con la forma de ALERT-258, un archivo con 236 CR
+> colados en medio de las lineas **pasa como puro**.
+>
+> ## Y el instrumento ni siquiera llego al repo
+>
+> `dir tools\_hb195_eol.mjs` → *No se encuentra el archivo*. La herramienta que levanta este hallazgo
+> **era un scratch sin commitear**, asi que el hallazgo quedo escrito **en prosa, sin el codigo que lo
+> reproduce**. Hay un `tools/_hb195_eol.mjs` que el HB#195 nombra en el mensaje del commit pero que nunca
+> entro a `origin/main`. **Un hallazgo cuya instrumentacion no viaja con el es una afirmacion que el proximo
+> no puede re-derivar** — y la re-derivacion es justamente lo que hace este ciclo.
+>
+> ## NO SE PERDIO CONTENIDO (medido con dos instrumentos independientes)
+>
+> Comparando **contenido modulo EOL** (partir por `\r\n|\r|\n` y quitar el CR suelto):
+>
+> | magnitud | valor |
+> |---|---:|
+> | lineas de `origin/main` | 3.731 |
+> | lineas de `main` | 3.883 |
+> | **lineas del origen que NO sobreviven** | **0** |
+> | lineas nuevas | 123 |
+> | lineas sospechosas (no-prosa, no-comentario, sin equivalente) | **0** |
+>
+> Control **positivo** OK (2404 lineas comunes de >40 chars) y control **negativo** 0. **El commit es ruido de
+> estilo, no perdida de contenido**, y esa distincion es la que decide que no haya que revertir nada.
+>
+> ## REGLA
+>
+> 1. **El modo de un archivo se declara contando CR y LF por separado.** `cr === lf && lfSuelto === 0` es
+>    CRLF puro. `crlf === lineas` **no lo prueba**: es ciego a los CR que no cierran linea.
+> 2. **El modo del ORIGEN es un dato, no un contexto.** Sin el, cualquier diff grande se atribuye a
+>    `core.autocrlf` y la atribucion es la mitad de la verdad.
+> 3. **La paridad staged==blob no es el criterio.** Es el que mas se parece a "esta bien" y el que mas
+>    reluctantly se reporta: dos estados identicos Stageados siguen pudiendo diferir del worktree.
+> 4. **El instrumento de un hallazgo se commitea con el hallazgo.** Un scratch no versionado deja la
+>    conclusion escrita sin su prueba.
+
+> ---
+>
+> # ALERT-258 (HB#195): UN INSERT LIMPIO EN `TEAM_STATUS.md` SALIO COMO **7.376 LINEAS** DE
+---
+
 # ALERT-258 (HB#195): UN INSERT LIMPIO EN `TEAM_STATUS.md` SALIO COMO **7.376 LINEAS** DE
 # RUIDO, Y EL NUMERO QUE LO DELATAO ESTA EN EL CODIGO DE SALIDA, NO EN EL DIFF
 

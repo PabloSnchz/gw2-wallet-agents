@@ -1,5 +1,153 @@
 # TEAM_STATUS — Heartbeat Principal
 
+# TEAM_STATUS ƒ?" Heartbeat Principal
+
+> **Actualizado:** 2026-10-04 20:0x UTC (HB#196) por el Principal.
+>
+> **HALLAZGO DEL CICLO: UN "ARREGLO DE EOL" DE 7.764 LINEAS SE COMMITEÓ COMO 3.882/3.882, Y EL
+> HALLAZGO DEL CICLO ANTERIOR LO DESCRIBÍA COMO CORREGIDO.** El commit `482e5bf` (HB#195) dice, textualmente,
+> *"El diff cae a 623/235 y la paridad staged==blob queda OK"*, y sin embargo **el propio commit que escribe esa
+> corrección mide 3.922 inserciones / 3.882 borrados sobre `TEAM_STATUS.md`**. O sea: **la corrección se
+> midió sobre el índice y se commitió sobre el worktree**, y esos son dos estados distintos.
+>
+> **Medido, no inferido.** `tools/_hb195_eol.mjs` (el instrumento que el HB#195 construyó para esto) **no
+> está en `origin/main`**: `dir tools\_hb195_eol.mjs` → *No se encuentra el archivo*. O sea que **la
+> herramienta que Lévanta el hallazgo tampoco llegó al repo**, y el hallazgo queda escrito en prosa, sin el
+> instrumento que lo reproduce. Reconstruí la comparación abajo y la salida difiere del número del commit.
+>
+> **EL DATO QUE CAMBIA LA LECTURA, y es la parte que no está en ningún log:** el problema **no era** que mi
+> worktree estuviera en LF. Es que **`origin/main` está MIXTO y mi worktree quedó CRLF PURO**:
+>
+> | ref | bytes | cr | lf | lf suelto | modo |
+> |---|---:|---:|---:|---:|---|
+> | `origin/main:TEAM_STATUS.md` | 261.349 | 3.730 | 3.494 | **0** | **MIXTO** (3.730 CR para 3.494 LF) |
+> | `main:TEAM_STATUS.md` (ya commiteado) | 272.475 | 3.882 | 3.882 | 0 | **CRLF PURO** |
+>
+> El blob de `origin/main` tiene **236 CR sueltos** (CR sin LF) que el commit convirtió en finales de línea.
+> O sea que el "ruido" de 7.764 líneas **no era EOL**, era **contenido**: 236 caracteres que en el blob eran
+> CR en medio de una línea y ahora son CRLF. **ALERT-258 lo atribuyó a `core.autocrlf` y era la mitad de la
+> historia**; la otra mitad es que el archivo de git ya era heterogéneo y el commit lo homogenizó.
+>
+> **Y NO SE PERDIÓ NADA, medido con dos instrumentos independientes.** Comparando **contenido módulo EOL**
+> (`_hb196contenido.mjs`, parte por `\r\n|\r|\n` y quita el CR suelto):
+>
+> | magnitud | valor |
+> |---|---:|
+> | líneas de `origin/main` | 3.731 |
+> | líneas de `main` | 3.883 |
+> | **líneas de `origin/main` que NO sobreviven** | **0** |
+> | líneas nuevas en `main` | 123 |
+> | líneas sospechosas (no-prosa, no-comentario, sin equivalente) | **0** |
+>
+> Control positivo **OK** (2404 líneas comunes >40 chars; la más larga es prosa real del equipo) y control
+> negativo **0**. **El commit es ruido de estilo, no pérdida de contenido** — y esa es la distinción que
+> hace falta para decidir si se toca.
+>
+> **REGLA: un hallazgo de EOL tiene que declarar el MODO DEL BLOB COMO DATO, no como contexto.** La
+> comparación que no lo ve es la de siempre (worktree contra worktree, o índice contra worktree): si el
+> origen es MIXTO, cualquier normalización se ve como reescritura. **La pregunta que decide es "¿el origen
+> es homogéneo?", y esa hay que medirla antes de atribuir el diff a `core.autocrlf`.**
+
+## 1. Rescate (PASO -1) — HABÍA TRABAJO TERMINADO SIN PUSHEAR
+
+Arranque **20:00:07 UTC**. `origin/main` = `fcaee40` @ **2026-10-04 13:19:19 -0300 (16:19 UTC)**, **anterior**
+al arranque. Árbol limpio salvo `?? _r56_wt/` y `?? _wt193/` (**preexistentes, del PO**; no los toco).
+
+**Pero las DOS puntas no estaban vacías, y esa es la medición que el PASO -1_minusterior no cubría:**
+
+| punta | resultado |
+|---|---|
+| `main..origin/main` (remoto adelantado) | **vacía** |
+| `origin/main..main` (**local adelantado**) | **3 COMMITS** |
+
+`main` local estaba **3 commits adelante**, del HB#195, fechados **16:09–16:15 UTC**: `2c46496` (rescate del
+HB#194 + denominador de L88), `dcaf4f0` (ALERT-257), `482e5bf` (ALERT-258). **El HB#195 terminó el trabajo y
+murió antes del push** — cuarto ciclo de la serie (HB#150, 151, 154, 195), y el primero en que el trabajo
+**ya estaba commiteado y verificado**.
+
+**Antes de empujar verifiqué el contenido** (§ arriba). Recién después: `git push origin HEAD:main` →
+`fcaee40..482e5bf`, `ls-remote` = **1 sola copia de `main`**, ambas puntas vacías.
+
+**REGLA (extiende ALERT-230, y la cierra):** el PASO -1 pregunta *"¿hay alguien ESCRIBIENDO?"*. La punta
+`origin/main..main` no responde eso — responde *"¿hay trabajo TERMINADO que nadie publicó?"*, y un **commit es
+trabajo terminado**. Con solo el árbol limpio y la fecha del remoto, este ciclo habría declarado **"nada que
+rescatar"** y los 3 commits habrían quedado para siempre sin publicar, con el árbol limpio y sin señal.
+
+## 2. Tareas en curso
+
+- **Ninguna.** Control de carga = **RECOLECTAR** (3 items abiertos, banda 0-3).
+- **Nada al Reviewer**: la ronda viva da **0 TRAMOS**.
+
+## 3. Completadas en este ciclo
+
+- **PASO -1 con las DOS puntas** → rescate de 3 commits → `origin/main` @ `482e5bf`.
+- **ALERT-259 (nueva)** — el "arreglo de EOL" de `482e5bf` se midió sobre el índice y se commitió sobre el
+  worktree, y el blob de origen era **MIXTO**, no CRLF. Contenido **intacto** (0 líneas perdidas, control
+  positivo y negativo OK). Detalle en `ALERTS_LOG.md`.
+- **Banner:** `tools/hb164-espejo.mjs` → **13 controles OK** (los 3 negativos incluidos), paridad
+  `<!--`/`-->` **136/136** en ambos, sin sangría imposible, **canónico=LF espejo=LF**.
+- **PASO 3, los 3 canales medidos: 63 / 63 / 63 — COINCIDEN.** Gana la **63**
+  (`PRE_BACKLOG.md` del workspace del PO, 148 líneas de bloque, corte por **unidad** y no por nivel).
+  Por primera vez en el ciclo **los tres dan el mismo número**; hasta el HB#173Measurement era 42/45/49.
+- **Control de carga:** `openItems` = **3**, `openItemsDiscrimina: true`, `marcadorPresente: 68`,
+  `openItemsQueLaAncladaPierde: 0`. Medido aparte sobre el blob: tolerante **3**, anclada **3**, hechas **65**,
+  control negativo **0**.
+
+## 4. Las 3 filas abiertas, con la razón RE-DERIVADA (no heredada)
+
+| fila | item | estado real, medido hoy | por qué no arranca |
+|---:|---|---|---|
+| **L60** | ALERT-41 Strike Tracker | `STRIKES_BY_EXPANSION` en `strike-tracker.js:23` (**1 archivo**), y **`achievement` = 0 ocurrencias en ese archivo** | **Es una decisión de Pablo, y el PO ya loUNCIO.** Sus dos ramas son "se arregla el tracker" o "se borra el módulo", ambas de producto. **No re-escalo:** ya se escaló en el HB#149. La pregunta del PO es *"Pablo: ¿Strike Tracker o nada?"*, de una línea. |
+| **L88** | Coberturable multicuenta | `getAccountSkins`: **3 ocurrencias, las 3 en `js/api-gw2.js`** (`:41` versión, `:1467` def, `:2457` export). **`skinsPanel` = 0** en `js/` **e `index.html`**. **0 call sites.** | Es producto de verdad y el mayor gap medido, pero **un cron de 30 min que arranca producto y no llega al commit deja el árbol sucio** — que es justo lo que este ciclo vino a reparar. Con 3 commits sin pushear encontrados al abrir, la evidencia de que pasa es **del mismo ciclo, no de un libro**. |
+| **L210** | Dungeon dailies | `dailycrafting` aparece **1 vez**, en **`js/activities.js:748`**. Sus 2 hermanos (`worldbosses`, `mapchests`) viven en **`js/meta.js`** (`:100`, `:230`, `:377`, `:843`). | **Su premisa "~3-4h, completa una familia ya implementada 3/4" es FALSA, y sigue falsa:** no es una familia, son 2 módulos distintos. Traer un tracker desde `meta.js` a `activities.js` no es "el patrón ya probado". |
+
+## 5. Alertas
+
+- **ALERT-259 (nueva)** — el arreglo de EOL del HB#195 se midió en un estado y se commitió en otro, y el
+  instrumento que lo Lévanta (`tools/_hb195_eol.mjs`) **no está en `origin/main`**. Contenido intacto.
+- **ALERT-235 (ABIERTA)** — los 2 `PRE_BACKLOG.md` divergen **y la diferencia creció**:
+  workspace del PO = **376.071 B, ronda 63** (mtime 18:01 UTC); repo `origin/main` = **331.760 B, ronda 55**
+  (mtime 19:08 UTC). El repo está **8 rondas viejo**. Los 2 archivos además tienen **EOL distinto**
+  (workspace 158 CRLF sobre 5.357 LF = mixto; repo 4.956 CRLF = puro).
+  **La decisión de cuál gana es del PO/Arquitecto.** No la tomo.
+- **ALERT-258 (matizada)** — el diagnóstico del HB#195 atribuyó el diff a `core.autocrlf`; es **la mitad**.
+  La otra mitad es que el blob era MIXTO. Ver HALLAZGO DEL CICLO.
+- **ALERT-41, ALERT-179, T14/T15, los 7 del patrón B, Idea 57 (4 wrappers), FILTRO-05** — sin cambio.
+
+## 6. Estado de propuestas al Reviewer
+
+**0 enviadas.** La ronda 63 es **RECOLECTAR** con `PROPUESTA_NUEVA: 0` y **0 TRAMOS** en el bloque: el paso 3
+manda 3+ propuestas y hay 0. Las 2 cosas que el PO deja (poda de L60 + pregunta de una línea a Pablo) **son
+para Pablo**, no para el Reviewer: mandarle al revisor de código "¿borramos el módulo?" es gastar el canal en
+una decisión de producto.
+
+## 7. Errores de instrumento PROPIOS (4, familia ALERT-79), todos antes del commit
+
+1. **`CR = 10` en mi medidor de EOL.** Puse `10` donde va `13`, así que `cr` contaba los **LF** y el archivo
+   "-MIXTO vs CRLF PURO" me iba a salir como **LF PURO en los dos**. **Un instrumento que confunde CR con LF
+   no distingue los dos modos que existe para distinguir** — y el bug estaba en la constante, o sea en la
+   primera línea.
+2. **Control positivo escrito sin medir el caso sano (5a vez, familia ALERT-165).** Busqué
+   `"Heartbeat del Principal"` en `TEAM_STATUS.md`; esa cadena vive en **`HEARTBEAT.md`**. Dio **FALLO** sobre
+   un archivo sano. Lo recalibré derivando el control del propio dato (la línea común más larga) y dio OK con
+   **2404** candidatas. **Un control que se puede disparar con una cadena de otro archivo no es un control.**
+3. **`st.mtime` sobre un `Buffer`.** `readFileSync` sin `encoding` devuelve Buffer, que no tiene `.mtime` →
+   `TypeError`. Necesita `statSync`. Ruidoso, que es lo que se prefiere (ALERT-227).
+4. **`%P` / `%s` / `%ad` partidos por `cmd.exe` en el `git log`**, que reventó el comando con
+   `fatal: ambiguous argument`.(4a vez; la regla ya estaba escrita en el HB#158: sin comillas simples en crudo
+   dentro de `.mjs`.)
+
+## 8. Archivos de este ciclo
+
+- `TEAM_STATUS.md` (esta sección) y `ALERTS_LOG.md` (ALERT-259).
+- **Sin `js/` ni `tests/` → la suite NO aplica** y no la corro por costumbre.
+- **0 worktrees creados.** `_r56_wt/` y `_wt193/` son preexistentes y del PO: **no los borro** (borrar un
+  directorio que no puedo atribuir es más caro que dejarlo).
+
+<!-- TEAM_STATUS anterior (HB#195) preservado abajo -->
+
+> **Actualizado:** 2026-10-04 19:00 UTC (HB#195) por el Principal.
+
 > **Actualizado:** 2026-10-04 19:00 UTC (HB#195) por el Principal.
 >
 > **HALLAZGO DEL CICLO — ALERT-250: EL PREFIJO `getAccount` NO NOMBRA UNA CAPA, Y POR ESO EL
