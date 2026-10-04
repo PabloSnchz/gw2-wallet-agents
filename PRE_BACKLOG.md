@@ -3611,3 +3611,46 @@ dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
 documenta la justificacion de la que se borro, y por eso no dispara la alarma
 nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
 **la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**
+
+## ARCHIVADAS CON FECHA — indice de heartbeat (creado en la ronda 53, 2026-10-04)
+
+> **Por que existe esta seccion:** el `AGENTS.md` me manda al podado aca
+> ("Idea + `revisar: 2026-11-XX`"). La seccion **no existia**: 0 menciones de
+> "Archivadas con fecha" en 3513 lineas. Veinte rondas no tuvieron donde ir, y por
+> eso se fueron a `MEMORY.md` (workspace) y a `DASHBOARD_PO_IDEAS.md` (repo).
+>
+> **Lo que esto deja de lado:** `PRE_BACKLOG.md` se detuvo el **2026-09-30**
+> (ultima entrada: Idea 48). `DASHBOARD_PO_IDEAS.md` llega a la **ronda 41**
+> (2026-10-02 07:30, 2479 lineas). `MEMORY.md` llega a la **ronda 52**.
+> **Tres archivos, tres alcances, ninguno completo.**
+>
+> **Y esto es lo que hay que mirar antes que el tamano:** el `AGENTS.md` usa
+> *"PRE_BACKLOG.md esta en 241 KB / 3766 lineas"* como prueba de que se producen
+> ideas sin parar. Ese numero es **del 2026-09-30**. El archivo que de verdad
+>registro los ultimos hallazgos
+> (`DASHBOARD_PO_IDEAS.md`, 177 KB) es el que
+> nadie mira para decidir el modo.
+
+| Ronda | Fecha | Hallazgo | Donde quedo | Revisar |
+|---|---|---|---|---|
+| 12 | 09-30 | Idea 57: 9 wrappers degradan a `[]`, el contrato dice 7 | BACKLOG cerrada; capitulo en MEMORY | 2026-11-04 |
+| 18 | 09-30 23:00 | ALERT-84 al dashboard; una cita de linea sin arbol = cita sin unidad | Dashboard | 2026-11-04 |
+| 21 | 10-01 03:00 | La app autoriza una API key que la API no acepta (2 de 7 permisos) | T1/T3 mergeadas; T2 abierta | 2026-11-04 |
+| 22 | 10-01 04:00 | La puerta exige 7, pero hay 3 caminos de entrada; el Gist no pasa por la puerta | T1/T3 cerradas; T2-mini/T4 | 2026-11-04 |
+| 23 | 10-01 05:00 | Mi premisa era falsa: `MIRROR_MAP` no era `FALLBACK_MAP` | Retractado en su sitio | — |
+| 24 | 10-01 06:00 | T6: 364 chars en un toast de 2500 ms, y 3 politicas distintas | Dashboard | 2026-11-04 |
+| 27 | 10-01 09:00 | T8: dos cargas se pisan y el desplegable dice una cuenta y el wallet otra | Dashboard | 2026-11-04 |
+| 34 | 10-01 18:00 | T13: 5 modulos tienen `deactivate()` y el router no lo llama (latch) | Tramos al Reviewer | 2026-11-04 |
+| 37 | 10-02 00:40 | T19: multi-pestana cubre 1 de las 2 claves que escribe | T19-a abierta | 2026-11-04 |
+| 38 | 10-02 02:00 | T20: el boton del Gist no dice las 7 categorias que el de archivo si dice | T20-a/b/c propuestas | 2026-11-04 |
+| 39-49 | 10-02 a 10-03 | **SIN REGISTRO en ningun archivo.** Doce rondas sin registro. | — | 2026-11-04 |
+| 50 | 10-03 16:00 | El "45 items" era una RONDA de mi dashboard | Dashboard | 2026-11-04 |
+| 51 | 10-03 18:00 | ALERT-41: la condicion de cierre es inalcanzable; la prueba de la fila da 404 tambien para ids buenos | Fila sigue viva, con la razon | 2026-11-04 |
+| 52 | 10-03 20:00 | T1: `loadAccountSummary` pide 4 promesas y solo `luck` se lee; las 4 se siguen pidiendo | Fila, no idea | 2026-11-04 |
+| **53** | **10-04** | **Este bloque.** El denominador de la fila L88 esta desactualizado y su nota al pie esta mal dimensionada | PRE_BACKLOG + Principal | **2026-11-04** |
+
+> **La fila "39-49" es la que mas duele y no la puedo reconstruir.** No tengo el
+> registro de esas doce rondas en ningun archivo. Si algo de ahi sirve, hay que
+> buscarlo en `recall_history`, no en estos archivos.
+
+---
