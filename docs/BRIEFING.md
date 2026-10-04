@@ -85,6 +85,7 @@ Sos un desarrollador senior que trabaja dentro de las reglas del proyecto. No es
 | Raid Tracker | ✅ Estable, método `_debug()` disponible, navegación integrada con Strikes |
 | **Migración inline→CSS** | ✅ Fase 1 completada: `wallet-dashboard.js` + `inventory-dashboard.js` sin estilos inline. Clases `.wd-*` y `.id-*` en `theme-polish.css` |
 | Strike Tracker | ✅ **NUEVO v6.6.2** — 15 strikes, grid optimizado, navegación integrada con Raids |
+| Armería Legendaria | ✅ Catálogo de las 206 legendarias con filtros, árbol de fabricación al clickear una carta y vista de materiales (poseído / necesario / faltante). Pestañas **Catálogo** y **Mi progreso** (cola de crafteo, tope 5) |
 | Panel de Cuentas | ✅ Estable |
 | Bienvenida | ✅ Estable |
 | Purchase Detail | ✅ KPI cards compactas, tabla sin scroll |
@@ -113,6 +114,9 @@ Sos un desarrollador senior que trabaja dentro de las reglas del proyecto. No es
 | `css/theme-polish.css` | v2.2.0 | **Nuevas clases `.wd-*` y `.id-*` para KPIs, dropdowns, grids y skeletons** |
 | `app.js` | v2.7.0 | Conversor extraído |
 | `index.html` | — | Sidebar sin conversor, botón PD simplificado |
+| `legendary-tracker.js` | v1.1.0 | **Armería Legendaria.** Ruta `#/account/legendary-armory`. Dueño del estado, los filtros, la cola y `computeMaterials()`. Persistencia `gn:legendary:` |
+
+> Los otros 11 módulos de la Armería (`legendary-data.js`, `legendary-recipes.js`, `legendary-precursors.js`, `legendary-tree.js`, `legendary-tree-ui.js`, `render-catologo.js`, `item-icons.js`, `progress-eta.js`, `luck-curve.js`, `commerce-delivery-theme.js`, `fractal-tracker-theme.js`) están en `docs/Modulos JS Referencia.md`. Guía de uso en `docs/ONBOARDING.md`.
 
 ---
 

@@ -67,6 +67,104 @@ Si hay riesgo → advertir antes de generar código.
 
 ---
 
+## ⚔️ Armería Legendaria (`js/legendary-tracker.js` v1.1.0) — catálogo, árbol de fabricación y materiales
+
+Doce módulos. Ruta **`#/account/legendary-armory`**, con entrada propia en el sidebar ("Armería Legendaria"). Persistencia: prefijo **`gn:legendary:`**. Es un módulo **propio**, no un filtro dentro de Logros: reemplaza al filtro "Legendarias" de `achievements.js`.
+
+### Cómo se usa — las dos pestañas
+
+El panel es `#legendaryArmoryPanel` y el cuerpo (`#legendaryArmoryBody`) lo inyecta el módulo, con un toggle de dos botones: `#legendaryModeCatalog` y `#legendaryModeProgress`.
+
+| Pestaña | Qué muestra | Cómo se cambia |
+|---|---|---|
+| **Catálogo** | La grilla completa de las **206 legendarias** de `legendary-data.js`. | Botón "Catálogo", o `LegendaryTracker.setMode()`. |
+| **Mi progreso** | La **cola de crafteo**: las legendarias encoladas, con sus materiales. | Botón "Mi progreso". Tope `QUEUE_MAX = 5`. |
+
+### Filtros
+
+Se combinan: **tipo** (`weapon` / `armor` / `accessory` / `back`), **generación** (T3 / T4), **expansión** y **posesión** (**Tengo / Me faltan**, sobre `owned[id] > 0`).
+
+- El predicado vive en `passesFilters(item, owned, ignoreOwnership)` y es **el mismo** para el catálogo y para el progreso. `ownershipCounts(owned)` devuelve cuántos hay de cada lado, ya recortados por los otros filtros.
+- **"Solo faltantes" NO existe en el catálogo, a propósito.** Ahí se ve el catálogo entero, así que "solo las que me faltan" sobre un catálogo completo es *todo*: sería un switch que no cambia nada. Solo "Mi progreso" tiene su propio alcance de "solo faltantes".
+- Para escribir un filtro por código: `LegendaryTracker.setFilter('type'|'generation'|'expansion', value)`. **`null` o `''` limpia el filtro.** El valor se valida contra el propio dato, no contra una lista: un tipo que no existe en el catálogo es legítimo (se ve la grilla vacía), y no es lo mismo que un valor inválido, que cae al default en vez de dejar la vista sin items.
+
+### Click en una carta: el árbol de fabricación
+
+- **Click en la carta** → `openItemModal(itemId)`: se abre el modal (`#ltItemModal`) con el **árbol de fabricación** de esa legendaria — el legendario, sus precursores y, al fondo, los ingredientes base.
+- **Encolar es OTRO botón**, `.lt-card-queue-btn` (`+ Cola` / `✓ En la cola`), que vive **dentro** de la card a propósito: si el click del botón llegara a la card, abriría el modal al mismo tiempo. `wireItemCards` lo intercepta antes.
+- `toggleQueue()` es la misma función para el botón y para un consumidor externo: **un consumidor externo y un dedo no pueden tener reglas distintas de las 5**.
+- El `title` y el `aria-label` del botón llevan el texto **exacto** del modal ("Agregar a la cola" / "Quitar de la cola"), para conocer el estado sin abrir nada.
+
+### Vista de materiales: poseído / necesario / faltante
+
+`computeMaterials()` es la función que responde "cuánto me falta":
+
+- Por ingrediente devuelve `{need, have, missing}`, más los totales `{need, have, missing}` y `allHave` (true cuando no falta nada).
+- **`have` se recorta con `Math.min(have, need)` y `missing` con `Math.max(0, need - have)`.** El motivo es de lectura, no de estilo: un negativo al lado de `need` se lee como un bug del juego, cuando en realidad solo significa que el usuario tiene de más.
+- Tres estados, tres colores: **TENGO** (`#68ff9f`), **FALTA** parcial (`#ffc454`), **FALTA** (`#ff7a7a`).
+- `computeMaterials()` **no pinta**: devuelve los datos y los archivos de render los muestran.
+
+### El motor del árbol está separado del que lo pinta
+
+| Archivo | Rol |
+|---|---|
+| `js/legendary-tree.js` | **Motor.** `build()` arma el árbol y los totales. Sin DOM. `isReady()` / `hasPrecursors()` dicen si hay datos. |
+| `js/legendary-tree-ui.js` | **Pintado.** `renderTreeHTML()` y `renderTotalsHTML()`. **No calcula cantidades**: las pide a `build()`. |
+
+La separación es deliberada: si el archivo de UI hiciera aritmética, sería un **segundo motor**, y dos motores que divergen dan dos verdades sobre la misma pieza.
+
+### `legendary-precursors.js` es GENERADO — no se edita a mano
+
+`js/legendary-precursors.js` (268 KB) lo genera **`js/_build_legendary_precursors.py`** desde `tools/cl_recipes.json`. Para cambiarlo se corre el generador.
+
+Se carga **bajo demanda**: `ensurePrecursors()` lo pide solo al abrir un árbol, y por eso **no está entre los `<script>` de `index.html`**. También son generados `legendary-data.js` y `legendary-recipes.js` (este último por `js/_build_legendary_recipes.py`).
+
+Recuento real del contrato de fabricación (`legendary-recipes.js`):
+
+| Por tipo de fabricación | | Por estado del dato | |
+|---|---|---|---|
+| `mystic_forge` | 124 | `recipe` | 142 |
+| `crafting` | 18 | `no_recipe` | 63 |
+| `none` | 64 | `placeholder` | 1 |
+
+### Contrato de render: registro todo-o-nada
+
+`legendary-tracker.js` **no conoce** a los archivos de render. `render-catologo.js` se registra al cargar:
+
+```js
+LegendaryTracker.registerRender({
+  filterBar, catalogGrid, skeleton, progress
+});
+LegendaryTracker.registerItemModal(renderItemModal);
+```
+
+- Los **4 renderers son obligatorios**. Si falta uno, el registro se **rechaza entero** y la lista de faltantes queda en `state._renderMissing`, visible desde `LegendaryTracker._debug().render.missing`.
+- `renderFilterBar()` pide los contadores a `getOwnershipCounts()` en vez de recibirlos por parámetro, para no cambiar la firma del contrato de renderers.
+- **Orden de `<script>` obligatorio**: `legendary-tracker.js` tiene que cargarse **antes** que `render-catologo.js` o el registro falla. `legendary-data.js` puede ir en cualquier posición (sus usos de `LegendaryCatalog` son en tiempo de render) e `item-icons.js` se busca en runtime, cuando ya se está pintando.
+
+### Módulos de soporte
+
+| Archivo | Responsabilidad | API |
+|---|---|---|
+| `js/item-icons.js` | Icono y color de rareza de un item, resueltos desde la API. **No es un cliente de ítems**: ese cliente ya existe (`GW2Api.getItemsMany`). Caché propia `items_cache_armory_v1`. | `window.ItemIcons` |
+| `js/progress-eta.js` | ETA de un progreso "N/total". Nace de una duplicación concreta: `computeEta`/`fmtEta` vivían dentro de `wallet-dashboard.js`. | `window.GN.progressEta` |
+| `js/luck-curve.js` | Curva de Suerte (Luck) account-wide. Sin DOM, sin fetch, sin storage. | `window.LuckCurve` |
+| `js/commerce-delivery-theme.js` | Capa 3 (color semántico) del banner "caja del TP sin cobrar". Escribe **solo** `borderLeft`. | No expone global: se instala con `MutationObserver` sobre `.cv-delivery[data-cv-color]` |
+| `js/fractal-tracker-theme.js` | Capa 3 (color semántico) del bloque de fractales. Escribe **solo** `borderLeft`. | No expone global: `MutationObserver` |
+
+### Invariantes que respeta
+
+- **Un solo canal de cambio de cuenta**: escucha `gn:tokenchange` (`legendary-tracker.js:1191`) y refresca desde ahí. No agrega un canal nuevo.
+- **Ningún módulo toca DOM ajeno**: todo lo que pinta la Armería cuelga de `#legendaryArmoryPanel`.
+- **CSS en 3 capas**: los dos theme de soporte escriben únicamente `borderLeft`, nunca `!important`, ni `border`, `boxShadow`, `borderRadius` ni `transition`.
+- **Router**: `#/account/legendary-armory` se resuelve en `router.js`, que llama a `activate()` y a `refresh(true)`. El módulo además exporta `Route = {path, mount, unmount, prefetch}`.
+
+### Cómo mirarlo sin abrir la app
+
+`LegendaryTracker._debug()` devuelve versión, si está inicializado y activo, el modo, un token truncado, cuántas legendarias tiene la armería, si está cargando, el error si lo hay, el estado del registro de render, los filtros activos y qué nodos del panel existen.
+
+---
+
 ## 🗄️ Novedades 2026-09-30 (C) — Caché de `localStorage`: cuota compartida y quién puede borrar qué
 
 Commits en `agents/main`: `d7cbe0d` + merge `9e211b5` (`js/activities.js` v3.20.2 → **v3.20.3**), `fb55fe2` + buster `4e5296b` (`js/api-gw2.js` v2.19.0 → **v2.20.0**). **Sin CSS, sin cambio de UI.** Runner propio del Tramo 1: `tests/idea49.activities-cache-wipe.test.js` 16/16. Runner del Tramo A: `tests/idea49.quotavisible.test.js` 11/11, y **4/11 (7 FAIL) contra el archivo sin modificar**. Suite completa: 7 runners, 170 aserciones, 0 FAIL.

@@ -57,6 +57,21 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 
 > **Consecuencia para futuros módulos:** si un feature necesita un dato que la API no expone, el feature se entrega *sin* ese dato (o con el fallback estático ya existente en el proyecto), no *con* una estimación. Ver detalle en `docs/ONBOARDING.md` → Invariantes Técnicas.
 
+### ⚔️ Armería Legendaria (`js/legendary-tracker.js` v1.1.0)
+
+**Un módulo propio con ruta propia (`#/account/legendary-armory`), no un filtro dentro de Logros.** Reemplaza el filtro "Legendarias" que vivía en la pantalla de Logros.
+
+| Qué | Detalle |
+|-----|---------|
+| **Catálogo** | Las **206 legendarias** en una grilla, con filtros por tipo (arma / armadura / accesorio / espalda), por generación (T3 / T4), por expansión y por posesión (**Tengo / Me faltan**). |
+| **Mi progreso** | La **cola de crafteo**: hasta 5 legendarias encoladas con un botón `+ Cola` / `✓ En la cola` en cada carta. |
+| **Árbol de fabricación** | Al clickear una carta se abre su árbol completo: el legendario, sus precursores y, al fondo, los ingredientes base. |
+| **Materiales** | Por ingrediente: **poseído / necesario / faltante**, más los totales de la pieza. Tres estados: **TENGO** (verde), **FALTA** parcial (ámbar), **FALTA** (rojo). |
+
+- **Doce módulos** en total: 5 de datos y cálculo, 2 de árbol, 1 de render y 4 de soporte. Los pesos grandes son de datos generados: `legendary-precursors.js` (268 KB) **se genera con `js/_build_legendary_precursors.py` y no se edita a mano**, y se carga solo al abrir un árbol.
+- **Persistencia**: prefijo `gn:legendary:`.
+- Detalle de comportamiento y contrato de render en `docs/ONBOARDING.md`; índice técnico completo en `docs/Modulos JS Referencia.md`; historial en `CHANGELOG.md` → `### Added`.
+
 ### 🎲 Suerte (MF base account-wide) en el Dashboard de Cartera (`js/luck-curve.js` v1.0.0)
 
 **Idea del PO (2026-09-29). La premisa se corrigió antes de implementar: la Luck no es una moneda.**
@@ -1002,9 +1017,31 @@ Definí en `index.html` (antes de router.js):
 | `js/wallet-theme.js` | **v1.3.1** | Tema visual de Cartera. **Glow en ícono + glow neutro para divisas sin color** |
 | `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
 | `js/achievements-theme.js` | **v1.1.1** | Tema visual de Logros. **Solo border-left** |
+| `js/legendary-tracker.js` | **v1.1.0** | **Armería Legendaria. Ruta `#/account/legendary-armory`. Catálogo + Mi progreso + árbol de fabricación + materiales.** Persistencia `gn:legendary:` |
+| `js/legendary-data.js` | **v1.0.0** | **GENERADO. Catálogo estático de 206 legendarias** (`window.LegendaryCatalog`) |
+| `js/legendary-recipes.js` | **v1.0.0** | **GENERADO. Contrato de fabricación de las 206 legendarias** (`window.LegendaryRecipes`) |
+| `js/legendary-precursors.js` | sin banner | **GENERADO por `js/_build_legendary_precursors.py` — NO EDITAR A MANO.** Precursores del árbol. Se carga bajo demanda, solo al abrir un árbol |
+| `js/legendary-tree.js` | sin banner | Motor del árbol de fabricación y los totales de materiales. Sin DOM (`window.LegendaryTree`) |
+| `js/legendary-tree-ui.js` | sin banner | Pintado del árbol y los totales. **No calcula cantidades**, las pide al motor (`window.LegendaryTreeUI`) |
+| `js/render-catologo.js` | **v1.0.0** | Render del catálogo, la barra de filtros, el skeleton y el progreso. Se registra vía `registerRender()` |
+| `js/item-icons.js` | sin banner | Icono y color de rareza de un item, resueltos desde la API. Caché propia `items_cache_armory_v1` |
+| `js/progress-eta.js` | **v1.0.0** | ETA de un progreso "N/total" (`window.GN.progressEta`). Sin DOM |
+| `js/luck-curve.js` | **v1.0.0** | Curva de Suerte (Luck) account-wide. 300 umbrales + `fromLuck()`. Sin DOM/fetch/storage |
+| `js/commerce-delivery-theme.js` | **v1.0.0** | Capa 3 (color semántico) del banner de Commerce Delivery. **Solo `borderLeft`** |
+| `js/fractal-tracker-theme.js` | **v1.0.1** | Capa 3 (color semántico) del bloque de fractales. **Solo `borderLeft`** |
 | `js/app.js` | **v2.7.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
 | `css/theme-polish.css` | **v2.2.0** | **Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons** |
 | `css/main.css` | **v2.6.0** | Estilos principales. **Solo layout, sin bordes ni box-shadows. Tag infusión celestial.** |
+
+### Archivos nuevos (Unreleased) — Armería Legendaria
+- `js/legendary-tracker.js` — Módulo principal de la Armería. Ruta `#/account/legendary-armory`, pestañas Catálogo y Mi progreso
+- `js/legendary-data.js` — Catálogo estático de 206 legendarias (generado)
+- `js/legendary-recipes.js` — Contrato de fabricación de las 206 legendarias (generado)
+- `js/legendary-precursors.js` — Precursores del árbol de fabricación. **Generado por `js/_build_legendary_precursors.py`, no se edita a mano.** Carga bajo demanda
+- `js/legendary-tree.js` — Motor del árbol de fabricación y los totales de materiales
+- `js/legendary-tree-ui.js` — Pintado del árbol y los totales
+- `js/render-catologo.js` — Render del catálogo y de los filtros, registrado en `LegendaryTracker.registerRender()`
+- `js/item-icons.js` — Icono y color de rareza de un item
 
 ### Archivos nuevos (v6.5.1)
 - `js/wv-objectives-dashboard.js` — Dashboard de Objetivos Semanales Multi-Cuenta con KPIs, countdown y tabla comparativa

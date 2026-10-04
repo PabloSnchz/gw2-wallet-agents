@@ -2057,6 +2057,18 @@
 | `js/sidebar-nav.js` | v1.2 | — |
 | `js/analytics.js` | v1.0.0 | — |
 | `js/theme-selector.js` | v1.1.0 | 2026-06-XX |
+| `js/legendary-tracker.js` | v1.1.0 | 2026-09-30 |
+| `js/legendary-data.js` | v1.0.0 | 2026-10-02 (generado) |
+| `js/legendary-recipes.js` | v1.0.0 | 2026-10-02 (generado) |
+| `js/legendary-precursors.js` | sin banner de versión | — |
+| `js/legendary-tree.js` | sin banner de versión | — |
+| `js/legendary-tree-ui.js` | sin banner de versión | — |
+| `js/render-catologo.js` | v1.0.0 | — |
+| `js/item-icons.js` | sin banner de versión | — |
+| `js/luck-curve.js` | v1.0.0 | 2026-09-29 |
+| `js/progress-eta.js` | v1.0.0 | 2026-09-30 |
+| `js/commerce-delivery-theme.js` | v1.0.0 | 2026-09-29 |
+| `js/fractal-tracker-theme.js` | v1.0.1 | 2026-09-29 |
 
 ---
 
@@ -2146,3 +2158,303 @@
 - `localStorage:gn_theme` — Tema guardado
 
 **Versión real:** v1.1.0
+
+---
+
+# ⚔️ Armería Legendaria (12 módulos)
+
+Conjunto de 12 módulos que implementan la **Armería Legendaria**: catálogo de las 206 legendarias, árbol de fabricación y vista de materiales. Ruta `#/account/legendary-armory`, resuelta por `router.js`. Guía de uso en `docs/ONBOARDING.md` → *Armería Legendaria*.
+
+| Archivo | KB | Versión | Rol en una línea |
+|---------|----|---------|------------------|
+| `js/legendary-tracker.js` | 60 | v1.1.0 | Módulo principal: estado, filtros, cola y `computeMaterials()` |
+| `js/legendary-data.js` | 84 | v1.0.0 | **Generado.** Catálogo estático de 206 legendarias |
+| `js/legendary-recipes.js` | 107 | v1.0.0 | **Generado.** Contrato de fabricación de las 206 legendarias |
+| `js/legendary-precursors.js` | 268 | sin banner | **Generado.** Precursores del árbol. Carga bajo demanda |
+| `js/legendary-tree.js` | 11 | sin banner | Motor del árbol y los totales. Sin DOM |
+| `js/legendary-tree-ui.js` | 18 | sin banner | Pintado del árbol y los totales |
+| `js/render-catologo.js` | 31 | v1.0.0 | Render del catálogo, filtros, skeleton y progreso |
+| `js/item-icons.js` | 9 | sin banner | Icono y color de rareza de un item |
+| `js/progress-eta.js` | 3 | v1.0.0 | ETA de un progreso "N/total" |
+| `js/luck-curve.js` | 5 | v1.0.0 | Curva de Suerte (Luck) account-wide |
+| `js/commerce-delivery-theme.js` | 4 | v1.0.0 | Capa 3 del banner de Commerce Delivery |
+| `js/fractal-tracker-theme.js` | 5 | v1.0.1 | Capa 3 del bloque de fractales |
+
+---
+
+## 📄 `js/legendary-tracker.js` (v1.1.0)
+
+**Responsabilidad principal:** Módulo principal de la Armería Legendaria. Reemplaza el filtro "Legendarias" que vivía dentro de Logros. Es dueño del estado: armería de la cuenta, catálogo, filtros, cola de crafteo y el cálculo de materiales. **No pinta el catálogo**: expone un contrato de registro y quien pinta se registra.
+
+**API pública expuesta:** `window.LegendaryTracker`
+
+**Métodos principales:**
+- `initOnce()` / `activate()` / `deactivate()` — Ciclo de vida del panel
+- `refresh(forceNoCache)` — Refresco de datos
+- `prefetch(ctx)` — Precarga para la navegación
+- `setMode(mode)` — Cambia entre `catalog` y `progress`
+- `setFilter(key, value)` — Escribe un filtro (`type` / `generation` / `expansion`); `null` o `''` limpia
+- `registerRender(map)` — Registro de renderers. **Todo o nada**: los 4 son obligatorios (`filterBar`, `catalogGrid`, `skeleton`, `progress`)
+- `registerItemModal(fn)` — Registro del modal de ítem
+- `openItemModal(itemId)` / `closeItemModal()` — Modal de la legendaria, con su árbol
+- `computeMaterials()` — `{need, have, missing}` por ingrediente + totales + `allHave`
+- `toggleQueue(id)` / `getQueue()` / `QUEUE_MAX` — Cola de crafteo (tope **5**)
+- `getOwnershipCounts()` — Cuántos hay de cada lado del filtro de posesión
+- `getRenderState()` / `getState()` / `_debug()` — Inspección
+
+**Constantes:**
+- `REQUIRED_RENDERERS = ['filterBar', 'catalogGrid', 'skeleton', 'progress']`
+- `QUEUE_MAX = 5`
+- `STORAGE_PREFIX = 'gn:legendary:'`
+
+**Dependencias:**
+- `GW2Api.getAccountLegendaryArmory()`, `getItemsMany()`, `getCommercePrices()`, `getAccountBank()`, `getAccountMaterials()`
+- `legendary-data.js` — catálogo estático
+- `legendary-tree.js` / `legendary-tree-ui.js` — árbol y totales
+- `render-catologo.js` — se registra en este módulo
+- `gn:tokenchange` — **único** canal de cambio de cuenta (`legendary-tracker.js:1191`)
+
+**Persistencia:**
+- Prefijo `gn:legendary:` — **ninguna clave fuera de ese prefijo**
+
+**Nota:** declara `POSSESSION_LIMITS` (3 armas / 6 armaduras / 5 accesorios / 2 espaldas) pero **no la usa en ninguna parte**: es una constante muerta, no una regla vigente.
+
+**Versión real:** v1.1.0
+
+---
+
+## 📄 `js/legendary-data.js` (v1.0.0) — GENERADO
+
+**Responsabilidad principal:** Catálogo estático de las **206 legendarias** del Armory. **No se edita a mano.** Se genera con la cadena, en orden: `_fetch_legendary_items.py` (baja el snapshot crudo), `_fetch_thematic_prices.py` (precios TP, opcional) y `_build_legendary_data.py` (produce este archivo). El snapshot crudo **no se versiona**.
+
+**API pública expuesta:** `window.LegendaryCatalog`
+
+**Propiedades:**
+- `version` — `"1.0.0"`
+- `generated` — `"2026-10-02 02:39:15 UTC"`
+- `totalItems` — `206`
+- `items` — `LEGENDARY_CATALOG`, el array de legendarias
+
+**Dependencias:** ninguna. Datos estáticos.
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/legendary-recipes.js` (v1.0.0) — GENERADO
+
+**Responsabilidad principal:** Contrato de fabricación de las 206 legendarias. Generado por `js/_build_legendary_recipes.py` desde `tools/cl_recipes.json`. **No se edita a mano.** Es lo que permite distinguir una legendaria que se fabrica en la Forja Mística de una que se fabrica en un banco.
+
+**API pública expuesta:** `window.LegendaryRecipes`
+
+**Propiedades y métodos:**
+- `version` — `'1.0.0'`
+- `generated` — `"2026-10-02 15:19:29 UTC"`
+- `totalItems` — `206`
+- `craftType` / `dataStatus` / `placeholder` / `noRecipeNote` — Vocabulario del contrato
+- `counts.craftType` — `mystic_forge: 124`, `crafting: 18`, `none: 64`
+- `counts.dataStatus` — `recipe: 142`, `no_recipe: 63`, `placeholder: 1`
+- `byItem` — Mapa item → receta
+- `get(itemId)` — Receta de una legendaria
+- `describe(itemId)` — Descripción legible
+
+**Dependencias:** ninguna. Datos estáticos.
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/legendary-precursors.js` (sin banner de versión) — GENERADO
+
+**Responsabilidad principal:** Precursores del árbol de fabricación: qué piezas intermedias necesita cada ingrediente para llegar al ingrediente base. **GENERADO POR `js/_build_legendary_precursors.py` — NO EDITAR A MANO.** Fuente: `tools/cl_recipes.json`.
+
+**No expone API.** Es una tabla de datos que consume `legendary-tree.js`.
+
+**Por qué está separado del motor:** son 268 KB. Se carga **bajo demanda** (`LegendaryTreeUI.ensurePrecursors()`), solo al abrir un árbol, y por eso **no está entre los `<script>` de `index.html`**.
+
+**Dependencias:** ninguna. Datos estáticos.
+
+**Persistencia:** ninguna.
+
+**Versión real:** sin banner de versión (archivo generado)
+
+---
+
+## 📄 `js/legendary-tree.js` (sin banner de versión)
+
+**Responsabilidad principal:** Motor del árbol de fabricación y del total de materiales. Sin DOM, sin fetch, sin storage. Toma el contrato (`legendary-recipes.js`) y los precursores y resuelve el árbol completo, bajando hasta los ingredientes base.
+
+**API pública expuesta:** `window.LegendaryTree`
+
+**Métodos principales:**
+- `build(itemId)` — Arma el árbol de una legendaria
+- `entry(itemId)` — Entrada de una legendaria
+- `isReady()` — `true` si hay contrato **y** precursores cargados
+- `hasPrecursors()` — `true` si los precursores ya están
+
+**Dependencias:**
+- `legendary-recipes.js` — el contrato de fabricación
+- `legendary-precursors.js` — los precursores
+
+**Persistencia:** ninguna.
+
+**Versión real:** sin banner de versión. `index.html` lo carga como `?v=1.0.0`
+
+---
+
+## 📄 `js/legendary-tree-ui.js` (sin banner de versión)
+
+**Responsabilidad principal:** Pintado del árbol de fabricación y de los totales. **No calcula cantidades**: las pide a `legendary-tree.js` con `build()`. Si este archivo hiciera aritmética sería un segundo motor, y dos motores que divergen dan dos verdades sobre la misma pieza.
+
+**API pública expuesta:** `window.LegendaryTreeUI`
+
+**Métodos principales:**
+- `ensurePrecursors()` — Carga bajo demanda `legendary-precursors.js`
+- `renderTreeHTML()` — HTML del árbol
+- `renderTotalsHTML()` — HTML de los totales
+- `NIVEL_ABIERTO_POR_DEFECTO` — Nivel que viene abierto
+- `_resetCache()` — Limpia la caché de render
+
+**Dependencias:**
+- `legendary-tree.js` — el motor (le pide las cantidades)
+- `legendary-precursors.js` — carga bajo demanda
+
+**Persistencia:** ninguna.
+
+**Versión real:** sin banner de versión. `index.html` lo carga como `?v=1.0.0`
+
+---
+
+## 📄 `js/render-catologo.js` (v1.0.0)
+
+**Responsabilidad principal:** Render del catálogo y de los filtros. **No sabe cómo funcionan los datos**: se registra en `LegendaryTracker.registerRender()` con 4 funciones y un modal, y a partir de ahí el módulo principal lo invoca. También traduce los estados de material a color: `TENGO` `#68ff9f`, `FALTA` parcial `#ffc454`, `FALTA` `#ff7a7a`.
+
+**API pública expuesta:** ninguna global. Se registra al cargar:
+- `registerRender({filterBar, catalogGrid, skeleton, progress})`
+- `registerItemModal(renderItemModal)`
+
+**Funciones registradas:**
+- `renderFilterBar(filters, all)` — Barra de filtros. Pide los contadores a `getOwnershipCounts()` en vez de recibirlos por parámetro, para no cambiar la firma del contrato
+- `renderCatalogGrid(items, owned)` — Grilla de cartas
+- `renderSkeleton()` — Skeleton de carga
+- `renderProgress()` — Vista de la cola
+
+**Detalle de UI:**
+- Cada carta lleva un botón de encolar `.lt-card-queue-btn` (`+ Cola` / `✓ En la cola`) **dentro** de la card. Va dentro a propósito: si el click del botón llegara a la card, abriría el modal al mismo tiempo. `wireItemCards` lo intercepta antes
+- El `title` y el `aria-label` del botón llevan el texto exacto del modal ("Agregar a la cola" / "Quitar de la cola")
+
+**Dependencias:**
+- `window.LegendaryTracker.registerRender()` / `registerItemModal()` — **tiene que existir antes**: el registro se rechaza si falta cualquiera de los 4 renderers
+- `item-icons.js` — iconos y color de rareza (se busca en runtime)
+
+**Persistencia:** ninguna. Escribe en el DOM del panel.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/item-icons.js` (sin banner de versión)
+
+**Responsabilidad principal:** Icono y color de rareza de un item, resueltos desde la API. **No es un cliente de ítems**: ese cliente ya existe y está probado (`GW2Api.getItemsMany`, `api-gw2.js:1779`, lotes de 200). Este archivo usa ese cliente y le pone su propia caché.
+
+**API pública expuesta:** `window.ItemIcons`
+
+**Métodos principales:**
+- `cargar(ids, opts)` — Carga un lote de ítems
+- `de(id)` — Datos de un ítem
+- `iconDe(id)` — URL del icono
+- `colorDe(rareza)` — Color de la rareza
+
+**Configuración de caché:**
+- `cacheKey: 'items_cache_armory_v1'` — caché propia, separada de la de `api-gw2.js`
+- `cacheCap: 1200` / `cacheTrim: 1300`
+
+**Dependencias:**
+- `GW2Api.getItemsMany()` — el cliente de ítems
+
+**Persistencia:** `localStorage` bajo `items_cache_armory_v1`
+
+**Versión real:** sin banner de versión. `index.html` lo carga como `?v=1.0.0`
+
+---
+
+## 📄 `js/progress-eta.js` (v1.0.0)
+
+**Responsabilidad principal:** ETA de un progreso del tipo "N/total". Nace de una duplicación concreta, no de una idea general: `computeEta` y `fmtEta` vivían dentro de `wallet-dashboard.js` y se extrajeron para poder reusarlos.
+
+**API pública expuesta:** `window.GN.progressEta`
+
+**Métodos principales:**
+- `computeEta(done, total, startedAt)` — Calcula la ETA
+- `fmtEta(secs)` — Formatea ("~45 min")
+- `nowMs()` — Reloj inyectable
+- `thresholds` — `minDone`, `minMs`: por debajo de esos umbrales no se muestra ETA
+
+**Dependencias:** ninguna.
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/luck-curve.js` (v1.0.0)
+
+**Responsabilidad principal:** Curva de Suerte (Luck) account-wide de GW2. Tabla de los **300 umbrales oficiales** + conversión de luck a MF%. Sin DOM, sin fetch, sin storage. Fuente: https://wiki.guildwars2.com/wiki/Luck
+
+**API pública expuesta:** `window.LuckCurve`
+
+**Miembros principales:**
+- `MF_CAP` — Tope de MF base (**300%**)
+- `LUCK_CAP` — `4.295.450` luck
+- `LUCK_OVERFLOW` — `472.510` luck de exceso (ya no otorgan MF)
+- `CUMULATIVE` — Los 300 umbrales
+- `fromLuck(value)` — `{value, mf, missing, nextLuck, capped, pct, maxed, overflow}`
+
+**Dependencias:** ninguna.
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/commerce-delivery-theme.js` (v1.0.0)
+
+**Responsabilidad principal:** Capa 3 (color semántico) del banner "caja del Trading Post sin cobrar" de `converter-modal.js`. Solo 2 estados con color: `pending` (hay plata esperando) y `error` (no se pudo leer). `empty` no se dibuja, y esa asimetría es intencional: el silencio es el estado normal y el color se reserva para lo que exige acción.
+
+**API pública expuesta:** ninguna global. Se instala solo, con `MutationObserver` sobre `.cv-delivery[data-cv-color]`.
+
+**Reglas que respeta (arquitectura CSS en 3 capas):**
+- Escribe **una sola propiedad**: `borderLeft`. Nunca `border`, `boxShadow`, `borderRadius` ni `transition` — esas son de `theme-polish.css` (capa 2)
+- **Nunca** `!important`
+- La estructura (padding, flex, gap, tipografía) vive en `main.css` (capa 1)
+- No depende del tema activo: los dos colores son estados, no skins
+
+**Dependencias:** `converter-modal.js` (produce el markup). El patrón es `MutationObserver`, así que `converter-modal.js` no necesita saber que este archivo existe.
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.0
+
+---
+
+## 📄 `js/fractal-tracker-theme.js` (v1.0.1)
+
+**Responsabilidad principal:** Capa 3 (color semántico) del bloque de fractales de `activities.js`. Mismo patrón y mismas reglas que `commerce-delivery-theme.js`.
+
+**API pública expuesta:** ninguna global. `MutationObserver`.
+
+**Reglas que respeta (arquitectura CSS en 3 capas):**
+- Escribe **una sola propiedad**: `borderLeft`, y como **shorthand completo** (`3px solid <color>`). Asignarle solo el color resetea las longhands y el borde deja de dibujarse
+- **Nunca** `!important`
+
+**Dependencias:** `activities.js` (produce el markup).
+
+**Persistencia:** ninguna.
+
+**Versión real:** v1.0.1 (fix: `borderLeft` shorthand completo)
