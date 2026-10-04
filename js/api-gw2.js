@@ -511,7 +511,9 @@
     SKINS:         6 * 60 * 60 * 1000,       // 6 h (el desbloqueo de una skin es una compra)
     LUCK:          10 * 60 * 1000,           // 10 min (la suerte solo sube al consumir esencia)
     ACH_ACC:       2 * 60 * 1000,            // 2 min
-    ACH_META:     12 * 60 * 60 * 1000        // 12 h
+    ACH_META:     12 * 60 * 60 * 1000,       // 12 h
+    HOMSTEAD:      5 * 60 * 1000,            // 5 min (decorations/glyphs no cambian seguido)
+    HOMSTEAD_STATIC: 24 * 60 * 60 * 1000     // 24 h (datos estáticos: categorías, glyphs, decorations)
   };
 
   var CFG = {
@@ -1668,6 +1670,118 @@
   }
 
   // ========================================================================
+  // Homestead (v2.34.0) — decorations, glyphs, account unlocks
+  // ========================================================================
+  function getHomesteadDecorationDetails(opts) {
+    opts = opts || {};
+    var key = 'homestead_decorations_all';
+    var cached = getCache(key, TTL.HOMSTEAD_STATIC, null, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withParams(CFG.API_BASE + '/v2/homestead/decorations', { ids: 'all', lang: CFG.LANG });
+    var ikey = 'if:homestead_decorations_all:' + CFG.LANG;
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        putCache(key, arr, null, TTL.HOMSTEAD_STATIC);
+        return arr;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting homestead decorations:', error);
+        return [];
+      });
+    });
+  }
+
+  function getHomesteadDecorationCategories(opts) {
+    opts = opts || {};
+    var key = 'homestead_decoration_categories';
+    var cached = getCache(key, TTL.HOMSTEAD_STATIC, null, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withParams(CFG.API_BASE + '/v2/homestead/decorations/categories', { ids: 'all', lang: CFG.LANG });
+    var ikey = 'if:homestead_decoration_categories:' + CFG.LANG;
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        putCache(key, arr, null, TTL.HOMSTEAD_STATIC);
+        return arr;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting homestead decoration categories:', error);
+        return [];
+      });
+    });
+  }
+
+  function getHomesteadGlyphs(opts) {
+    opts = opts || {};
+    var key = 'homestead_glyphs_all';
+    var cached = getCache(key, TTL.HOMSTEAD_STATIC, null, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withParams(CFG.API_BASE + '/v2/homestead/glyphs', { ids: 'all', lang: CFG.LANG });
+    var ikey = 'if:homestead_glyphs_all:' + CFG.LANG;
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        putCache(key, arr, null, TTL.HOMSTEAD_STATIC);
+        return arr;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting homestead glyphs:', error);
+        return [];
+      });
+    });
+  }
+
+  function getAccountHomesteadDecorations(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+
+    var key = 'account_homestead_decorations';
+    var cached = getCache(key, TTL.HOMSTEAD, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withToken(CFG.API_BASE + '/v2/account/homestead/decorations', token);
+    var ikey = 'if:account_homestead_decorations:' + fpToken(token);
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        putCache(key, arr, token, TTL.HOMSTEAD);
+        return arr;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting account homestead decorations:', error);
+        return [];
+      });
+    });
+  }
+
+  function getAccountHomesteadGlyphs(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+
+    var key = 'account_homestead_glyphs';
+    var cached = getCache(key, TTL.HOMSTEAD, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+
+    var url = withToken(CFG.API_BASE + '/v2/account/homestead/glyphs', token);
+    var ikey = 'if:account_homestead_glyphs:' + fpToken(token);
+
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        var arr = Array.isArray(data) ? data : [];
+        putCache(key, arr, token, TTL.HOMSTEAD);
+        return arr;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting account homestead glyphs:', error);
+        return [];
+      });
+    });
+  }
+
+  // ========================================================================
   // Wallet / Currencies (fallback para Astral Acclaim)
   // ========================================================================
   function getAccountWallet(token, opts) {
@@ -2482,6 +2596,13 @@
     // Coleccion / Coberturable (NUEVO v2.32.0)
     getAccountSkins: getAccountSkins,
     getSkinsBatch: getSkinsBatch,   // v2.33.0 (Tramo 2): id -> ficha
+
+    // Homestead (v2.34.0)
+    getHomesteadDecorationDetails: getHomesteadDecorationDetails,
+    getHomesteadDecorationCategories: getHomesteadDecorationCategories,
+    getHomesteadGlyphs: getHomesteadGlyphs,
+    getAccountHomesteadDecorations: getAccountHomesteadDecorations,
+    getAccountHomesteadGlyphs: getAccountHomesteadGlyphs,
 
     // Wallet / Currencies (fallback AA)
     getAccountWallet: getAccountWallet,

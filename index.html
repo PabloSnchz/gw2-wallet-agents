@@ -546,6 +546,24 @@
       </div>
     </section>
 
+    <!-- ======= Panel Homestead (rescate HB#199, estaba commiteado sin mergeear) ======= -->
+    <section id="homesteadTrackerPanel" class="panel col-main" aria-labelledby="homesteadTrackerTitle" hidden>
+      <h2 class="panel__title" id="homesteadTrackerTitle">
+        <svg class="panel__icon" width="32" height="32" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="M3 10.5 12 3l9 7.5"></path>
+          <path d="M5.5 9.5V20h13V9.5"></path>
+          <path d="M9.5 20v-5.5h5V20"></path>
+        </svg>
+        Homestead
+      </h2>
+      <div class="panel__body" id="homesteadTrackerBody">
+        <!-- Contenido dinámico inyectado por homestead-tracker.js -->
+        <div class="muted" style="text-align: center; padding: 40px;">⏳ Cargando Homestead...</div>
+      </div>
+    </section>
+
     <!-- ======= Panel Wizard’s Vault ======= -->
     <section id="wvPanel" class="panel col-main" hidden>
       <div class="panel-head">
@@ -766,6 +784,23 @@
               </a>
             </li>
             <!-- ====== FIN NUEVO ====== -->
+
+            <!-- ====== Homestead (rescate HB#199) ====== -->
+            <li>
+              <a id="navHomestead" class="side-nav__link" href="#/account/homestead" data-view="homestead">
+                <span class="side-nav__icon">
+                  <svg class="icon-img" width="28" height="28" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                       role="img" aria-label="Homestead">
+                    <path d="M3 10.5 12 3l9 7.5"></path>
+                    <path d="M5.5 9.5V20h13V9.5"></path>
+                    <path d="M9.5 20v-5.5h5V20"></path>
+                  </svg>
+                </span>
+                <span>Homestead</span>
+              </a>
+            </li>
+            <!-- ====== FIN HOMESTEAD ====== -->
 
             <li>
               <a id="navAccounts" class="side-nav__link" href="#/account/accounts">
@@ -1015,6 +1050,13 @@
 <script defer src="js/legendary-tree.js?v=1.0.0"></script>
 <script defer src="js/legendary-tree-ui.js?v=1.0.0"></script>
   <script defer src="js/render-catologo.js?v=1.0.0"></script>
+
+  <!-- Homestead (rescate HB#199). Va DESPUES del bloque de la Armeria y no
+       pegado a legendary-tracker.js: el bloque de arriba esta anclado por
+       POSICION en alert86.censo-clasificacion.test.js (L1012..L1017) y dos
+       de sus comentarios ya explican por que los numeros hay que medir. No
+       se agrega nada antes de ese rango. -->
+  <script defer src="js/homestead-tracker.js?v=1.0.0"></script>
 
   <!-- Icono y color de rareza de los items del arbol. Va ACa, y no junto a los
        otros de la Armeria, por una razon de mantenimiento concreta:

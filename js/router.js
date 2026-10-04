@@ -122,7 +122,8 @@
           '#/inventory/dashboard':'inventoryDashboard',
           '#/account/raids':'raids',
           '#/account/strikes':'strikes',
-          '#/account/legendary-armory':'legendaryArmory'
+          '#/account/legendary-armory':'legendaryArmory',
+          '#/account/homestead':'homestead'
         };
         var dv = map[h]; if (dv) found = links.find(function (a) { return (a.getAttribute('data-view')||'').trim().toLowerCase()===dv; }) || null;
       }
@@ -143,14 +144,15 @@
       else if (view==='walletDashboard'){ /* no sidebar específico */ }
       else if (view==='raids'){ /* no sidebar específico para raids */ }
       else if (view==='strikes'){ /* no sidebar específico para strikes */ }
-      else if (view==='legendaryArmory'){ /* no sidebar específico para arm. legendaria */ }
+      else if (view==='legendaryArmory'){ /* no sidebar específico para arm. legendaria */}
+      else if (view==='homestead'){ /* no sidebar específico para homestead */ }
       else if (view==='inventory'){ /* no sidebar específico para inventario */ }
       else if (view==='inventoryDashboard'){ /* no sidebar específico */ }
     } catch (e) { console.warn('[router] updateSidebarFor error', e); }
   }
 
   function showPanel(idToShow) {
-    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel','legendaryArmoryPanel'].forEach(function(id){
+    ['walletPanel','metaPanel','achievementsPanel','wvPanel','activitiesPanel','inventoryPanel','charactersPanel','accountsPanel','welcomePanel','walletDashboardPanel','inventoryDashboardPanel','wvObjectivesDashboardPanel','raidTrackerPanel','strikeTrackerPanel','legendaryArmoryPanel','homesteadTrackerPanel'].forEach(function(id){
       var node=el(id); if (!node) return;
       if (id===idToShow) node.removeAttribute('hidden'); else node.setAttribute('hidden','hidden');
     });
@@ -1500,16 +1502,18 @@
   // Es lo que protege a InventoryHub, cuyo deactivate() además resetea la
   // subvista (inventory-hub.js:1455): si su panel quedó visible, no se toca.
   //
-  // HomesteadTracker NO entra, y es una decisión explícita, no una omisión:
-  // su deactivate() (homestead-tracker.js:403) solo hace abortLastFetch() y no
-  // tiene panel propio -- escribe en `homesteadTrackerBody`, que no existe en
-  // index.html (medido: 0 matches). Además nadie lo activa: `HomesteadTracker
-  // .activate` no aparece en ningún call site de js/ (medido: 0 matches). Su
-  // latch es inerte por partida doble, y sin panel no hay predicado posible.
+  // HomesteadTracker entra al latch desde el rescate del HB#199. Antes NO
+  // entraba, y la razon que escribia aqui era correcta en su momento pero se
+  // quedo vieja: decia que no tiene panel propio y que nadie lo activa
+  // (medido: 0 matches). Los dos cambiaron con el wiring (index.html y este
+  // archivo), asi que la exclusion ya no describe el codigo. Con panel propio
+  // la condicion del latch es exactamente la misma que para LegendaryTracker:
+  // si homesteadTrackerPanel quedo visible, su deactivate() no se toca.
   var MODULOS_CON_LATCH = [
     { mod: 'RaidTracker',     panel: 'raidTrackerPanel' },
     { mod: 'StrikeTracker',   panel: 'strikeTrackerPanel' },
     { mod: 'LegendaryTracker', panel: 'legendaryArmoryPanel' },
+    { mod: 'HomesteadTracker', panel: 'homesteadTrackerPanel' },
     { mod: 'InventoryHub',    panel: 'inventoryPanel' }
   ];
 
@@ -1624,6 +1628,22 @@
             console.warn('[router] show legendary armory error', e);
           } finally {
             updateSidebarFor('legendaryArmory');
+            setActiveNav(h);
+          }
+          return;
+        }
+
+        if (h === '#/account/homestead') {
+          try {
+            showPanel('homesteadTrackerPanel');
+            if (typeof Analytics !== 'undefined') Analytics.viewModule('homestead');
+            if (window.HomesteadTracker && typeof window.HomesteadTracker.activate === 'function') {
+              window.HomesteadTracker.activate();
+            }
+          } catch (e) {
+            console.warn('[router] show homestead error', e);
+          } finally {
+            updateSidebarFor('homestead');
             setActiveNav(h);
           }
           return;
@@ -1877,6 +1897,12 @@
           window.LegendaryTracker.refresh(true);
         } else if (window.LegendaryTracker && typeof window.LegendaryTracker.activate === 'function') {
           window.LegendaryTracker.activate();
+        }
+      } else if (h === '#/account/homestead') {
+        if (window.HomesteadTracker && typeof window.HomesteadTracker.refresh === 'function') {
+          window.HomesteadTracker.refresh(true);
+        } else if (window.HomesteadTracker && typeof window.HomesteadTracker.activate === 'function') {
+          window.HomesteadTracker.activate();
         }
       }
 
