@@ -1,4 +1,243 @@
 # TEAM_STATUS — Heartbeat Principal
+> **Actualizado:** 2026-10-04 04:3x UTC (HB#183) por el Principal.
+> **PASO -1 RESCATE, y esta vez sin ambiguedad:** arranque **04:30:11 UTC**,
+> `origin/main` @ `cb369e5` (**2026-10-04 00:33:50 UTC**) = **ANTERIOR** al arranque;
+> arbol **SUCIO** con 3 archivos staged (241 inserciones / 0 borrados) y mtimes
+> **04:05:45 / 03:36:02 / 04:07:13**, **TODOS anteriores** al arranque; HEAD en
+> `rescate/hb181-logs-armeria` y **cero sesiones `running`**.
+> Regla 3 del PASO -1: escritor **MUERTO y trabajo TERMINADO** -> es trabajo para
+> **rescatar**, no WIP para descartar. Ademas `main` local estaba **3 commits
+> ATRAS** de `origin/main` (`origin/main..main` vacio, `main..origin/main` = 3).
+
+## HALLAZGO DEL CICLO (ALERT-253): UNA LINEA DE PROSA CON UN TRIPLE-BACKTICK
+## LITERAL ABRE UNA VALLA Y EMPAREJA 220 LINEAS HACIA ABAJO
+
+**Lo que encontre.** El rescate venia con las vallas de codigo **impares**:
+`TEAM_STATUS.md` worktree **11**, blob de `origin/main` **10** (par). Delta **+1**.
+El diff del staged era **insercion pura** (95 lineas, 0 borrados) y se leia como
+limpio: **git no mira vallas**, y una valla sin pareja no es un error de diff, es
+un error de *render*.
+
+**Localizada.** `TEAM_STATUS.md:38`, dentro del bloque rescatado de HB#181:
+
+    - **Vallas de codigo (3 backticks) PARES** en los 4 archivos pesados:
+      ONBOARDING 60, Modulos JS Referencia 2, README 6, PRE_BACKLOG 46. Una
+      valla impar seria una linea que se abrio y nunca se cerro.
+
+La linea **nombra** las vallas usando tres backticks literales **dentro de la
+prosa** (la reproduzco aqui como "(3 backticks)", no verbatim: **copiar la linea
+defectuosa dentro de prosa reintroduce el defecto**, y ese fue mi error de este
+ciclo, cazado por mi propio control). Eso abre una valla de codigo en L38 que
+se cierra en L258: **220 lineas
+del log de control quedan dentro de un bloque de codigo** cuando se renderiza.
+El emparejamiento de todo lo que sigue queda corrido en uno.
+
+**Y el dato que lo hace el hallazgo y no un typo: HB#181 ESCRIBIO ESE CHEQUEO.**
+Su propio bloque dice "vallas pares en los 4 archivos pesados" y le da el numero
+de cada uno: ONBOARDING 60, Modulos 2, README 6, PRE_BACKLOG 46. **Los cuatro
+estan bien.** El quinto archivo -- **el suyo** -- tiene 11. El control existe, es
+correcto, y **se aplico a una lista nombrada que no lo incluia**.
+
+> **REGLA (ALERT-253):** un control de integridad aplicado a "los otros archivos"
+> no es un control del archivo que se esta escribiendo. Si el chequeo nombra una
+> lista cerrada de archivos, esa lista tiene que incluir **el propio**. Y el
+> criterio general: **una conteo de vallas tiene que correr sobre el archivo
+> entero, nunca sobre los archivos hermanos**, porque el defecto se cuela por
+> el archivo que nadie midio.
+
+**Corregido con splicing de bytes, no reescritura** (ALERT-251: el archivo es
+MIXTO, 236 CR-sueltos, una reescritura los colapsa): el triple-backtick de L38 se
+reemplazo por la palabra `(3 backticks)`. Verificado: vallas **11 -> 10 (par)**,
+**236 CR-sueltos antes y despues**, cola de 400 chars **identica byte a byte**,
+delta de bytes **+10**, sin BOM.
+
+**Y el control del ciclo, con su caso negativo:** un archivo sano con 2 vallas da
+`par=true`; uno con 1 sola valla da `par=false`. El criterio discrimina.
+
+## LO QUE MIDO EL CENSO DE `rescate/*`: 12 DE 13 RAMAS SON TRAMPAS
+
+`rescate/hb181-logs-hb179` (645 borrados) y `rescate/hb184-entrega` (base
+`7bf1cba`, que **no** es ancestro de `origin/main`) ya estabanmeasured como
+divergentes. El ciclo los censo entero:
+
+| rama `rescate/*` | ancestro de `origin/main` | diff vs `origin/main` |
+|---|---|---|
+| `hb181-logs-armeria` | NO | **sin diferencias** (es HEAD) |
+| `hb184-entrega` | NO | 1 archivo, **1445 inserciones** (base vieja) |
+| `hb181-logs-hb179` | NO | 8 archivos, 186 inserciones, **645 borrados** |
+| `hb180-logs-staged` | NO | 11 archivos, 433 inserciones, **665 borrados** |
+| `hb180-logs-hb179` | NO | 10 archivos, 187 inserciones, **651 borrados** |
+| `hb180-logs` | NO | 5 archivos, 1 insercion, **466 borrados** |
+| `hb143-wt`, `hb124wt-cola`, `hb125-cola`, `po-hb142`, `po-hb153-poda`, `wt-hb108-wt`, `wt-hb119` | NO | **10k-50k borrados** cada una |
+
+**13 ramas locales, 12 con borrados >> inserciones.** Mergear cualquiera de esas
+12 **revierte entre 466 y 49.744 lineas** de trabajo acumulado.
+
+> **REGLA:** el prefijo `rescate/` **no es una propiedad de seguridad**. Se leyo
+> "esto es trabajo rescatado, mergearlo" y lo que hay ahi son ramas **basadas en
+> puntos viejos que nunca se rebasearon**. El unico que se puede mergear es el que
+> `--shortstat` da vacio. **Criterio de merge para una rama de rescate:
+> `git diff --shortstat origin/main <rama>` tiene que dar 0 archivos. Sin eso, no
+> es un rescate: es una reversa.**
+
+Control negativo del criterio: `git diff --shortstat origin/main origin/main`
+da **0 archivos**. El criterio discrimina.
+
+## PASO 0 / 1 / 3
+
+- **PASO 0:** inbox **vacio**, replies **vacio**, **23 `overdue`** (HB#91-HB#147,
+  historicos, **ninguno dirigido a mi**: todos `a Code-Reviewer` o
+  `a product-owner`).
+- **PASO 1:** `task-6cc3851b8d15` -> **404**, **12o ciclo**, terminal. No se
+  reenvia (ALERT-225: reenviar la misma pregunta es la septima muerte).
+- **PASO 3: los 3 canales NO coinciden = 42 / 54 / 51. Gana el 54** =
+  `origin/po/hb182-l88-molde`. Su ronda 54 es **PAUSA (5 items abiertos)** y el
+  bloque mas reciente del `DASHBOARD_PO_IDEAS.md` **no trae `### Tramos`**.
+  **0 propuestas al Reviewer.** Y el `openItems: 0` del canal del workspace
+  **sigue sin ser medicion** (`marcadorPresente: 0`,
+  `openItemsDiscrimina: false`): la conclusion se sostiene por la **prosa de la
+  ronda 54**, no por ese 0.
+- **Control de carga:** `c2_backlog_main.openItems = **5**`,
+  `openItemsDiscrimina: **true**` -> **PAUSA** (banda 4-7).
+  `openItemsAnclada: 5`, `openItemsQueLaAncladaPierde: 0`,
+  `openItems_INCONSISTENTE_por_forma: []`. El fixture `control_sangria` da
+  **2 / 1 / 1** y discrimina.
+- **Banner:** `tools/hb164-espejo.mjs` -> **13 controles OK**,
+  paridad `<!--`/`-->` **136/136** en los dos, sin EOL mixto.
+
+## BACKLOG: 5 filas abiertas y ninguna se arranca
+
+1. **L60 ALERT-41** — bloqueo **externo**: espera el body crudo de
+   `/v2/account/raids` con un token real de Pablo. No es alcanzable desde un cron.
+2. **L88 Coberturable multicuenta** — el PO YA lo avanzo: su rama
+   `po/hb182-l88-molde` trae un **molde con test verde** que certifica que el
+   panel de skins **no filtra**. La ronda 54 lo deja en PAUSA. Es decision de
+   producto; un cron de 30 min que arranca producto y no llega al commit deja el
+   arbol sucio, que es justo lo que el PASO -1 existe para impedir.
+3. **L174 Dungeon dailies** — su premisa "~3-4h, patron ya probado" es **FALSA**:
+   los 3 hermanos viven en `meta.js`, no en `activities.js`.
+4. **L307 WvW Borderlands** — no es un item, es una fila: el plazo no se puede
+   escribir.
+5. **L<nueva> trabajo multicuenta del Fractal Tracker** (abierto por el rescate
+   del HB#174, moviendolo a su propia fila).
+
+## ERROR DE INSTRUMENTO PROPIO (1, familia ALERT-252)
+
+En `hb184-patch.mjs` escribi un control que **no puede fallar**:
+
+    ['delta de bytes = -2', (antes.length - readFileSync(F).length) === 0]
+
+Relee el archivo **antes** de escribir, asi que compara `x - x === 0` y da verde
+siempre. El delta real (**+10**) lo dio el `console.log` de abajo y la re-lectura
+posterior, no ese control. **Es la 2a vez en este ciclo** que un control mio
+mido la comparacion que no era: la primera fue "blob presente: false" en
+TEAM_STATUS, que es falso porque la insercion va arriba y el blob no puede ser
+subcadena contigua. **Los dos casos son el mismo error**: un control escrito
+contra una forma que el dato no tiene.
+
+## PENDIENTE SIN CAMBIO DE ESTADO
+
+ALERT-41 · ALERT-179 · T14/T15 · los 7 del patron B · Idea 57 (los 4 wrappers) ·
+FILTRO-05 · **ALERT-235 ABIERTA** (los 2 `PRE_BACKLOG.md`) · ALERT-241 (los 3
+scripts historicos sin verificar) · **ALERT-250** (la regla de EOL del HB#178:
+correcta solo cuando el worktree ya es LF; hoy verificada **por modo**, no por
+delta). Deuda visible: **107 ramas locales**, 13 `rescate/*` (12 trampas),
+**~29 worktrees**.
+
+# HB#181 - 2026-10-04 00:30-00:5x UTC - RESCATE: 7 DOCUMENTOS DE LA ARMERIA SIN COMMIT, Y MIS PROPIAS REGLAS DE EOL DISPARARON OTRA VEZ
+
+**El hallazgo del ciclo, y es el cuarto de la misma familia (ALERT-79 / ALERT-161): mi regla de EOL se dispara contra el archivo que NO debla.** En HB#178 lo mido bien y lo escribo en mi memoria; hoy el mismo criterio se encuentra un caso al que **no** aplica, y lo descubre el control, no yo. Ver abajo, con los 7 checks y el instrumento que casi no los lanza.
+
+## PASO -1: las DOS puntas, y por que no hubo rescate de codigo
+
+- Arranque **00:30:05 UTC**. `origin/main` = `ff6b8ce` @ **00:29:25 UTC** (= mi arranque **menos 35 s**), arbol **SUCIO** con **7 `.md` modificados**, HEAD en `rescate/hb180-logs`.
+- **`origin/main..main` VACIO** (no hay commits sin pushear) pero **`main..origin/main` = 2 commits** (`f3e7c0c`, `ff6b8ce`): el `main` local estaba **2 commits atras**, no adelante. Los 2 son de PROMOTIONS (`docs(PROMOTIONS)`), **ninguno de codigo**. `git branch --contains ff6b8ce` = `rescate/hb180-logs` solamente, o sea **`main` local no los tenia y el arbol tampoco los tenian**.
+- Writer vivo: **0 sesiones `running`**. Ultima interactiva de Pablo `1790896138537` idle desde **16:37:20Z**. El cron anterior cerro **00:05:50Z**. Los mtimes del arbol van de **00:20 a 00:23 UTC**, o sea **DESPUES** del cierre del cron anterior y **antes** de mi arranque: hay trabajo, es de otro escritor, y esta terminado (punto 3 del PASO -1).
+- Por eso **NO hay rescate de codigo**: la rama de donde vengo ya contiene `ff6b8ce`. Lo que hay que rescatar son **7 documentos sin commitear**, no commits.
+
+## EL HALLAZGO: MIS REGLAS DE EOL, CUARTA RECIDIVA
+
+Medido worktree contra el **BLOB de `origin/main`**, no worktree contra worktree (que es el control que me fallo en HB#178):
+
+| archivo | worktree | blob de origin/main | veredicto |
+|---|---|---|---|
+| CHANGELOG.md | CRLF PURO (cr=1557) | **LF PURO** (cr=0) | **ROJO** |
+| PRE_BACKLOG.md | CRLF PURO (cr=3612) | **LF PURO** (cr=0) | **ROJO** |
+| README.md | CRLF PURO (cr=1336) | **LF PURO** (cr=0) | **ROJO** |
+| docs/BRIEFING.md | CRLF PURO (cr=124) | **LF PURO** (cr=0) | **ROJO** |
+| docs/Modulos JS Referencia.md | CRLF PURO (cr=2459) | **LF PURO** (cr=0) | **ROJO** |
+| docs/ONBOARDING.md | CRLF PURO (cr=3295) | **LF PURO** (cr=0) | **ROJO** |
+| TEAM_STATUS.md | MIXTO (cr=3129, lfSuelto=-236) | MIXTO (cr=3127, lfSuelto=-236) | OK |
+
+**La regla de HB#178 dice: stagear con `git -c core.autocrlf=false`.** Acá `core.autocrlf` esta en **`true`** y el worktree esta en **CRLF**: ese round-trip CRLF->LF al commitear **es el comportamiento normal de Windows**, y desactivar el flag **commitea CRLF**. O sea: **la regla es correcta solo cuando el worktree ya es LF, y estos 7 archivos no lo estan.** El unico que no dispara es `TEAM_STATUS.md`, **por una razon que no es la del criterio**: no porque el criterio ande bien, sino porque ya venia MIXTO en el blob. Una regla correcta en 1 de 7 archivos es una regla que va a fallar en los otros 6.
+
+**Y mi control de integridad de HB#178 tampoco lo habria visto.** Alli chequee los `.md` worktree-contra-worktree (antes/despues del parche) y por eso dieron OK. El control que falta es el otro: **worktree contra el BLOB**, que es la unica comparacion que detecta el cambio de estilo. Regla: **antes de commitear un archivo, comparar su modo contra el blob de `origin/main`; si no coinciden, el round-trip de `autocrlf` va a ensuciar el diff.**
+
+## EL TRABAJO RESCATADO, Y QUE ESTA TERMINADO (medido, no supuesto)
+
+**7 `.md`, +569 lineas, ninguna de `js/` ni `tests/` -> la suite NO aplica y no la corro por costumbre.** Es la documentacion de la **Armeria Legendaria**, que se acaba de promover (los 2 commits de `origin/main` son `docs(PROMOTIONS)` sobre exactamente esto).
+
+Verificado que esta **cerrado y no truncado**, que es la pregunta que importa antes de commitear trabajo de otro:
+
+- **Vallas de codigo (3 backticks) PARES** en los 4 archivos pesados: ONBOARDING 60, Modulos JS Referencia 2, README 6, PRE_BACKLOG 46. Una valla impar seria una linea que se abrio y nunca se cerro.
+- **Ultimas lineas con texto** de los 4: todas son cierres de seccion con contenido, ninguno cortarse a mitad de oracion.
+- El contenido es **coherente con el producto ya promovido**: la entrada de CHANGELOG describe `legendary-tracker.js` v1.1.0, ruta `#/account/legendary-armory`, `QUEUE_MAX = 5`, `legendary-precursors.js` generado y cargado bajo demanda — todo eso **existe en el codigo que ya esta en main**.
+
+**Lo unico que NO era trabajo: 2 lineas en blanco** insertadas entre el titulo y el bloque de HB#180. No aportan nada y las saque. Pero **no se podian borrar con un reescritura**: ver la seccion siguiente.
+
+## MI TEAM_STATUS.md NO SE PUEDE REESCRIBIR, Y ESTO ES NUEVO
+
+`TEAM_STATUS.md` esta **MIXTO**: 3129 CR y 2893 LF, o sea **236 LF sueltos** que conviven con el resto en CRLF. Son preexistentes y los miden todos los ciclos desde HB#156, asi que **no son mios y no son ruido mio**.
+
+Consecuencia directa: **reescribir el archivo entero desde node colapsa los 236 LF sueltos a CRLF**, y el commit sale con **236 lineas de ruido de fin de linea** que no existen. Por eso las 2 lineas en blanco se borraron con un **parche de bytes**, no con `write_file`: se localize el bloque exacto, se comprobo que **todo lo que estaba despues queda byte a byte identico**, y se escribio. El control que lo avalo: `c2 cola IDENTICA = true`.
+
+**REGLA (nueva, y complementa a la del HB#178):** antes de tocar un `.md` de bitacora hay que medir su **modo**. Si es **MIXTO**, el instrumento es un parche de bytes con verificacion de cola, no una reescritura. Un archivo MIXTO es un archivo donde la reescritura destructiva es invisible en el diff: el diff dice "2 lineas" y el commit escribe 236 de mas.
+
+## ERRORES DE INSTRUMENTO PROPIOS (5, familia ALERT-79), todos antes del commit
+
+1. **`for %f in (...) do @echo %f %~tF`** -> **cmd.exe no expande `%~tF` dentro de un `for` asi**: devolvio el literal `%~tF` en las 7 lineas. Un control que imprime su propio marcador en vez del dato es peor que uno que falla. Los mtimes los lei despues con `dir /T:W`.
+2. **`dir /T:W ... | findstr /c:"2026"` con 6 archivos de `docs/`**: devolvio tambien los directorios `.` y `..`, que son los unicos que tienen **fecha de HOY**. Un filtro por fecha sobre una carpeta mezcla los hijos con la carpeta, y la carpeta se movio a las 21:23. Sin esto hubiera leido "el arbol cambio a las 21:23" cuando lo unico reciente era la carpeta.
+3. **PowerShell dentro de cmd.exe**: el escape de `$` con barra invertida es sintaxis de bash y llega literal a PowerShell, que responde con un error de token inesperado. Regla: **en cmd.exe no se escapan los `$` de PowerShell.** (3er intento de contenido embebido por shell en este ciclo; los otros 2 los hice via un archivo `.mjs`.)
+4. **Mi patron de borrado contaba la linea 1 dos veces** (4 bytes en vez de 2) porque el EOL de la linea 1 ya estaba dentro del patron. **Lo cazo el control de delta**, que decia `-4 (esperado -2)`. Sin ese control, el commit habria borrado el comienzo de una linea real.
+5. **Un control que compara el conteo consigo mismo** — el mas caro de los 5, y es una recaida de HB#171. Escribi `cb(before) === cb(after).replace(cr=(d) => cr=(d-2))`: el lado derecho ya venia restado, la resta lo devolvia al original, y la comparacion **daba `true` para cualquier par de archivos del mismo EOL**. Un control de este tipo **nunca puede dar ROJO**, que es la forma exacta de ALERT-212 / ALERT-165. Corregido a 7 condiciones cada una contra un **valor absoluto esperado**, ninguna derivada del otro lado de la comparacion.
+
+## PASO 3: los 3 canales NO coinciden, y gana el mas alto
+
+`tools/hb163-canales.mjs` (controles OK, incluido el de sangria): **53 / 47 / 51**. Gana el **53** = `origin/po/hb181-censo-coberturable`, cuyo commit de HEAD es `d1679dc` **"PO ronda 53 (PAUSA): upkeep de la fila L88"**.
+
+- **El 0 del canal del PO NO es medicion**: `marcadorPresente: 0`, `openItemsDiscrimina: false`. 6a vez que lo veo; ese archivo no usa checklists.
+- **El control de carga es el que manda y es UNO SOLO**: `c2_backlog_main.openItems = **5**`, con `openItemsDiscrimina: **true**` y `openItemsAnclada = 5` (`openItemsQueLaAncladaPierde: 0`). **5 = PAUSA** (banda 4-7). En PAUSA **no se investiga y no se traen ideas**.
+- Los dos criterios de rama dan la **misma** rama (`hb181-censo-coberturable`), o sea la ALERT-231 esta cerrada por el canal de ramas; la discrepancia viene de los otros dos canales, que leen en distinto soporte. **No mande nada al Reviewer: 0 propuestas vivas.**
+
+## PENDIENTE (la razon se RE-DERIVO, no se heredo)
+
+1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con token real de Pablo. Bloqueo **externo**, no alcanzable desde un cron. Escalado una vez (HB#149); **no se re-escala**.
+2. **ALERT-179** — fix mergeado, Reviewer mudo desde HB#121.
+3. **T14/T15** — veredicto de opcion C, precondicion medida, sin aplicar.
+4. **Los 7 del patron B** (HB#118) — verificados, siguen vivos.
+5. **Idea 57**, los 4 wrappers — capa de datos (ALERT-48), sin tocar.
+6. **FILTRO-05** — decision de contrato, no de codigo.
+7. **ALERT-235** — los 2 `PRE_BACKLOG.md` (git vs workspace del PO). Decide el PO/Arquitecto, no yo.
+8. **ALERT-240** — aplicar al banner de `HEARTBEAT.md` (falta el punto que mide el corte de seccion de ronda). Requiere ademas regenerar el espejo y correr los 2 controles.
+9. **ALERT-241** — los 3 scripts historicos (`hb114-cuento`, `hb114-tramos`, `hb117-po-materia`) con la forma peligrosa, **sin verificar**.
+10. **nuevo:** `docs/Modulos JS Referencia.md` y `docs/ONBOARDING.md` son **MIXTO o CRLF en worktree contra LF en el blob**; el próximo ciclo que los toque tiene el mismo EOL que medir.
+
+## ALERTAS
+
+- **ALERT-250 (nueva)** — la regla de EOL del HB#178 es correcta **solo para worktrees en LF**. Con `core.autocrlf=true` y worktree CRLF (el caso de 6 de 7 archivos hoy), stagear con `-c core.autocrlf=false` **commitea CRLF** y el diff se llena de ruido. **Y el control de HB#178 (worktree vs worktree) no lo ve**: hay que comparar contra el **blob**.
+- **ALERT-251 (nueva)** — un archivo de bitacora **MIXTO** no se puede reescribir: la reescritura colapsa los LF sueltos a CRLF y agrega lineas de ruido **que el diff no muestra como tales**. Instrumento correcto: parche de bytes con verificacion de cola. Aplica a `TEAM_STATUS.md` (236 LF sueltos, preexistentes).
+- **ALERT-252 (nueva, la mas cara)** — un control que **compara una magnitud consigo misma ajustada** (`cb(A) === cb(B) - n`) **nunca puede dar ROJO**. Da `true` para cualquier par con el mismo modo de EOL. Es ALERT-212 / ALERT-165 (un aserto que no puede fallar) y es la **4a vez que escribo uno en este repo**. Regla: **cada condicion de un control se mide contra un valor absoluto, no derivado del otro lado.**
+
+## ESTADO DE PROPUESTAS AL REVIEWER
+
+**0 enviadas.** Ronda viva **53 = PAUSA**, control de carga **5 = PAUSA**, y el `openItems` del canal del PO **no es medicion**. Los 23 `overdue` del canal `_comms` son **todos de HB#91 a HB#147**, ninguno dirigido a mi, y ninguno es trabajo vivo.
+
+## ARCHIVOS DE ESTE CICLO
+
+- `TEAM_STATUS.md` — esta seccion, + las 2 lineas en blanco de ruido que se fueron.
+- **Rescate de 6 documentos** (sin commitear desde 00:20-00:23 UTC): `CHANGELOG.md`, `PRE_BACKLOG.md`, `README.md`, `docs/BRIEFING.md`, `docs/Modulos JS Referencia.md`, `docs/ONBOARDING.md`. Documentacion de la Armeria Legendaria, +554 lineas.
+- **Sin `js/` ni `tests/`**: la suite **NO aplica** y no se corrio por costumbre.
+
 # HB#180 - 2026-10-03 21:00-21:4x UTC - RESCATE: HB#179 MURIO CON UN WIP SIN CERRAR, Y EL WIP ESTA VERDE SOLO SI LO CORRES SOLO
 
 **El hallazgo del ciclo, y es un caso raro: el rescate era REAL y el trabajo NO era mergeable.** No son las dos cosas que se oponen: el arbol tenia un commit de producto sin mergear, con su test en verde, y sin embargo mergearlo iba a dejar `main` en rojo. Las dos preguntas del PASO -1 ("hay trabajo que rescatar?" y "ese trabajo esta terminado?") tienen respuestas **independientes**, y aca la primera es que si y la segunda es que no.

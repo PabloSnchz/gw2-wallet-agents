@@ -3510,3 +3510,104 @@ ALTA si es rama 2. MEDIA si es rama 1.
 En cualquier caso va **antes** que las ideas de contenido (42, 44, 43): no tiene sentido
 sumar un tracker nuevo de mazmorras si el tracker de raids y strikes que ya existe puede
 estar mintiendo.
+# Ronda 52 del PO - 2026-10-03 20:00 UTC (PAUSA, con T1 medido)
+
+## Control de carga
+
+`origin/main` @ `2e29ed6`. `BACKLOG.md` = **5 abiertas** ancladas
+(L60 ALERT-41, L88 Coberturable, L174 Dungeon dailies, L298 Fractal multicuenta,
+L344 WvW visor) = **PAUSA** (11ma seguida). Ronda entera de podado, sin web.
+
+**Nota de instrumento:** el conteo con sangria dio **4** y es **FALSO**. Son
+4 menciones de `- [ ]` en prosa dentro de filas `- [x]` (L200, L286, L451:
+"estaba como `- [ ]`"). El conteo anclado (5) es el que gobierna.
+
+**PASO -1:** 6 "Esperando" en total, **0 dirigidas a mi** (retraccion del
+HB#175 confirmada por segunda vez). Los 6 son del Principal.
+
+## T1 (medido, nuevo): e420a94 borro 3 columnas pero dejo 3 endpoints pidiendo red
+
+`e420a94` quito del Wallet Dashboard las columnas MF base / Apariencias /
+Personajes / Raids. La tabla hoy dibuja `Cuenta` + `Suerte (MF)` + las divisas
+elegidas (`wallet-dashboard.js:817-825`). **Pero las 4 promesas de
+`loadAccountSummary` siguen disparandose**, y el comentario que las justifica
+dice una cosa distinta de la que hacen:
+
+```js
+// :406-408  "Las 4 promesas se crean siempre. La tabla ya no tiene columnas de
+//            resumen, pero 'luck' alimenta el KPI 'Mejor MF base'..."
+var charP  = root.GW2Api.getCharacterCount(token, { nocache: nocache }); // :409
+var apP    = root.GW2Api.getAccountInfo(token,   { nocache: nocache }); // :410
+var raidsP = root.GW2Api.getAccountRaids(token,  { nocache: nocache }); // :411
+var luckP  = root.GW2Api.getAccountLuck(token,   { nocache: nocache }); // :412
+```
+
+El comentario cuenta 4 promesas y luego nombra **una** como la que queda. Las
+otras 3 se siguen pidiendo, se siguen esperando (`:436-450`) y se siguen
+escribiendo en `summary`.
+
+**Medido, con controles que discriminan:**
+
+| campo | escrituras | lecturas reales |
+|---|---|---|
+| `summary.luck` | `:456-469` | **7** (`:297`, `:749`, `:750`, `:756`, `:871`) |
+| `summary.characters` | `:436-437` | **0** |
+| `summary.ap` | `:442-443` | **0** |
+| `summary.raids` | `:448-449` | **0** |
+
+Idem los `_errors`: `_errors.characters` aparece en `:437` y en el comentario
+`:28`; `_errors.raids` en `:449` y `:28`; `_errors.achievements` en `:443`. El
+unico con lector real es `_errors.luck` (`:871`).
+
+**CONTROLES:** el escaneo por `.campo` sobre todo `js/` discrimina - `luck`
+devuelve 9 no-escrituras con 5 lectures de render, `characters`/`raids`/`ap`
+devuelven 0 lecturas de render (los `.characters` de `characters.js` e
+`inventory-hub.js` son `state.characters`, otro objeto). Control negativo
+`summary.zzzNoExiste` = 0 y `_errors.zzz` = 0.
+
+**LO QUE AFIRMO Y LO QUE NO:**
+- **Si:** 3 requests por cuenta quedan sin consumidor visible en el render.
+- **No:** no afirmo que sean 81 requests inútiles sin medir el consumidor
+  entero. `loadAccountSummary` corre 1 vez por cuenta (`:485`, llamada desde el
+  pool de `loadAllWallets:497-520`, `MAX = 3`), o sea **3 endpoints x 27
+  cuentas = 81 requests por carga completa** del dashboard. Con ~200 req/min
+  son ~25 s de permiso. **Medido de la estructura, no de una traza de red.**
+- **No:** no abro idea nueva. Es una fila que se poda o se cierra en el
+  encabezado de "Coberturable" (L88), que ya es el gap de endpoints
+  account-scoped.
+
+**TRAMO, si Pablo lo quiere:** 🟢 borrar `charP`/`apP`/`raidsP` y sus 3 bloques
+`try/catch`, dejar `luckP`. Ojo: `_errors.characters/raids/achievements`
+tambien se van, y hay 1 test que los nombra (`idea57t2-luck-sindato.test.js`).
+
+## Las 5 filas, una por una
+
+| fila | veredicto de esta ronda | por que |
+|---|---|---|
+| L60 ALERT-41 | **bloqueo vacio** (ronda 51, sin cambio) | la prueba de la fila da 404 tambien para ids que SI existen |
+| L88 Coberturable | **cierta, y avanza** | skins: wrapper + batch listos, **0 callers** al dia de hoy |
+| L174 Dungeon dailies | **cierta, premisa sigue falsa** | `dailycrafting` = 1 sola mencion en `js/` (`:748`, dentro del bloque Ecto) |
+| L298 Fractal multicuenta | **cierta** | `loadCMStatus` se llama con `state.token` en `:1216`, `:1249`, `:1272`; 0 lineas cruzan fractal con cuenta |
+| L344 WvW visor | **incompleta** | el texto de la fila sigue partido en varias lineas fisicas |
+
+## Errores mios de esta ronda
+
+1. **Mi clasificador de escritura/lectura etiqueta mal.** Da 0 escrituras y 3
+   lecturas para `summary.characters` cuando las 3 lineas son
+   `summary.characters = ...`. El dato crudo (numero de linea + texto) si era
+   inequivoco; la etiqueta no. Lo dejo escrito porque es la 5a vez que un
+   instrumento mio falla y **el control no lo caza** porque los controles eran
+   de conteo, no de clasificacion.
+2. **`git grep -n 'SUMMARY_ENDPOINTS.characters'` dio 0 usos** y casi lo
+   reporto como mapa muerto. No lo es: las claves se pasan como **strings**
+   (`unreadableReason(e, 'characters')`). **Un 0 por la forma equivocada de la
+   clave es indistinguible de un 0 real**, y por eso el control con `.luck`
+   tiene que existir antes del titular.
+
+## Regla que sale
+
+**Un comentario que justifica una llamada tiene que nombrarla.** `:406-408`
+dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
+documenta la justificacion de la que se borro, y por eso no dispara la alarma
+nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
+**la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**

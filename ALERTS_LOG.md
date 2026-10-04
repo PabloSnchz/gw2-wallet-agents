@@ -1,3 +1,116 @@
+## ALERT-251 - ALERT-250 ESTA DUPLICADO CON DOS DEFINICIONES INCOMPATIBLES, Y UNO DE LOS DOS ES EL DE OTRO CICLO
+## ALERT-253 - Una linea de PROSA con un triple-backtick literal abre una valla y empareja 220 lineas; y el control que lo detecta estaba escrito, aplicado a la lista equivocada
+
+**Medido en el rescate del HB#181 (HB#183), sobre `TEAM_STATUS.md`.**
+
+- Worktree: **11** vallas de codigo. Blob de `origin/main`: **10** (par). Delta **+1**.
+- El diff del staged era **insercion pura** (95 lineas, 0 borrados) y se leia sano.
+- Localizada en `TEAM_STATUS.md:38`, dentro del bloque de HB#181:
+
+      - **Vallas de codigo (3 backticks) PARES** en los 4 archivos pesados:
+        ONBOARDING 60, ...
+
+La linea **nombra** las vallas usando tres backticks literales dentro de la prosa.
+Eso **abre** una valla en L38 que se cierra en L258: **220 lineas del log de
+control quedan dentro de un bloque de codigo** al renderizar, y todo el
+emparejamiento posterior queda corrido en uno.
+
+### Lo que lo hace un hallazgo y no una errata
+
+**El control ya existia y ya era correcto: lo escribio el mismo HB#181, en ese
+mismo bloque.** Dice "vallas pares en los 4 archivos pesados" y da el numero de
+cada uno -- ONBOARDING 60, Modulos JS Referencia 2, README 6, PRE_BACKLOG 46.
+**Los cuatro dan bien.** El quinto, **el suyo**, tiene 11.
+
+### REGLA
+
+1. **Un control de integridad aplicado a "los otros archivos" no es un control
+   del archivo que se esta escribiendo.** Si el chequeo nombra una lista cerrada,
+   la lista tiene que incluir **el propio archivo**.
+2. **El conteo de vallas tiene que correr sobre el archivo entero**, nunca sobre
+   los hermanos: el defecto se cuela por el archivo que nadie midio.
+3. **Un diff limpio no dice nada de vallas.** Git no las mira; el defecto no es de
+   diff sino de render, asi que ninguna revision de diff lo detecta.
+
+### Control con caso sano
+
+vallas pares en archivo sano -> `par = true`; una sola valla -> `par = false`.
+El criterio discrimina. Corregido con **splicing de bytes** (el archivo es MIXTO,
+236 CR-sueltos, ALERT-251): vallas **11 -> 10**, CR-sueltos **236 -> 236**, cola
+de 400 chars identica byte a byte, delta **+10**.
+
+## ALERT-254 - El prefijo `rescate/` no es una propiedad de seguridad: 12 de 13 ramas de rescate(reverse) miles de lineas contra `origin/main`
+
+**Medido en el HB#183.** Las ramas locales `rescate/*` **parecen** trabajo
+rescatado pendiente de mergear. Census completo:
+
+| rama | ancestro de `origin/main` | `git diff --shortstat origin/main <rama>` |
+|---|---|---|
+| `rescate/hb181-logs-armeria` | NO | **sin diferencias** (es HEAD) |
+| `rescate/hb184-entrega` | NO | 1445 inserciones (base `7bf1cba`, **no** ancestro) |
+| `rescate/hb181-logs-hb179` | NO | 186 inserciones / **645 borrados** |
+| `rescate/hb180-logs-staged` | NO | 433 inserciones / **665 borrados** |
+| `rescate/hb180-logs-hb179` | NO | 187 inserciones / **651 borrados** |
+| `rescate/hb180-logs` | NO | 1 insercion / **466 borrados** |
+| `hb143-wt`, `hb124wt-cola`, `hb125-cola`, `po-hb142`, `po-hb153-poda`, `wt-hb108-wt`, `wt-hb119` | NO | **10.981 a 49.744 borrados** cada una |
+
+**13 ramas, 12 con borrados >> inserciones.** Mergear cualquiera de esas 12
+revierte entre 466 y 49.744 lineas de trabajo acumulado. Son ramas **basadas en
+puntos viejos que nunca se rebasearon**: el nombre dice "rescate" y el contenido
+es una reversa.
+
+### REGLA
+
+**Criterio de merge para una rama `rescate/*`:**
+`git diff --shortstat origin/main <rama>` tiene que dar **0 archivos**.
+Cualquier otra cosa no es un rescate, es una reversa con nombre tranquilizador.
+
+Control negativo: `git diff --shortstat origin/main origin/main` -> **0 archivos**.
+El criterio discrimina (si el nombre bastara, 13 darian verde).
+
+**Hallazgo propio del ciclo (HB#182), y es la 3a forma de trabajo terminado invisible.** El
+PASO -1 tiene 3 preguntas y le faltan 2. Esta es la que faltaba: **un numero de alerta puede
+estar ocupado dos veces**, y el segundo ocupante no se detecta contando.
+
+Medido sobre `origin/main:ALERTS_LOG.md` @ `cb369e5` y sobre el commit `4a5c0cc`:
+
+| donde | que define ALERT-250 |
+|---|---|
+| `origin/main` L7875 | EL TEST PROPIO EN VERDE NO DICE QUE EL WIP SEA MERGEABLE (HB#180) |
+| `4a5c0cc` L2 | la forma que no puede discriminar da 8 y el umbral es `>= 8` (HB#179) |
+| bloque de `TEAM_STATUS.md` del HB#181 | la regla de EOL del HB#178, correcta solo en worktrees LF |
+
+**Son tres textos distintos con el mismo numero**, y el tercero es una etiqueta viva en un
+archivo de git. `ALERTS_LOG.md` tiene 130 entradas `## ALERT-N`, **maximo = 250**, y
+**ALERT-251 no existe en ningun archivo** aunque el mensaje de `4a5c0cc` lo promete. Hay 3
+duplicados preexistentes (194, 197, 226) que son deuda vieja; este seria el cuarto.
+
+**POR QUE ESTO DECIDE UN RESCATE:** `4a5c0cc` no se mergea. Trae el log del HB#179 (69 lineas
+de `TEAM_STATUS.md`, que `main` no tiene) y su `ALERTS_LOG.md` con **ALERT-250 duplicado**.
+Mergear a ciegas deja dos alertas distintas con el mismo numero en el archivo que decide
+que se mira primero, y el numero nuevo queda ocupado para siempre.
+
+**REGLA: antes de integrar el `ALERTS_LOG.md` de un rescate, contar los `## ALERT-N` del
+destino y verificar que ninguno de los numeros del rescate ya existe.** Un rescate que
+agrega contenido es una escritura como cualquier otra: hereda las colisiones del destino.
+Y **`ALERT-251` quedo libre justamente porque el ciclo murio antes de escribirlo**: un
+numero prometido en un mensaje de commit y ausente del archivo no esta ocupado, pero
+tampoco es citable.
+
+## ALERT-252 - UN CONTROL QUE COMPARA UNA MAGNITUD CONTIGO MISMA NO PUEDE DAR ROJO, Y POR ESO SE ESCRIBE COMO SI PUDIERA
+
+**Registro del rescate del HB#181 (HB#182): el ciclo murio antes de que este texto llegara
+a `ALERTS_LOG.md`; se recupera de su bloque de `TEAM_STATUS.md`, que si lo declaro.**
+
+Escribe `cb(antes) === cb(despues).replace(cr = (d) => cr = (d - 2))`: el lado derecho ya venia
+restado, la resta lo devolvia al original, y la comparacion **daba `true` para cualquier
+par de archivos del mismo EOL**. Corregido a 7 condiciones, cada una contra un **valor
+absoluto esperado**, ninguna derivada del otro lado de la comparacion.
+
+**REGLA: un control se escribe contra ABSOLUTOS, no contra el otro lado de la ecuacion.**
+Es la misma forma que ALERT-212 (`FILTRO-05` verde con el filtro puesto y apagado) y que
+ALERT-165: **un aserto que no puede fallar no es un control**, es una opinion con exit code.
+
 ## ALERT-247 - UNA CITA DE LINEA SIN SHA SE PUDRE SOLA, Y EL VALOR QUE TIENE AL LADO SI SE RE-DERIVA: EL PARRAFO PARECE MEDIDO HOY Y MIDE UNA BASE VIEJA
 
 **Hallazgo propio del ciclo, sobre el bloque que el ciclo anterior escribio.** Es la 3a falla
