@@ -3611,3 +3611,152 @@ dice "4 promesas pero solo `luck` queda" y las 4 siguen live: el comentario
 documenta la justificacion de la que se borro, y por eso no dispara la alarma
 nadie. Es hermana de la regla de la ronda 51 (una fila que se cita a si misma):
 **la explicacion que sobrevive a un refactor es la que nadie vuelve a leer.**
+---
+
+# RONDA 54 (2026-10-04) — PAUSA: el podado no tiene destino alcanzable
+
+## Control de carga
+
+`origin/main` @ `219ed5f`. `BACKLOG.md` = **5 abiertas** ancladas (L60 ALERT-41,
+L88 Coberturable, L174 Dungeon dailies, L298 Fractal multicuenta, L344 WvW visor)
+= **PAUSA** (13ma seguida). Ronda entera de podado: sin web, sin idea nueva.
+
+**PASO -1:** 0 comunicaciones "Esperando" dirigidas a `product-owner`.
+
+**Por que esta ronda no es la septima medicion de las 5 filas.** Rondas 47-53
+midieron las mismas 5 filas una por una y podaron **0** las siete veces. Si el
+instrumento de medicion funciona y el de podado no, el problema no esta en las
+filas. La pregunta de esta ronda fue: **"a donde va un podado, y ese destino
+existe?"**
+
+## 🔴 EL HALLAZGO: 23 de 26 ramas del PO nunca se mergearon, y la seccion destino del podado no esta en main
+
+Medido sobre `origin/main` @ `219ed5f`, refs explicitos (no DWIM):
+
+| | |
+|---|---|
+| ramas `origin/po/*` remotas | **26** |
+| ya mergeadas en `origin/main` | **3** (`hb114`, `hb160`, `hb176`) |
+| **sin mergear** | **23** |
+| de las 23: solo `.md` | 21 |
+| de las 23: **con codigo** | **2** (`hb117-dashboard`, `hb119-dashboard`) |
+| de las 23: **tocan `BACKLOG.md`** | **4** |
+
+**Y el destino que mi propio `AGENTS.md` me manda usar para podar no existe en `main`:**
+
+`## ARCHIVADAS CON FECHA` — la seccion que mi AGENTS.md declara como destino
+del podado ("Buena, pero no ahora -> `PRE_BACKLOG.md` § 'Archivadas con fecha'")
+— **existe en 7 refs y ninguno es `origin/main`**:
+
+```
+refs/heads/po/hb125-poda          refs/remotes/origin/po/hb125-poda
+refs/heads/po/hb181-censo-...     refs/remotes/origin/po/hb181-censo-...
+refs/heads/po/hb184-entrega-...   refs/remotes/origin/po/hb184-entrega-...
+refs/heads/rescate/hb184-entrega
+```
+
+**Medido sobre 151 refs.** No es que este vacia: la ronda 53 la creo con
+**+101/-0** y le puso indice. Lo que no esta es en `main`.
+
+**Y las 5 filas abiertas son exactamente las que tocaron las ramas sin mergear:**
+
+| fila abierta | tocada por ramas sin mergear |
+|---|---|
+| L60 ALERT-41 | hb122, hb130, hb132 |
+| L88 Coberturable | hb130 |
+| L174 Dungeon dailies | hb122, hb130 |
+| L298 Fractal multicuenta | **nadie** |
+| L344 WvW VISOR | hb132 |
+
+**4 de las 5 filas ya fueron podadas, corregidas o reencuadradas 4 a 13 rondas
+atras — en ramas que nunca entraron a `main`.** El podado no fallo: se hizo, y
+no llego. Y la fila que nadie toco (L298 Fractal) es la unica cuya premise
+nadie ha reencuadrado.
+
+### Lo que esto significa para el modo
+
+La tabla de control de carga dice:
+
+> **<= 3** RECOLECTAR · **4-7** PAUSA, podar lo que ya tenes · **>= 8** MODO PODA
+
+Con **5 abiertas** estoy en PAUSA y mi entrega es "bajar el numero". Pero
+**las podas existen y estan escritas**: 4 ramas sin mergear con `+37/-19` lineas
+de `BACKLOG.md` que cierran filas. Si esas 4 se mergearan, `BACKLOG.md` pasaria
+de 5 a **2 o 3 abiertas** — que es elgate de **RECOLECTAR**, el unico modo que
+permite trayerse ideas nuevas.
+
+**El backlog no esta lleno de trabajo: esta lleno de trabajo YA HECHO que no
+llego a `main`.** 13 rondas de PAUSA、全国 7 de podado-0 no son un problema de
+disciplina: son la consecuencia de medir el modo contra un archivo al que
+nadie le entrega el trabajo.
+
+### Lo que NO afirmo
+
+- **No** digo que las 4 ramas se puedan mergear a pelo: `hb117`/`hb119` traen
+  codigo y scripts (`_hb117_censo.py`, `_hb119_arnes.js`) que no son mios para
+  revisar, y sus `.md` pueden estar 15 rondas viejos. **Las 2 con codigo NO se
+  tocan.** Las 4 que solo tocan `BACKLOG.md`/`PRE_BACKLOG.md`/`DASHBOARD` son
+  candidatas, y la decision es del Principal.
+- **No** afirmo que el contenido de esas ramas siga siendo cierto hoy: la mas
+  reciente sin mergear es `hb186-poda`. Un pod de la ronda 30 aplicado a una
+  fila que el Principal ya reencuadro 20 rondas despues puede **reabrir** una
+  fila cerrada.
+- **No** abro idea nueva. Estoy en PAUSA y esto es una entrega de podado.
+
+## La entrega de esta ronda: crear la seccion destino, en main
+
+`PRE_BACKLOG.md` en `origin/main` tiene **3614 lineas / 245 936 bytes** y su
+**ultima cabecera de ronda es la 52** — las rondas 53 y 54 no estan. Append
+puro de esta seccion: **+0 lineas borradas**.
+
+## Errores mios de esta ronda (5, todos de instrumentos)
+
+1. 🔴 **`const Who` se declaro `const Who`** (el driver se comio el espacio de
+   `const Who = []` y quedo `const Who`) → `ReferenceError`. Tuve que editar y
+   reejecutar. **6ta vez que un nombre con espacio adentro de un `.mjs` mio se
+   parte solo.**
+2. 🔴 **Mi primer arnes reporto `po/hb150-poda` como YA EN MAIN y despues como
+   FUERA.** Dos instrumentos, mismo par de refs, veredicto opuesto. La causa:
+   **`tryG` decia `ok:true` cuando `merge-base` no tiraba** — pero el error de
+   *la rama inexistente* tambien es `ok:false`, y yo no distingui "no es
+   ancestro" de "no existe el objeto". Un `ok:false` **agrupa dos cosas
+   distintas** y las dos se leen "FUERA". Lo resolvi con `merge-base` sobre un
+   ref **inexistente** como control negativo explicito.
+3. **Mi control de la linea 30 del arnés 1 repreguntaba la misma rama que ya
+   estaba en la lista** — no discriminaba nada, y por eso leia como
+   contradiccion lo que era una etiqueta mal puesta. **Un control que repite
+   el caso que ya probe no es un control.**
+4. **`git show <ref>:PRE_BACKLOG.md` tira `fatal:` a stderr por cada ref sin el
+   archivo** (11 de 151). Ruido que casi me hace pensar que el archivo no
+   existe en ninguna parte.
+5. **Se me colaron 2 ideogramas CJK** en un comentario de `.mjs`
+   (`经营` donde iba "se etiquetaba"), cazados leyendo el archivo antes de
+   ejecutarlo. **7ma vez.**
+
+## Reglas que salen
+
+1. **Antes de medir si un podado funciono, medir si LLEGO.** Siete rondas de
+   "0 podadas" persiguiendo 5 filas: las podas estaban escritas desde la ronda
+   41 en 4 ramas. **El instrumento que dice "no podaste" y el destino que
+   recibe lo que podaste son dos instrumentos distintos, y solo midi uno.**
+2. **Un destino declarado en `AGENTS.md` puede no existir en el archivo al que
+   apunta.** La seccion que mi propia regla me manda usar la creo la ronda 53 y
+   nunca entro a `main` — o sea que la regla del PO tiene **13 rondas de
+   historial diciendo "archivala aca" hacia un lugar donde nadie puede leer.**
+   Regla hermana de la del HB#175: *una correccion de premisa que no viaja al
+   archivo que la origino, no corrigio nada.*
+3. **El modo se lee contra un archivo que el PO no escribe.** Mi tabla dice
+   "4-7: podar", el podado viaja por ramas que no se mergean, y el conteo nunca
+   baja. **El numero que decide el modo y el trabajo que lo puede bajar estan
+   en lugares distintos, y solo uno de los dos esta conectado.**
+4. **La fila que nadie toco es la que nadie reencuadro.** 4 de 5 filas ya
+   tienen correcciones escritas y no aplicadas; la quinta (Fractal) es la
+   unica que sigue con la premise original — y es la unica que **no tiene
+   trabajo hecho huerfano esperándola.** *La ausencia de trabajo en una rama
+   es informacion sobre la fila, no sobre la rama.*
+
+**Lo que pido, en una linea, al Principal:** mergear (o descartar) las **4**
+ramas que solo tocan `.md` — `hb122-poda`, `hb130-poda`, `hb132-poda`,
+`hb136-poda` — y **crear `## ARCHIVADAS CON FECHA` en el `PRE_BACKLOG.md` de
+`main`**. Con eso `BACKLOG.md` deja de marcar PAUSA por las filas que ya se
+cerraron, y el conteo vuelve a medir trabajo pendiente de verdad.
