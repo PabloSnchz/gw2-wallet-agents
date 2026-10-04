@@ -5074,3 +5074,114 @@ la aplicacion de (b).
 Rama **`po/hb196-una-sola-ronda`**, sobre `origin/main` @ `482e5bf`.
 Archivos tocados: **2, ambos `.md`, ambos LF puro**. Verificado append puro (prefijo identico byte a byte).
 **No mergeo. No toco `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `BACKLOG.md`.**
+
+## RONDA 65 - HB#197 (2026-10-04) - RECOLECTAR. **La app no pide esquema en 16 de 18 endpoints y no tiene ninguna forma de enterarse si la API lo cambia.**
+
+**Metodo:** RECOLECTAR (el primero en 14 rondas), y la pregunta **no** fue "¿que feature falta?" sino
+**"¿de que depende la Bóveda que ArenaNet puede cambiar sin avisar?"** - la inversa exacta de la
+Idea 42/L88, que pregunto que endpoints *faltan*. Salio de una lectura del changelog oficial, que
+trae **13 meses sin una sola entrada** (la ultima es del 2025-08-29).
+
+### Control de carga
+
+`openItems_ANCLADA` = **3** @ `714ae3e` = **RECOLECTAR**. Control derivado del archivo, no contado a mano.
+`conSangria` = **0** (no hay prosa con `- [ ]` esta vez, a diferencia de las rondas 50-52).
+**PASO -1:** 5 comunicaciones "Esperando", **0 a mi** (4 Code-Reviewer, 1 Pablo). El instrumento
+filtra por **destinatario**, no por estado, y discrimina (el control negativo `campoQueNoExiste999`
+da 0 en los 5 searches).
+
+**Y el modo no fue casualidad: `82f66cd` aplico la poda que yo mismo propuse en el HB#192
+(L298 + L352, 5 -> 3).** Osea que la cadena esta medida: poda -> 3 items -> RECOLECTAR.
+
+### El hallazgo
+
+🔴 **La Bóveda consume la GW2 API con `?v=latest` en 2 de 18 endpoints, y en los otros 16 no
+pide ninguna version. Y ningun mecanismo - ni codigo, ni clave de cache, ni prosa del repo -
+registra con que esquema se lleno un dato.**
+
+Medido sobre `origin/main` @ `714ae3e`, emparejando cada `getCache` con la URL de **su propio
+cuerpo de funcion** (no por numero de linea: el v4 de mi arnes daba la fila corrida en 1 y lo
+detecte por un control de integridad):
+
+| endpoint | baseKey | TTL | pide version |
+|---|---|---|---|
+| `/v2/account?v=latest` | `account_info` | 30 s | **SI** |
+| `/v2/achievements?v=latest` | `ach_meta_v3:` | 12 h | **SI** |
+| `/v2/tokeninfo` | `tokeninfo` | 10 min | no |
+| `/v2/characters` | `char_count` | 30 s | no |
+| `/v2/account/raids` | `account_raids` | 5 min | no |
+| `/v2/commerce/transactions/current/buys` | `commerce_transactions_buys` | 5 min | no |
+| `/v2/commerce/transactions/current/sells` | `commerce_transactions_sells` | 5 min | no |
+| `/v2/commerce/delivery` | `commerce_delivery` | 5 min | no |
+| `/v2/commerce/listings` | `commerce_listings` | 5 min | no |
+| `/v2/commerce/prices?ids=` | `commerce_prices:` | 2 min | no |
+| `/v2/account/bank` | `account_bank` | 2 min | no |
+| `/v2/account/materials` | `account_materials` | 2 min | no |
+| `/v2/account/legendaryarmory` | `account_armory` | 5 min | no |
+| `/v2/account/skins` | `account_skins` | 6 h | no |
+| `/v2/account/wallet` | `wallet` | 2 min | no |
+| `/v2/account/luck` | `luck` | 10 min | no |
+| `/v2/currencies` | `currencies_all:` | **7 dias** | no |
+| `/v2/account/achievements` | `ach_acc` | 2 min | no |
+
+**`18 de 18` baseKey son PLANOS.** Leidas las definiciones, no supuestos:
+- `kMem(base, token) = base + '::' + fpToken(token)` (`api-gw2.js:629`)
+- `kLS(base, token)  = base + ':'  + fpToken(token)` (`:630`)
+
+El esquema no esta en ninguno de los dos lados. Y las 6 Busquedas del mecanismo
+(`schema_version`, `X-Schema-Version`, `apiVersion`, `schemaVersion`, `CACHE_VERSION`,
+`CACHE_SCHEMA`) dan **0** en todo `js/`. En `storage.js`, `AGENTS.md`, `DECISIONS_LOG.md`,
+`TEAM_STATUS.md` y `BACKLOG.md`: **0 lineas que mencionen esquema**.
+
+### Lo que NO afirmo, y por que (3 controles que me frenaron)
+
+1. **NO afirmo "la app se rompe con cualquier cambio de la API".** Probe el **unico breaking change
+   que hay en 13 meses** (2025-08-29: `/v2/mounts/skins` pierde `mount` y pasa a `mount_guid`).
+   Resultado: **`mount_guid` = 0 usos y `/v2/mounts` = 0 usos en todo el repo.** La app no toca
+   mounts. **Mi primer grep dio 30 hits de "mount" y los 30 eran `amount` y `mount: activate`
+   (el `Route.mount` del T13).** Sin el control de subcadena `(^|[^a-zA-Z])mount([^a-zA-Z]|$)` iba
+   a reportar un acoplamiento que no existe.
+2. **NO afirmo "no hay escape".** `cacheClear()` existe, borra de verdad (v2.29.0), tiene boton
+   (`settings-manager.js:737`), dry-run, **y su registro cubre los 18**: `CACHE_KEYS_EXACT` tiene
+   15 y `CACHE_KEYS_PREFIX` 5, y las 18 claves meas estan dentro. El escape manual existe y es real.
+   Esta es la version del hallazgo que **muere** en la verificacion, y la escribo asi.
+3. **NO afirmo que los TTL sean un problema hoy.** `CURR` = 7 dias es el mas largo, pero es el
+   catalogo de divisas, el que menos se rompe. El TTL no es el riesgo: **la falta de deteccion es
+   ortogonal al TTL**, porque un TTL largo solo amplifica la ventana si el esquema cambia.
+
+### El control externo
+
+`/v2.json` **en vivo** (`https://api.guildwars2.com/v2.json`): **184 rutas, 46 `/v2/account*`,
+1 inactiva (`/v2/account/mail`)**. Confirma el denominador de L88 tal como lo re-midio el
+Principal en `2c46496`, con la nota de instrumento correcta: **`routes` es un array de objetos y
+hay que contar por el campo `path`**; leer las claves del objeto devuelve 0.
+
+### Web (y el 0 sigue siendo 0)
+
+- **Reddit: 403.** Verificado con `curl` + User-Agent tambien. **65 de 65 rondas.**
+- **gw2treasures `/feeds`: 404.** La ruta que "funcionaba" ya no existe (la 12a vez).
+- **Wiki `API:Changelog`: 200, y es la unica fuente que aporto.** Ultima entrada **2025-08-29**.
+  Ese es el dato de la ronda: **la API no cambia hace 13 meses**, y el unico breaking change de
+  ese periodo **no toca la Bóveda**.
+
+### Entregado
+
+`PRE_BACKLOG.md`: **append puro** al final, prefijo verificado identico byte a byte, sin BOM,
+**CRLF** (que es lo que tiene `main`: 5075 CRLF, no LF).
+`DASHBOARD_PO_IDEAS.md`: cabecera de la ronda 65.
+**No mergeo. No toco `BACKLOG.md`, `TEAM_STATUS.md` ni `ALERTS_LOG.md`.**
+
+### Reglas que salen
+
+1. **La inversa de "que endpoints faltan" es "de que depends que cambien sin avisar", y esa
+   pregunta no tiene contador.** L88 cuenta 46 rutas contra las que la app usa. Nadie contaba las
+   que la app **usa** contra las que ArenaNet **declara haber cambiado**. Los dos censos son la
+   misma tabla vista por los dos lados, y salen 46 y 18.
+2. **"La API no cambia hace 13 meses" no es una buena noticia: es una ventana sin calibrar.**
+   El dia que cambie, no hay ninguna pieza del sistema - ni codigo, ni clave, ni doc - que diga
+   "esto se lleno con el esquema viejo". No porque falte el mecanismo, sino porque **la ausencia
+   del mecanismo es indistinguible de que no haga falta** hasta que hace falta.
+3. **El escaping manual de un `grep` cambia el resultado de 30 a 0.** `mount` -> `amount`,
+   `Route.mount`, `mount_balrior`. Un hallazgo de acoplamiento construido sobre un grep sin
+   limites de palabra se reporta como bug, y el control de subcadena lo mata antes de publicar.
+   **6ta vez en 72 h que un instrumento mio da 0 donde hay datos o al reves** (esta: 30 donde hay 0).
