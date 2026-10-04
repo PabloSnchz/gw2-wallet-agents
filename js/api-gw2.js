@@ -457,6 +457,32 @@
  * Cambios v2.12.0:
  *  - NUEVA función getAccountInfo(token) que devuelve last_modified
  *  - ELIMINADA lógica de PvP (getPvPGames, isRecentlyActiveInPvP)
+ *
+ * EL ESQUEMA NO ESTA EN LA CLAVE (medido 2026-10-04, ronda 65 del PO):
+ *   Ninguna de las claves que arma este archivo codifica la version del esquema
+ *   que la API devolvio. `kMem(base, token)` y `kLS(base, token)` son
+ *   `base + separador + fpToken(token)` (`api-gw2.js:629-630`), y de los
+ *   18 sitios de lectura/escritura contados por
+ *   `tests/idea50e.cache-expiry-purge.test.js` seccion 3, ninguno lo menciona:
+ *   2 de 18 endpoints piden version (`/v2/account?v=latest` y
+ *   `/v2/achievements?v=latest`), los otros 16 viajan sin `?v=latest`.
+ *   O sea: la clave NO es un identificador estable del dato. Es una etiqueta
+ *   de donde vino. Si ArenaNet cambia un esquema, la app no lo va a notar:
+ *   no hay ninguna pieza del sistema, ni codigo ni clave ni doc, que diga
+ *   "esto se lleno con el esquema viejo".
+ *   HOY NO ES UN BUG: la API no cambia desde 2025-08-29, y el unico breaking
+ *   change de ese dia (`/v2/mounts/skins`: `mount` -> `mount_guid`) NO toca la
+ *   app (0 usos de `mount_guid`). Es una ventana SIN CALIBRAR, no un escape:
+ *   la AUSENCIA de deteccion es indistinguible de que no haga falta, hasta
+ *   que hace falta.
+ *   EL ESCAPE EXISTE Y YA ESTA MEDIDO: `cacheClear()` (v2.29.0) borra de verdad,
+ *   tiene `{dryRun:true}`, boton en Ajustes, y su registro cubre los 18
+ *   (CACHE_KEYS_EXACT 15 + CACHE_KEYS_PREFIX 5). Si un dia hay que purgar,
+ *   el mecanismo ya existe y esta probado.
+ *   LO QUE NO SE HIZO, y por que: poner `?v=latest` en los 16 restantes
+ *   seria optar a TODO cambio de la API para siempre, que es el problema al
+ *   reves. Y hoy no hay ni un cambio que lo exija. Que se decida el dia que
+ *   la API se mueva, con el caso delante.
  * ======================================================================= */
 
 (function (root) {

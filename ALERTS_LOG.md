@@ -1,3 +1,137 @@
+> # ALERT-260 (HB#197): LAS "19 LIMPIAS" DEL PO NO SON 19 LIMPIAS. MEDIDAS UNA POR UNA, **0**
+> # SON MERGEABLES: TODAS SON UN REPLACE QUE PIERDE 56 A 1.311 LINEAS DE `main`
+>
+> **Medido 2026-10-04 22:0x UTC (HB#197) por el Principal**, sobre `origin/main` @ `714ae3e`
+> (32 ramas `po/*`, 27 sin mergear). Instrumento: `tools/_hb197_mergeables.mjs`, con
+> **5 controles** (2 negativos + 3 positivos), todos en verde.
+>
+> ## Lo que el PO pide, textual (ronda 64, R4)
+>
+> *"Hay 19 ramas que solo tocan archivos del PO y son mergeables sin conflicto:
+> `hb99-dashboard`, `hb104-dashboard`, `hb150-poda`, `hb173-correccion`, ... Mergealas en
+> una sola pasada."* Y las **7 cifras** que trae son **todas correctas**: las medi y coinciden.
+>
+> | cifra del PO | medido | |
+> |---|---|---|
+> | 27 ramas sin mergear | **27** | OK |
+> | 19 solo tocan archivos del PO | **19** | OK |
+> | 0 tocan codigo o tests | **0** | OK |
+> | 11 tocan `PRE_BACKLOG.md` | **11** | OK |
+>
+> ## Por que la peticion no se puede ejecutar, y el defecto es la palabra "mergeables"
+>
+> **"Solo tocan archivos del PO" es una condicion de RUTA. "Mergeable sin perdida" es una
+> condicion de CONTENIDO. Las 19 cumplen la primera. Ninguna cumple la segunda.**
+>
+> Criterio aplicado por rama, en los **2 archivos** que toca: `+nuevas > 0` **Y** `-perdidas == 0`,
+> con lineas no vacias y CR normalizado (ALERT-258: el blob de `DASHBOARD_PO_IDEAS.md` es mixto).
+>
+> ```
+> SOLO_ARCHIVOS_DEL_PO_append_puro  =  0     MERGEABLES SEGUROS
+> SOLO_ARCHIVOS_DEL_PO_con_perdidas  = 19     NO mergeables como rama
+> ```
+>
+> Las 19, con el signo de cada archivo:
+>
+> | rama | `DASHBOARD_PO_IDEAS.md` | `PRE_BACKLOG.md` |
+> |---|---|---|
+> | `hb56-forma-raids` | **+5 / -1.311** | - |
+> | `hb69-dashboard` | **+9 / -1.152** | - |
+> | `hb99-dashboard` | **+3 / -1.046** | - |
+> | `hb87-dashboard` | **+4 / -1.029** | - |
+> | `hb97-wv-view` | **+4 / -1.017** | - |
+> | `hb185-indice-podado` | - | **+51 / -897** |
+> | `hb186-poda` | - | **+100 / -888** |
+> | `hb187-destino-podado` | +8 / -56 | **+112 / -897** |
+> | `hb181-censo-coberturable` | +74 / -57 | **+0 / -881** |
+> | `hb182-l88-molde` | +33 / -56 | **+0 / -869** |
+> | `hb193-emotes` | +45 / -56 | +92 / -91 |
+> | `hb193-banda-medida-en-git` | +16 / -56 | +51 / -92 |
+>
+> **El patron es 6 ramas con mas de 1.000 lineas perdidas y 0 lineas aportadas a
+> `DASHBOARD_PO_IDEAS.md`: no son ramas nuevas, son el archivo tal como estaba hace 200
+> commits.** Mergearlas hoy **borraria de `main` las rondas 40-64**. El pedido "en una sola
+> pasada" es correcto en la intencion y **perjudicial en la ejecucion**: el primer merge borra,
+> y los 18 siguientes se aplican contra un archivo que ya quedo vacio, asi que el dano es
+> acumulativo y silencioso.
+>
+> ## El `-56` que aparece en casi todas, y por que es una pista, no ruido
+>
+> 16 de las 19 pierden **exactamente 56 lineas** de `DASHBOARD_PO_IDEAS.md`. Un numero que se
+> repite no es ruido: es **un corte fijo de una epoca concreta**. O sea que el `-56` es la
+> "poda de indice" de una ronda, y las 16 la arrastran porque todas nacieron **despues** de
+> ella y **antes** de que `main` la aplicara. **Lo unico que hace falta no es mergear las
+> ramas: es aplicar a `main` la poda que las 16 ya tienen y que `main` todavia no.**
+>
+> ## Y `PRE_BACKLOG.md`: 0 de 11 son append puro, tambien
+>
+> `tools/_hb197_pre.mjs`: **11 de 11 tienen `perdidas > 0`** (de 91 a 1.144). **Ninguna se puede
+> mergear como rama.** La que mas aporta, `hb187-destino-podado` (**+112**), es la que mas pierde
+> (**-1.082**): es exactamente la trampa de "contar solo lo que entra".
+>
+> `main` esta en **3.904** lineas no vacias. La mejor combinacion de las 11 (`hb193-emotes`,
+> 3.906 lineas, `+92 / -91`) esta **2 lineas por encima de `main` y trae la ronda 63**. O sea:
+> **el contenido mas avanzado ya esta en `main`, en el commit `714ae3e` de hace 3 horas.** El
+> deadlock no es "falta mergear": es que **el archivo tiene dos canónicos que divergen en los
+> dos sentidos** (ALERT-235).
+>
+> ## La otra mitad, y es la que no tiene red de seguridad
+>
+> `PRE_BACKLOG.md` del workspace del PO: **3.978** lineas no vacias, **376.071 bytes**,
+> mtime `2026-10-04T18:01:28Z`. `main`: **3.904**, **335.107 bytes**. El cruce da **798 lineas
+> solo en el workspace** y **550 lineas solo en `main`** (control positivo: 3.180 lineas del
+> workspace estan en `main`; control negativo: 0). **No es deriva unilateral: se perdio contenido
+> en los dos sentidos.**
+>
+> Y el workspace del PO **no es un repo git** (`fatal: not a git repository`): **las 798 lineas
+> que solo existen ahi no tienen copia en ningun lado.** Si ese workspace se resetea, no hay
+> recuperacion. Ese archivo pesa 376 KB sin red, y `HEARTBEAT.md` ya dice que un canonico en un
+> workspace es un canonico que desaparece con el workspace.
+>
+> **Ademas el archivo del workspace tiene EOL MIXTO: 158 CRLF sobre 5.199 LF.** `main` es LF
+> puro (0 CRLF). Es el mecanismo de ALERT-258 en produccion: cualquier diff entre los dos cuenta
+> como contenido nuevo, y por eso el cruce por lineas es el metodo correcto y el de bytes miente.
+>
+> ## Regla que sale
+>
+> 1. **"Solo toca archivos de otro agente" y "se puede mergear sin perdida" son dos preguntas, y
+>    la primera no implica la segunda.** Un criterio de mergeabilidad tiene que medir el signo
+>    del contenido en **cada archivo que la rama toca**, no la cantidad de archivos ajenos.
+> 2. **Un merge pedido en lote se tiene que medir rama por rama ANTES de ejecutar la primera.**
+>    Acumular 19 merges donde el primero borra hace que el dano sea acumulativo y que los
+>    controles de los 18 siguientes pasen sobre un archivo ya vacio.
+> 3. **El `-56` repetido es la clase de dato que un conteo agregado borra**: 19 filas y un solo
+>    hecho (una poda pendiente). El agregado dice "19 ramas, problema de ramas"; la fila dice
+>    "una poda que main no aplico".
+>
+> ## Lo que NO se hizo, y por que
+>
+> **No se mergeo ninguna rama.** No por criterio (0 son mergeables), sino porque **cualquier
+> merge de estas 19 es una escritura destructiva**, y el pedido viene de un agente cuyo
+> `AGENTS.md` le prohibe leer `PRE_BACKLOG.md`. Que el pedido sea razonable **no lo convierte en
+> seguro**: el riesgo es de perdida de datos de otro agente y la decision es de Pablo o del
+> Arquitecto (ALERT-235 sigue abierta y ya fue escalada en el HB#185).
+>
+> **No se toco `PRE_BACKLOG.md` ni `DASHBOARD_PO_IDEAS.md` en ninguna de sus dos copias.**
+> Reescribir el archivo del workspace para "emparejarlo con `main`" seria la segunda mitad del
+> deadlock, y la que no tiene reversion: ese archivo **no esta en git en ningun lado**.
+>
+> ## Lo que si queda escrito para el que decida
+>
+> **Una sola operacion resuelve las dos mitades y es mecanica, pero es de Pablo:** reconstruir
+> `PRE_BACKLOG.md` de `main` como **un append de las 798 lineas del workspace que no estan en
+> `main`**, en orden de ronda, sobre `main` (LF puro), y recien ahi decidir si el workspace se
+> pone al dia o se deja de usar. Son las 798 lineas medidas, no "lo que falte".
+>
+> **Y el paso 1 es barato y no depende de nadie:** copiar el archivo del workspace a un
+> archivo versionado **antes** de tocar nada. 376 KB sin git es el riesgo real de este alerta,
+> y no se mitiga con ningun merge.
+
+> ---
+>
+> # ALERT-259 (HB#196): EL "FIX DE EOL" DE `482e5bf` SE MEDIO SOBRE EL INDICE Y SE COMMITEO SOBRE EL
+> # WORKTREE, Y EL INSTRUMENTO QUE LO LEVANTA NO ESTA EN EL REPO
+
 > # ALERT-259 (HB#196): EL "FIX DE EOL" DE `482e5bf` SE MIDIO SOBRE EL INDICE Y SE COMMITEO SOBRE EL
 > # WORKTREE, Y EL INSTRUMENTO QUE LO LEVANTA NO ESTA EN EL REPO
 
