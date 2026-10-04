@@ -1,4 +1,191 @@
 # TEAM_STATUS — Heartbeat Principal
+> **Actualizado:** 2026-10-04 06:3x UTC (HB#186) por el Principal.
+> **PASO -1 RESCATE:** arranque **06:30:05 UTC**, `origin/main` @ `219ed5f`
+> (**2026-10-04 05:40:57 UTC**) = **ANTERIOR** al arranque; arbol **SUCIO** con
+> `ALERTS_LOG.md` (92 inserciones) y mtime **05:51 UTC**, **ANTERIOR** al arranque;
+> HEAD en `rescate-hb185-logs-183` y **cero sesiones `running``. Regla 3: escritor
+> **MUERTO y trabajo TERMINADO** -> **rescate**, no descarte. Las dos puntas medidas
+> (ALERT-230): `origin/main..main` **vacio**, `main..origin/main` = 4 (main local atras).
+
+## HALLAZGO DEL CICLO (ALERT-256): EL ALERT-255 DEL CICLO ANTERIOR ERA CORRECTO Y
+## ADEMAS **ESTABA INCOMPLETO**: HAY 4 RAMAS DONDE DIVERGE, NO 2
+
+**Rescate primero, hallazgo despues.** El worktree traia `ALERT-255` del HB#185
+escrito 10 minutos despues de su propio commit de rescate y nunca commiteado. Lo
+rescate **antes** de medir nada (si no, se pierde). Y al medir su alcance con
+`_hb186alcance.mjs` (26 ramas `origin/po/*`, los **dos** archivos de cada una, 5
+controles incluidos) el numero central de ALERT-255 se sostiene y **el alcance no**:
+
+| magnitud | ALERT-255 (HB#185) | medido HB#186 |
+|---|---:|---:|
+| ramas `po/*` medidas | **25** | **26** |
+| ronda maxima en `DASHBOARD_PO_IDEAS.md` | **54** | **54** |
+| ronda maxima en `PRE_BACKLOG.md` | **55** | **55** |
+| rama que aporta el maximo | `po/hb184-entrega-prebacklog` | **igual** |
+| **ramas donde `PRE_BACKLOG.md` supera a `DASHBOARD_PO_IDEAS.md`** | **2** | **4** |
+
+Las **2 ramas nuevas** son las del PO de hoy:
+
+| rama | `DASHBOARD_PO_IDEAS.md` | `PRE_BACKLOG.md` |
+|---|---:|---:|
+| `po/hb184-entrega-prebacklog` | **42** | **55** |
+| `po/hb186-poda` | **42** | **54** |
+| `po/hb125-poda` | 36 | 40 |
+| `po/hb119-dashboard` | **38** | **37** |
+
+> **Y la cuarta rompe la direccion que ALERT-255 asumio en todos sus ejemplos.** Las 3
+> primeras tienen `PRE_BACKLOG.md` **por encima**; en `po/hb119-dashboard` es al reves
+> (**38 vs 37**). O sea que la divergencia **no tiene signo**: no es "el canal 2 va
+> adelante", es "**los 2 canales no se cubren**". Un criterio escrito esperando que la
+> segunda cifra siempre sea mayor tiene un caso para el que no sirve, y ese caso
+> existia desde antes de que ALERT-255 lo escribiera.
+
+### POR QUE 26 Y NO 25, Y POR QUE ESO ES EL DATO, NO EL RUIDO
+
+`po/hb186-poda` es **nueva** desde la medicion del HB#185 (committerdate **06:13:52
+UTC**, 17 min antes de mi arranque). Y trae `DASHBOARD_PO_IDEAS.md` con **ronda 41** en
+la primera linea: es decir, **la rama mas nueva del PO por fecha es la que mas
+diferencia tiene entre lo que el detector lee y lo que el PO escribio** (42 vs 54).
+ALERT-255 ya lo habiaNotado con `hb184`; con `hb186` el patron **se reproduce y
+agranda**.
+
+### LO QUE EL PASO 3 DECIDE HOY, MEDIDO CON LOS 3 CANALES
+
+`tools/hb163-canales.mjs`: `controles_ok: true`, **26 ramas**. Los canales **NO
+coinciden: **42 / 54 / 51** = `c1_por_fecha` (`po/hb186-poda`, `headMax` **42**) /
+`c1_por_ronda_max` (`po/hb182-l88-molde`, **54**) / `c3_pre_backlog_ws` (**51**).
+**Gana el 54** por la regla de ALERT-231 (el mas alto de los tres). Con la forma de
+ALERT-255 aplicada, el numero real es **55**. **El paso 3 no puede ver la ronda viva:**
+la 55 esta en `hb184` y el 54 que lee viene de `hb182`.
+
+**Que la ronda viva sea la 55 y no la 54 esta medido, y la ronda 55 misma lo
+confirma**: su encabezado dice textual *"esta es la **ronda 55, no la 54**. La 54 ya
+existe: `ca77a78`, fechada 2 horas antes"*. O sea: **el PO ya sabe que hay dos** y
+anoto la correccion en su propio archivo, y el detector sigue sin poder verla.
+
+### 0 PROPUESTAS AL REVIEWER, Y POR QUE EL 0 ESTA MEDIDO
+
+Leida la ronda 55 (`origin/po/hb184-entrega-prebacklog:PRE_BACKLOG.md`, **326.804
+bytes**): `### Tramos` = **0** en su bloque, y la cadena `Reviewer` = **0**. Su
+encabezado: *"**Control de carga:** `openItems` = **5** = **PAUSA** (**14a seguida**).
+Corrida entera de podado: no hubo web, no se abrio idea"*. **PAUSA por regimen propio:**
+no se investiga y no se traen ideas. **0 Tramos = 0 propuestas**, con control positivo
+y negativo en el instrumento de alcance.
+
+**El control de carga del equipo, aparte:** `c2_backlog_main.openItems` = **5**,
+`openItemsDiscrimina: **true**` -> **PAUSA** (banda 4-7). `openItemsAnclada: 5`,
+`openItemsQueLaAncladaPierde: 0`, `openItems_INCONSISTENTE_por_forma: []`. Fixture
+`control_sangria`: **2 / 1 / 1** y discrimina.
+
+## HALLAZGO SECUNDARIO: EL PO MIDIO SU PROPIA AFIRMACION CONTRA `cb369e5` Y ESO LA
+## VIO, NO LA REFUTA
+
+La ronda 55 afirma, textual: *"`origin/main:PRE_BACKLOG.md` termina en `##
+[2026-09-30] Idea 48`: su ultimo heading y su ultima fecha en todo el archivo son del
+**30 de septiembre**"*. Medido en `cb369e5` (su base): **CIERTO** — 6 fechas
+distintas, `fecha_max = **2026-09-30**`, y **0** encabezados de ronda con la forma
+`# Ronda N`.
+
+Medido en `origin/main` @ `219ed5f` (el commit del rescate del HB#185): **FALSO** —
+**7** fechas, `fecha_max = **2026-10-03**`, y la **ronda 52** presente en L3513 con la
+forma `# Ronda 52 del PO - 2026-10-03 20:00 UTC (PAUSA, con T1 medido)`.
+
+> **La causa es `219ed5f` mismo, que es mio:** su `--stat` muestra
+> **`PRE_BACKLOG.md | 101 +++++`** (101 inserciones, **0** borrados). El rescate del
+> HB#185 llevo la ronda 52 del workspace del PO a `main`. O sea: **la fila mas grande
+> del backlog abierto era "1311 lineas medidas que nadie mergeo", y el agente que
+> mergio parte de eso - yo - fue el que invalido la afirmacion siguiente del PO.**
+> **Regla:** una afirmacion del PO medida contra un commit **envejece cuando el
+> equipo mergea**, y el PO no tiene forma de saberlo. **Re-derivarla 1 h despues no es
+> un error del PO: es el costo de medir contra un commit que se mueve.** Cuando una
+> ronda afirme "`main` esta atrasado en X", el nombre del commit es parte de la
+> afirmacion.
+
+**Y el detalle de forma que hace la medicion confiable:** el archivo usa `# Ronda N`
+(**nivel 1**) en `PRE_BACKLOG.md` y `## ACTUALIZACION ... ronda N` (**nivel 2**) en
+`DASHBOARD_PO_IDEAS.md`. **Ninguna de las 2 regex de encabezado que uso el detector
+estan escritas para las dos.** Medido por nivel en `origin/main`: `PRE_BACKLOG.md` ->
+`{1: 1}`, `DASHBOARD_PO_IDEAS.md` -> `{2: 26, 3: 7}`. Con la forma de `##` sola, el
+archivo que mas importa da **0** — y 0 se lee igual que "no hay rondas".
+
+## ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79), todos ANTES del commit
+
+1. **El exit code que no era del proceso.** `_hb186forma.mjs` salio **exit 1** con
+   `controles_ok: true` impreso, y **exit 0** con pipe o `> nul`. Aisle:
+   `ERRORLEVEL=%ERRORLEVEL%` con redirect a archivo y a `nul` da **0** en las dos, y
+   `_err186.txt` esta **vacio**. O sea: **el exit 1 lo reporto el wrapper de la
+   herramienta, no node.** Un `exit code` medido a traves de un pipe no es el del
+   proceso: hay que medirlo con `%ERRORLEVEL%` explicito, no leer el veredicto de la
+   shells de arriba.
+2. **`Get-Content -Raw` sin `-Encoding UTF8` en PowerShell 5.1** lee ANSI: la
+   salida daba `¶` por los em-dash y `Ç§` por los acentos, yencegui para
+   **contar `- [ ]` sobre prosa corrupta**. La relectura con `-Encoding UTF8` dio el
+   texto correcto. **Es ALERT-242 con otro vestido**: el dato no era falso, era
+   *ilegible*, y un conteo sobre texto ilegible es un conteo sin medir.
+3. **`$env:TEMP+'_x'` sin separador** produce una ruta que **no existe**, y
+   `[System.IO.File]::ReadAllBytes` sobre esa ruta **lanza en vez de fallar en
+   silencio** — esta vez si me aviso (reincidencia de HB#173, escrita). Con
+   `$env:TEMP+'\x'` lee. Aun asi: **un `ReadAllBytes` que devuelve 0 tiene que
+   disparar la pregunta del Long antes que la aceptacion**.
+
+## PASO 0 / 1 / 3
+
+- **PASO 0:** inbox **vacio**, replies **vacio**, **23 `overdue`** (HB#91-HB#147,
+  historicos, **ninguno dirigido a mi**: todos `a Code-Reviewer` o `a product-owner`).
+  Ojo de instrumento: el comando del banner **no corre** desde `_comms` (el CLI exige
+  el workspace o `BOVEDA_AGENT`); hay que lanzarlo desde
+  `workspaces\default` con la ruta completa del `cli.py`.
+- **PASO 1:** `task-6cc3851b8d15` -> **404** y `task-39aa51609c17` -> **404**.
+  Ambos **terminales**: `404` verificado es estado terminal y se cierra (ALERT-229).
+  `task-39aa51609c17` era la fila 182 (ALERT-243), ya **Consumida**; no se reenvia
+  (ALERT-225: reenviar la misma pregunta es la septima muerte).
+- **PASO 3:** ver arriba. **0 propuestas al Reviewer.**
+- **Banner:** `tools/hb164-espejo.mjs` -> **13 controles OK**, paridad `<!--`/`-->`
+  **136/136** en los dos, sin sangria imposible, sin EOL mixto (canonico y espejo LF).
+
+## BACKLOG: 5 filas abiertas y **ninguna se arranca**
+
+1. **L60 ALERT-41** - bloqueo **externo**: espera el body crudo de
+   `/v2/account/raids` con un token real de Pablo. No es alcanzable desde un cron.
+2. **L88 Coberturable multicuenta** - decision de producto. **El PO lo avanzo dos
+   rondas**: la 54. Finding que **el molde que L88 nombra NO filtra** la cola de crafteo
+   (2 de 3 vistas filtran; `queueItems()` no), con el certificado **en una fila
+   CERRADA 401 lineas mas abajo** de L88. Pide **1 linea de copy** en L88, no un
+   modulo. Es la fila mas grande de la cola y sigue en PAUSA.
+3. **L298 Fractal multicuenta** - la que el rescate del HB#185 abrio al mover el
+   trabajo fuera del Fractal Tracker (por eso 4 -> 5).
+4. **L174 Dungeon dailies** - su premisa "~3-4h, patron ya probado" es **FALSA**:
+   los 3 hermanos viven en `meta.js`, no en `activities.js`.
+5. **L344 WvW visor** - no es un item: el plazo no se puede escribir.
+
+**Ninguna se arranca en este ciclo**, y la razon se **re-deriva**, no se hereda: un
+cron de 30 min que arranca producto y no llega al commit deja el arbol sucio, que es
+justo lo que el PASO -1 existe para impedir (lo pagaron HB#150, #151, #154, #164, y
+**este mismo ciclo, que todavia hacia falta un rescate**). Ademas el control de
+carga esta en **PAUSA**, y en PAUSA la corrida es de poda.
+
+## ESTADO DE PROPUESTAS AL REVIEWER: **0**
+
+Con control positivo, control negativo y lectura de la prosa de la ronda viva. **No
+se mando nada**: mandar 0 en PAUSA por un `0` que ademas no es medicion seria
+repetir el patron que ALERT-236 y ALERT-238 ya condemnaron.
+
+## ALERTAS
+
+- **ALERT-256 (nueva)** - el canal 1 del detector lee **1** archivo y hay **4** ramas
+  donde el otro publica una cifra distinta; la divergencia **no tiene signo**. La
+  ronda viva (55) es invisible para el paso 3.
+- **ALERT-255** - rescatada del HB#185 en este ciclo, con su ALCANCE corregido
+  (2 ramas -> 4) y con la direccion de la divergencia deshecha.
+- **ALERT-254, 253, 252, 251, 250** - sin cambio de estado.
+- **Sin incidente de crons** (ALERTS_LOG sin crecimiento anormal).
+
+## ARCHIVOS DE ESTE CICLO
+
+- `TEAM_STATUS.md` (este bloque) - **insercion pura**, al principio del archivo.
+- `ALERTS_LOG.md` - rescate de **ALERT-255** + **ALERT-256**.
+- Sin `js/` ni `tests/`: **la suite NO aplica** y no se corre por costumbre.
+
 > **Actualizado:** 2026-10-04 04:3x UTC (HB#183) por el Principal.
 > **PASO -1 RESCATE, y esta vez sin ambiguedad:** arranque **04:30:11 UTC**,
 > `origin/main` @ `cb369e5` (**2026-10-04 00:33:50 UTC**) = **ANTERIOR** al arranque;

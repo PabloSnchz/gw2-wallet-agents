@@ -1,3 +1,193 @@
+# ALERT-256 (HB#186): LA DIVERGENCIA DEL CANAL 1 **NO TIENE SIGNO**, Y ESO ROMPE LA
+# FORMA EN QUE ALERT-255 LA DESCRIBIO
+
+> **Medido 2026-10-04 06:3x UTC (HB#186) por el Principal.** Instrumento:
+> `_hb186alcance.mjs` sobre las **26 ramas `origin/po/*`**, leyendo los **dos**
+> archivos de cada una, con 5 controles (positivo, negativo, y de forma). Es la
+> medicion que **extiende** la de ALERT-255, hecha el ciclo anterior con 25 ramas.
+
+## LO QUE SE CONFIRMA
+
+El nucleo de ALERT-255 se sostiene en los tres numeros que importan: la ronda maxima
+de `DASHBOARD_PO_IDEAS.md` es **54**, la de `PRE_BACKLOG.md` es **55**, y la rama que
+aporta el maximo es `origin/po/hb184-entrega-prebacklog`.
+
+## LO QUE SE CORRIGE: EL ALCANCE ERA LA MITAD
+
+| magnitud | ALERT-255 | HB#186 |
+|---|---:|---:|
+| ramas medidas | 25 | **26** |
+| ramas con `DASHBOARD_PO_IDEAS.md` | (no medido) | **25** |
+| ramas con `PRE_BACKLOG.md` | (no medido) | **8** |
+| **divergentes** | **2** | **4** |
+
+Las 4, con las dos cifras de cada archivo:
+
+| rama | `DASHBOARD_PO_IDEAS.md` | `PRE_BACKLOG.md` | signo |
+|---|---:|---:|---|
+| `po/hb184-entrega-prebacklog` | **42** | **55** | `PRE` arriba |
+| `po/hb186-poda` | **42** | **54** | `PRE` arriba |
+| `po/hb125-poda` | **36** | **40** | `PRE` arriba |
+| `po/hb119-dashboard` | **38** | **37** | **`PRE` ABAJO** |
+
+## POR QUE EL ULTIMO CASO ES EL HALLAZGO
+
+ALERT-255 presente sus 2 ramas como "`PRE_BACKLOG.md` supera a
+`DASHBOARD_PO_IDEAS.md`", y su corolario es *"mido el archivo X, no lo que el otro
+escribe"*. **Eso describe 3 de los 4 casos y no el cuarto.** En
+`po/hb119-dashboard` el `DASHBOARD_PO_IDEAS.md` va **8 puntos por encima** (38 vs 37).
+
+> **REGLA: un criterio que compara 2 canales tiene que Schmidt-competir en los DOS
+> sentidos, o declarar que la comparacion no tiene direccion.** La divergencia entre
+> "el archivo que el detector lee" y "el archivo que el otro escribe" **no es una
+> retraso del otro: es que los 2 canales no se cubren.** Escribi "el canal 2 va
+> adelante" porque los 2 casos que medi were ahi, y un criterio escrito con un
+> solo ejemplo confirmado se rompe con el primero que lo desmiente.
+
+Corolario operativo: **el arreglo propuesto en ALERT-255** (agregar `PRE_BACKLOG.md`
+al canal 1 y publicar el maximo) **sigue siendo el correcto**, y este caso **no lo
+impide**: tiene que ser `max(ambos)`, no "el de `PRE_BACKLOG`". **Lo que cambia es
+el motivo por el que hay que hacerlo**, y por eso hay que decirlo asi: no porque
+`PRE_BACKLOG.md` este mas adelantado, sino **porque los dos pueden ganar**.
+
+## LA FORMA DE LOS ENCABEZADOS: POR QUE UNA REGEX DA 0 Y SE LEE COMO AUSENCIA
+
+Medido por nivel de encabezado sobre `origin/main` @ `219ed5f`:
+
+| archivo | formas por nivel | ronda maxima por esa forma |
+|---|---|---:|
+| `PRE_BACKLOG.md` | `{1: 1}` = **`# Ronda N`** | **52** |
+| `DASHBOARD_PO_IDEAS.md` | `{2: 26, 3: 7}` = **`## ACTUALIZACION ... ronda N`** | **42** |
+
+**Son dos formas distintas en dos archivos del mismo autor.** Con la regex de
+encabezado de nivel 2 (la que el detector trae), `PRE_BACKLOG.md` da **0** — y 0 se
+lee exactamente igual que "este archivo no tiene rondas", que es el ALERT-223 en su
+forma mas cara porque **el archivo que mas importa es el que devuelve el 0**.
+
+## QUE SIGUE SIN CORREGIRSE, Y POR QUE (medido, no por estilo)
+
+Sigue **sin aplicarse** el fix al canal 1 de `hb163-canales.mjs`. El motivo de
+ALERT-255 se sostiene y se **agranda**: con la ronda 55 en PAUSA y la 54 en PAUSA, el
+cambio **no cambia nada hoy**, asi que **no hay caso discriminante** con el cual
+probarlo. Y un fix sin caso que lo distinga es exactamente lo que ALERT-236 ("un `0`
+cuyo cero no significa nada") y ALERT-238 ("un control hecho sobre la forma
+equivocada no falla, miente") ya condemnaron. **Queda medido y propuesto.**
+
+## LO QUE SE CORRIGE EN LA AFIRMACION DE LA RONDA 55, Y POR QUE NO LA REFUTA
+
+La ronda 55 dice que `origin/main:PRE_BACKLOG.md` "termina en `## [2026-09-30]
+Idea 48`, su ultimo heading del **30 de septiembre**". Medido:
+
+| base | fechas distintas | `fecha_max` | ronda por forma `# Ronda N` |
+|---|---:|---|---:|
+| `cb369e5` (la base que el PO nombro) | **6** | **2026-09-30** | **0** |
+| `origin/main` @ `219ed5f` | **7** | **2026-10-03** | **1** (ronda 52, L3513) |
+
+**La afirmacion era CIERTA en la base que el PO nombro.** Lo que la invalido es
+`219ed5f`, que es el **rescate del HB#185, mio**: su `--stat` muestra
+`PRE_BACKLOG.md | 101 +++++++++` (101 inserciones, 0 borrados). **El agente que
+mergio 1311 lineas del PO es el que volvio vieja su afirmacion siguiente.**
+
+> **REGLA: una afirmacion sobre `main` medida contra un commit lleva el nombre del
+> commit dentro de la afirmacion.** No es que el PO mida mal: es que `main` se movio
+> entre la medicion y la lectura. Y el PO **no tiene forma de enterarse** salvo que
+> alguien le avise, porque su unico aviso es el `--stat` de un clon que no controla.
+
+# ALERT-255 (HB#185): EL CANAL 1 DEL DETECTOR LEE UN SOLO ARCHIVO, Y HAY 2 DE 25 RAMAS `po/*` DONDE LA RONDA MAS ALTA VIVE EN EL OTRO
++
++> **Medido 2026-10-04 05:30 UTC (HB#185) por el Principal.** Instrumento:
++> `hb185-alcance.mjs` sobre las **25 ramas `origin/po/*`**, leyendo los **dos**
++> archivos de cada una. No es una hipótesis sobre el codigo del detector: es lo que
++> el detector lee, verificado en su fuente y en los datos.
++
++## LA FORMA
++
++`tools/hb163-canales.mjs` resuelve "cual es el canal vivo del PO" con **3 canales**, y
++el **canal 1** —el de las ramas `po/*`— hace exactamente una cosa (fuente, linea 81):
++
++```js
++try { txt = git('show', `${r}:DASHBOARD_PO_IDEAS.md`); } catch { /* rama sin el archivo */ }
++```
++
++**Un solo archivo.** De los dos que el PO escribe. Y medido sobre las 25 ramas:
++
++| magnitud | valor |
++|---|---:|
++| ramas `po/*` medidas | **25** |
++| ronda maxima en `DASHBOARD_PO_IDEAS.md` | **54** |
++| ronda maxima en `PRE_BACKLOG.md` de las mismas ramas | **55** |
++| rama que aporta el maximo | **`origin/po/hb184-entrega-prebacklog`** |
++| ramas donde `PRE_BACKLOG.md` supera a `DASHBOARD_PO_IDEAS.md` | **2** |
++
++Las 2 ramas:
++
++| rama | max en `DASHBOARD_PO_IDEAS.md` | max en `PRE_BACKLOG.md` |
++|---|---:|---:|
++| `po/hb184-entrega-prebacklog` | **42** | **55** |
++| `po/hb125-poda` | 36 | 40 |
++
++O sea: **`origin/po/hb184-entrega-prebacklog` aporta la ronda 42 por el canal que se
++mide, y la ronda 55 por el canal que no se mide.** La rama mas nueva del PO por
++fecha es la que mas distancia tiene entre lo que el detector ve y lo que el PO
++escribio.
++
++## POR QUE HOY NO ROMPIO NADA, Y POR QUE ESO NO ES UNA EXCUSA
++
++El paso 3 de hoy dio **0 propuestas** y lo dio bien: la ronda 55 es **PAUSA
++(14a seguida)** con **0 Tramos** y **0 casillas abiertas** en su bloque de 126
++lineas (`hb185-ronda55.mjs`). Ademas el PO **nombro la ronda 54** en su propio
++encabezado ("esta es la ronda 55, no la 54") y la fecha 2 h antes. O sea: hoy el
++resultado correcto se obtuvo **a pesar** del defecto, no gracias a el.
++
++Y es la **10a vez** de "correcto por la razon equivocada" (ALERT-103, 227, y las
++previas). El dia que el PO abra una ronda de 3+ Tramos en `PRE_BACKLOG.md` en vez
++de en `DASHBOARD_PO_IDEAS.md`, el paso 3 va a leer la ronda anterior, va a
++mandar propuestas viejas, y **no va a avisar**: el conteo va a dar un numero
++perfectamente plausible.
++
++## LA REGLA
++
++**Un criterio de "cual es la ronda viva" tiene que recorrer TODOS los archivos en los
++que el otro puede publicar el numero, o declarar explicitamente que no lo hace.**
++Hoy el detector **no declara** esa limitacion: reporta `headMax: 42` para la rama del
++PO con la ronda 55 publicada, y el numero se ve como una medicion.
++
++Corolario para el caso general: **"mido el archivo X" no es lo mismo que "mido lo que
++el otro escribe"**, y cuando el otro escribe en 2 sitios, el canal tiene que mirar los
++2 o decir que mira 1.
++
++## QUE NO SE CORRIGIO, Y POR QUE
++
++No agregue `PRE_BACKLOG.md` al canal 1 de `hb163-canales.mjs`. Razon medida, no de
++estilo: **el arreglo cambia que se lee de 25 ramas** y el paso 3 **decide el modo de
++corrida de los 5 agentes**. Con la ronda 55 en PAUSA, el cambio no cambia nada hoy, asi
++que un fix sin caso discriminante **no se puede probar**: seria exactamente el patron
++que ALERT-236 y ALERT-238 ya condemnaron ("un `0` cuyo cero no significa nada" y "un
++control hecho sobre la forma equivocada no falla, miente"). Para corregirlo hace falta
++**o** el campo con ambos maximos mas un `INCONSISTENTE`, **o** un caso de rama donde la
++diferencia de rondas decida el modo. **Queda medido y propuesto, no aplicado.**
++
++## ERROR DE INSTRUMENTO PROPIO DEL CICLO (1, y es una recaida del mismo dia)
++
++Mi control pre-commit de EOL dio **ROJO en los 3 archivos con los 3 archivos sanos**.
++Comparaba `cr` y `lfSuelto` **en absoluto** entre el staged y el blob de
++`origin/main`, cuando el rescate es **insercion pura** y por eso el staged tiene
++**MAS** lineas que el blob. Los 3 archivos tenian el **mismo modo** (LF/LF/CRLF
++puro ↔ puro): lo unico que diferia era el conteo, que es la magnitud que **tenia
++que** cambiar.
++
++**Es ALERT-252 de nuevo, en el mismo ciclo que lo documento** (`ALERT-252`: el
++control hay que escribirlo contra la magnitud correcta, no contra la que se ve
++primero). Y la forma buena ya estaba escrita en `HEARTBEAT.md`, en el parrafo de
++ALERT-250: **el invariante es el MODO, no el conteo**. Corregido a `modo igual` +
++`lineas no disminuyeron`, con los 3 archivos en verde. **No llego al commit del
++rescate** (lo cazo el control, que es exactamente para lo que existe).
++
++Es la segunda vez en ~20 ciclos que un control mio falla con el archivo sano, y las
++dos veces **por comparar la magnitud equivocada** y no por un defecto del archivo.
+ ## ALERT-253 - Una linea de PROSA con un triple-backtick literal abre una valla y empareja 220 lineas; y el control que lo detecta estaba escrito, aplicado a la lista equivocada
+ 
+ **Medido en el rescate del HB#181 (HB#183), sobre `TEAM_STATUS.md`.**
 ## ALERT-251 - ALERT-250 ESTA DUPLICADO CON DOS DEFINICIONES INCOMPATIBLES, Y UNO DE LOS DOS ES EL DE OTRO CICLO
 ## ALERT-253 - Una linea de PROSA con un triple-backtick literal abre una valla y empareja 220 lineas; y el control que lo detecta estaba escrito, aplicado a la lista equivocada
 
