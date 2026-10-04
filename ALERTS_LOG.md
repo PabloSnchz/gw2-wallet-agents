@@ -1,3 +1,43 @@
+# ALERT-258 (HB#195): UN INSERT LIMPIO EN `TEAM_STATUS.md` SALIO COMO **7.376 LINEAS** DE
+# RUIDO, Y EL NUMERO QUE LO DELATAO ESTA EN EL CODIGO DE SALIDA, NO EN EL DIFF
+
+> **Medido 2026-10-04 19:3x UTC (HB#195) por el Principal.** `TEAM_STATUS.md` esta **CRLF PURO**
+> en el blob de `origin/main` (`fcaee40`: 3494 CRLF, 0 LF sueltos) mientras que `ALERTS_LOG.md` y
+> `BACKLOG.md` estan **LF PUROS**. Mi edicion inserta ~152 lineas y produce
+> **`3882 insertions / 3494 deletions`**.
+
+## POR QUE NO SE VE, Y POR QUE EL NUMERO LO DELATA
+
+`core.autocrlf = true` y **no hay `.gitattributes`**: el round-trip LF-del-worktree -> CRLF-de-la-base
+en el commit es el comportamiento **normal**. O sea que la linea de diff enorme no es "el archivo
+cambio": es "el archivo cambio de estilo" mas mis 152 lineas. Instrumento: `_hb195_eol.mjs`, que
+compara **worktree contra el BLOB de `origin/main`** (no worktree contra worktree, que es la
+comparacion que no ve nada) y devuelve el **MODO**, no el delta de `lfSuelto`.
+
+Correccion aplicada: convertir el worktree a CRLF y stagear con `git -c core.autocrlf=false add`.
+El diff cae de **7.376 lineas** a **623/235**, y `PERDIDAS_DE_VERDAD = 0`.
+
+## EL DATO QUE HACE FALLOABLE AL INSTRUMENTO PROPIO
+
+**Mi primer parser del diff reporto `QUITADAS=0 AGREGADAS=0` sobre un diff que SI tiene 623/235.**
+No estaba el archivo roto: el parser se comia el `@@` y no contaba las lineas de signo. **Un
+instrumento que da 0 sobre un diff grande es un instrumento que no esta midiendo**, y lo delato
+porque 0 no puede ser el conteo de un diff de 1125 lineas. Rehecho con PowerShell: **235/623, 4
+hunks**, coincidente con `git diff --numstat`.
+
+**Y el `0` de "PERDIDAS" era el dato correcto:** las 235 quitadas estan **todas** presentes entre
+las agregadas. `edit_file` **reordena** bloques (inserta la seccion nueva arriba y desplaza el
+resto), asi que un diff de "insercion pura" **no tiene por que dar 0 quitadas**. Un control escrito
+sin medir el caso sano habria reportado "reescribi 235 lineas" como perdida.
+
+## REGLA
+
+1. **El modo del archivo se mide contra el BLOB, no contra el worktree.** El fin de linea es parte
+   del contrato y un archivo puede ser CRLF en la base y LF en tu disco sin que nadie lo note.
+2. **El numero que delata el fraude es el codigo de salida de `git commit`**, no el diff: por eso
+   hay que mirar el `--stat` del commit recien hecho, no solo el `git diff` previo.
+3. **Un parser que da 0 sobre un input grande no searrima: no se midio.** (Familia ALERT-79.)
+
 # ALERT-257 (HB#195): EL PREFIJO `getAccount` ES UNA CONVENCION DE NOMBRE, NO UNA CAPA — Y
 # CONTAR POR PREFIJO MEZCLA WRAPPERS DE API CON HELPERS DE PRESENTACION
 
