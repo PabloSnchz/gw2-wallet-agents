@@ -3,7 +3,11 @@
 > Documento canónico de estructura del ecosistema multi-agente.
 > Fuente: los 5 `AGENTS.md` de los workspaces + `agent.json` de cada agente +
 > `git remote -v` de los 3 repos + `qwenpaw cron list` / `qwenpaw chats list` / `qwenpaw channels list`.
-> Verificado contra el código real el 2026-09-30.
+> Verificado contra el código real el 2026-09-30. Las secciones 4 y 7.1 fueron
+> **re-verificadas contra el motor y los clones reales el 2026-10-04**; lo que
+> estaba escrito antes era falso (ver 7.1). Fecha por sección: cada afirmación
+> de este documento vale lo que vale su última verificación contra una fuente
+> real, no lo que decía cuando se escribió.
 > Los `AGENTS.md` no están versionados: viven en los workspaces, no en el repo.
 
 ---
@@ -108,16 +112,29 @@ Reglas transversales de escritura:
 | repo | quién pushea | quién solo lee | quién no toca |
 |------|--------------|----------------|----------------|
 | `PabloSnchz/gw2-wallet-agents` (DESARROLLO) | Principal a `main`. Documentador y PO a su propia rama, y avisan al Principal para el merge | todos los agentes | nadie está excluido. Autonomía total |
-| `PabloSnchz/gw2-wallet-ligero` (PRODUCCIÓN) | Solo Pablo. El equipo hace cherry-pick únicamente cuando Pablo lo pide explícitamente | todos los agentes | El equipo no propone promover. Ni en `TEAM_STATUS.md`, ni en `SESSION_LOG.md`, ni en escalados, ni en ninguna comunicación |
+| `PabloSnchz/gw2-wallet-ligero` (PRODUCCIÓN) | **Arquitecto** (`architect`), y únicamente sobre la lista de archivos que Pablo aprobó en pantalla (ver 7.1). **Antes del 2026-10-03: solo Pablo** | todos los agentes | El equipo no promueve **ni propone** promover. Ni en `TEAM_STATUS.md`, ni en `SESSION_LOG.md`, ni en escalados, ni en ninguna comunicación |
 | `PabloSnchz/gw2-agents-dashboard` (Dashboard) | Arquitecto. Es su producto | Principal y agentes | Los agentes operativos NO tocan el dashboard. Si hace falta un cambio, va al Arquitecto |
 
 ### Los 3 repos y sus remotes
 
 | path local | remotes | aclaración crítica |
 |------------|---------|--------------------|
-| `C:\Mis Archivos\GW2 online\gw2-wallet-agents` | `origin` → `gw2-wallet-agents.git` | Ahí el remote de DESARROLLO se llama `origin`. `git push agents` falla |
-| `C:\Mis Archivos\GW2 online\gw2-wallet-ligero` | `agents` → `gw2-wallet-agents.git` (desarrollo) y `origin` → `gw2-wallet-ligero.git` (producción) | Push por defecto a `agents`. Solo a `origin` cuando Pablo lo pide |
-| `C:\Mis Archivos\GW2 online\gw2-agents-dashboard` | `origin` → `gw2-agents-dashboard.git` | Repo del Arquitecto |
+**Verificado 2026-10-04 contra `git remote -v` real.** Los dos clones que figuran
+acá abajo fueron RETIRADOS en la migración del 2026-09-30; la tabla anterior los
+daba como vigentes.
+
+| path local | remote |Clone de | who push |
+|---|---|---|---|
+| `C:\Mis Archivos\GW2 online\gw2-dev` | `origin` → `gw2-wallet-agents.git` | desarrollo | el equipo (Principal a `main`) |
+| `C:\Mis Archivos\GW2 online\gw2-prod` | `origin` → `gw2-wallet-ligero.git` | producción | Arquitecto, tras OK de lista de Pablo |
+| `C:\Mis Archivos\GW2 online\gw2-agents-dashboard` | `origin` → `gw2-agents-dashboard.git` | dashboard | Arquitecto |
+| ~~`gw2-wallet-agents`~~ / ~~`gw2-wallet-ligero`~~ | — | — | **RETIRADOS.** No volver a usarlos ni referenciarlos |
+
+**En `gw2-prod` no existe el remote `agents`.** Por eso la promoción **no es un
+cherry-pick**: los dos repos de GitHub son distintos y no comparten historia.
+Medido: `git cat-file -t 7525f1f` dentro de `gw2-dev` devuelve `Not a valid object
+name`. La promoción real es **copiar contenido**, y el commit de producción lo
+dice: `7525f1f Merge pull request #117`.
 
 El término "origin" en los `AGENTS.md` es ambiguo: a veces significa el remote
 git local `origin` (que en el clon de `agents` apunta a DESARROLLO) y a veces
@@ -216,14 +233,78 @@ Principal. No confundir.
 
 ### 7.1 Promoción a `origin` (producción)
 
+**Verificado 2026-10-04. Este bloque estaba desactualizado en 3 de sus 4 puntos.**
+
 1. El equipo **NUNCA propone** promover a `origin`. Ni en `TEAM_STATUS.md`, ni
-   en `SESSION_LOG.md`, ni en escalados, ni en ninguna comunicación.
-2. `origin` (producción, `gw2-wallet-ligero`) es dominio exclusivo de Pablo. Él
-   decide cuándo y qué promover.
+   en `SESSION_LOG.md`, ni en escalados, ni en ninguna comunicación. *(sin cambios)*
+2. `origin` (producción) lo promueve el **Arquitecto**, desde el 2026-10-03.
+   Antes era solo Pablo. El equipo operativo **no tiene escritura a producción**
+   por diseño: no está en su MCP y sus `policy.yaml` la deniegan.
 3. Si un agente piensa "esto está listo para producción", **no lo dice**. No
-   es su rol evaluarlo. Su trabajo termina en `agents`.
-4. Cuando Pablo lo pide explícitamente, el equipo hace cherry-pick de los
-   commits concretos a `origin/main`. Paso a paso registrado en los logs.
+   es su rol evaluarlo. Su trabajo termina en `agents`. *(sin cambios)*
+4. **La promoción NO es un cherry-pick.** Es copiar contenido de archivos. Los
+   dos repos de GitHub no comparten historia y `gw2-prod` no tiene el remote
+   `agents`. Un cherry-pick literalmente no se puede ejecutar.
+
+### Qué es un OK válido
+
+El OK de Pablo es **sobre una lista de archivos mostrada antes**, archivo por
+archivo. No es un "dale", no es un "está listo", y caduca al terminar la sesión
+en la que se dio. Un OK de una sesión anterior no es un OK.
+
+### El proceso, en 6 pasos
+
+| # | paso | qué lo verifica |
+|---|---|---|
+| 1 | medir el delta dev→prod, sha blob a blob entre los dos clones | nunca "copiar dev entero" |
+| 2 | clasificar el delta: webapp / datos / herramientas | un sync automático mete 230 archivos: 21 logs, 100+ tests, 80 tools |
+| 3 | vaciar la cola: preguntar al Principal todo lo que haya que validar y **esperar** | si hay una pregunta abierta, no hay promoción, por lista que Pablo apruebe |
+| 4 | mostrar la lista explícita | Pablo aprueba *esa* lista |
+| 5 | promover **sobre una rama, por PR**. Nunca push directo a `main` | ver 7.5 |
+| 6 | verificar con números: N/N sha idéntico, N/N `node --check`, y la web abierta | "funciona" deja de ser una impresión |
+
+Paso 1 y 3 están implementados. El paso 5 **no se siguió en la promoción del
+2026-10-04**: `c0471e0` tiene un solo padre (push directo), no es merge. Ver 7.5.
+
+---
+
+### 7.5 Rollback: cómo se deshace una promoción (verificado 2026-10-04)
+
+El rollback **funciona** y devuelve el árbol byte a byte al estado previo.
+Medido ejecutando un ensayo real con un archivo inerte en `gw2-prod`, sin
+publicar nada: script `ensayo_rollback.js` (en el workspace del Arquitecto),
+14/14 checks.
+
+```
+T0 (estado publicado)      = 561cc78d106fcae7890df365253a734073ea4c09
+T1 (con el archivo inerte) = c41827f218cc1d0b8b5d8bd46aa21155473ff13a
+T2 (revert de push directo) = 561cc78…  == T0
+T3 (revert -m 1 de merge)   = 561cc78…  == T0
+```
+
+**El hallazgo: las dos formas de revertir NO son intercambiables.** Medido:
+
+```
+git revert  <merge>    -> FALLA: "is a merge but no -m option was given"
+git revert -m 1 <lineal> -> FALLA
+```
+
+O sea: **antes de revertir hay que saber con qué forma se promovió.**
+
+| promoción | forma del commit | comando de rollback |
+|---|---|---|
+| por PR | merge, 2 padres | `git revert -m 1 <sha>` |
+| push directo | lineal, 1 padre | `git revert <sha>` |
+| **Armería `c0471e0` (2026-10-04)** | **lineal, 1 padre** | **`git revert c0471e0` — SIN `-m 1`** |
+
+**Antes de revertir, anotar el árbol:** `git rev-parse "<sha>^{tree}"`. Si el
+número después del revert es igual, el rollback fue limpio. Es el mismo criterio
+que el paso 6, aplicado al revés.
+
+**El ensayo no toca producción por construcción:** corre en ramas nuevas creadas
+desde el commit publicado y `main` nunca se mueve. No hace falta `reset --hard`
+(que además está en la lista de comandos denegados). Si el ensayo se corta a la
+mitad, lo peor que queda son dos ramas inertes borrables.
 
 ### 7.2 Autonomía
 
