@@ -4955,3 +4955,72 @@ Ninguna es falsa y ninguna se puede podar sin una decision de Pablo:
    tiene que discriminar **antes** del titular, no despues.
 4. **Cherry-pick no sirve para appends a la misma cola.** Se concatena, y se deduplica por hash del
    parche, porque la misma idea llega por dos ramas con dos commits distintos.
+
+## HB#193 - la banda se mide en git y el podado se decide fuera de git (PO, 2026-10-04 17:35 UTC)
+
+> **Por que esta seccion existe y esta aca.** El commit `82f66cd` ("archiva L298 y L352, 5 -> 3 items
+> abiertos = RECOLECTAR") esta en git, pero **la razon por la que esas dos filas son podables no estaba en
+> ningun archivo del repositorio**: vivia en el workspace del PO y en una rama sin mergear
+> (`po/hb192-preguntas-no-trabajo`, que no toca `PRE_BACKLOG.md`). Este archivo del repo **termina en la
+> ronda 55**, y la razon de una poda de hoy no estaba en el. Esto lo arregla una vez: aca queda.
+> Las rondas 56 a 62 completas siguen en el workspace del PO.
+
+### Las dos filas podadas en `82f66cd`, con su razon
+
+**L298 - "Fractal Tracker multicuenta".** Medido en 3 rondas (51, 52, 62) sobre `origin/main`: `fractal`
+(case-insensitive) aparece **110 veces en produccion**; las unicas 2 lineas que cruzan fractal con cuenta son
+`activities.js:1216` y `:1249`, y **son el mismo call site por dos caminos**
+(`Fractals.loadCMStatus(state.token)`). **La fila es cierta, la feature ya existe, y lo que la fila pedia ya
+esta.** No era cola de trabajo: era una pregunta de producto con forma de fila. **Revisar: 2026-11-04.**
+
+**L352 - la fila cuya cuarta linea decia "Priorizado: la decide Pablo".** Su propia condicion de salida escrita
+decia *"Estimado: no se escribe, porque depende de una decision de producto que todavia no existe"*.
+**Una fila que se escribe con su condicion de salida en el mismo commit no esta esperando trabajo: esta
+esperando que alguien lea la fila.** Precedente ya escrito en este archivo (L312, archivada en la ronda 40):
+*"un item que depende de una decision de producto no es cola de trabajo, es una pregunta"*.
+**Revisar: 2026-11-04.**
+
+### La fila que sigue siendo la misma forma y NO se archivo todavia
+
+**L60 - ALERT-41, Strike Tracker.** Es la tercera. Es **la mas vieja de las tres** (29-sep) y **la mas larga**
+(2.570 B). Y la fila **contiene hoy la refutacion de su propia condicion de cierre**: su nota de fusion cita
+que los ids de evento no resuelven uno a uno contra `/v2/raids?ids=<id>`, y sin embargo su condicion unica
+sigue siendo *"Pablo pega el body crudo de `/v2/account/raids` con un token real"*.
+
+Re-medido hoy contra la API en vivo, con controles:
+
+| medicion | valor | control |
+|---|---|---|
+| ids de strike en `STRIKES_BY_EXPANSION` (`strike-tracker.js` L23-L94) | **15** (excluyendo `mount_balrior`) | extractor con autocontrol, forma real `{ id: "x" }` |
+| `/v2/raids?ids=all` en vivo | **6 alas, 30 eventos** | - |
+| **interseccion** | **0 de 15** | positivo: `gorseval` presente. negativo: id inventado ausente |
+
+**El token no produce trabajo.** Las **dos** ramas que la propia fila escribe ("se arregla el tracker" / "se
+borra el modulo") terminan en **decision de Pablo**. Es un pedido de dato que en ambos casos devuelve una
+pregunta.
+
+**La pregunta, en una linea, para que no viva 6 dias mas como fila:**
+> *Pablo: ¿Strike Tracker o nada?* Las 15 ids no existen en lo que `/v2/account/raids` puede devolver. Si
+> querés el tracker, el camino es logros por strike (13 de 15 tienen achievement, la Idea 53). Si no, se borra
+> el modulo y se cierra la fila.
+
+**NO se archivo sin que Pablo responda.** Va como fila hasta que conteste, y por que: una pregunta que borra
+un modulo entero necesita una respuesta, y borrar la fila sin respuesta seria repetir el error al reves.
+
+### El mecanismo, que es lo que HB#193 vino a preguntar
+
+La banda de control se mide sobre `BACKLOG.md`, **que esta en git**. El unico input que la baja es **podar**.
+Medido sobre la cadena de primer padre de `origin/main` (636 commits, 30 cambios):
+
+`0 -> 2 (09-27) -> 5 (09-28) -> 9 -> 10 -> 12 -> 13 -> 14 -> 15 -> 17 -> 19 -> 20 (10-01) -> 18 -> 13 -> 10 -> 6 -> 5 -> 6 -> 4 (10-03) -> 5 -> 3 (hoy)`
+
+- **Puntos `<= 3` en toda la vida del archivo: 2.** Al crearse (0) y hoy.
+- **Antes del 2026-10-02 no hubo ni una poda** y el conteo solo subio. El podado se invento el 10-02 y en 3
+  dias bajo el numero de 18 a 3.
+- **La banda se libero sola hoy**, 9 minutos despues de que el PO entregara el podado que la baja. **Nadie
+  eligio volver a investigar.**
+
+**Lo que esto propone, y NO es un cambio de quien cuenta:** una banda cuya unica salida es borrar producto
+mide la poda, no la carga. Si la intencion es "no investigar con la cola llena", la condicion de salida
+deberia poder cumplirse **sin archivar nada** - por ejemplo, un item cerrado por trabajo terminado. Hoy las dos
+vias existen en el archivo, pero la que se ha usado 6 de 7 veces es la poda.

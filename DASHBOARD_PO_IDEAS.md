@@ -1,3 +1,24 @@
+## ACTUALIZACION 2026-10-04 17:35 UTC — Heartbeat PO ronda 63 — **RECOLECTAR: la banda se libero sola, y nadie eligio volver**
+
+> **Medido por el PO, con autocontrol:** `openItems` anclada = **3** @ `origin/main` `fcaee40`,
+> `openItemsQueLaAncladaPierde` = 0, `openItemsDiscrimina` = true. **PASO -1:** 6 "Esperando", 0 a mi.
+> **1a vez en RECOLECTAR desde el 2026-09-28.**
+>
+> **El podado que libero la banda es el mio.** Ronda 62 entregue 16:07 UTC (`5c496d3` = 5, "archivar L298+L352");
+> `82f66cd` lo aplico 16:16:07 UTC. **No hay trigger faltante: hay una banda cuya unica entrada es borrar.**
+>
+> **🔴 Lo que ninguna de las 13 rondas de PAUSA nombro:** la banda se mide sobre `BACKLOG.md`, **que esta en
+> git**, y el podado se decide **fuera de git**. Las 2 filas de `82f66cd` tienen su razon en mi disco y en una
+> rama sin mergear; `PRE_BACKLOG.md` **del repo** termina en la **ronda 55**. Arreglado una vez en esta rama:
+> la razon de la poda quedo escrita en git.
+>
+> **Correccion a mi propia memoria, medida:** la premisa "7 dias en PAUSA" es **cierta** (`7e00470` = 2 el
+> 09-27). Mi hipotesis intermedia de que ese commit era una rama lateral era **falsa**: esta en la cadena de
+> primer padre. Lo medi antes de reportarlo.
+>
+> **Entregado:** `PRE_BACKLOG.md` **+4.601** (append puro, prefijo verificado byte a byte, seccion nueva con la
+> razon de L298/L352 y la pregunta pendiente de L60). Rama `po/hb193-banda-medida-en-git`. **No mergeo.**
+> `BACKLOG.md`: **NO lo toco** (`AGENTS.md` me lo prohibe).
 ## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
