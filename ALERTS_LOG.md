@@ -7871,3 +7871,54 @@ dicen, cuantas tienen el glifo de_item abierto. Un `grep` cuenta las menciones; 
 
 Clase: ALERT-245 (glifo contra texto, direccion inversa), ALERT-237 (una medicion que no llega al artefacto que la
 decide), ALERT-223 (un conteo cuyo valor no significa lo que su nombre dice). Instrumento: `tools/hb177-l312.mjs`.
+
+## ALERT-250 - EL TEST PROPIO EN VERDE NO DICE QUE EL WIP SEA MERGEABLE: 5 ARCHIVOS QUE NO SON SUYOS ESTABAN EN ROJO
+
+**El error fue MIO y lo refute con una base antes de tocar nada.** El rescate del ciclo
+(HB#179, muerto antes del commit) dejaba `71797b1` con `tests/armeria-materiales-owned.test.js`
+nuevo y sus **16 aserciones en verde**. Mi primer impulso fue leer ese verde como "el trabajo
+esta terminado": es exactamente el `correcto por la razon equivocada` (ALERT-103), con la forma mas
+caracteristica posible, porque el test verde **es** la senal que uno quiere ver.
+
+**Lo que falto fue la BASE.** Sin medir `origin/main` en la misma suite, los 5 FAIL se leen como
+"el WIP esta roto". Con la base, se leen como **"el WIP los rompio a ellos"**:
+
+| corrida | resultado |
+|---|---|
+| el test del WIP, **solo** | **16 pass / 0 FAIL** |
+| suite en la rama del WIP | **4956 pass / FAIL=5 en 87** |
+| suite en `origin/main` (worktree base) | **4575 pass / **0 FAIL** en 86** |
+
+**La regla: un test propio en verde no es evidencia de que el cambio sea mergeable.** El test propio
+solo acota lo que **el** mide; el costo de un merge lo pagan los archivos que **no** son suyos. Por eso el
+control que decide es la **suite completa sobre `origin/main`**, y tiene que correr **antes** de la del WIP,
+porque es la que da el numero contra el cual el verde propio se vuelve relativo.
+
+**Y las dos preguntas del PASO -1 son INDEPENDIENTES, no opuestas.** "Hay trabajo que rescatar?" y
+"ese trabajo esta terminado?" tienen respuestas separadas, y aca la primera es que si (arbol sucio con mtimes
+anteriores al arranque, escritor muerto, un commit de producto sin mergear) y la segunda es que no
+(el propio commit se llama `sin cerrar`). **La primera no implica la segunda**, y confundirlas es lo que
+produce un `git merge` de medio item sobre `main`. El nombre del commit es una pista de **phase** escrita
+por el autor: se respeta como tal, no como un titulo.
+
+**Los 5 FAIL son 4 causas, y 2 de los 5 son UN solo desplazamiento:**
+
+- **JSDoc robado (2 FAIL).** El WIP inserto `getAccountInventory` **entre el bloque JSDoc de
+  `getAccountLegendaryArmory` y la funcion misma**, asi que esa funcion **perdio su `@throws`** y cayeron
+  `idea47-commit2.propagate` y `idea57t3-jsdoc-honesto`. Es **ALERT-221 (el vecino)** exacto, y por eso el
+  arreglo es un **relocate** (mover la funcion arriba del comentario) y **no tocar los dos tests**.
+- **Plumbing ALERT-220 a medias (3 FAIL, 1 archivo).** El WIP **si** agrego `account_inventory` a
+  `CACHE_KEYS_EXACT`, pero **la allowlist tiene DOS fuentes de verdad** y actualizo una sola. Los 4 FAIL lo
+  nombran: `faltan: ["account_inventory"]`, y los conteos 19->**20** y 25->**26**.
+- **Cambio de contrato deliberado (1 FAIL).** `openItemModal` dejo de pedir ids al abrir. El comentario del
+  WIP lo declara **intencional**, y hay un test que aserta el contrato viejo: es **decision de Pablo**,
+  no un fix. **El unico de los 5 que no se cierra solo.**
+- **Solo en la suite (16 FAIL).** Firma de **ALERT-206**: el scratch de fase roja (`_mut2.js`, del propio
+  ciclo) **reescribe `js/legendary-tracker.js` en disco** mientras corre el runner. "Pasa solo, falla en la
+  suite" con un mutador de fuente en el arbol **es la explicacion completa**, y no un defecto del WIP.
+  Borrado el scratch, queda pendiente verificar; si sigue rojo, pasa a ser un hallazgo nuevo y no mio.
+
+**Corolario de costo, y es lo que casi me gasto:** los 3 FAIL cerrables (el relocate y los 2 conteos) son
+**cambios de producto**, y un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio.
+Un rescate **no es una excepcion** a esa regla: es el caso donde mas caro sale. La salida correcta era
+**dejar el WIP en su rama** (que es donde vive un trabajo sin cerrar) y **commitear solo el log**.

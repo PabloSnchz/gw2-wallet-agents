@@ -11,11 +11,11 @@
 
 | Columna | Qué significa |
 |---------|---------------|
-| **Cuentas consistentes entre pestañas** (T19-c) | `feat-t19c-lectores-capa` (ya borrada, estaba en `main`) | `d32e054` | **Listo para probar.** 4 modulos dejan de leer la cuenta vieja a mano. El Gist puede subir una cuenta distinta de la de la pantalla. **Si entra:** el respaldo queda coherente. **Si sale mal:** solo afecta el camino sin `<select>` con valor; el test `t19c` cubre el caso "solo la clave nueva", que antes devolvia vacio. **No tocar `MIGRATION_MODE`**: pasarlo a `move` dejaria mudos a los 4 a la vez. |
 | **Feat** | Nombre del feature |
 | **Rama** | Rama donde vive |
 | **Commits** | SHAs en `agents/main` |
 | **Estado** | `Listo para probar` / `Probado` / (lo que Pablo decida) |
+| **Por qué NO es candidato** | el motivo, cuando la fila no espera ninguna decisión |
 
 ### Los estados que existen, y por qué
 
@@ -43,70 +43,38 @@ producción y su pill se veía en Actividades, pero nadie había confirmado que
 hiciera lo que dice hacer. Marcarlo AUTORIZADO habría sido afirmar una
 funcionalidad que nadie midió.
 
+### Por qué todo tiene que estar en una TABLA
+
+El parser solo lee las secciones cuyo título matchea `/pendient|esperando|por
+decidir|candidato|revisar/` o `/decidid|tomadas|historial|aprobad/`, y de cada
+sección solo lee tablas con encabezado o bullets. Un `## HB#xxx` suelto se
+descarta entero: **no aparece en la tab**. Eso ya pasó con T19-c, T20-c,
+HB#136 y HB#141, que estaban escritos abajo como secciones sueltas y la tab
+mostraba una cola más corta que la real. Si algo no está en una tabla de esta
+sección, para la tab no existe.
+
 ## Pendientes de decisión
-
-_(vací)_
-
-**Un feat está LISTO.** No es un pedido de promoción: queda anotado para que sepas que existe, y la decisión es tuya.
 
 | Feat | Rama | Commits | Estado |
 |---|---|---|---|
 | **Idea 50 completa — el botón de liberar caché** (Tramos A-F: `cacheClear` con `dryRun`, el registro estático de 23 bases de API + 5 del WV, `keptBytes`, y un copy que solo afirma lo que sigue siendo cierto) | `feat-idea50-boton-cache` (mergeada y borrada) | `b43743b`, `70414d2`, `46b2d7f` / merge `950ea64` | **LISTO.** Veredicto del Reviewer: APROBADO CON CAMBIOS, los 2 bloqueantes (H1 título, H2 enumeración de `kept`) aplicados. **Sí cambia lo que Pablo ve**: es el primer botón que invoca `cacheClear`. Suite 793 aserciones / 0 FAIL, 29 de 29 archivos |
+| **Cuentas consistentes entre pestañas (T19-c)** — 4 módulos dejan de leer la cuenta vieja a mano. El Gist puede subir una cuenta distinta de la de la pantalla | `feat-t19c-lectores-capa` (ya borrada, estaba en `main`) | `d32e054` | **Listo para probar.** **Si entra:** el respaldo queda coherente. **Si sale mal:** solo afecta el camino sin `<select>` con valor; el test `t19c` cubre el caso "solo la clave nueva", que antes devolvía vacío. **`MIGRATION_MODE` no se toca**: pasarlo a `move` dejaría mudos a los 4 a la vez |
+| **T20-c — foto local antes de sobrescribir por el Gist** | `hb120` (mergeada) | `4413c34`, `d06c8d7` | **Listo, sin probar por Pablo.** Ajustes → Gist → "Sincronizar desde la nube": el cartel cambió. **Si das Cancelar**, antes ponía "sincronizada" y recargaba. Ojo: el HB#120 escribió que `GistSync` no está montado en ningún HTML y es FALSO (ALERT-184: el grep se corrió sobre `js/`); el botón existe, es `#gistDownloadBtn` en `index.html` |
 
-**Nada más esperando aprobación.** Los dos feats de la ronda anterior se anotan acá **para que sepas que existen**, no como pedido: ninguno de los dos cambia nada de lo que Pablo ve, así que promoverlos ahora sería mover código sin efecto visible.
+**Nada más esperando aprobación.** El Tramo F (`cacheClear` con `dryRun`,
+`c04496e`/`a330d30`, merge `86b351a`) ya NO va acá: quedó absorbido por el botón
+de liberar caché, que es su único caller.
 
 | Feat | Rama | Commits | Por qué NO es candidato |
 |---|---|---|---|
 | Idea 61 Tramo 3 — el espejo medido en comportamiento por los 4 pares | `idea61t3-espejo-4pares` (borrada) | `905dc77` / merge `5c80ae5` | **Es código de test.** No toca `js/`, no cambia ninguna pantalla. Mergeado para que el equipo no lo repita mal |
-
-**El Tramo F (`cacheClear` con `dryRun`, `c04496e`/`a330d30`, merge `86b351a`) ya NO va acá:** quedó absorbido por el botón de arriba, que es su único caller.
+| HB#136 · arnés de la escena 2 (solo Strikes) | `hb136-escena2` | `d12ab8b` | **Es una red de test, no una feature.** Es la precondición que el Reviewer pidió dos veces antes de tocar T14/T15; nada en pantalla, es el suelo debajo de features que sí van a venir |
 
 ## Decisiones tomadas por Pablo
 
 | Fecha | Decisión |
-|-------|----------|
+|---|---|
+| 2026-10-04 | `c0471e0` (Armería Legendaria — 12 módulos nuevos, 36 archivos, 1994 KB; incluye el árbol de fabricación de HB#141 `539f410` / `9f3b097`): **AUTORIZADO** en producción. Pablo lo probó y confirmó que todo funciona. No tocar. |
 | 2026-09-30 | `57008ae` (Raid Tracker — ala 9 "Nexus of Eternity", boss Vloxx): **AUTORIZADO** en producción. Autorización retroactiva; Pablo lo revisó. No tocar. |
 | 2026-09-30 | `392c3b9` (Solitary Throne CM daily tracker): **EN PRODUCCIÓN, SIN VERIFICAR**. No revertir ni modificar hasta que se verifique. |
 | 2026-09-30 | `07e4c64` (Idea 2 — wallet-dashboard columnas Personajes/AP/Raids): **REVERTIDO** de producción. Autorizado por Pablo y revertido con `a1a53c4`. Sigue en `agents/main`. |
-
-## T20-c - foto local antes de sobrescribir por el Gist
-
-- **Rama:** `hb120` (commiteada en el worktree; el merge a `main` lo hace el Principal)
-- **Commits:** `4413c34`
-- **Estado:** listo, sin probar por Pablo
-- **Por que entra en la lista:** es el unico tramo de la ronda 38 que evita la perdida
-  en vez de contarla. T20-a y T20-b le dicen cuanto va a perder; este le deja de donde
-  volver.
-- **Lo que hay que mirar:** Ajustes → Gist → "Sincronizar desde la nube". El cartel
-  cambio. Ojo: el HB#120 escribio que `GistSync` no esta montado en ningun HTML y es
-  FALSO (ALERT-184: el grep se corrio sobre `js/`). El boton existe, es
-  `#gistDownloadBtn` en `index.html:927`. Si no lo ves, es lo de siempre.
-  Ademas `d06c8d7`: si das Cancelar, antes ponia "sincronizada" y recargaba.
-- **Ficha:** `FEATURES.md`, "Foto antes de sobrescribir la configuración desde la nube"
-
-
-
-## HB#136 · arnes de la escena 2 (solo Strikes)
-
-- **Rama:** `hb136-escena2`  ·  **Commit:** `d12ab8b`
-- **Por que entra:** es la precondicion que el Reviewer pidio DOS veces (filas 118 y
-  125) antes de tocar T14/T15, y no existia. El arnes de T12-b no la puede ver porque
-  su escenario registra siempre los 4 botones.
-- **Que hay que mirar:** nada en pantalla. No es una feature para probar, es la red
-  debajo de dos que si van a venir.
-- **Ficha:** `FEATURES.md`, "Arnes de la escena 2 (solo Strikes)".
-
-## HB#141 · árbol de fabricación de una legendaria (+ 2 bugs de la vista)
-
-- **Rama:** `feat-arbol-legendario-ui` (vista) + `fix-hb141-arbol-orden-y-chevron`
-- **Commits:** `539f410` (la vista), `934d2ae` (merge a main), `9f3b097` (los 2 bugs)
-- **Que hay que mirar:** Leyenda Legendaria -> pestaña Catálogo -> tocás una
-  legendaria -> modal "Materiales" -> botón "Ver árbol". Sale el árbol de
-  fabricación con chevrons por rama, y abajo la tabla de totales
-  (tengo / necesito / falta).
-- **Por que entra junto:** los 2 bugs del `9f3b097` son de la misma pantalla. El
-  chevron de los niveles 2 no cerraba nada, y el estado "cargando las recetas"
-  se leía como si fuera un error. Sin el fix, la pantalla nueva entra con dos
-  controles que no dicen la verdad.
-- **Sin decision de Pablo todavia.** La ficha completa esta en `FEATURES.md`,
-  "el árbol de fabricación de una legendaria".

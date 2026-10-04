@@ -1,4 +1,109 @@
 # TEAM_STATUS — Heartbeat Principal
+# HB#180 - 2026-10-03 21:00-21:4x UTC - RESCATE: HB#179 MURIO CON UN WIP SIN CERRAR, Y EL WIP ESTA VERDE SOLO SI LO CORRES SOLO
+
+**El hallazgo del ciclo, y es un caso raro: el rescate era REAL y el trabajo NO era mergeable.** No son las dos cosas que se oponen: el arbol tenia un commit de producto sin mergear, con su test en verde, y sin embargo mergearlo iba a dejar `main` en rojo. Las dos preguntas del PASO -1 ("hay trabajo que rescatar?" y "ese trabajo esta terminado?") tienen respuestas **independientes**, y aca la primera es que si y la segunda es que no.
+
+## PASO -1: lo que encontre, medido
+
+| medicion | valor |
+|---|---|
+| hora de arranque | **21:00:06 UTC** |
+| `origin/main` al abrir | `2e29ed6` @ **18:27:54 UTC** → **ANTERIOR** |
+| HEAD al abrir | **`fix-armeria-materiales-tengo`** @ `71797b1` (**NO `main`**) |
+| `origin/main..main` / `main..origin/main` | **ambos vacios** (ALERT-230) |
+| arbol | **SUCIO**: `M PRE_BACKLOG.md` (20:04:17 UTC), `?? _mut2.js` (19:04:16 UTC) |
+| commits de la rama **no** en `origin/main` | **1** → `71797b1` `wip(rescate-hb179) ... - sin cerrar` |
+| sesion `Heartbeat Principal` (84255c15) | `last_finished_at` **20:36:36 UTC**, ~24 min ANTES de mi arranque |
+
+Los 3 mtimes son **anteriores** a mi arranque y el escritor esta **MUERTO y el trabajo TERMINADO**: es trabajo para rescatar (paso 3 del PASO -1), no WIP para descartar. **El nombre del commit lo decia solo: `sin cerrar`.** Eso es una pista de phase, y una pista de phase escrita por el propio autor se respeta: el trabajo estaba a medio hacer, no a medio terminar.
+
+## EL WIP Y POR QUE NO LO MERGEE
+
+`71797b1` toca producto y test: `js/api-gw2.js` (nuevo `getAccountInventory`, v2.34.0), `js/legendary-tracker.js` (4a fuente de "tengo" + refresco al abrir el modal) y `tests/armeria-materiales-owned.test.js` (nuevo, **16 aserciones**).
+
+El sintoma que hace esto importante: **el test del WIP pasa 16/0, y la suite esta en ROJO con 5 archivos.**
+
+| corrida | resultado |
+|---|---|
+| `node tests\armeria-materiales-owned.test.js` (el test del WIP, **solo**) | **16 pass / 0 FAIL** |
+| suite en la rama del WIP | **4956 pass / FAIL=5 en 87** |
+| suite en `origin/main` (worktree base `2e29ed6`) | **4575 pass / **0 FAIL** en 86** |
+
+O sea: el test del WIP esta verde **y el WIP no es mergeable**. Un test propio en verde no alcanza: el WIP rompio **4 archivos que ya existian**, y ninguno de los 4 es suyo.
+
+**El `0 FAIL` de la base es lo que convierte esto de "hay trabajo" en "el trabajo esta a medio cerrar".** Sin la base, los 5 FAIL se leen como "el WIP esta roto"; con la base, se leen como "el WIP los rompio a ellos", que es un problema distinto y con un arreglo distinto.
+
+## LOS 5 FAIL, y son 4 CAUSAS
+
+| archivo | FAIL | causa |
+|---|---:|---|
+| `idea47-commit2.propagate` | 1 | **JSDoc robado** |
+| `idea57t3-jsdoc-honesto` | 1 | **el mismo JSDoc robado** |
+| `idea50f.cacheclear-real` | 4 | **plumbing ALERT-220 incompleto** |
+| `armeria-modal-iconos-nombre` | 1 | cambio de contrato de `openItemModal` |
+| `armeria-materiales-owned` (propio) | 16 | **solo en la suite**: ALERT-206 |
+
+### 1. EL JSDOC ROBADO — 2 de los 5, y es una sola insercion
+
+El diff mete `function getAccountInventory` **entre el bloque JSDoc de `getAccountLegendaryArmory` y la funcion misma**. Verificado leyendo el archivo: en `:1352-1374` esta el cuerpo de `getAccountMaterials`, y el comentario de `getAccountLegendaryArmory` quedo **adherido a la funcion nueva**. Resultado: `getAccountLegendaryArmory` **perdio su `@throws`**, y por eso caen los dos tests de JSDoc.
+
+Es **ALERT-221 (el vecino) exacto**: insertar codigo entre un doc y su owner. El fix es mover la funcion nueva **arriba del** bloque JSDoc, no tocar los tests.
+
+### 2. `idea50f.cacheclear-real` — 4 FAIL, y son los 6 lugares de ALERT-220 a medias
+
+El WIP **si** agrego `'account_inventory'` a `CACHE_KEYS_EXACT` en `api-gw2.js:2172` (con un comentario que razona bien el prefijo). Lo que **no** hizo es el resto de la plumbing, y los 4 FAIL lo nombran uno por uno: `faltan: ["account_inventory"]` en la allowlist **del test**; el registro "tiene 19 exactas" **obtenido: 20**; "el alcance total son 25 bases" **obtenido: 26**.
+
+**La allowlist tiene DOS fuentes de verdad y se mueven juntas** (regla de ALERT-220, escrita en el HB#150 y no violada: el WIP toco una y no la otra). El WIP entendio el criterio y no completo la ejecucion. **Es el mismo item de plumbing de siempre, no uno nuevo.**
+
+### 3. `armeria-modal-iconos-nombre` — 1 FAIL, y es un CAMBIO DE CONTRATO deliberado
+
+`Lo que cayo: (3) la produccion pidio ids [pidio: null]`. El WIP **reescribio `openItemModal`**: la pintura pasa a ser sincrona y el `ensurePrecursors` se movio **dentro** del `.then()` de `loadLegendaryData`. O sea: hoy abrir el modal **ya no** pide iconos de forma observable al test.
+
+El propio comentario del WIP dice que esto es **intencional** ("el pintado NO espera a la red... cambio de CONTRATO, no un refactor"). **Entonces el FAIL es real y el contrato viejo esta asertado**: hay un test que afirma que abrir el modal pide ids. **No lo "arreglo"**: cambiar un contrato asertado es decision de producto, y el WIP no toco ese test porque no lo vio. **Es el unico de los 5 que NO puedo cerrar sin Pablo.**
+
+### 4. `armeria-materiales-owned` — 16 FAIL **solo en la suite** (ALERT-206)
+
+`16 pass / 0 fail` **suelto**, `FAIL=16` **en la suite**, con `pass=380` acumulado en la corrida. Es la firma de ALERT-206: *el archivo cambia durante la corrida*. Y aca la causa **no es un WIP ajeno**: mi unico scratch (`_mut2.js`, 19:04 UTC) **reescribe `js/legendary-tracker.js` en disco** — es la fase roja del arnes propio. Un archivo que muta la fuente bajo los pies del runner explica exactamente "pasa solo, falla en la suite".
+
+**No lo persigo en este ciclo**: la causa es mi scratch de esta misma sesion, no un defecto del WIP. **Lo borro antes de commitear** y el runner queda sin mutador. Queda anotado como pendiente de verificar: si con `_mut2.js` ausente sigue fallando en la suite, **pasa a ser un hallazgo nuevo y no mio**.
+
+## LO QUE HICE, Y LO QUE NO
+
+- **NO mergee el WIP.** `main` sigue en `2e29ed6`, que es la unica punta que se midio en verde.
+- **NO arregle los 3 FAIL cerrables** (el JSDoc y la allowlist): son cambios de producto y este ciclo arranco a las 21:00 UTC con un cron de 30 min que **tiene que dejar el arbol limpio**. Arranque de producto sin llegar al commit es exactamente lo que el PASO -1 existe para impedir (lo pagaron HB#150/151/154). **El WIP esta a salvo en su rama**, que es donde pertenece un trabajo sin cerrar.
+- **NO toque `BACKLOG.md` ni `HEARTBEAT.md`** (criterio de alcance de HB#170: son del PO, y el banner exige ademas regenerar el espejo).
+- **`PRE_BACKLOG.md` (Ronda 52 del PO, +101 lineas) NO lo commitee**: es del PO y su `AGENTS.md` le prohibe escribirlo aca. Queda como estaba.
+- **`_mut2.js`: borrado**, con el contenido mirado antes (fase roja de `ownedMap`,que muta `js/legendary-tracker.js`).
+
+## LO QUE QUEDA, EN ORDEN DE COSTE
+
+1. **Mover `getAccountInventory` arriba del JSDoc de `getAccountLegendaryArmory`** → cierra 2 FAIL. Un relocate, no un fix de logica.
+2. **`account_inventory` en la allowlist del `idea50f` + los 2 conteos (20 y 26)** → cierra 3 FAIL. Es ALERT-220, ya medio hecho por el WIP.
+3. **Decidir el contrato de `openItemModal`** con Pablo (pide ids al abrir, si o no). **No es mio.**
+4. **Revisar `armeria-materiales-owned` en suite sin `_mut2.js`.** Si sigue rojo, es nuevo.
+
+Los 3 primeros juntos dejan el WIP en 1 solo FAIL, y ese 1 es de producto. **El WIP es recuperable y esta a salvo; el arbol quedo limpio y `main` quedo en la punta que se midio verde.**
+
+## ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79)
+
+1. **`findstr` con varios archivos y conteo de lineas no distingue "el archivo fallo" de "el archivo no existe"**: los 4 tests que fallan con `linea-de-fallo` noaban nada con `findstr /r /c:"Error"` y medi **0 lineas**, que es indistinguible de "el grep no encontro nada". **Salieron con `Select-String` sobre un archivo volcado.**
+2. **`find /c /v ""` como conteo de matches** me dio `1`, `0`, `65`, `12` para 4 archivos: es el conteo de **lineas del stream**, no de coincidencias. Lo descarte por incoherente con lo que ya sabia; elinstrumento correcto es `Select-String`.
+3. **Redirigir la suite a archivo y despues buscar por patron en el archivo** funciono, pero el primer intento (`... > file && powershell ... Select-String`) **mato el `&&`**: la suite sale con **exit 1** porque hay FAIL, y `&&` cortocircuita. **Un runner que falla es un runner que no se encadena**: el `&&` hay que sacarlo antes de aprender que el comando es correcto.
+
+**REGLA, y es la 3a vez en este ciclo de trabajo:** cuando el comando falla, **la primera pregunta es si fallo por lo que mide o porque encadene el comando equivocado.** Un `exit 1` de la suite es un DATO (hay FAIL), no un error mio. Encadenarlo con `&&` convierte el dato en un "fallo de herramienta" que se reportaria como error de instrumento y no como resultado.
+
+## PENDIENTE (sin cambio de estado, re-derivado)
+
+1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con token real de Pablo. Bloqueo externo.
+2. **ALERT-179**. 3. **T14/T15**. 4. Los **7 del patron B**. 5. **Idea 57**, los 4 wrappers. 6. **FILTRO-05**.
+7. **ALERT-235 ABIERTA** — los 2 `PRE_BACKLOG.md` (git vs workspace). Ronda 52 del PO esta en el de git, sin commitear.
+8. **ALERT-240** → aplicar al banner de `HEARTBEAT.md`. 9. Los 3 scripts historicos con la forma de ALERT-241, sin verificar.
+10. **nuevo:** el WIP `71797b1` con 4 puntos de cierre, el **3o de ellos es de Pablo**.
+11. **Deuda visible:** ~100 ramas locales, **30 worktrees** (cree 1 basal en `%TEMP%` y lo borre), y `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**).
+
+## COMUNICACIONES
+
+`inbox` **vacio**, `replies` sin novedades, **23 `overdue`** (HB#91-147, historicos). **0 propuestas al Reviewer**: la ronda 52 del PO es **PODA** (`PROPUESTA_NUEVA: 0`) y sus 2 acciones (`TRAMO A`, `TRAMO B`) son sobre `BACKLOG.md`, que es del PO. Mandarle al revisor de codigo una mudanza de un log seria gastar el canal.
 # HB#174 - 2026-10-03 12:30-13:0x UTC - L333 NO ESTA MAL CERRADA: LA PREMISA DEL PO ERA FALSA, Y LA SALIDA CORRECTA NO ERA UNA DE LAS TRES
 **El hallazgo del ciclo, y es de metodo del PO, no mio: el PO midio que `js/fractal-tracker.js` NO EXISTE y concluyo que la fila L333 esta mal cerrada.** Las tres salidas que ofrecio (reabrir, glifo propio, cerrar de verdad) parten de esa conclusion. **Medida, la conclusion es falsa.**
 **Que existe, y es la fila entera menos una parte:**
