@@ -1,4 +1,102 @@
-## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
+## ACTUALIZACION 2026-10-04 — Heartbeat PO ronda 53 — PAUSA: 5 items abiertos, y el upkeep de la fila mas grande encontro que se declaraba "MEDIDO" sin fecha
+
+> **Espejo de la ronda 53 del PO.** Control de carga (`BACKLOG.md` @ `2e29ed6`):
+> **5 items abiertos anclados** (L60 ALERT-41, L88 Coberturable, L174 Dailies,
+> L298 Fractal, L344 WvW) = **PAUSA** (12a seguida). 6 comunicaciones "Esperando",
+> **0 dirigidas a mi**. Corrida entera de podado: **no hubo web ni idea nueva.**
+>
+> **Lo que hay abajo son mediciones sobre el indice oficial de la API y sobre
+> `origin/main`, no web research.**
+
+### La pregunta de la ronda
+
+No fue "que feature falta" ni "medir las 5 filas" (sexta vez que lo hacia y ya
+no rinde). Fue: **"de que esta hecha la fila mas grande del backlog abierto?"**
+L88 pesa 4.2 KB y tiene **6 cifras propias**, ninguna dice de cuando es. Todas se
+re-midieron hoy.
+
+### Las 6 cifras de L88, medidas hoy
+
+| Cifra | Dice | Medido HOY | Veredicto |
+|---|---|---|---|
+| denominador | "43 rutas `account/*` privadas" | **46** | desactualizado (+3) |
+| `dyes` | "dyes (643)" | **`/v2/dyes` = 404**; `/v2/colors` = 643 | el 643 es de otro endpoint |
+| `mounts` | "(488)" | **sin `X-Result-Total`**: no medible en publico | sin fuente reproducible |
+| `skins` | "(10.632)" | **10.635** | +3 (parche) |
+| otros 8 catalogos | 136/70/983/236/148/16/496/35 | los **8 exactos** | correctos |
+| trabajo de skins | "es **1 llamada + 1 vista**" | 1 request **por token** | cuenta un token, no 27 |
+
+### Lo que se pide (no toco `BACKLOG.md`: el AGENTS.md me lo prohibe)
+
+1. **43 -> 46** en el denominador.
+2. **`dyes` -> `colors`**, y sacar el `(488)` de `mounts` si no hay de donde sale.
+3. **`skins` sale de la nota al pie y pasa a fila propia.** Es la justificacion de
+   por que esta al pie, y no aguanta.
+
+### El hallazgo de fondo: la nota al pie esta mal dimensionada
+
+`skins` es la unica de las 11 con la capa escrita y probada (`getAccountSkins`
+v2.32.0 + `getSkinsBatch` v2.33.0, `SKINS_BATCH_MAX=200`, test
+`hb154-skins-catalogo.test.js`). Sus dos justificaciones, medidas hoy:
+
+- **"cero llamadores" -> CIERTO.** Los tres nombres aparecen **solo** en
+  `js/api-gw2.js` y en `tests/`. Ni `router.js` ni `index.html` los mencionan.
+  Control: `getAccountRaids` da **3**, uno en `wallet-dashboard.js:69` — el
+  instrumento distingue capa de pantalla. `getAccountZZZ999` da 0.
+- **"1 llamada + 1 vista" -> no alcanza en una fila que dice MULTICUENTA.**
+  1 request de `/v2/account/skins` es **por token**, y el catalogo va en lotes de
+  200 sobre los ids faltantes. *Topologia leida, no red medida.*
+
+**Lo que sale del pie no es una tarea menos: es una tarea mal dimensionada, y por
+eso nadie la toma.**
+
+### El "12" que no vuelve al codigo
+
+`js/api-gw2.js:43` (docblock v2.32.0, escrito el 2026-10-02) dice **"12
+endpoints `/v2/account/*` sin tocar"**. L88 ya lo corrigio a 11 — contaba
+`mounts/skins` y `mounts/types` como 2. **La correccion quedo en la fila y no en
+el codigo**, y el codigo es lo que se lee al implementar. Y
+`hb154-skins-catalogo.test.js` **no asserta ninguna cifra**, asi que **nada falla
+si el numero esta mal**.
+
+### El campo `active` del indice oficial no lo usa ninguna fila
+
+15 rutas `active: false`. La unica account-scoped es **`/v2/account/mail`**, que
+la Idea 42 dejo como *"503 hoy, no confirmable"*. **Ahora ArenaNet la confirma
+inactiva.** Se cierra esa pregunta.
+
+### Y el dato que no es mio: mi propia regla de carga mira el archivo viejo
+
+`PRE_BACKLOG.md` **no registra nada desde el 2026-09-30** (3513 lineas, ultima
+entrada Idea 48). No menciona T13, T19, T20, Idea 57, Idea 62, ni la seccion
+**"Archivadas con fecha"** que el `AGENTS.md` me manda usar como destino del
+podado — **esa seccion no existia**. Veinte rondas no tuvieron donde ir.
+
+El `AGENTS.md` justifica el "no traigas ideas" con *"PRE_BACKLOG.md esta en
+241 KB / 3766 lineas"*. **Ese numero es del 2026-09-30.** El archivo que si
+registro los ultimos hallazgos es `DASHBOARD_PO_IDEAS.md` (177 KB, 2479 lineas,
+ronda 41), y ese no se mira para decidir el modo.
+
+**Ronda 53: se creo la seccion que faltaba y se poblo con el indice de las
+rondas. Las 39-49 no tienen registro en ningun archivo** — si algo de ahi sirve,
+hay que buscarlo en `recall_history`.
+
+### Instrumentos (dejados en `tools/`, **en mi disco y no en git**)
+
+La reproducibilidad es local: `tools/.gitignore` pone `*` y su politica escrita es
+"por defecto NO se versiona nada de aca: son scripts de trabajo de un solo uso", y las
+excepciones que si existen (`hb163-canales`, `hb164-espejo`, `hb169-capas`) son
+infraestructura que **el banner del heartbeat ejecuta por nombre**. Estos dos no los
+ejecuta nadie, asi que **no les corresponde un `!` nuevo** — esa autorizacion es de
+Pablo. Se quedan trackeados como los otros ~70 de `tools/`.
+
+- `tools/hb181-indice.mjs` — cruce de `/v2.json` con los 11 de L88, y las 15
+  inactivas. Trae dos controles porque el primer corte de esta ronda dio **"los
+  11 no existen"** (`slice(8)` en vez de `slice(12)`).
+- `tools/hb181-callers.mjs` — callers de `getAccount*` separando definicion de
+  llamada y de mencion-en-comentario, con control de familia y control negativo.
+
+---## ACTUALIZACION 2026-10-02 07:30 UTC — Heartbeat PO ronda 41 — MODO PODA: 10 items abiertos a 6, y el mas caro de la cola no existia
 
 > **Espejo de la ronda 41 del PO.** El control de carga (PASO 0.5 de AGENTS.md) dio
 > **10 items abiertos** en `BACKLOG.md` @ `origin/main` `32926dd` = **≥8 = MODO PODA**.

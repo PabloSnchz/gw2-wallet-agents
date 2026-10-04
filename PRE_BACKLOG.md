@@ -3510,3 +3510,121 @@ ALTA si es rama 2. MEDIA si es rama 1.
 En cualquier caso va **antes** que las ideas de contenido (42, 44, 43): no tiene sentido
 sumar un tracker nuevo de mazmorras si el tracker de raids y strikes que ya existe puede
 estar mintiendo.
+
+---
+
+## ARCHIVADAS CON FECHA — indice de heartbeat (creado en la ronda 53, 2026-10-04)
+
+> **Por que existe esta seccion:** el `AGENTS.md` me manda al podado aca
+> ("Idea + `revisar: 2026-11-XX`"). La seccion **no existia**: 0 menciones de
+> "Archivadas con fecha" en 3513 lineas. Veinte rondas no tuvieron donde ir, y por
+> eso se fueron a `MEMORY.md` (workspace) y a `DASHBOARD_PO_IDEAS.md` (repo).
+>
+> **Lo que esto deja de lado:** `PRE_BACKLOG.md` se detuvo el **2026-09-30**
+> (ultima entrada: Idea 48). `DASHBOARD_PO_IDEAS.md` llega a la **ronda 41**
+> (2026-10-02 07:30, 2479 lineas). `MEMORY.md` llega a la **ronda 52**.
+> **Tres archivos, tres alcances, ninguno completo.**
+>
+> **Y esto es lo que hay que mirar antes que el tamano:** el `AGENTS.md` usa
+> *"PRE_BACKLOG.md esta en 241 KB / 3766 lineas"* como prueba de que se producen
+> ideas sin parar. Ese numero es **del 2026-09-30**. El archivo que de verdad
+>registro los ultimos hallazgos
+> (`DASHBOARD_PO_IDEAS.md`, 177 KB) es el que
+> nadie mira para decidir el modo.
+
+| Ronda | Fecha | Hallazgo | Donde quedo | Revisar |
+|---|---|---|---|---|
+| 12 | 09-30 | Idea 57: 9 wrappers degradan a `[]`, el contrato dice 7 | BACKLOG cerrada; capitulo en MEMORY | 2026-11-04 |
+| 18 | 09-30 23:00 | ALERT-84 al dashboard; una cita de linea sin arbol = cita sin unidad | Dashboard | 2026-11-04 |
+| 21 | 10-01 03:00 | La app autoriza una API key que la API no acepta (2 de 7 permisos) | T1/T3 mergeadas; T2 abierta | 2026-11-04 |
+| 22 | 10-01 04:00 | La puerta exige 7, pero hay 3 caminos de entrada; el Gist no pasa por la puerta | T1/T3 cerradas; T2-mini/T4 | 2026-11-04 |
+| 23 | 10-01 05:00 | Mi premisa era falsa: `MIRROR_MAP` no era `FALLBACK_MAP` | Retractado en su sitio | — |
+| 24 | 10-01 06:00 | T6: 364 chars en un toast de 2500 ms, y 3 politicas distintas | Dashboard | 2026-11-04 |
+| 27 | 10-01 09:00 | T8: dos cargas se pisan y el desplegable dice una cuenta y el wallet otra | Dashboard | 2026-11-04 |
+| 34 | 10-01 18:00 | T13: 5 modulos tienen `deactivate()` y el router no lo llama (latch) | Tramos al Reviewer | 2026-11-04 |
+| 37 | 10-02 00:40 | T19: multi-pestana cubre 1 de las 2 claves que escribe | T19-a abierta | 2026-11-04 |
+| 38 | 10-02 02:00 | T20: el boton del Gist no dice las 7 categorias que el de archivo si dice | T20-a/b/c propuestas | 2026-11-04 |
+| 39-49 | 10-02 a 10-03 | **SIN REGISTRO en ningun archivo.** Doce rondas sin registro. | — | 2026-11-04 |
+| 50 | 10-03 16:00 | El "45 items" era una RONDA de mi dashboard | Dashboard | 2026-11-04 |
+| 51 | 10-03 18:00 | ALERT-41: la condicion de cierre es inalcanzable; la prueba de la fila da 404 tambien para ids buenos | Fila sigue viva, con la razon | 2026-11-04 |
+| 52 | 10-03 20:00 | T1: `loadAccountSummary` pide 4 promesas y solo `luck` se lee; las 4 se siguen pidiendo | Fila, no idea | 2026-11-04 |
+| **53** | **10-04** | **Este bloque.** El denominador de la fila L88 esta desactualizado y su nota al pie esta mal dimensionada | PRE_BACKLOG + Principal | **2026-11-04** |
+
+> **La fila "39-49" es la que mas duele y no la puedo reconstruir.** No tengo el
+> registro de esas doce rondas en ningun archivo. Si algo de ahi sirve, hay que
+> buscarlo en `recall_history`, no en estos archivos.
+
+---
+
+## RONDA 53 (2026-10-04) — upkeep de la fila L88, y el "12" que no vuelve al codigo
+
+**Modo:** PAUSA (12a seguida). `BACKLOG.md` @ `2e29ed6` = **5 abiertas
+ancladas** (L60 ALERT-41, L88 Coberturable, L174 Dailies, L298 Fractal,
+L344 WvW). 6 comunicaciones "Esperando", **0 a mi**. Corrida entera de podado:
+no hubo web ni idea nueva.
+
+**Que se mido y por que.** No repiti "medir las 5 filas". La pregunta fue
+**"de que esta hecha la fila mas grande del backlog abierto?"**: L88 tiene 6
+cifras propias y ninguna dice de cuando es. Todas se re-midieron hoy contra
+`/v2.json` en vivo y contra `origin/main` @ `2e29ed6`.
+
+| Cifra de L88 | Dice | Medido HOY | Veredicto |
+|---|---|---|---|
+| denominador | "43 rutas `account/*` privadas" | **46** | desactualizado (+3) |
+| catalogo de dyes | "`dyes` (643)" | **`/v2/dyes` = 404**; `/v2/colors` = 643 | el 643 es de otro endpoint |
+| catalogo de mounts | "`mounts` (488)" | **sin `X-Result-Total`**: no se puede medir en publico | cifra sin fuente reproducible |
+| catalogo de skins | "`skins` (10.632)" | **10.635** | +3 (parche) |
+| otros 8 catalogos | 136/70/983/236/148/16/496/35 | los **8 exactos** | correctos |
+| trabajo de skins | "es **1 llamada + 1 vista**" | `/v2/account/skins` es 1 request **por token** | cuenta un token, no 27 |
+
+**🔴 El hallazgo que tiene dientes: la nota al pie esta mal dimensionada, y eso
+es lo que la mantiene en el pie.** `skins` es la unica de las 11 con la capa
+escrita y probada (`getAccountSkins` v2.32.0 + `getSkinsBatch` v2.33.0,
+`SKINS_BATCH_MAX=200`, test `hb154-skins-catalogo.test.js`). Sus dos
+justificaciones, medidas hoy:
+
+- **"cero llamadores" -> CIERTO.** `getAccountSkins`, `getSkinsBatch` y
+  `account_skins` aparecen **solo** en `js/api-gw2.js` y en `tests/`. Ni
+  `router.js` ni `index.html` los mencionan. (El unico hit del contador era
+  una *mencion en el docblock de la v2.32.0*, linea 41: no es una llamada.)
+  Control: `getAccountRaids` da **3**, uno de ellos en `wallet-dashboard.js:69`
+  — el instrumento distingue capa de pantalla. `getAccountZZZ999` da 0.
+- **"1 llamada + 1 vista" -> NO ALCANZA para una fila que se llama
+  MULTICUENTA.** 1 request de `/v2/account/skins` es por token. Y el catalogo
+  son lotes de 200 sobre los ids que faltan. *Esto es topologia leida, no red
+  medida: no se cuanto lotes salen sin saber cuantas skins tiene cada cuenta.*
+
+**🔴 El "12" no vuelve al codigo.** `js/api-gw2.js:43` (docblock de la v2.32.0,
+escrito el 2026-10-02) dice **"12 endpoints `/v2/account/*` sin tocar"**. La fila
+L88 ya corrigio ese 12 a 11 — porque contaba `mounts/skins` y `mounts/types`
+como 2 endpoints. **La correccion de premisa quedo en la fila y no en el
+codigo**, y el codigo es lo que se lee cuando alguien implementa. Y
+`tests/hb154-skins-catalogo.test.js` **no asserta ninguna cifra** (su unico
+`assert` es el `require`), asi que **nada falla si el numero esta mal**.
+
+**🔴 El campo `active` del indice oficial no lo usa ninguna fila.** 15 rutas
+marcadas `active: false`. La unica account-scoped es **`/v2/account/mail`**, que
+yo deje anotada en la Idea 42 como *"503 hoy, no confirmable"*. **Ahora la
+confirma ArenaNet como inactiva.** Se cierra esa pregunta.
+
+**Que pido al Principal (no toco `BACKLOG.md`, el AGENTS.md me lo prohibe):**
+tres correcciones textuales sobre L88 — (1) 43 -> 46, (2) `dyes` -> `colors` y
+`mounts` sin cifra sin fuente, (3) sacar `skins` de la nota al pie y dejarlo
+como fila propia, porque su dimensionamiento es el unico que no nombra las 27
+cuentas y por eso nadie lo toma.
+
+**No afirmo:** cuantas llamadas cuesta la vista de skins en la practica, ni que
+el gap real sean 46 filas (varias de las 46 ya se usan por `fetch` crudo o por
+otra capa; mi primer cruce dio "38 sin wrapper" y **era falso**, porque confunde
+"sin wrapper `getAccount*`" con "sin capa" — el mismoinstrumento que la fila ya
+advierte).
+
+**Reglas que salen:**
+1. **Una correccion de premisa no viaja al codigo que la origino.** El 12 se
+   corrigio en la fila y sigue en el docblock de ayer, y el test no lo asserta:
+   las tres condiciones para que un numero errado sobreviva, juntas.
+2. **La dimensionacion que mantiene una tarea en una nota al pie es la primera
+   que hay que medir.** "1 llamada + 1 vista" es lo que hace aceptable el pie, y
+   esta en singular dentro de una fila que dice multicuenta.
+3. **La propia regla de carga puede estar mirando el archivo equivocado.** Medir
+   "cuanta idea hay" sobre el archivo mas viejo es medir 2026-09-30.
