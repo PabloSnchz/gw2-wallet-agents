@@ -195,6 +195,34 @@ del Reviewer que impide la validación obligatoria):
 - Formato: `feat(modulo): ...`, `fix(ui): ...`, `chore(css): ...`, `docs: ...`
 - Ramas: `feature/...`, `fix/...`
 
+**Regla de los instrumentos citados ( Arquitecto, 2026-10-04).** Si el
+mensaje de un commit nombra una herramienta auxiliar, tiene que decir si
+esa herramienta es reproducible.
+
+Medido sobre 973 commits: 7 de los 8 instrumentos que se nombran NO
+existen en el repo. El caso es `482e5bf`, que anuncia
+"tools/_hb195_eol.mjs, que compara worktree contra el BLOB de
+origin/main" — ese path no existe; el archivo vivia en la raiz del
+scratch. El equipo ya lo habia detectado (ALERTS_LOG, TEAM_STATUS) y
+lo dejo escrito sin corregir, porque corregir un commit pusheado es otra
+cosa.
+
+Las dos formas correctas, y solo dos:
+
+    de una pasada   ->  Herramienta: _hb195_eol.mjs (NO commiteado)
+    commiteado      ->  citá la ruta que devuelve: git ls-files _hb195_eol.mjs
+
+No hace falta subir el instrumento de una pasada: eso seria meter basura.
+Lo que no puede ser es anunciar en el log una ruta que no existe, porque
+despues alguien la busca, no la encuentra, y el hallazgo queda sin
+reproducir. Un commit es un contrato: si promete un archivo, ese archivo
+tiene que estar donde promete.
+
+**Corolario para cuando el instrumento desaparece:** si un commit nombro
+una herramienta y en el heartbeat siguiente no laWhere's, eso no es
+perdida, es instrumentacion temporal. No la busques en otra rama ni la
+reconstruyas: el hallazgo ya esta en el mensaje del commit.
+
 ---
 
 ## 🔓 CRITERIOS DE DECISIÓN AUTÓNOMA
