@@ -949,3 +949,42 @@ Estos no se tocan sin que lo pida quien los creo:
   de los eventos de Meta. **No hay ninguna otra pagina que muestre el efecto
   de una infusion**, y eso es lo que hace distinta a esta webapp. No son ripeables.
   Aun si un dia pesaran 300 MB, se quedan.
+---
+
+## 📏 Regla del instrumento de suite — cómo se mide "la suite" (2026-10-05)
+
+**La forma correcta de correr la suite es con el path explícito:**
+
+```
+node --test "tests/**/*.test.js"
+```
+
+86 archivos, ~4 s. Ese es el número que significa algo.
+
+**La forma `node --test` a secas NO mide la suite.** Descubre por su cuenta
+los `tests/` de los worktrees, porque un worktree es un clon completo con su
+propio arbol de `tests/`. Medido en `main` a las 04:41Z del 2026-10-05:
+
+| Invocación | Archivos de test que descubre | Del repo | Ajenos |
+|---|---|---|---|
+| `node --test` | 409 | 86 | **323** |
+| `node --test "tests/**/*.test.js"` | 86 | 86 | **0** |
+
+Los 323 ajenos son de `hb101-wt\`, `wt-hb125\`, y demas worktrees. Son codigo
+de otra rama, en otra linea temporal: **no dicen si `main` esta roto.** Ademas
+duplican nombres, asi que el conteo de fallos que sale de ahi no corresponde a
+ningun commit real.
+
+**Por que importa:** cualquier medicion de suite hecha sin el path explicito
+esta falseada, en las dos direcciones. Puede reportar fallos que `main` no tiene
+o tapar fallos que `main` si tiene. Un `0` de esa medicion no es informacion:
+es ruido de worktrees.
+
+**Corolario, el mismo del 2026-10-04 y por la misma causa:** un 0 no es un
+hallazgo hasta que se conto cuantos casos positivos habia. Antes de reportar
+"la suite pasa" o "la suite falla", el conteo de archivos vistos tiene que ser
+86. Si no es 86, el comando esta mal, no el codigo.
+
+**Que NO hacer para arreglar esto:** no borrar los worktrees, y no mover ni
+renombrar la carpeta `tests/` para que el descubrimiento automático la encuentre.
+El problema es del instrumento, no del codigo. La correccion es el argumento.
