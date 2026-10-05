@@ -107,7 +107,7 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 |---------|---------|--------|
 | `js/luck-curve.js` | **v1.0.0** | **NUEVO** — IIFE → `window.LuckCurve`. Tabla `CUMULATIVE` con los 300 umbrales oficiales + `fromLuck(value)`. Sin DOM, sin fetch, sin storage |
 | `js/api-gw2.js` | v2.15.0 | `getAccountLuck(token, opts) -> Number`, `TTL.LUCK = 10 min`. Patrón de `getAccountWallet` |
-| `js/wallet-dashboard.js` | **v2.7.0** | Campo de resumen opt-in `'luck'` → columna "Suerte (MF)": MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% no se suma entre cuentas |
+| `js/wallet-dashboard.js` | **v2.9.0** | Campo de resumen opt-in `'luck'` → columna "Suerte (MF)": MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% no se suma entre cuentas |
 | `index.html` | — | `<script src="js/luck-curve.js?v=1.0.0">` + `wallet-dashboard.js` a `?v=2.7.0` |
 
 **Validación:** tabla parseada del wikitext con **0 discrepancias cumulativas** en los 300 niveles; tope calculado 4.295.450 = prosa de la wiki. Test funcional en Node contra el código real (8 casos + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS. Commit `44c64a9`.
@@ -1005,28 +1005,28 @@ Definí en `index.html` (antes de router.js):
 
 | Archivo | Versión | Responsabilidad |
 |---------|---------|-----------------|
-| `js/api-gw2.js` | **v2.16.0** | API Layer. **Inventory + Commerce (listings, prices, transactions, delivery)** |
-| `js/converter-modal.js` | **v1.0.0** | **NUEVO: Modal del Conversor con 3 tabs (Cambio, Transacciones, Populares)** |
-| `js/inventory-dashboard.js` | **v1.0.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa, sets con tiers, carga en 2 fases** |
+| `js/api-gw2.js` | **v2.34.0** | API Layer. **Inventory + Commerce (listings, prices, transactions, delivery)** |
+| `js/converter-modal.js` | **v1.2.0** | **NUEVO: Modal del Conversor con 3 tabs (Cambio, Transacciones, Populares)** |
+| `js/inventory-dashboard.js` | **v1.2.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa, sets con tiers, carga en 2 fases** |
 | `js/router.js` | **v2.17.0** | **Router desacoplado (~800 líneas). WV Objectives Dashboard + Inventory Dashboard. Sidebar sin conversor.** |
-| `js/inventory-hub.js` | **v1.3.1** | **Inventario y Personajes — Buscador de objetos, KPIs, vistas de sección, modal de ítem** |
+| `js/inventory-hub.js` | **v1.4.0** | **Inventario y Personajes — Buscador de objetos, KPIs, vistas de sección, modal de ítem** |
 | `js/wv-shop-ui.js` | **v1.0.2** | UI de Tienda WV. **Glow solo en ícono de rareza, fix de timing con wv-theme.js** |
 | `js/wv-objectives-ui.js` | v1.0.0 | UI de Objetivos WV |
 | `js/wv-objectives-dashboard.js` | **v1.0.0** | **Dashboard de Objetivos Multi-Cuenta — Tabla comparativa, KPIs, countdown** |
 | `js/wv-theme.js` | **v1.0.1** | Tema visual de WV. **Solo border-left, expone window.WVTheme** |
 | `js/characters-theme.js` | **v1.0.1** | Tema visual de Personajes. **Solo border-left, elimina hover manual** |
-| `js/wv-purchase-detail.js` | **v1.13.1** | Detalle de compras. **Fix estado online (data-token), ícono reloj local** |
+| `js/wv-purchase-detail.js` | **v1.14.0** | Detalle de compras. **Fix estado online (data-token), ícono reloj local** |
 | `js/luck-curve.js` | **v1.0.0** | **NUEVO: Curva de Suerte (Luck) account-wide — 300 umbrales oficiales + `fromLuck()` MF%. Sin DOM/fetch/storage** |
-| `js/wallet-dashboard.js` | **v2.7.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra, columna opt-in "Suerte (MF)"** |
-| `js/raid-tracker.js` | **v1.8.0** | **Raid Tracker: 8 alas, 33 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
+| `js/wallet-dashboard.js` | **v2.9.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra, columna opt-in "Suerte (MF)"** |
+| `js/raid-tracker.js` | **v1.10.1** | **Raid Tracker: 8 alas, 33 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
 | `js/strike-tracker.js` | **v1.0.0** | **Strike Tracker: 15 strikes, grid optimizado, KPIs, modal con detalles, navegación integrada con Raids** |
 | `js/homestead-tracker.js` | **v1.0.0** | **Homestead Tracker: decoraciones por categoría con barras de progreso + glifos coleccionables, modal de detalle por decoration. Ruta `#/account/homestead`.** Persistencia `gn:homestead:` |
 | `js/analytics.js` | **v1.0.0** | **Eventos personalizados para Google Analytics** |
-| `js/wizards-vault.js` | **v1.3.0** | Módulo Wizard's Vault. **Ícono de recarga forzada de temporada** |
-| `js/accounts-panel.js` | **v2.0.0** | Panel de Cuentas. **Profile Card premium + tabla zebra** |
+| `js/wizards-vault.js` | **v1.3.1** | Módulo Wizard's Vault. **Ícono de recarga forzada de temporada** |
+| `js/accounts-panel.js` | **v2.0.2** | Panel de Cuentas. **Profile Card premium + tabla zebra** |
 | `js/settings-manager.js` | **v1.0.2** | **Sistema de Backup/Restaurar** |
 | `js/welcome-panel.js` | v1.3.0 | Pantalla de Bienvenida con onboarding y accesos rápidos |
-| `js/activities.js` | **v3.19.6** | Actividades. **Glow en íconos de Ecto** |
+| `js/activities.js` | **v3.20.4** | Actividades. **Glow en íconos de Ecto** |
 | `js/activities-theme.js` | v2.6.0 | Home Nodes + barra de horarios unificada con iconos GW2 |
 | `js/characters.js` | v2.3.0 | Panel de Personajes. **Íconos profesión locales. Subvista del InventoryHub** |
 | `js/meta.js` | **v3.4.1** | MetaEventos. **Rediseño cards estilo Raids, barra progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español** |
@@ -1046,7 +1046,7 @@ Definí en `index.html` (antes de router.js):
 | `js/luck-curve.js` | **v1.0.0** | Curva de Suerte (Luck) account-wide. 300 umbrales + `fromLuck()`. Sin DOM/fetch/storage |
 | `js/commerce-delivery-theme.js` | **v1.0.0** | Capa 3 (color semántico) del banner de Commerce Delivery. **Solo `borderLeft`** |
 | `js/fractal-tracker-theme.js` | **v1.0.1** | Capa 3 (color semántico) del bloque de fractales. **Solo `borderLeft`** |
-| `js/app.js` | **v2.7.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
+| `js/app.js` | **v2.8.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
 | `css/theme-polish.css` | **v2.2.0** | **Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons** |
 | `css/main.css` | **v2.6.0** | Estilos principales. **Solo layout, sin bordes ni box-shadows. Tag infusión celestial.** |
 

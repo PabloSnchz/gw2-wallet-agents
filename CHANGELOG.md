@@ -171,6 +171,30 @@ y el versionado **SemVer** (https://semver.org/).
 
   **Invariantes respetadas**: Abort + last win en los fetches, `gn:tokenchange` como **único** canal de cambio de cuenta, y patrón idéntico a `activities.js` / `raid-tracker.js` / `strike-tracker.js`.
 
+- **El bloque de Skins: los 2 tramos de la fila "Coberturable account-scoped" (`1094c26` + `ac0563f` + `23e2fea`; `js/api-gw2.js` v2.32.0 y v2.33.0, 2026-10-02)**:
+
+  **⚠️ NO cambia lo que Pablo ve.** Los dos tramos son **solo la capa de datos**: no hay call site ni pantalla. La fila de BACKLOG L88 ("Coberturable account-scoped multicuenta", la primera de las 18:00 UTC del PO sobre los 12 endpoints `/v2/account/*` sin tocar) ya tiene su contrato, pero todavía no tiene quién lo llame.
+
+  **Tramo 1 — `getAccountSkins(token, opts)` (v2.32.0)**: `/v2/account/skins`, 10.632 items. El detalle que NO se podía copiar de los 3 wrappers anteriores es que este endpoint devuelve un array de **ESCALARES (ids)**, no de objetos. Por eso el guard de forma tiene que mirar **los elementos** y no solo `Array.isArray`: un `Array.isArray` a secas acierta con un array de objetos, pasa sin quejarse, y revienta recién en el `.indexOf` del call site. Un `[]` **vacío sigue siendo respuesta válida** y no entra por el throw — "sin skins" y "no supe leer tus skins" quedan como **dos estados distintos**. TTL 6 h (`TTL.SKINS`), clave `account_skins`, clave de inflight `if:account_skins:<fpToken>`. Forma **verificada, no supuesta**: 401 con token falso contra 404 de un endpoint inexistente, más la forma contra la documentación pública.
+
+  **Tramo 2 — `getSkinsBatch(ids, opts)` (v2.33.0)**: resuelve ids de skin a su **FICHA** (nombre, icono, rareza). Sin esto, un call site tendría una lista de números, que es justo lo que el BACKLOG dice que "no le sirve a Pablo". Deduplica con `Set`, descarta `null` / `''` / no numéricos, y devuelve `[]` sin tocar la red si no le pidieron nada.
+
+  **Las tres cifras del Tramo 2, RE-MEDIDAS en vivo y una estaba mal:**
+
+  - `/v2/skins?ids=all` → **400** `"unable to use 'all' keyword for this API"`. Confirma la trampa de L88.
+  - Lote de 201 ids → **400** `"id list too long; this endpoint is limited to 200 ids at once"`. El límite duro es **200** y el error lo dice textual; el `chunk = 100` de `meta.js:294` que citaba el Tramo 1 es un molde, no el límite. Acá se parti en **200** (`SKINS_BATCH_MAX`).
+  - **Corrección**: el Tramo 1 anotaba "200 ids todos válidos → 200/200". **Falsa** para el rango que uno usaría de verdad: `?ids=1..200` da **206 con 188** (faltan 15, 61, 127, 128, 135, 136, 148, 181, 182, 192, 194, 200).
+
+  **Y de ahí sale la regla de diseño: el 206 depende del CONTENIDO, no del tamaño.** `?ids=1,2,3` da 200 y `?ids=1,2,3,99999997` da 206 con 3. O sea que **el primer lote real de una cuenta puede ser 206 y no es un error**, y tratar "distinto de 200" como error rompe en el primer lote de verdad.
+
+  **Hallazgo que CORRIGE una nota del Tramo 1**: la recomendación era "copiar `getItemsMany`, no `meta.js:batchItems`, por el 206". **Medida, esa razón no se sostiene para `/v2/skins`**: tanto `meta.js:batchItems` como `jfetch` tratan el 206 bien (`res.ok` es `true` y sale el array parcial), así que los 188 de cada 200 llegan igual por los tres caminos. Peor: como los ids ausentes son ids que el catálogo **no tiene**, re-preguntarlos da **404 siempre** — el helper agregaría un round-trip que falla por lote a cambio de nada. Por eso este lote va por `fetchWithRetry` + guard de forma propio, que además **propaga** en vez de degradar a `[]` como hace el helper. De `getItemsMany` se toma solo el molde de **lectura** (buscar por `obj.id`, no rellenar por posición).
+
+  **El catálogo NO va a `localStorage`** (a diferencia de `getItemsMany`): son ~10.632 fichas y la cuota medida da ~4.98 MB (Idea 49). Va a **memoria** con `TTL.ITEMS` (24 h), que es metadata estática; `TTL.SKINS` (6 h) es para la lista de la cuenta, que cambia con una compra. Mezclarlos haría re-preguntar el catálogo cuatro veces más sin motivo.
+
+  **Verificación**: `tests/hb150-cuenta-skins.test.js` **17 pass / 0 FAIL** (con control negativo en las **dos** direcciones: un array de objetos tiene que **rechazar**, no solo no romperse); `tests/hb154-skins-catalogo.test.js` **47 pass / 0 FAIL**.
+
+  **⚠️ Incoherencia de versión detectada en este ciclo, NO corregida** (ver "Pendiente de documentación"): la escalera del header de `api-gw2.js` **se salta la v2.33.0** — va `2.34.0 → 2.32.0 → 2.31.0 → 2.30.0`. Medido: en `23e2fea` la escalera **sí** tenía su bloque `2.33.0`; el bump a v2.34.0 de `df9131b` lo **sobrescribió** en vez de agregar uno nuevo, y el comentario del export sigue diciendo `v2.33.0 (Tramo 2)`. **Es un `.js`: el Documentador no edita código.**
+
 - **Armería Legendaria: catálogo de las 206 legendarias, con árbol de fabricación y materiales (`js/legendary-tracker.js` v1.1.0 + 11 módulos de soporte)**:
   - **Qué es**: un módulo propio con ruta **`#/account/legendary-armory`**, alcanzado desde el sidebar como "Armería Legendaria". Reemplaza el filtro "Legendarias" que vivía dentro de la pantalla de Logros (`achievements.js`).
   - **Dos pestañas** inyectadas dentro de `#legendaryArmoryPanel`: **Catálogo** (la grilla completa) y **Mi progreso** (la cola de crafteo). Botones `#legendaryModeCatalog` / `#legendaryModeProgress`.
@@ -292,6 +316,16 @@ y el versionado **SemVer** (https://semver.org/).
   **El escape existe y ya está medido**: `cacheClear()` (v2.29.0) borra de verdad, tiene `{dryRun: true}` y su registro cubre la allowlist completa.
 
   **Lo que NO se hizo, y por qué**: poner `?v=latest` en los 16 restantes sería **optar a todo cambio de la API para siempre**, que es el problema al revés. Y hoy no hay ni un cambio que lo exija. Que se decida el día que la API se mueva, con el caso delante.
+
+- **`keptBytes`: lo que QUEDA, en la misma unidad que lo que se libera (`js/api-gw2.js` v2.31.0, 2026-09-30)**:
+
+  **Qué cambia para Pablo**: el `confirm()` del botón de "limpiar caché" (`settings-manager.js:clearApiCache`) deja de enumerar categorías y dice **"se conservan N claves (X MB)"**.
+
+  **Por qué el conteo de bytes y no la lista**: `cacheClear` **ya recorría todas las claves** y solo contaba las de la rama "borrada". Sumar `(localStorage.getItem(k)||'').length` en la rama de "conservada" **no agrega ningún recorrido**: es el mismo recorrido, midiendo la otra mitad. Y el conteo **sigue siendo cierto cuando un módulo registre su clave mañana**, mientras que la enumeración no — cada módulo nuevo sería una edición más de este archivo.
+
+  **Test**: `tests/idea50-boton-cache.test.js`, sección 4c.
+
+  **Nota**: el censo que acompaña esta versión decía **8 familias** de clave de cache en 3 módulos. Ese número **hoy es 11 en 4**, por el wiring de Homestead; ver la entrada de `df9131b` más arriba.
 
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:
