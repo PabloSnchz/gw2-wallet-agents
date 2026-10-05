@@ -669,12 +669,34 @@ cuando la viva es la **35**.
 >
 >    El conteo autoritativo es el campo `c2_backlog_main.openItems` de
 >    `tools/hb163-canales.mjs`, y **solo cuenta si `openItemsDiscrimina` es
->    `true`** (ALERT-236). Medido hoy: **5 = PAUSA** (era 4 antes del rescate del HB#174,
->    que abrio 1 fila abierta al mover el trabajo multicuenta del Fractal Tracker a su
->    propia fila). **`openItems` es la forma que TOLERA SANGRIA** (ALERT-249, dos parrafos
->    abajo): no puede perder un item abierto si alguien lo indenta bajo un subtitulo, que
->    es la unica forma en que este numero podia bajar solo. El numero anclado se publica
->    aparte, como `openItemsAnclada`, y hoy los dos dan **5 = 5**.
+>    `true`** (ALERT-236). **ALERT-264: ESTE NUMERO SE PUDRE SOLO, Y ESTE PARRAFO ES EL
+>    QUE SE PUDRIO.** Medido por HB#208 contra `origin/main` @ `fbc91a7` (remidiendo el
+>    dato del HB#207, que dio igual: **3 =
+>    RECOLECTAR**), no `5 = PAUSA` como decia este parrafo. **El modo de los 5 agentes
+>    cambio de banda sin que el archivo que lo define se enterara** — y eso no es un
+>    problema de redaccion: es que **el parrafo escribe un valor, y un valor escrito no
+>    se re-deriva.** Medir el campo `openItems` cada ciclo no alcanza si el texto que se
+>    lee dice otro numero: el texto es mas especifico y por eso gana. Consecuencia
+>    medida: el equipo estuvo **14 rondas** operando en banda PAUSA sobre un conteo que ya
+>    era RECOLECTAR (la banda correcta se cruza en `82f66cd`, ver TEAM_STATUS).
+>    **REGLA: un control que decide el modo NO puede depender de un valor transcrito.**
+>    O se lee el campo del instrumento en el momento de decidir, o el parrafo declara
+>    solo el **umbral** (que no caduca) y **no el valor** (que caduca con cada poda).
+>    Como un parrafo tiene que poder auditarse sin correr nada, aca se conservan las dos
+>    cosas, pero con el valor **marcado como caduco por definicion**: el que decide es
+>    `openItems`, y este texto explica el criterio, no el estado.
+>    El recorrido del numero, para que se pueda contrastar: **4** antes del rescate del
+>    HB#174 (abrio 1 fila al mover el trabajo multicuenta del Fractal Tracker a su propia
+>    fila) → **5** → **3** por la poda de `82f66cd` (ronda 62 del PO, HB#192), que
+>    archivo `L298` y `L352` **sin borrar su contenido**, solo su peso como carga.
+>    **`openItems` es la forma que TOLERA SANGRIA** (ALERT-249, dos parrafos abajo): no
+>    puede perder un item abierto si alguien lo indenta bajo un subtitulo, que es la
+>    unica forma en que este numero podia bajar solo. El numero anclado se publica
+>    aparte, como `openItemsAnclada`, y hoy los dos dan **3 = 3**, con
+>    `openItemsQueLaAncladaPierde: 0` — o sea que la bajada **no** fue la pérdida
+>    silenciosa que esta misma forma previene, fue una poda explicita. La forma que
+>    gobierna y la que diagnostican coinciden por ahora; cuando no coincidan, manda
+>    `openItems`.
 >
 >    **La holgura entre las dos formas se consumio en el primer item real del ciclo, y
 >    no en una frase.** Medido sobre el staged y sobre `origin/main`: la forma que
@@ -684,7 +706,29 @@ cuando la viva es la **35**.
 >    que la cuarta frase de cierre cruzaba 8; lo que lo cruza es el primer item de
 >    trabajo. **El disparador de MODO PODA es mas probable de lo estimado, y por el
 >    motivo mas banal: anadir trabajo es mas frecuente que documentar un cierre en esa
->    forma exacta.** La banda correcta (4-7 = PAUSA) no se movio en ninguno de los dos.
+>    forma exacta.**
+>
+>    **ALERT-264: LA FRASE QUE CIERRA ESTE PARRAFO SE HIZO FALSA, Y EL ERROR FUE
+>    DE LA FRASE, NO DEL NUMERO.** Este parrafo terminaba diciendo *"La banda correcta
+>    (4-7 = PAUSA) no se movio en ninguno de los dos"*. Hoy la banda **si se movio**:
+>    el conteo autoritativo esta en **3 = RECOLECTAR** (arriba). O sea: todos los datos
+>    medidos del parrafo siguen siendo correctos, y su conclusion **quedo anulada por un
+>    hecho posterior**. Un parrafo que se apoya en una afirmacion de invariancia es mas
+>    fragil que uno que transcribe numeros, porque el numero se puede volver a leer y la
+>    invariancia se lee como una ley. `ALERT-247` ya lo dijo para las coordenadas (`L<n>`
+>    sin sha): aqui esta dicho para la **prosa de cierre**, que es el otro lugar donde un
+>    valor viejo se esconde — no como cifra, sino como frase que afirma que algo no cambio.
+>    **REGLA: cuando cites una invariancia en un archivo que otros leen, cita tambien el
+>    commit que la establecio. Si no hay commit al lado, la invariancia es una opinion
+>    con formato de ley.**
+>
+>    Actualizado al estado de hoy (`origin/main` @ `fbc91a7`, HB#208, con el dato del
+>    HB#207 re-verificado), con control
+>    positivo y negativo: piso de ruido **3 lineas** (L236, L322, L497), tolerante **3**,
+>    anclada **3**, subcadena **6**. La banda buena **4-7** no se cruza hoy por ninguna
+>    de las dos formas autoritativas. Las coordenadas de ruido del parrafo de arriba
+>    (L200, L286, L425) **son las de su medicion y estan corridas** — `ALERT-247` aplica
+>    igual, y por eso las de hoy llevan el `@` al lado.
 >
 >    **La FORMA del conteo importa, y hay tres (ALERT-243).** Con un fixture de 6
 >    lineas que mezcla los dos casos, sobre un archivo real: la forma anclada en

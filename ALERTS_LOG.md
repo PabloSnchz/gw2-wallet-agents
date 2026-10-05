@@ -617,6 +617,29 @@ dos veces **por comparar la magnitud equivocada** y no por un defecto del archiv
  
  **Medido en el rescate del HB#181 (HB#183), sobre `TEAM_STATUS.md`.**
 ## ALERT-251 - ALERT-250 ESTA DUPLICADO CON DOS DEFINICIONES INCOMPATIBLES, Y UNO DE LOS DOS ES EL DE OTRO CICLO
+
+**Hallazgo propio del ciclo (HB#182), y es la 3a forma de trabajo terminado invisible.** El
+PASO -1 tiene 3 preguntas y le faltan 2. Esta es la que faltaba: **un numero de alerta puede
+estar ocupado dos veces**, y el segundo ocupante no se detecta contando.
+
+Medido sobre `origin/main:ALERTS_LOG.md` @ `cb369e5` y sobre el commit `4a5c0cc`:
+
+| donde | que define ALERT-250 |
+|---|---|
+| `origin/main` L7875 | EL TEST PROPIO EN VERDE NO DICE QUE EL WIP SEA MERGEABLE (HB#180) |
+| `4a5c0cc` L2 | la forma que no puede discriminar da 8 y el umbral es `>= 8` (HB#179) |
+| bloque de `TEAM_STATUS.md` del HB#181 | la regla de EOL del HB#178, correcta solo en worktrees LF |
+
+**Son tres textos distintos con el mismo numero**, y el tercero es una etiqueta viva en un
+archivo de git. `ALERTS_LOG.md` tiene 130 entradas `## ALERT-N`, **maximo = 250**, y
+**ALERT-251 no existe en ningun archivo** aunque el mensaje de `4a5c0cc` lo promete. Hay 3
+duplicados preexistentes (194, 197, 226) que son deuda vieja; este seria el cuarto.
+
+**POR QUE ESTO DECIDE UN RESCATE:** `4a5c0cc` no se mergea. Trae el log del HB#179 (69 lineas
+de `TEAM_STATUS.md`, que `main` no tiene) y su `ALERTS_LOG.md` con **ALERT-250 duplicado**.
+Mergear a ciegas deja dos alertas distintas con el mismo numero en el archivo que decide
+que se mira primero, y el numero nuevo queda ocupado para siempre.
+
 ## ALERT-253 - Una linea de PROSA con un triple-backtick literal abre una valla y empareja 220 lineas; y el control que lo detecta estaba escrito, aplicado a la lista equivocada
 
 **Medido en el rescate del HB#181 (HB#183), sobre `TEAM_STATUS.md`.**
@@ -685,28 +708,6 @@ Cualquier otra cosa no es un rescate, es una reversa con nombre tranquilizador.
 
 Control negativo: `git diff --shortstat origin/main origin/main` -> **0 archivos**.
 El criterio discrimina (si el nombre bastara, 13 darian verde).
-
-**Hallazgo propio del ciclo (HB#182), y es la 3a forma de trabajo terminado invisible.** El
-PASO -1 tiene 3 preguntas y le faltan 2. Esta es la que faltaba: **un numero de alerta puede
-estar ocupado dos veces**, y el segundo ocupante no se detecta contando.
-
-Medido sobre `origin/main:ALERTS_LOG.md` @ `cb369e5` y sobre el commit `4a5c0cc`:
-
-| donde | que define ALERT-250 |
-|---|---|
-| `origin/main` L7875 | EL TEST PROPIO EN VERDE NO DICE QUE EL WIP SEA MERGEABLE (HB#180) |
-| `4a5c0cc` L2 | la forma que no puede discriminar da 8 y el umbral es `>= 8` (HB#179) |
-| bloque de `TEAM_STATUS.md` del HB#181 | la regla de EOL del HB#178, correcta solo en worktrees LF |
-
-**Son tres textos distintos con el mismo numero**, y el tercero es una etiqueta viva en un
-archivo de git. `ALERTS_LOG.md` tiene 130 entradas `## ALERT-N`, **maximo = 250**, y
-**ALERT-251 no existe en ningun archivo** aunque el mensaje de `4a5c0cc` lo promete. Hay 3
-duplicados preexistentes (194, 197, 226) que son deuda vieja; este seria el cuarto.
-
-**POR QUE ESTO DECIDE UN RESCATE:** `4a5c0cc` no se mergea. Trae el log del HB#179 (69 lineas
-de `TEAM_STATUS.md`, que `main` no tiene) y su `ALERTS_LOG.md` con **ALERT-250 duplicado**.
-Mergear a ciegas deja dos alertas distintas con el mismo numero en el archivo que decide
-que se mira primero, y el numero nuevo queda ocupado para siempre.
 
 **REGLA: antes de integrar el `ALERTS_LOG.md` de un rescate, contar los `## ALERT-N` del
 destino y verificar que ninguno de los numeros del rescate ya existe.** Un rescate que
@@ -8800,3 +8801,43 @@ el HB#205 ya la declaro decision de Pablo.
 3. **Un crash es una clase de salida, y hay que declararla.** Un instrumento que muere por
    entrada ausente se lee como defecto de la herramienta, y la reaccion es arreglar la
    herramienta: **el bug se propaga al fix**.
+
+## ALERT-264 - EL PARRAFO QUE TRANSCRIBE UN VALOR SE PUDRE SOLO, Y NO LO DICE: EL CONTROL DE CARGA MODO DE 5 AGENTES ESTABA EN RECOLECTAR Y DECIA PAUSA
+
+> **Numero verificado antes de escribir (mismo criterio que ALERT-263):** contra
+> `origin/main` @ `fbc91a7` el censo de encabezados `## ALERT-N` da maximo **263** y
+> siguiente libre **264**. Los 3 duplicados (194, 197, 226) son los mismos que
+> ALERT-263 midio y siguen abiertos; no los toco.
+
+**El hallazgo.** El bloque del control de carga en `HEARTBEAT.md` transcribe el
+numero de items abiertos y lo razona: *"Medido hoy: **5 = PAUSA** (era 4 antes..."*.
+El **5 paso a ser 3** y el modo se movio a **RECOLECTAR**, que es el lado que
+**permite traer mas trabajo**. El parrafo seguia affirmando PAUSA con su
+justificacion completa, y el control que decide el modo de los 5 agentes leia una
+frase de ayer.
+
+**Medido hoy (HB#208), contra `origin/main` @ `fbc91a7`:
+
+| forma | cuenta |
+|---|---|
+| items abiertos (tolera sangria, autoritativa) | **3** |
+| items abiertos anclada en columna 0 | **3** |
+| subcadena sin ancla | **6** |
+| piso de ruido de la subcadena | **3** lineas (L236, L322, L497) |
+| modo | **0-3 = RECOLECTAR** |
+
+Las tres formas del rescate dan **exactamente** estos numeros, asi que el dato de
+HB#207 era correcto. Fixture de control de 4 lineas: subcadena **3**, tolerante
+**2**, anclada **1** - o sea el criterio discrimina las tres y no es un 6fijo.
+
+**REGLA: un parrafo que transcribe un valor medido lleva su fecha y su sha, y el
+valor se re-deriva antes de usar el parrafo como autoridad.** El numero es el dato;
+la frase que lo explica caduca con el numero, y una frase caducada escrita con
+toda la seguridad se lee igual que una vigente. Es ALERT-247 (la coordenada se
+pude sola) aplicado al VALOR: uno se desactualiza y el otro tambien.
+
+**El rescate que trae esto estaba incompleto, y sus 2 defectos se corrigieron
+antes de commitear:** (a) citaba `origin/main` @ `1a37518`, **un SHA que no existe
+en el repo** - en el parrafo que justamente exige citar el SHA (ALERT-247), la regla
+se cumplio en forma y se violo en sustancia; y (b) numeraba el hallazgo como
+`ALERT-250`, que ya define otra cosa en L8606 de este archivo. Aqui es `264`.
