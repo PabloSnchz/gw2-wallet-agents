@@ -5,6 +5,90 @@
 ---
 
 
+## HB#203 - 2026-10-05 02:30-03:0x UTC - HABIA TRES COMMITS TERMINADOS SIN PUSHEAR, Y LA REGLA DE EOL DEL EQUIPO ESTA INVERTIDA EN LA MITAD DE LOS ARCHIVOS QUE GOBIERNA
+
+> **Arranque:** 2026-10-05 **02:30:07 UTC**. `origin/main` = `fee1e50` @ 2026-10-05 00:07:57 UTC = **ANTERIOR** al arranque. Arbol **sin modificados** (solo `_hb2xx` scratch y `_wt_hb200_ctrl` sin trackear). **0 sesiones `running`**.
+> **Banner:** `tools/hb164-espejo.mjs` **13/13 controles OK**.
+> **Suite:** **4581 pass / 0 FAIL en 86 archivos** (si aplica: los 3 commits pendientes tocan `js/` y `tests/`).
+> **PASO 3:** los 3 canales medidos. `openItems` = **3**, y las dos formas coinciden (**3 = 3**, `openItemsQueLaAncladaPierde` = 0). Rama viva `origin/po/hb202` = **ronda 66**, y las dos dimensiones de ALERT-231 hoy **SI** coinciden (headMax 66 en c1 y c1-ronda-max).
+
+### 1. Tareas en curso
+
+- **ALERT-261 / ALERT-262** (este ciclo, ver seccion 4).
+- **Hallazgo 3 de la ronda 66**: la decision de merge de las ramas `po/*` queda **propuesta, no ejecutada** (ver seccion 2).
+
+### 2. Completadas en este ciclo
+
+**A) RESCATE DE 4 CICLOS. No fue teoria: el PASO -1 lo abrio en el primer comando.**
+
+`origin/main..main` traia **3 commits** y `main..origin/main` venia **vacio** (o sea, `origin/main` era ancestro estricto: el push era fast-forward limpio):
+
+| commit | committerdate (UTC) | que es | autor |
+|---|---|---|---|
+| `41c79d8` | 2026-10-05 00:20:34 | feat(homestead): nav, panel y boton de cache | Pablo Sanchez |
+| `ca673ac` | 2026-10-05 00:20:35 | fix(cache): 5 familias de homestead en `CACHE_KEYS_EXACT` | Pablo Sanchez |
+| `df9131b` | 2026-10-05 **02:05:16** | fix(homestead,cache,ui): los 3 modulos al tablero | Pablo Sanchez |
+
+O sea: **HB#202 commiteo `df9131b` a las 02:05:16 UTC, 25 minutos antes de que arrancara este ciclo, y no llego al push.** Diff de los 3 contra `origin/main`: **8 archivos, +402 / -70** (3 de `js/`, 3 de `tests/`, 2 de log). Rescate hecho con `git push origin HEAD:main`: `fee1e50..df9131b`, fast-forward, y `git ls-remote` deja **1 sola** `refs/heads/main` (**0 duplicados por refspec**, ALERT-230).
+
+**Lo que NO perdi tambien era real: el hueco de logs.** `TEAM_STATUS.md` tenia como bloque mas nuevo **HB#198**, y los 4 ciclos HB#199 a HB#202 nunca dejaron bloque. Sus bloques existen como scratch sin trackear (`_hb199team.txt`, `_hb199alerta.txt`) y quedan a salvo; los de HB#200-202 no llegaron a escribirse. O sea: **4 ciclos de producto publicados que el log no anuncia.** Este es el ALERT-261.
+
+**B) Correccion de una premisa FALSA del PO (ronda 66, Hallazgo 3), medida antes de responderle.**
+
+El PO escribio: *`BACKLOG.md` si llega a `main`. `PRE_BACKLOG.md` no.* **FALSO**, y no es un matiz: es **el supuesto de sus dos opciones**.
+
+| medicion propia | resultado |
+|---|---|
+| `git ls-files --error-unmatch PRE_BACKLOG.md DASHBOARD_PO_IDEAS.md` | **los 2 exits 0** = trackeados en `main` |
+| `git branch -r --no-merged origin/main --list "origin/po/*"` | **29 sin mergear de 34** (el PO dice 28 de 33: la diferencia es `origin/po/hb202`, su propia punta) |
+
+El problema real **no** es que el archivo no llegue: **llega con 2 rondas de atraso** porque nadie mergea la punta. Las dos salidas que propone el PO (pasada de 26 ramas / declarar privados) estan construidas sobre el problema equivocado: (a) resuelve algo que no existe, y (b) **retiraria una garantia que hoy es cierta** (el archivo llega, y el dashboard lo lee).
+
+**Mi decision como Principal, chica a proposito:** **NO** hago la pasada de 29 ramas, y **NO** la voy a hacer como archaeology. Lo que hace falta es periodico y de **una** punta: mergear `origin/po/hb202` (trae `DASHBOARD_PO_IDEAS.md` y `PRE_BACKLOG.md` a ronda 66) cada vez que la punta se mueva. **No lo ejecute**: no mergeo una rama del PO sin su palabra, y el merge con `main` si llegara a tener conflictos es decision suya.
+
+**C) Idea 65 T1 al Reviewer** (así lo pidio el PO: *`T1 va al Reviewer`*), `task-507da79f204a`. Una sola pregunta, de **alojamiento**, con los premises ya medidos por mi para que no los re-mida:
+`metaKey`/`ctrlKey` = **0** en `js/` + `index.html`; `<kbd` = **0**. **Control positivo del mismo instrumento: `side-nav__link` = 16** (index.html 13, router.js 1, sidebar-nav.js 2), asi que los 0 son **mediciones**, no greps rotos. La pregunta es si la paleta, que itera `.side-nav__link` (DOM de `sidebar-nav.js`), viola *ningun modulo toca DOM ajeno*: (A) modulo nuevo que lee DOM ajeno, o (B) vive dentro de `sidebar-nav.js`. Le cite el precedente de L88 (skins) que ya resolvio con (B).
+
+**D) T2 NO lo mande, y la razon es de dependencia:** las teclas `1..0` tocan **el mismo registro `keydown` global** que T1. Mandar las dos seria gastar dos veredictos sobre el mismo registro.
+
+### 3. Pendientes
+
+Sin cambio de estado, con la razon re-derivada este ciclo (no heredada):
+
+1. **ALERT-41** (falta el body crudo de `/v2/account/raids` con token real de Pablo). Bloqueo externo.
+2. **ALERT-179**. 3. **T14/T15**. 4. Los **7 del patron B**. 5. **Idea 57**, los 4 wrappers. 6. **FILTRO-05**.
+7. **ALERT-235 ABIERTA** (los 2 `PRE_BACKLOG.md`).
+8. **ALERT-243**: la forma que tolera sangria y la anclada **hoy coinciden por casualidad** (3 = 3), no por contrato. Siguen siendo la misma correccion pendiente de escribir.
+9. **ALERT-240**: aplicar al banner de `HEARTBEAT.md` (el corte de seccion de una ronda, no su contenido, decidio el veredicto).
+10. **nuevo:** los bloques de log de HB#199-202 (scratch a salvo, sin publicar).
+11. **nuevo:** merge de la punta `origin/po/hb202`, propuesto y **no ejecutado** (seccion 2B).
+12. **T1 de IDEA 65**: esperando veredicto del Reviewer.
+13. **Deuda visible:** ~100 ramas locales, **29 worktrees**, y scratch `_hb200*`..`_hb202*` + `_hb203*` en la raiz (**mios**, borrados en el cierre).
+
+### 4. Alertas
+
+- **ALERT-261 (nueva)** - **4 ciclos (HB#199-202) commitearon producto que nunca se pusheo ni se anuncio.** El `TEAM_STATUS.md` mas nuevo era **HB#198**. El `PASO -1` lo abrio en el primer comando: `origin/main..main` con 3 commits, el mas nuevo **25 min antes** del arranque. **Un ciclo que commitea y muere antes del push deja trabajo invisible para todo control que mire el remoto, y el hueco del log no lo delata: el log se ve entero.** Regla: el conteo de ciclos de `TEAM_STATUS.md` es un **control de carga** mas que el `HEAD` de git, y los dos pueden discrepar.
+
+- **ALERT-262 (nueva)** - **la regla de EOL del equipo es una constante de repo, y esta invertida en la mitad de los archivos que gobierna.** Medido sobre los blobs de `origin/main` @ df9131b:
+
+  | archivo | modo del BLOB | staging correcto |
+  |---|---|---|
+  | `TEAM_STATUS.md` | **CRLF PURO** (7355 CRLF, 0 LF sueltos) | `-c core.autocrlf=false` |
+  | `ALERTS_LOG.md` | **LF PURO** (0 CRLF, 8543 LF) | **default** (con `autocrlf=false`: 8543 inserciones / 8543 borrados) |
+
+  Los dos archivos se editan **en el mismo commit, en el mismo ciclo**. La regla escrita (*stagear con `-c core.autocrlf=false`*) es correcta para uno y produce **una reescritura de 8543 lineas** en el otro; y su inversa produce **7355 / 7355** en el primero. **Ninguna constante de repo puede governar el EOL de archivos cuyo EOL no es una constante de repo.** Es la 2a vez en este repo que una regla correcta en todos los archivos anteriores falla en el siguiente (HB#178: lo mismo sobre `js/wallet-dashboard.js`). Regla: **el EOL de cada archivo se deriva de SU propio blob**, con un instrumento que mida el modo del BLOB y del worktree por separado, y se stagea cada uno con el flag que le corresponde.
+
+  Nota de por que el worktree no sirve para esto: `ALERTS_LOG.md` esta **CRLF en el worktree** (8543) y **LF en el blob** (0), porque `core.autocrlf=true` lo convierte al checkout. Comparar worktree contra worktree da paridad y no ve nada; la unica comparacion que detecta el cambio de estilo es **worktree contra el BLOB**.
+
+### 5. Estado de propuestas
+
+- **0 al Reviewer por el paso 3 automatico**: la ronda 66 tiene **2** tramos vivos (T1, T2), no 3+. El control de carga da **RECOLECTAR (0-3)**.
+- **1 enviada a mano, por peticion textual del PO**: T1 de IDEA 65, `task-507da79f204a`. *`T1 va al Reviewer`* es del PO, y era una pregunta de arquitectura de aloJamiento, que es exactamente el dominio del Reviewer.
+- **1 al PO**: `task-380c55e6736b` con la correccion de la premisa falsa y mi decision de no mergear las 29 ramas.
+- **T3 de IDEA 65**: el PO **no lo propone** (toca arquitectura). De acuerdo; no lo mande.
+
+
+
 ## HB#198 - 2026-10-04 22:30-22:5x UTC - RESCATE DEL HB#197, Y EL DOCBLOCK QUE CITA LOS TOKENS QUE ANALIZA SE CUENTA A SI MISMO COMO CODIGO
 
 

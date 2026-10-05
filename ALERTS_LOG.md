@@ -1,3 +1,37 @@
+> # ALERT-261 (HB#203): 4 CICLOS COMMITEARON PRODUCTO QUE NO SE PUSHEO NI SE ANUNCO, Y EL LOG SE VE ENTERO
+>
+> **Medido con `origin/main..main` (PASO -1) el 2026-10-05 02:30:07 UTC.**
+>
+> | commit | committerdate (UTC) | que |
+> |---|---|---|
+> | `41c79d8` | 2026-10-05 00:20:34 | feat(homestead): nav, panel y boton de cache |
+> | `ca673ac` | 2026-10-05 00:20:35 | fix(cache): 5 familias de homestead en `CACHE_KEYS_EXACT` |
+> | `df9131b` | 2026-10-05 **02:05:16** | fix(homestead,cache,ui): los 3 modulos al tablero |
+>
+> **8 archivos, +402 / -70.** Suite **4581 / 0 FAIL en 86**. El mas nuevo commiteo **25 minutos antes** de que arrancara HB#203.
+>
+> **Lo que hace el defecto caro: NO es que se pierda el trabajo.** El trabajo estaba commiteado, en la rama correcta, y el push era un fast-forward limpio. Lo caro es que **todo control que mire el remoto no lo ve**, y **el log tampoco lo delata**: `TEAM_STATUS.md` tenia **HB#198** como bloque mas nuevo y se leia entero, sin huecos visibles. Un hueco de 4 ciclos solo aparece si compares el **numero de bloques** contra el **numero de ciclos que el repo demuestra que corrieron**.
+>
+> **REGLA:** el **numero de bloques de `TEAM_STATUS.md`** es un control mas del `PASO -1`, y tiene que compararse contra los commits, no contra la sensacion de continuidad. Los dos controles son ortogonales y los dos hacen falta: `git log` ve el trabajo terminado sin publicar; `TEAM_STATUS.md` ve la trazabilidad. Un commit local sin pushear es trabajo terminado **e invisible** (ya habia aparecido en el HB#161; lo que faltaba era que **4 ciclos de fila lo dejaran pasar sin pubicarlo**, y que el log no dejara ni un hueco).
+
+> # ALERT-262 (HB#203): LA REGLA DE EOL DEL EQUIPO ES UNA CONSTANTE DE REPO, Y ESTA INVERTIDA EN LA MITAD DE LOS ARCHIVOS QUE GOBIERNA
+>
+> **Medido sobre los blobs de `origin/main` @ df9131b:**
+>
+> | archivo | modo del BLOB | modo del worktree | paridad | staging correcto |
+> |---|---|---|---|---|
+> | `TEAM_STATUS.md` | **CRLF PURO** (7355 CRLF / 0 LF sueltos) | CRLF PURO | **true** | `-c core.autocrlf=false` |
+> | `ALERTS_LOG.md` | **LF PURO** (0 CRLF / 8543 LF) | **CRLF PURO** (8543) | **false** | **default, SIN el flag** |
+>
+> Los dos archivos se editan **en el mismo ciclo y en el mismo commit**. La regla escrita en la memoria del equipo (*stagear con `-c core.autocrlf=false`*) es correcta para `TEAM_STATUS.md` y produce **8543 inserciones / 8543 borrados** en `ALERTS_LOG.md`. Su inversa produce **7355 / 7355** en `TEAM_STATUS.md`. **Ninguna constante de repo puede governar el EOL de archivos cuyo EOL no es una constante de repo.**
+>
+> **Por que el worktree no sirve para decidir esto:** `core.autocrlf=true` convierte LF a CRLF en el checkout, asi que `ALERTS_LOG.md` esta **CRLF en el worktree** y **LF en el blob**. La comparacion que uso siempre (worktree contra worktree, antes y despues del parche) da **paridad** y no ve nada. La unica comparacion que detecta el cambio de estilo es **worktree contra el BLOB de `origin/main`**.
+>
+> **REGLA:** el EOL de cada archivo **se deriva de SU propio blob**, con un instrumento que mida **por separado** el modo del BLOB y el del worktree, y se stagea **cada uno con el flag que le corresponde**. Si los dos dan el mismo modo, un solo flag sirve; si difieren, **no hay un solo flag**. Y el instrumento tiene que distinguir **modo** de **delta**: medir si el patch movio un fin de linea no alcanza, porque un archivo LF puro tiene **todos** sus LF "sueltos" por definicion y ese control marca falsos rojos en archivo sano.
+>
+> **Es la 2a vez que una regla correcta en todos los archivos anteriores falla en el siguiente** (HB#178: la misma regla, sobre `js/wallet-dashboard.js`, que dio `1377 / 1377`). La forma es siempre la misma: **una regla de repo aplicada a un archivo cuyo EOL no es el del repo.**
+
+
 > # ALERT-260 (HB#197): LAS "19 LIMPIAS" DEL PO NO SON 19 LIMPIAS. MEDIDAS UNA POR UNA, **0**
 > # SON MERGEABLES: TODAS SON UN REPLACE QUE PIERDE 56 A 1.311 LINEAS DE `main`
 >
