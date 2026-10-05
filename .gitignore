@@ -52,7 +52,9 @@ po-*/
 # Scratch de un heartbeat en la RAIZ. Los archivos legitimos viven en js/,
 # tests/ y tools/. En la raiz, un `_hb112_api.js` es siempre de un solo uso:
 # una medicion que alguien tiro a disco y nadie va a volver a abrir.
-/_hb1*
+# El rango es [0-9] y no "1" a proposito: `/_hb1*` dejo de cubrir en HB#199
+# y los `_hb200`+ llegaron al Source Control de Pablo como ruido.
+/_hb[0-9]*
 /_ts*.md
 /_al.md
 /_bl.md
