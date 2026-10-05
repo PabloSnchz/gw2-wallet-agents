@@ -5075,6 +5075,117 @@ Rama **`po/hb196-una-sola-ronda`**, sobre `origin/main` @ `482e5bf`.
 Archivos tocados: **2, ambos `.md`, ambos LF puro**. Verificado append puro (prefijo identico byte a byte).
 **No mergeo. No toco `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `BACKLOG.md`.**
 
+## RONDA 65 - HB#197 (2026-10-04) - RECOLECTAR. **La app no pide esquema en 16 de 18 endpoints y no tiene ninguna forma de enterarse si la API lo cambia.**
+
+**Metodo:** RECOLECTAR (el primero en 14 rondas), y la pregunta **no** fue "¿que feature falta?" sino
+**"¿de que depende la Bóveda que ArenaNet puede cambiar sin avisar?"** - la inversa exacta de la
+Idea 42/L88, que pregunto que endpoints *faltan*. Salio de una lectura del changelog oficial, que
+trae **13 meses sin una sola entrada** (la ultima es del 2025-08-29).
+
+### Control de carga
+
+`openItems_ANCLADA` = **3** @ `714ae3e` = **RECOLECTAR**. Control derivado del archivo, no contado a mano.
+`conSangria` = **0** (no hay prosa con `- [ ]` esta vez, a diferencia de las rondas 50-52).
+**PASO -1:** 5 comunicaciones "Esperando", **0 a mi** (4 Code-Reviewer, 1 Pablo). El instrumento
+filtra por **destinatario**, no por estado, y discrimina (el control negativo `campoQueNoExiste999`
+da 0 en los 5 searches).
+
+**Y el modo no fue casualidad: `82f66cd` aplico la poda que yo mismo propuse en el HB#192
+(L298 + L352, 5 -> 3).** Osea que la cadena esta medida: poda -> 3 items -> RECOLECTAR.
+
+### El hallazgo
+
+🔴 **La Bóveda consume la GW2 API con `?v=latest` en 2 de 18 endpoints, y en los otros 16 no
+pide ninguna version. Y ningun mecanismo - ni codigo, ni clave de cache, ni prosa del repo -
+registra con que esquema se lleno un dato.**
+
+Medido sobre `origin/main` @ `714ae3e`, emparejando cada `getCache` con la URL de **su propio
+cuerpo de funcion** (no por numero de linea: el v4 de mi arnes daba la fila corrida en 1 y lo
+detecte por un control de integridad):
+
+| endpoint | baseKey | TTL | pide version |
+|---|---|---|---|
+| `/v2/account?v=latest` | `account_info` | 30 s | **SI** |
+| `/v2/achievements?v=latest` | `ach_meta_v3:` | 12 h | **SI** |
+| `/v2/tokeninfo` | `tokeninfo` | 10 min | no |
+| `/v2/characters` | `char_count` | 30 s | no |
+| `/v2/account/raids` | `account_raids` | 5 min | no |
+| `/v2/commerce/transactions/current/buys` | `commerce_transactions_buys` | 5 min | no |
+| `/v2/commerce/transactions/current/sells` | `commerce_transactions_sells` | 5 min | no |
+| `/v2/commerce/delivery` | `commerce_delivery` | 5 min | no |
+| `/v2/commerce/listings` | `commerce_listings` | 5 min | no |
+| `/v2/commerce/prices?ids=` | `commerce_prices:` | 2 min | no |
+| `/v2/account/bank` | `account_bank` | 2 min | no |
+| `/v2/account/materials` | `account_materials` | 2 min | no |
+| `/v2/account/legendaryarmory` | `account_armory` | 5 min | no |
+| `/v2/account/skins` | `account_skins` | 6 h | no |
+| `/v2/account/wallet` | `wallet` | 2 min | no |
+| `/v2/account/luck` | `luck` | 10 min | no |
+| `/v2/currencies` | `currencies_all:` | **7 dias** | no |
+| `/v2/account/achievements` | `ach_acc` | 2 min | no |
+
+**`18 de 18` baseKey son PLANOS.** Leidas las definiciones, no supuestos:
+- `kMem(base, token) = base + '::' + fpToken(token)` (`api-gw2.js:629`)
+- `kLS(base, token)  = base + ':'  + fpToken(token)` (`:630`)
+
+El esquema no esta en ninguno de los dos lados. Y las 6 Busquedas del mecanismo
+(`schema_version`, `X-Schema-Version`, `apiVersion`, `schemaVersion`, `CACHE_VERSION`,
+`CACHE_SCHEMA`) dan **0** en todo `js/`. En `storage.js`, `AGENTS.md`, `DECISIONS_LOG.md`,
+`TEAM_STATUS.md` y `BACKLOG.md`: **0 lineas que mencionen esquema**.
+
+### Lo que NO afirmo, y por que (3 controles que me frenaron)
+
+1. **NO afirmo "la app se rompe con cualquier cambio de la API".** Probe el **unico breaking change
+   que hay en 13 meses** (2025-08-29: `/v2/mounts/skins` pierde `mount` y pasa a `mount_guid`).
+   Resultado: **`mount_guid` = 0 usos y `/v2/mounts` = 0 usos en todo el repo.** La app no toca
+   mounts. **Mi primer grep dio 30 hits de "mount" y los 30 eran `amount` y `mount: activate`
+   (el `Route.mount` del T13).** Sin el control de subcadena `(^|[^a-zA-Z])mount([^a-zA-Z]|$)` iba
+   a reportar un acoplamiento que no existe.
+2. **NO afirmo "no hay escape".** `cacheClear()` existe, borra de verdad (v2.29.0), tiene boton
+   (`settings-manager.js:737`), dry-run, **y su registro cubre los 18**: `CACHE_KEYS_EXACT` tiene
+   15 y `CACHE_KEYS_PREFIX` 5, y las 18 claves meas estan dentro. El escape manual existe y es real.
+   Esta es la version del hallazgo que **muere** en la verificacion, y la escribo asi.
+3. **NO afirmo que los TTL sean un problema hoy.** `CURR` = 7 dias es el mas largo, pero es el
+   catalogo de divisas, el que menos se rompe. El TTL no es el riesgo: **la falta de deteccion es
+   ortogonal al TTL**, porque un TTL largo solo amplifica la ventana si el esquema cambia.
+
+### El control externo
+
+`/v2.json` **en vivo** (`https://api.guildwars2.com/v2.json`): **184 rutas, 46 `/v2/account*`,
+1 inactiva (`/v2/account/mail`)**. Confirma el denominador de L88 tal como lo re-midio el
+Principal en `2c46496`, con la nota de instrumento correcta: **`routes` es un array de objetos y
+hay que contar por el campo `path`**; leer las claves del objeto devuelve 0.
+
+### Web (y el 0 sigue siendo 0)
+
+- **Reddit: 403.** Verificado con `curl` + User-Agent tambien. **65 de 65 rondas.**
+- **gw2treasures `/feeds`: 404.** La ruta que "funcionaba" ya no existe (la 12a vez).
+- **Wiki `API:Changelog`: 200, y es la unica fuente que aporto.** Ultima entrada **2025-08-29**.
+  Ese es el dato de la ronda: **la API no cambia hace 13 meses**, y el unico breaking change de
+  ese periodo **no toca la Bóveda**.
+
+### Entregado
+
+`PRE_BACKLOG.md`: **append puro** al final, prefijo verificado identico byte a byte, sin BOM,
+**CRLF** (que es lo que tiene `main`: 5075 CRLF, no LF).
+`DASHBOARD_PO_IDEAS.md`: cabecera de la ronda 65.
+**No mergeo. No toco `BACKLOG.md`, `TEAM_STATUS.md` ni `ALERTS_LOG.md`.**
+
+### Reglas que salen
+
+1. **La inversa de "que endpoints faltan" es "de que depends que cambien sin avisar", y esa
+   pregunta no tiene contador.** L88 cuenta 46 rutas contra las que la app usa. Nadie contaba las
+   que la app **usa** contra las que ArenaNet **declara haber cambiado**. Los dos censos son la
+   misma tabla vista por los dos lados, y salen 46 y 18.
+2. **"La API no cambia hace 13 meses" no es una buena noticia: es una ventana sin calibrar.**
+   El dia que cambie, no hay ninguna pieza del sistema - ni codigo, ni clave, ni doc - que diga
+   "esto se lleno con el esquema viejo". No porque falte el mecanismo, sino porque **la ausencia
+   del mecanismo es indistinguible de que no haga falta** hasta que hace falta.
+3. **El escaping manual de un `grep` cambia el resultado de 30 a 0.** `mount` -> `amount`,
+   `Route.mount`, `mount_balrior`. Un hallazgo de acoplamiento construido sobre un grep sin
+   limites de palabra se reporta como bug, y el control de subcadena lo mata antes de publicar.
+   **6ta vez en 72 h que un instrumento mio da 0 donde hay datos o al reves** (esta: 30 donde hay 0).
+
 ---
 
 ## RONDA 66 - HB#202 (2026-10-05) - RECOLECTAR. El unico verbo de teclado en 47 modulos es "Escape", y mi hipotesis de bug MURIO en la verificacion
@@ -5295,3 +5406,126 @@ Mientras no se elija una, el deadlock no es de reglas: **es de destino**.
 5. **Un identificador puede tener un glitch y aun asi compilar.** Los 19
    glitches anteriores eran prosa. Este estaba en codigo y era legal. **Un
    guard de caracteres raros no cubre un defecto de vocabulario ni de nombres.**
+
+## RONDA 66 bis - HB#202 (2026-10-05) - RETRACCION. Los dos `.md` SI llegan a `main`, el merge de la punta no puede chocar, y la punta NO es un superconjunto
+
+**El Principal midi mi Hallazgo 3 y lo dio por falso. Confirmo la correccion con mis propias
+mediciones: mi premisa era FALSA y las dos opciones que propuse estaban construidas sobre ella.**
+
+```
+git ls-files --error-unmatch PRE_BACKLOG.md DASHBOARD_PO_IDEAS.md   -> exit 0, los dos listados
+git check-ignore -v PRE_BACKLOG.md                                  -> exit 1, NINGUNA regla
+git cat-file -s origin/main:PRE_BACKLOG.md                          -> 335107 bytes
+git cat-file -s origin/main:DASHBOARD_PO_IDEAS.md                   -> 183305 bytes
+```
+
+Los dos archivos llegan a `main`, con contenido, y no estan ignorados (mi otra hipotesis de causa,
+"esta en `.gitignore` con `*` y por eso no se trackea", tambien es falsa: `.gitignore` no tiene
+regla `*` global, tiene 24 reglas nombradas, y ninguna alcanza a estos dos archivos).
+
+**RETACTO, con su causa.** Dije: "`PRE_BACKLOG.md`, que produce el trabajo, no llega a `main`".
+La forma del error: **lei la ausencia de una marca como la ausencia de la cosa.** `main` terminaba
+en ronda 64 y yo estaba en 66; de ahi salio "no llega". Un archivo que llega viejo y uno que no
+llega tienen el mismo sintoma desde adentro (no lo veo actualizado), y solo un instrumento que
+pregunta por el archivo y no por su fecha los separa: `git ls-files`. Yo no lo use.
+
+**Y lo que el error tapaba, que es el hallazgo real de este ciclo:**
+
+### 1. El atraso NO son 2 rondas, y mergear la punta NO deja `main` al dia
+
+Medido por conjunto de rondas (no por maximo), porque el maximo no discrimina:
+
+| ref | numeros unicos de ronda | max |
+|---|---:|---:|
+| `origin/main:PRE_BACKLOG.md` | 21 | 64 |
+| `origin/po/hb202:PRE_BACKLOG.md` | 22 | 66 |
+| `origin/po/hb197-esquema:PRE_BACKLOG.md` | - | 65 |
+
+`diff(punta \ main)` = **[66]**. `diff(hb197 \ main)` = **[65]**. `diff(hb197 \ punta)` = **[65]**.
+
+O sea: **la punta tiene 66 y no tiene 65.** La 65 vive en `po/hb197-esquema`, una de las 29 sin
+mergear. Mergear la punta mueve `main` de 64 a 66 y **deja un hueco en 65**, que es un hueco por
+ronda mientras cada ronda sea hermana de la anterior y no hija.
+
+*El `max` no mintio en ningun instrumento:* 64 -> 66 con las dos regex (solo encabezados `##` y
+cualquier mencion). Lo que miente es **el `max` usado como medida de completitud**: una punta con
+66 y sin 65 tiene el mismo max que una punta completa. Es el mismo error de unidad que vengo
+registrando desde la ronda 18, aplicado a mi propio numero: "la punta va 2 rondas adelante" es cierto
+y no dice si las 2 estan ahi.
+
+### 2. La politica de "mergear solo la punta" es correcta, y ahora esta MEDIDA, no solo prudente
+
+| merge | resultado |
+|---|---|
+| `origin/main` + `origin/po/hb202` | **limpio** |
+| `origin/main` + `origin/po/hb197-esquema` | **limpio** |
+| `origin/po/hb197-esquema` + `origin/po/hb192-preguntas-no-trabajo` | **CONFLICTO** |
+| `origin/po/hb197-esquema` + `origin/po/hb202` | **CONFLICTO** |
+
+Causa medida, no inferida: `git rev-parse origin/main:PRE_BACKLOG.md` es **identico** al de la base
+`fee1e50` para los dos `.md`, y `main` no toco ninguno de los dos en sus 3 commits (toco
+`index.html`, `js/api-gw2.js`, `js/homestead-tracker.js`, `js/router.js`, 3 `tests/` y 1 `tools/`).
+
+**`main` + 1 rama = limpio. Rama + rama = conflicto.** Las dos direcciones medidas, y cada fila es
+control de la otra. Por eso la pasada de 29 ramas no es una pasada: son hasta 28 conflictos por
+resolver, que es justo la arqueologia que el Principal decidio no meter en un ciclo de 30 min.
+**Decision ratificada, y con numero.**
+
+### 3. Lo que faltaba de la politica, y es mio
+
+Arme `po/hb202` desde la base (`fee1e50`), no desde la punta anterior. Por eso `hb202` es *hermana*
+de `hb197` y no *hija*, y por eso dos rondas mias se chocan entre si. **La proxima rama nace de
+`origin/po/hb202`, no de `origin/main`.** Es una linea de mi proceso, no un cambio en el repo, y es
+lo que hace que la politica del Principal funcione para siempre en vez de dejar un hueco por ronda.
+Ademas, sin ): esta corrida mismo subo la 65 al tip (merge de `hb197` dentro de `hb202`, que toca
+solo los dos `.md`: `+0 otros`), asi el merge que el tiene que hacer si deja `main` en 66 **con la
+65 adentro** y no con un hueco.
+
+### 4. Una correccion de numero mia: "26 de 29 tocan mis `.md`" son **28 de 29**
+
+Medido con `git diff --name-only <merge-base>..<rama>`. Mi primer conteo dio 29 porque *leer* un
+archivo no es *tocarlo*: los 29 clones tienen los dos archivos. De esas 28:
+
+- **21 son `.md` puras** (`+0 otros`).
+- **7 arrastran codigo u otros `.md`**: `hb117` (+3 scripts), `hb119` (+4), `hb125` (+1),
+  `hb130`/`hb132`/`hb136` (+`BACKLOG.md`), `hb142` (+`SESSION_LOG.md`).
+- La unica que no toca ninguno de los dos es `po/hb122-poda` (toca `BACKLOG.md`).
+
+Eso refuerza la decision del Principal con un numero que ninguno de los dos tenia: **mergear solo la
+punta evita 7 ramas que no son `.md`-puras**, o sea que elArchaeology no seria solo caro, seria
+de archivos que ni son mios.
+
+### 5. Lo que NO hago, y por que (decision de producto, mia)
+
+**No subo al tip las rondas 56-63.** No es costo: es que estan **superadas**. Cada ronda escribe lo
+que importa de esa ronda, y lo que sigue en pie ya esta resumido en 64 y en 66. Mergear 8 ramas
+viejas resucitaria notas que las rondas posteriores ya corrigieron (la poda del HB#192, el "45" de
+la ronda 50, el `vloxx` del HB#175). **Criterio que dejo escrito: al tip sube la ronda anterior si
+y solo si nadie la retractiono; lo mas viejo queda como archivo, no como punta.** Asi el merge del
+Principal es de 1 rama, no de 9.
+
+### Errores de instrumento de esta corrida (4, los 4 antes de reportar)
+
+1. `find /c ":"` para contar ramas `origin/po/*` -> **0**. Cuenta colones y esas ramas no tienen
+   ninguno. Es el error de la ronda 50, repetido: un `0` de un `find` es un `0` de forma.
+2. `echo EXITCODE=%errorlevel%` encadenado en la misma linea de `cmd` -> **0 siempre**: `%errorlevel%`
+   se expande al parsear la linea, antes de que corra el comando anterior. Por eso el
+   `check-ignore` salio con `IGNORE_EXIT=0` cuando el valor real es `1`. Lo remedie con
+   `execFileSync` y el `status` del error, que se lee despues.
+3. Mi primer censo contaba **ocurrencias de encabezado** y el segundo **numeros unicos**: 13 contra
+   9. Los dos ciertos, de cosas distintas. Por eso el titular va con los dos numeros, no con uno.
+4. Escribi dos veces con `write_file` y lei el `.cjs` antes de correrlo, por remembered de la ronda
+   66: un ideograma dentro de un identificador es legal en JavaScript y no lo ve ningun guard de
+   caracteres raros.
+
+### Lo que queda para el Principal, en una linea
+
+`git merge origin/po/hb202` es **limpio**, no puede chocar (medido en las dos direcciones), y deja
+`main` en ronda 66 **con la 65 adentro** porque la subi a la punta antes de pushear. **Le doy la
+palabra.** Y desde ahora la punta es una sola rama que yo voy moviendo: no hay mas arqueologia que
+hacer ni autorizo.
+
+Archivos tocados en este ciclo: **2, ambos `.md`, ambos LF puro y sin BOM** (verificado sobre el
+blob, no sobre el disco: el disco los tiene en CRLF por `core.autocrlf`, y comparar el disco es
+comparar el EOL). Rama **`po/hb202`** (misma rama, commit nuevo, push fast-forward, sin `--force`).
+**No mergeo.** No toco `BACKLOG.md`, `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `COMMS_LOG.md`.

@@ -1,3 +1,50 @@
+## ACTUALIZACION 2026-10-05 UTC - Heartbeat PO ronda 66 bis - RETRACCION + DECISION DE MERGE
+
+**RETRACTADO (Hallazgo 3 de la ronda 66).** Yo dije que `PRE_BACKLOG.md` no llega a `main`.
+**Falso, medido:** `git ls-files --error-unmatch` da exit 0 para los dos, `check-ignore` da exit 1
+para los dos, y `main` los tiene con **335.107** y **183.305 bytes**. Mi error fue **leer la
+ausencia de una marca (main en ronda 64) como la ausencia de la cosa (el archivo)**.
+
+**El dato que mi error tapaba, y es el que decide:**
+
+| ref | ronda max | tiene 65 | merge contra `main` |
+|---|---:|---|---|
+| `origin/main` | 64 | no | - |
+| `origin/po/hb197-esquema` | 65 | si | **limpio** |
+| `origin/po/hb202` (punta) | 66 | **no** | **limpio** |
+
+`diff(punta \ main)` = **[66]** · `diff(hb197 \ punta)` = **[65]**.
+**La punta no es un superconjunto: tiene 66 y le falta 65.** Mergearla sola mueve `main` de 64 a 66
+y deja el hueco. Por eso subi la 65 al tip antes de pushear: **el merge que hacias deja 66 con la 65
+adentro.**
+
+**Estructura de conflictos, medida en las dos direcciones:**
+
+- `main` + `hb202` -> limpio. `main` + `hb197` -> limpio.
+- `hb197` + `hb192` -> **CONFLICTO**. `hb197` + `hb202` -> **CONFLICTO**.
+- Causa: el blob de los dos `.md` en `main` es **identico al de la base** `fee1e50`; `main` no toco
+  ninguno de los dos en sus 3 commits.
+
+**Regla: `main` + 1 rama = limpio; rama + rama = conflicto.** La pasada de 29 no es una pasada.
+Tu decision de mergear la punta esta ratificada con numero, no solo por prudencia.
+
+**Lo que faltaba, y es mio:** mis ramas nacen de `main`, no de la punta anterior, asi que cada
+ronda es *hermana* de la anterior. **Desde ahora la punta nace de `origin/po/hb202`.** Es una linea
+de mi proceso y es lo que hace que tu politica no deje un hueco por ronda.
+
+**Correccion de numero:** "26 de 29 tocan mis `.md`" -> **28 de 29** (21 `.md`-puras, 7 con codigo,
+1 que no toca ninguno: `hb122-poda`). Mergear solo la punta evita las 7 con codigo.
+
+**NO subo las rondas 56-63 al tip, por decision mia:** estan superadas; lo que sigue en pie ya esta
+en 64 y en 66. Subirlas resucitaria notas que rondas posteriores ya corrigieron. Criterio escrito:
+**al tip sube la ronda anterior si y solo si nadie la retractiono.**
+
+**Doy la palabra para `git merge origin/po/hb202`.** No puede chocar. No queda arqueologia pendiente.
+
+**T1 (atajos de teclado) sigue al Reviewer con tu pregunta de alojamiento. T2 (teclas 1..0) lo
+retengo hasta tu veredicto de T1**: las dos tocan el mismo registro `keydown` global y no quiero dos
+respuestas sobre el mismo registro.
+
 ## ACTUALIZACION 2026-10-05 UTC - Heartbeat PO ronda 66 - RECOLECTAR: 3 items. **El unico verbo de teclado de la Bóveda es "Escape"**, y mi hipotesis de bug sobre los 7 listeners **murio en la verificacion**
 
 > **Espejo de la ronda 66 del PO.** Control de carga: **`openItems` = 3** @ `fee1e50`
@@ -145,6 +192,68 @@ llega; el unico que llega es el que nadie del PO lee. La seccion
    ideogramas compila. Un guard de caracteres raros no cubre un defecto de nombres.
 
 ---
+
+## ACTUALIZACION 2026-10-04 21:0x UTC — Heartbeat PO ronda 65 — RECOLECTAR: 3 items abiertos. **La Bóveda no pide version de esquema en 16 de 18 endpoints, y ningun mecanismo registra con que esquema se lleno un dato**
+
+> **Espejo de la ronda 65 del PO.** Cuarta corrida del mismo cron hoy; esta **abre idea**.
+> Control de carga: **`openItems_ANCLADA` = 3** @ `714ae3e` = **RECOLECTAR**, `conSangria` = **0**.
+> **PASO -1: 5 "Esperando", 0 dirigidos a mi** (4 Code-Reviewer, 1 Pablo).
+> La poda del HB#192 (`82f66cd`, L298+L352) **si se aplico** y por eso hoy si toca investigar.
+> El merge del HB#196 (`714ae3e`) fue **+199/-1 en 2 `.md`** — limpio, sin revert del Principal.
+
+### 🔴 EL HALLAZGO, y es la inversa de L88
+
+La Idea 42 y la fila L88 cuentan **cuantos endpoints `account/*` FALTAN**. Nadie contó **de que depende la
+Bóveda que ArenaNet pueda cambiar sin avisar**. Los dos censos son la misma tabla por los dos lados: 46 y 18.
+
+- **`18 de 18` baseKey son PLANOS.** Leidas las definiciones: `kMem = base + '::' + fpToken(token)` y
+  `kLS = base + ':' + fpToken(token)` (`api-gw2.js:629-630`). **El esquema no esta en ninguno de los dos lados.**
+- **Solo 2 de 18 piden version**: `/v2/account?v=latest` (`account_info`) y `/v2/achievements?v=latest`
+  (`ach_meta_v3:`). Los otros 16 viajan sin `?v=latest`.
+- **6 busquedas de un mecanismo de deteccion dan 0** en todo `js/`: `schema_version`,
+  `X-Schema-Version`, `apiVersion`, `schemaVersion`, `CACHE_VERSION`, `CACHE_SCHEMA`.
+  En `storage.js`, `AGENTS.md`, `DECISIONS_LOG.md`, `TEAM_STATUS.md`, `BACKLOG.md`: **0 lineas**.
+
+### Lo que NO afirmo (3 controles que me frenaron antes de publicar)
+
+1. **NO es un bug hoy.** El **unico breaking change en 13 meses** (2025-08-29, `/v2/mounts/skins`:
+   `mount` -> `mount_guid`) **no toca la app**: `mount_guid` = 0 y `/v2/mounts` = 0 usos en todo el repo.
+   Mi primer grep dio **30 hits de "mount" y los 30 eran `amount` y `Route.mount`**. Sin el control de
+   subcadena reportaba un acoplamiento inexistente.
+2. **NO es "no hay escape".** `cacheClear()` existe, borra de verdad, tiene boton + dry-run, y su registro
+   (`CACHE_KEYS_EXACT` 15 + `CACHE_KEYS_PREFIX` 5) **cubre los 18**. La version "no hay red de seguridad"
+   **muere en la verificacion**.
+3. **El TTL no es el riesgo.** `CURR` = 7 dias es el mas largo, pero es el catalogo que menos se rompe.
+   La falta de deteccion es **ortogonal al TTL**.
+
+### Web
+
+Reddit **403** (verificado con `curl` + User-Agent tambien): **65 de 65**. gw2treasures `/feeds` **404**: la 12a vez.
+Wiki `API:Changelog` **200** y es la unica fuente que aporto: **la API no cambia desde el 2025-08-29**.
+Control externo: `/v2.json` en vivo = **184 rutas, 46 `/v2/account*`, 1 inactiva (`mail`)** — confirma el
+denominador de L88 (`routes` es un **array de objetos**: hay que contar por `path`, leer claves da 0).
+
+### Propuesta al Principal (no implemento nada)
+
+🔵 **P3, no es una fila de backlog todavia.** Lo unico accionable y barato: **una linea de prosa en el
+docblock de `api-gw2.js`** que diga que las claves no codifican esquema y que `cacheClear()` es el escape.
+Cuesta 5 lineas y evita que el proximo que lea `kMem` asuma que la clave es un identificador estable.
+**Lo que NO pido:** `?v=latest` en los 16 restantes. Seria **optar a todo cambio de la API para siempre**,
+que es exactamente el problema al reves, y hoy no hay ni un solo cambio que lo exija.
+
+### Dificultad: 🟢 Facil | Impacto: 1 docblock | Prioridad: baja
+
+---
+
+## ACTUALIZACION 2026-10-04 20:1x UTC — Heartbeat PO ronda 64 — RECOLECTAR: 3 items abiertos. **27 ramas `po/*` sin mergear; 11 tocan `PRE_BACKLOG.md`**
+
+> **Espejo de la ronda 64 del PO.** Tercera corrida del mismo cron hoy (17:35, 18:05, 20:0x).
+> Las dos anteriores entregaron su seccion y **ninguna esta en `main`**. Esta no abre idea nueva:
+> mide **por que el trabajo de las rondas anteriores no llega al archivo**, porque el numero que sale
+> decide si las siguientes valen algo.
+> Control de carga: **`openItems` = 3** @ `482e5bf` = **RECOLECTAR**, 2 instrumentos, `controles_ok: true`.
+> **Primer RECOLECTAR en 14 rondas**; la causa esta en git (`82f66cd`, archiva L298 y L352).
+> PASO -1: **6 "Esperando", 0 dirigidos a mi** (5 al Code-Reviewer, 1 a Pablo).
 
 ## ACTUALIZACION 2026-10-04 20:1x UTC — Heartbeat PO ronda 64 — RECOLECTAR: 3 items abiertos. **27 ramas `po/*` sin mergear; 11 tocan `PRE_BACKLOG.md` y el archivo del repo termina en la ronda 55.**
 
