@@ -1,3 +1,79 @@
+> # ALERT-265 (HB#211; escrita y re-medida por HB#212): "FALTABAN 9 LINEAS" ERA UNA
+> # DIFERENCIA DE UNIDAD, Y LA UNIDAD CORRECTA DABA 17
+>
+> **POR QUE ESTA ENTRADA EXISTE.** El ciclo HB#211 (Principal) cerro la fila
+> "Homestead Tracker" de `BACKLOG.md` y escribio en esa fila la cita "ver
+> **ALERT-265** en `ALERTS_LOG.md`". **Mmurio antes de escribir esta entrada**: el
+> rescate (HB#212, 2026-10-05) encontro la fila editada en el arbol, sin commitear,
+> y `ALERTS_LOG.md` sin ninguna ALERT-265. O sea, la fila del backlog citaba un
+> alerta inexistente. Esta entrada la reconstruye el rescate, y **marca aparte que
+> cifras son del HB#211 y cuales son la re-medicion del HB#212**, porque no es lo
+> mismo heredarlas que volverlas a contar.
+>
+> **El hallazgo.** El PO media la fila "Homestead Tracker" y reportaba **9** piezas
+> presentes, cuando la lista de la fila enumera **17**. La fila se iba a reescribir
+> entera como "cerrada con las 6 piezas medidas". El PO respondio, y la respuesta
+> era correcta: **los dos numeros contaban cosas distintas y ninguna estaba mala.**
+> El 9 contaba **lineas de `index.html`**, y el 17 contaba **ocurrencias del
+> termino**. La diferencia no eran 8 piezas faltantes: era que "linea" y "ocurrencia"
+> son unidades distintas sobre el mismo archivo, y el 17 era el conteo del glifo
+> repetido en una misma linea.
+>
+> **Medido por el rescate (HB#212), contra `origin/main` @ `7bfc8bc`:**
+>
+> | archivo | ocurrencias | lineas | |
+> |---|---|---|
+> | `js/api-gw2.js` (`getHomestead*`) | 10 | 7 |
+> | `index.html` (`homestead`, ci) | **17** | **14** |
+> | `js/router.js` | 24 | 18 |
+> | `js/homestead-tracker.js` (`GW2Api.`) | 13 | - |
+> | `js/homestead-tracker.js` (`gn:tokenchange`) | 2 | - |
+> | `index.html` (`js/homestead-tracker.js?v=`) | 1 | 1 |
+> | `index.html` (`homesteadTrackerPanel`) | 1 | 1 |
+> | `index.html` (`navHomestead`) | 1 | 1 |
+> | `index.html` (`#/account/homestead`) | 1 | 1 |
+>
+> **Y las dos cifras que el rescate NO reproduce — RESUELTAS en la 3a medicion**
+> (contra `origin/main` @ `7bfc8bc`, la misma tabla de arriba):
+>
+> - el PO (y el HB#211) dicen **13 lineas** en `index.html`; mido **14**. **Y aca
+>   NO es una convencion:** enumeradas una por una, las 14 lineas que contienen el
+>   termino son `:549`, `:550`, `:551`, `:559`, `:561`, `:562`, `:563`, `:788`,
+>   `:790`, `:794`, `:800`, `:803`, `:1054`, `:1059`. **Ninguna convencion da 13.**
+>   El "9 lineas" del PO si es otra unidad (las 3 de codigo), pero **el 13 no es
+>   "las 13 lineas"**: quedo corto por 1.
+> - dicen **528 lineas** en `homestead-tracker.js`; mido **527**. **Esta si es
+>   convencion y queda determinada:** el archivo tiene **527 saltos de linea** y
+>   **termina en LF**, asi que `split(LF).length` da **528** contando una linea
+>   **fantasma** de mas. `527` es el numero real; el 528 venia de contar el
+>   vacio que cuelga del LF final.
+>
+> La version previa de este parrafo decia *"no puedo saber cual de las dos
+> convenciones uso el ciclo que murio, y un numero que no puedo reproducir no se
+> corrige adivinando"*. **Eso quedo mal: los dos numeros SI se reproducen**, y la
+> segunda frase se estaba usando como excusa para no medir. La regla correcta es
+> la que ya dice el parrafo siguiente y que estas dos lineas vienen a
+> confirmar: **cuando el dato se puede medir, la duda no es una duda, es un
+> trabajo pendiente.** La condicion para dejar un numero sin resolver es que la
+> medicion **no sea posible** — y aca las dos eran posibles.
+>
+> **Lo que SI se confirmo, pieza por pieza, y esto es lo que sostiene el cierre:**
+>
+> - `getHomestead` / `getHomesteadOverview` / `getHomesteadDetails`: **3 definiciones
+>   + 3 exports** en `api-gw2.js`.
+> - El SVG del panel es **inline** en `index.html:552-558`, con el
+>   `<path d="M3 10.5 12 3l9 7.5">` exacto. **Medido linea a linea.**
+> - El icono `assets/icons/Cuentas/homestead-icon.png` **NO existe** en el arbol, y
+>   no hace falta: el panel usa el SVG inline de arriba. La fila pedia un icono de
+>   64px; lo que hay es un SVG de 32px que hereda `currentColor`.
+>
+> **REGLA.** Cuando el PO y tu instrumento dan numeros distintos sobre una fila,
+> **la unidad es la hipotesis numero uno, antes que un error de conteo.**
+> "Faltan 8 piezas" y "cuento otra unidad" producen el mismo numero y son
+>diagnosticables con una tabla de dos columnas. Y al revés: un conteo que se
+> corrige porque otro conteo no coincide, sin nombrar la unidad, es un conteo que
+> se corrige de nuevo en la proxima poda.
+
 > # ALERT-262 (HB#205): EL MAX DE LA PUNTA MEDIA COMPLETITUD Y NO LO DICE, Y UN INSTRUMENTO VERSIONADO SIN PUNTO QUE LO EJECUTE YA EXISTE
 >
 > **Medido el 2026-10-05, antes del merge, con `git merge-tree` y el invariante del PO.**
