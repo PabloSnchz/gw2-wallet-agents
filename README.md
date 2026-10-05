@@ -25,7 +25,8 @@ Aplicación liviana para Guild Wars 2 que permite consultar:
 - 📈 **Dashboard de Cartera Multi-Cuenta** — Tabla de todas las cuentas vs divisas seleccionadas, KPIs y ordenamiento dinámico
 - 🎯 **Raid Tracker** — Seguimiento semanal de raids (9 alas, 34 encuentros, marcado automático vía API)
 - ⚔️ **Strike Tracker** — Seguimiento de Strike Missions (15 encuentros, grid optimizado, navegación integrada con Raids)
-- ⚠️ **Legendary Tracker** — Skeleton de Armería Legendaria (legendary-tracker.js v1.0.0, Phase 1)
+- ⚔️ **Armería Legendaria** — Catálogo de las 206 legendarias con árbol de fabricación y materiales (`js/legendary-tracker.js` v1.1.0, ruta `#/account/legendary-armory`)
+- 🏡 **Homestead Tracker** — Progreso de decoraciones por categoría y glifos coleccionables (`js/homestead-tracker.js` v1.0.0, ruta `#/account/homestead`)
 - 🔐 **Panel de Cuentas** — Gestión segura de múltiples cuentas con cifrado local y diseño "Profile Card" premium
 - 🧙 **Pantalla de Bienvenida** — Onboarding y accesos rápidos
 - 💾 **Sistema de Backup/Restaurar** — Exporta/importa toda la configuración entre dispositivos
@@ -56,6 +57,21 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 **Por qué importa:** un dato hardcodeado se ve igual que uno real. El usuario no tiene forma de saber que es falso, y la app degrada en silencio. Un aviso explícito es más útil que una respuesta inventada.
 
 > **Consecuencia para futuros módulos:** si un feature necesita un dato que la API no expone, el feature se entrega *sin* ese dato (o con el fallback estático ya existente en el proyecto), no *con* una estimación. Ver detalle en `docs/ONBOARDING.md` → Invariantes Técnicas.
+
+### 🏡 Homestead Tracker (`js/homestead-tracker.js` v1.0.0)
+
+**Ruta propia `#/account/homestead`.** Un módulo que ya estaba en el repo pero **no se cargaba**: sin el wiring fallaba en el primer fetch con `TypeError`, porque llamaba 5 métodos de la capa API que no existían.
+
+| Qué | Detalle |
+|-----|---------|
+| **Qué muestra** | El progreso de **decoraciones** del Homestead agrupadas por categoría, con barra de progreso por categoría. |
+| **Glifos** | Los glifos coleccionables, con su estado de desbloqueo y su item de upgrade. |
+| **Modal de detalle** | Al clickear una decoration se abre su detalle. |
+| **Persistencia** | Prefijo `gn:homestead:` — `decorations`, `categories`, `glyphs`. TTL 6 h. |
+
+**Sobre el glifo, que es el detalle que no se adivina**: `/v2/homestead/glyphs` devuelve un array de **strings** (`"herbalist_mining"`), **no** objetos `{id, name, icon}`. El módulo lo normaliza; los mapas de nombre/icono son **solo presentación**. Verificado contra la API pública: la respuesta trae `id` (string), `item_id` y `slot` — y **no** trae `name`, **no** trae `icon` y **no** trae `upgrade_item`.
+
+**El icono del módulo es SVG inline**, no un archivo: `assets/icons/Cuentas/homestead-icon.png` no existe en el repo, y un SVG inline no puede mostrar borde roto.
 
 ### ⚔️ Armería Legendaria (`js/legendary-tracker.js` v1.1.0)
 
@@ -1004,6 +1020,7 @@ Definí en `index.html` (antes de router.js):
 | `js/wallet-dashboard.js` | **v2.7.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra, columna opt-in "Suerte (MF)"** |
 | `js/raid-tracker.js` | **v1.8.0** | **Raid Tracker: 8 alas, 33 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
 | `js/strike-tracker.js` | **v1.0.0** | **Strike Tracker: 15 strikes, grid optimizado, KPIs, modal con detalles, navegación integrada con Raids** |
+| `js/homestead-tracker.js` | **v1.0.0** | **Homestead Tracker: decoraciones por categoría con barras de progreso + glifos coleccionables, modal de detalle por decoration. Ruta `#/account/homestead`.** Persistencia `gn:homestead:` |
 | `js/analytics.js` | **v1.0.0** | **Eventos personalizados para Google Analytics** |
 | `js/wizards-vault.js` | **v1.3.0** | Módulo Wizard's Vault. **Ícono de recarga forzada de temporada** |
 | `js/accounts-panel.js` | **v2.0.0** | Panel de Cuentas. **Profile Card premium + tabla zebra** |

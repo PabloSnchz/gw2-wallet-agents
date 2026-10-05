@@ -476,8 +476,8 @@
  *   la AUSENCIA de deteccion es indistinguible de que no haga falta, hasta
  *   que hace falta.
  *   EL ESCAPE EXISTE Y YA ESTA MEDIDO: `cacheClear()` (v2.29.0) borra de verdad,
- *   tiene `{dryRun:true}`, boton en Ajustes, y su registro cubre los 18
- *   (CACHE_KEYS_EXACT 15 + CACHE_KEYS_PREFIX 5). Si un dia hay que purgar,
+ *   tiene `{dryRun:true}`, boton en Ajustes, y su registro cubre los 25
+ *   (CACHE_KEYS_EXACT 20 + CACHE_KEYS_PREFIX 5). Si un dia hay que purgar,
  *   el mecanismo ya existe y esta probado.
  *   LO QUE NO SE HIZO, y por que: poner `?v=latest` en los 16 restantes
  *   seria optar a TODO cambio de la API para siempre, que es el problema al

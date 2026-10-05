@@ -11,6 +11,24 @@ y el versionado **SemVer** (https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **fix(cache): las 5 familias de Homestead entran en la allowlist de `cacheClear`, y el censo nombra por qué el total saltó de 8 a 11 (`df9131b`; `js/api-gw2.js` v2.34.0)**:
+
+  **El bug**: los 5 métodos de Homestead escriben 5 claves — `homestead_decorations_all`, `homestead_decoration_categories`, `homestead_glyphs_all`, `account_homestead_decorations`, `account_homestead_glyphs` — y **ninguna** estaba en `CACHE_KEYS_EXACT`. El botón de "limpiar caché" las contaba como conservadas y sus cuotas quedaban vivas: exactamente el fallo que la allowlist exacta vino a evitar.
+
+  **Van exactas y no por prefijo, por dos motivos distintos.** Los 3 de catálogo (`homestead_*`) **no comparten prefijo útil entre sí** (`_decorations_all` vs `_categories` vs `_glyphs_all`): un prefijo `homestead_` los cubriría, pero ese mismo prefijo se lo comería cualquier clave futura de Homestead escrita a mano, que es justo lo que la lista exacta vino a evitar. Los 2 de cuenta llevan la huella del token (`:<fpToken>`) y aun así van exactas, porque la lista matchea la clave EXACTA y el sufijo lo agrega la escritura, no la declaración.
+
+  **Allowlist medida hoy sobre el archivo real** (no tomada de un comentario): `CACHE_KEYS_EXACT` = **20** claves, `CACHE_KEYS_PREFIX` = **5**.
+
+  **El censo (`tools/idea50-censo-claves.mjs`) nombra el salto 8 → 11**, que antes no lo nombraba nadie: cuando `homestead-tracker.js` pasó a cargarse desde `index.html`, sus 3 familias dejaron de ser cache de **código MUERTO**. La unidad del censo es **familias**, no claves ni líneas: son **12 filas (call sites) = 11 familias únicas**, porque `gw2_currencies_cache_v1` tiene 2 call sites y **una sola** familia. Dos call sites que escriben la misma clave son una clave, no dos.
+
+  **ALERT-86, ahora con el número encima**: **3 de esas 11 familias no se reconocen por el NOMBRE de la clave** — las 3 de `gn:homestead:*`. Un censo que clasifica solo por nombre las pierde; por eso la lista es explícita y no deducida.
+
+  **Lo que el censo NO dice, y por qué importa**: no dice el **tamaño** de esas claves (depende de la cuenta de Pablo, y es el único número que decide si "liberar la cache de la API" es cierto), ni si una clave **debería** estar en el registro — eso es una decisión, no se automatiza. Y **quedan 4 escrituras sin resolver** (`gist-sync.js:422`, `gist-sync.js:571`, `raid-tracker.js:914`, `settings-manager.js:241`): un número que excluye lo que no supo leer no es un total.
+
+  **Verificación**: `tests/idea50f.cacheclear-real.test.js` **69 pass / 0 FAIL**; `tests/alert86.censo-clasificacion.test.js` **32 pass / 0 FAIL**.
+
+  **✅ Incoherencia detectada y CORREGIDA**: el docblock de la cabecera del mismo `api-gw2.js` decia "CACHE_KEYS_EXACT 15 + CACHE_KEYS_PREFIX 5" y "su registro cubre los 18", que ya no coinciden con el codigo (20 y 25). **Es un archivo `.js` y el Documentador no edita codigo**, asi que quedo reportado al Principal, que lo corrigio en este mismo commit (L479-L480): ahora dice 20 + 5 y "cubre los 25". Verificado contando las entradas de la allowlist sobre el archivo real, con control positivo (`tokeninfo`, `account_skins`, `homestead_glyphs_all` = 3/3) y control negativo (`ZZZ999` = 0).
+
 - **fix(cache): el borrado de caché ya alcanza la cache del Wizard's Vault, y el inventario de bases dejó de ser una lista central (Idea 50 P3 — `376f0d5` + `9adf6dd` + `0d1d0aa`; `js/api-gw2.js` v2.30.0, `js/wizards-vault.js` v1.3.1)**:
 
   **Estado: MERGEADO a `agents/main`** por fast-forward. Veredicto del Code-Reviewer (`task-19ca4a2448b8`): **APROBADO CON CAMBIOS**; los 4 cambios pedidos se aplicaron antes del merge (`0d1d0aa`).
@@ -129,6 +147,30 @@ y el versionado **SemVer** (https://semver.org/).
   - **Cambio quirúrgico**: 2 líneas borradas, 1 agregada. No toca CSS ni arquitectura. Code Reviewer ✅ (task-fa0e4c29b938, commit original `94fb7a9`).
 
 ### Added
+- **Homestead Tracker: decoraciones por categoría y glifos coleccionables (`41c79d8` + `ca673ac`; `js/homestead-tracker.js` v1.0.0, `js/api-gw2.js`, `js/router.js`)**:
+
+  **⚠️ Esto SÍ cambia lo que Pablo ve.** Ruta propia **`#/account/homestead`**, alcanzada desde el side-nav, con su `<section id="homesteadTrackerPanel">` en `index.html`.
+
+  **El módulo ya existía y estaba muerto.** `homestead-tracker.js` v1.0.0 (2026-09-29) estaba en el repo **byte a byte idéntico** a su rama de origen, pero `index.html` **no lo cargaba**. Medido: **0 matches de `getHomestead*` en `main`**, o sea que sus 5 dependencias no existían y el primer fetch habría muerto con `TypeError`.
+
+  **Por qué NO se hizo merge de la rama** (que sí se llevaba el trabajo): la rama nació **53 commits atrás**, así que el "257 archivos, 88706 borrados" que circulaba es ruido, y un merge habría revertido el **sharding de la Idea 49**. Se extrajeron **a mano** los 3 bloques: `index.html` (+42), `js/api-gw2.js` (+123) y `js/router.js` (+44). **No se copió `api-gw2.js` entero** porque ese archivo había cambiado **1940 líneas** desde la base de la rama.
+
+  **5 métodos nuevos en la capa API** — `getHomesteadDecorationDetails`, `getHomesteadDecorationCategories`, `getHomesteadGlyphs`, `getAccountHomesteadDecorations`, `getAccountHomesteadGlyphs` — más **2 TTL nuevos**: `TTL.HOMESTEAD` (5 min, lo que cambia seguido) y `TTL.HOMESTEAD_STATIC` (24 h, catálogo estático). Siguen el patrón `cache` / `inflightOnce` / `fetchWithRetry` del archivo.
+
+  **`router.js`**: entrada en el mapa de vistas (`'#/account/homestead' : 'homestead'`), rama de `showPanel` con `homesteadTrackerPanel` agregado a la lista de paneles ocultables, call site de `activate()` y bloque de `gn:tokenchange`.
+
+  **Un comentario que el wiring dejó viejo, corregido**: `MODULOS_CON_LATCH` excluía a `HomesteadTracker` y la razón escrita ("no tiene panel propio, nadie lo activa") **era cierta cuando se escribió y es falsa con el wiring**. Medido hoy: ambas cosas ya no son cero. Entra al latch, igual que `LegendaryTracker`.
+
+  **Icono**: `assets/icons/Cuentas/homestead-icon.png` **no existe** en el repo (medido con `dir` sobre la carpeta). No fue un bloqueo: se resolvió con **SVG inline** en el panel y en el nav, que no depende de ningún archivo externo y por lo tanto no puede mostrar borde roto.
+
+  **`ca673ac` — el esquema real de los glifos son STRINGS, no objetos.** `/v2/homestead/glyphs` devuelve un array de cadenas (`"herbalist_mining"`), **no** `{id, name, icon}`. El módulo tenía los mapas de presentación y los leía como objetos. Normalizado en `js/homestead-tracker.js` (+69/-23); los mapas quedan siendo **solo presentación**.
+
+  **Verificado contra la API pública**: `/v2/homestead/glyphs` devuelve objetos con `id` string, `item_id` y `slot` — **sin** `name`, **sin** `icon` y **sin** `upgrade_item`. Eso confirma que los ids `21234`/`21244` de `CONFIG.GLYPH_UPGRADES` **son inventados**.
+
+  **Persistencia**: prefijo `gn:homestead:` — `gn:homestead:decorations`, `gn:homestead:categories`, `gn:homestead:glyphs`, TTL 6 h. Ninguna clave nueva fuera de ese prefijo.
+
+  **Invariantes respetadas**: Abort + last win en los fetches, `gn:tokenchange` como **único** canal de cambio de cuenta, y patrón idéntico a `activities.js` / `raid-tracker.js` / `strike-tracker.js`.
+
 - **Armería Legendaria: catálogo de las 206 legendarias, con árbol de fabricación y materiales (`js/legendary-tracker.js` v1.1.0 + 11 módulos de soporte)**:
   - **Qué es**: un módulo propio con ruta **`#/account/legendary-armory`**, alcanzado desde el sidebar como "Armería Legendaria". Reemplaza el filtro "Legendarias" que vivía dentro de la pantalla de Logros (`achievements.js`).
   - **Dos pestañas** inyectadas dentro de `#legendaryArmoryPanel`: **Catálogo** (la grilla completa) y **Mi progreso** (la cola de crafteo). Botones `#legendaryModeCatalog` / `#legendaryModeProgress`.
@@ -239,6 +281,18 @@ y el versionado **SemVer** (https://semver.org/).
   - Commit: `07e4c64`
 
 ### Changed
+- **El esquema de la API NO está en la clave de caché, y queda escrito en el propio archivo (`531a5fe`; `js/api-gw2.js`)** — docblock de 26 líneas, **sin cambio de comportamiento**:
+
+  `kMem(base, token)` y `kLS(base, token)` son `base + separador + fpToken(token)`. De los **18 sitios de lectura/escritura** contados por `tests/idea50e.cache-expiry-purge.test.js` sección 3, **solo 2** piden `?v=latest` (`/v2/account?v=latest` y `/v2/achievements?v=latest`); los otros **16** viajan sin él.
+
+  O sea: **la clave no es un identificador estable del dato, es una etiqueta de dónde vino.** Si ArenaNet cambia un esquema, la app no lo va a notar — no hay ninguna pieza del sistema, ni código ni clave ni doc, que diga "esto se llenó con el esquema viejo".
+
+  **HOY NO ES UN BUG**: la API no cambia desde 2025-08-29, y el único breaking change de ese día (`/v2/mounts/skins`: `mount` → `mount_guid`) **no toca la app** (0 usos de `mount_guid`). Es una **ventana SIN CALIBRAR**, no un escape: la ausencia de detección es indistinguible de que no haga falta, hasta que hace falta.
+
+  **El escape existe y ya está medido**: `cacheClear()` (v2.29.0) borra de verdad, tiene `{dryRun: true}` y su registro cubre la allowlist completa.
+
+  **Lo que NO se hizo, y por qué**: poner `?v=latest` en los 16 restantes sería **optar a todo cambio de la API para siempre**, que es el problema al revés. Y hoy no hay ni un cambio que lo exija. Que se decida el día que la API se mueva, con el caso delante.
+
 - **Flujo asíncrono de documentación**: Implementación de un flujo de trabajo asíncrono entre el agente Documentador y el agente Principal, que permite la actualización de documentación de forma no bloqueante durante las sesiones de desarrollo.
 - **Migración de estilos inline a CSS (Fase 1)**:
   - `theme-polish.css`: Nuevas clases `.wd-kpi-*` (4 KPIs de Wallet Dashboard) y `.id-kpi-*` (4 KPIs de Inventory Dashboard) con `border-left` semántico + `box-shadow` glow

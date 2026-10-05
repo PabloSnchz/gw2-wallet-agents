@@ -8653,3 +8653,150 @@ por el autor: se respeta como tal, no como un titulo.
 **cambios de producto**, y un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio.
 Un rescate **no es una excepcion** a esa regla: es el caso donde mas caro sale. La salida correcta era
 **dejar el WIP en su rama** (que es donde vive un trabajo sin cerrar) y **commitear solo el log**.
+
+## ALERT-263 - EL CONTROL DE PRE-MERGE, EJECUTADO EL MERGE, NO SE INVALIDA: PASA POR CONSTRUCCION Y ADEMAS CRASHEA
+
+> **Numero verificado antes de escribir, y por que esta nota esta aca.** Elegi
+> `ALERT-251` primero. **`ALERT-251` ya estaba definido** en L619 de este mismo archivo
+> ("ALERT-250 ESTA DUPLICADO CON DOS DEFINICIONES INCOMPATIBLES"). Lo unico que me
+> salvo es que el script de append **busca el texto antes de escribir** y se nego, en
+> lugar de duplicar. Medido: **3 numeros con definicion duplicada** (194, 197, 226), y
+> la numeracion esta **partida en dos series**: `## ALERT-NNN` como encabezado va por
+> **254**, pero hay **8 alertas citadas que no tienen encabezado** (255 a 262, dentro
+> de citas `> # ALERT-NNN (HB#NNN):` de ciclos viejos), y el maximo real es **262**.
+> Los **3 duplicados ya son un problema abierto** y decidir cual definicion gana es
+> de Pablo, no mio. **263** es el siguiente libre, medido.
+>
+> **El control que me salvo es el mismo que escribi para otra cosa:** `indexOf` antes
+> de append. Un guard de idempotencia que **pregunta** si el numero existe es la
+> unica linea que separa "una alerta nueva" de "un cuarto duplicado".
+
+**La afirmacion que la desmenti es mia, y es de ayer.** El `TEAM_STATUS.md` del HB#205,
+L98, dice textual: *"Mientras tanto el invariante esta medido y reproducible:
+`_hb205inv.cjs` corre y da 13/13 con control negativo."* Hoy **las dos mitades son falsas**, y
+cada una por una causa distinta. Es la extension de ALERT-76 (*"una asercion que pasa por
+construccion"*), con un componente que ALERT-76 no tiene.
+
+### CAPA 1: LA CONDICION MEDIDA SE CONSUMIO AL APLICARSE
+
+El invariante comparaba `main` contra el **merge pendiente** (`cf5d3ea1`). Ese merge se
+aplico: `origin/po/hb202` **es ancestro de `origin/main`** (`merge-base --is-ancestor`, exit 0).
+Medido hoy:
+
+| comando | HB#205 (02:55) | hoy (03:4x) |
+|---|---|---|
+| arbol de `git merge-tree --write-tree main po/hb202` | `cf5d3ea1` | **`36086fe9`** |
+| arbol de `origin/main` | (distinto) | **`36086fe9`** |
+
+**Los dos son el MISMO numero.** Cuando la punta ya es ancestro, `merge-tree` es idempotente
+por definicion: devuelve el arbol de `main`. O sea que el control, re-ejecutado hoy,
+**no puede fallar**, y no porque el invariante se cumpla sino porque **ya no hay merge que
+verificar**. Es ALERT-76 con el sujeto cambiante: alli la asercion se volvia tautologica porque
+la asercion anterior mergeada ya la satisfacia; aca se vuelve tautologica porque **la accion
+que la mantenia relevante ya se ejecuto**.
+
+**Y el objeto no es recuperable**: `cf5d3ea1` es un arbol de merge *pendiente*, y el merge
+pendiente se consume por definicion. No hay forma de volver a correr el invariante que dio
+13/13, porque el estado que medi **dejo de existir**.
+
+### CAPA 2: EL INSTRUMENTO CRASHEA, Y EL EQUIPO VA A "ARREGLAR EL INSTRUMENTO"
+
+`_hb205inv.cjs:52` es `const MERGED = process.argv[2];` sin default y **sin validar la
+entrada**. Corrido sin argumento, muere al usarlo:
+
+    TypeError: Cannot read properties of undefined (reading SLICE)
+
+Esto es **el inverso exacto de ALERT-236**. Ahi un `0` vacio se leia como una medicion y
+nadie lo corrijia; aca un **crash** se lee como *"el script esta roto"* / *"hay un problema de
+node"*, y la reaccion natural es **arreglar el script**. El dato real *la condicion se
+consumio* no aparece en ninguna parte de la salida, porque un instrumento que revienta no
+imprime el motivo de la muerte.
+
+**REGLA: un instrumento que crashea en vez de declarar "el objeto medido ya no existe"
+convierte una consumacion en un falso defecto de herramienta.** Un crash tiene que
+distinguirse de un fallo propio: o valida la entrada y dice que falta, o dice que el objeto
+que buscaba ya no esta. Muriendo, deja al proximo **`git blame`-ando el script.**
+
+### CAPA 3: EL INSTRUMENTO NO ESTA EN EL REPO Y LA REGLA DE SCRATCH LO ARCHIVO
+
+Esto es lo que mas me duele, porque **es la misma regla que el propio HB#205 aplico**. El
+HB#205 cerro con la regla de scratch `/_hb[0-9]*` (que el PO pidio, y que esta bien). Ese
+instrumento se llama `_hb205inv.cjs`, asi que:
+
+    .gitignore:57:/_hb[0-9]*      _hb205inv.cjs
+
+`git check-ignore -v` lo devuelve **ignorado**, y no aparece ni con
+`git status --porcelain --ignored=matching --untracked-files=all`. O sea: el unico
+instrumento que respalda la decision de *"el invariante esta medido y reproducible"* quedo
+**clasificado en la misma categoria que los 8 scratch de un solo uso** que el PO pidio
+ignorar. No esta "sin commitear": esta **archivado como basura**.
+
+Y la frase **"medido y reproducible" era una afirmacion sobre una propiedad que el objeto
+no tenia.** Vivir en el workspace es exactamente lo que el HB#205 llamo, textual: *"un
+instrumento que solo existe en el disco de una persona es un instrumento que otro no puede
+reproducir"*.
+
+**El rename no es un detalle.** El instrumento post-merge que escribi hoy se llama
+`_inv206.cjs`: **no** casa con `/_hb[0-9]*`, asi que sigue siendo visible. Ese es el unico
+cambio de costo cero que hace que un instrumento del ciclo sea recuperable. Un nombre de
+instrumento es **infraestructura**, no cosmetica.
+
+### LA FORMA QUE SOBREVIVE: PREGUNTAR POR LA PROPIEDAD, NO POR EL EVENTO
+
+El error de forma es el mas generalizable: el invariante media **un evento** (el merge
+pendiente) cuando la politica que quiere proteger es **una propiedad** (la punta unica:
+`main` no se pierde, la punta queda entera adentro, EOL y BOM intactos). Los eventos se
+consumen; las propiedades no. Reescrito a la forma post-merge, el mismo politica da:
+
+    [OK  ] la punta es ancestro de main (el merge se aplico)
+    [OK  ] PRE_BACKLOG.md: main-antes es prefijo byte-identico de main-ahora  antes=335107b ahora=360675b
+    [OK  ] PRE_BACKLOG.md: LF PURO en main-ahora  LF PURO
+    [OK  ] PRE_BACKLOG.md: sin BOM
+    [OK  ] DASHBOARD_PO_IDEAS.md: main-antes es sufijo byte-identico de main-ahora  antes=183305b ahora=197949b
+    [OK  ] DASHBOARD_PO_IDEAS.md: LF PURO en main-ahora  LF PURO
+    [OK  ] DASHBOARD_PO_IDEAS.md: sin BOM
+    [OK  ] control negativo: PRE de main-antes NO calza como sufijo  calza=false
+    [OK  ] control negativo: una rama vieja NO es ancestro de main  esAncestro=false
+
+    RESULTADO: 9 OK / 0 ROJO
+
+Los dos controles negativos son los que importan: **el segundo prueba que la forma
+discrimina**, porque con `hb202` ya mergeado el ancestro da 1 y con `hb193-emotes` da 0.
+Un control que solo dice "la punta esta mergeada" pasaria con cualquier rama.
+
+**No lo versione**, y la razon es la de siempre y ya escrita: `tools/` ignora todo (`*`) y
+solo se versiona lo que el banner de `HEARTBEAT.md` cita **por nombre**. Un instrumento que
+el banner no ejecuta es el precedente de `hb169-capas.mjs`, que esta versionado y **no lo
+cita nadie** - medido hoy: 0 coincidencias de `hb169-capas` en `HEARTBEAT.md` **y** 0 en
+`AGENTS.md`. Agregarlo sin el punto del banner reproduce el defecto con un archivo mas.
+
+### CORRECCION DE AFIRMACION DEL HB#205, Y ES MIYA
+
+El HB#205 L98: *"**11 excepciones** y las 11 son los puntos 4, 5 y 6 del banner"*.
+Medido hoy sobre el blob de `origin/main`:
+
+| lo que decia | medido |
+|---|---|
+| 11 excepciones en `tools/.gitignore` | **7** |
+| todas son los puntos 4, 5 y 6 | **el punto 6 no existe**: 0 coincidencias de `punto 6` en `HEARTBEAT.md` |
+
+Las 7: `.gitignore`, `run-suite.js`, `run-suite.cmd`, `cl_recipes.json`, `hb163-canales.mjs`,
+`hb164-espejo.mjs`, `hb169-capas.mjs`. Y **`hb169-capas.mjs` justifica su propia excepcion
+con un paso que no existe**: *"sin este archivo aca, el paso 6 del heartbeat apunta a un
+comando inexistente"*. El archivo es util y la excepcion esta bien; **la justificacion escrita
+es falsa**. No la corrijo: `tools/.gitignore` es la allowlist de versionado del directorio y
+el HB#205 ya la declaro decision de Pablo.
+
+### REGLA GENERAL
+
+1. **Un control de pre-accion, cuando la accion se ejecuta, no se invalida: se vuelve
+   tautologico.** Y uno tautologico **no se ve**: da verde con la misma confianza. Por eso
+   un control tiene que decir **que objeto mide**, y si ese objeto es un evento que se
+   consumio, el control tiene que **morir con un mensaje** ("ya no hay merge pendiente"), no
+   dar verde.
+2. **"Medido y reproducible" son dos afirmaciones, y la segunda es la cara.** La primera se
+   cumple en el escritorio; la segunda exige que el objeto **este en git** y que otro pueda
+   correrlo. Si el nombre del instrumento matchea una regla de ignore, no es reproducible.
+3. **Un crash es una clase de salida, y hay que declararla.** Un instrumento que muere por
+   entrada ausente se lee como defecto de la herramienta, y la reaccion es arreglar la
+   herramienta: **el bug se propaga al fix**.

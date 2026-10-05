@@ -1,3 +1,138 @@
+# HB#207 - 2026-10-05 05:00-05:3x UTC - EL RESCATE TRAIA UNA AFIRMACION QUE EL RESCATE MISMO DESMENTIA
+
+> **Actualizado:** 2026-10-05 (HB#207) por el Principal.
+> **Base:** `origin/main` = `c7f329a` (2026-10-05 03:14:46 UTC) al abrir. Arranque **05:00:07 UTC**.
+> **PASO -1 = RESCATE, y no fue ambiguo:** arbol **SUCIO** con 5 modificados + 1 untracked,
+> **todos los mtimes ANTERIORES al arranque** (04:39:07 / 04:36:01 / 03:44-03:45 contra 05:00:07)
+> y `origin/main` **anterior** al arranque. Escritor **MUERTO, trabajo TERMINADO** -> es rescate,
+> no WIP para descartar. Sin sesion `running`. Las dos puntas (`origin/main..main` y
+> `main..origin/main`) **ambas vacias**: no hay commit local sin pushear.
+> **Suite completa:** **2312 aserciones / 0 FAIL en 86 de 86** (leido de la linea `TOTAL`).
+
+## EL HALLAZGO DEL CICLO: UN RESCATE NO PUEDE PROPAGAR LA AFIRMACION QUE EL MISMO RESCATE CORRIGE
+
+**Lo que encontre.** El trabajo del ciclo muerto (HB#206) eran **237 lineas de documentacion**
+en 5 archivos. Todo el producto que el CHANGELOG describe ya estaba **mergeado**: los **7
+commits** que cita (`df9131b`, `41c79d8`, `ca673ac`, `531a5fe`, `376f0d5`, `0d1d0aa`,
+`9adf6dd`) dan **`merge-base --is-ancestor` = SI** contra `origin/main`, los 7. O sea que
+lo unico en riesgo era el **doc**, y el rescate era barato.
+
+**La contradiccion, textual.** `CHANGELOG.md:30` (el Documentador) decia:
+
+> **Incoherencia detectada y NO corregida**: el docblock de la cabecera del mismo
+> `api-gw2.js` sigue diciendo "CACHE_KEYS_EXACT 15 + CACHE_KEYS_PREFIX 5" y "su registro
+> cubre los 18"... **Es un archivo `.js` y el Documentador no edita codigo**: queda
+> reportado al Principal.
+
+**Y en el mismo conjunto que estaba rescatando, `js/api-gw2.js` tenia el diff que
+exactamente eso repara**: L479-L480 pasan de `18` a `25` y de `15+5` a `20+5`. O sea: el
+Documentador escribio "no corregido" **antes** de que el Principal lo corrigiera, y las dos
+mitadas quedaron en el mismo working tree.
+
+**Las dos no pueden ser verdad a la vez, y el CHANGELOG es el que queda mirando.** Si lo
+commiteaba tal cual, el repo publicaba una linea que dice *"esto no se corrigio"* en el
+**mismo commit** que lo corrige. Y no es cosmetico: esa frase es la que le dice al proximo
+que **no lo toque**, cuando ya esta tocado. Un documento que se contradice no es un
+documento con un error: es un documento que **instruye mal**.
+
+**Medido antes de tocar la frase** (no la confie):
+
+| | en `origin/main` | en el worktree rescatado |
+|---|---|---|
+| `CACHE_KEYS_EXACT` (entradas reales) | **15** | **20** |
+| `CACHE_KEYS_PREFIX` | 5 | 5 |
+| docblock dice | `15+5` / "cubre los 18" | `20+5` / "cubre los 25" |
+
+**Con controles**, porque un conteo de entradas en este repo ya me dio una vez un numero
+equivocado (ver abajo): **positivo 3/3** (`tokeninfo`, `account_skins`,
+`homestead_glyphs_all` presentes) y **negativo 0/2** (`ZZZ999`, `no_existe_esta_clave`
+ausentes). **Coincide = true**. Ademas: **ningun test asserta esos numeros** (0 hits de
+`cubre los`/`CACHE_KEYS_EXACT \d` en `idea50f` y `alert86`), asi que el fix del docblock
+**no puede romper la suite** — y la suite lo confirma abajo.
+
+**Lo que hice**: reescribi esa unica linea para que diga lo que es cierto (**corregida**,
+en este commit, con el numero medido y el control que lo sostiene). **1 linea de un archivo
+de documentacion.** No toque el ALERT-263 ni el resto del rescate: no eran mios y estan bien.
+
+### LA REGLA, Y ES LA MISMA DE ALERT-263 CON LA FRASE INVERTIDA
+
+ALERT-263 (del ciclo muerto, rescatado y bien escrito) dice: *"un control que se invalida
+al aplicarse se vuelve tautologico"*. Esta es la otra cara: **una correccion que se aplico
+deja la anotacion de "pendiente" que la autorizaba.** Las dos son el mismo defecto de
+sincronizacion, vistas desde el ciclo que escribe y desde el que relee.
+
+1. **Un rescate se verifica contra el estado que deja, no contra el texto que trae.** La
+   pregunta no es "esta el texto completo" sino "**¿hay alguna linea que el conjunto mismo
+   contradiga?**". Un rescate es el unico momento donde el equipo lee su propio pasado sin
+   haberlo escrito, y es el unico donde las dos generaciones coexisten en el mismo archivo.
+2. **"No corregido" y "corregido en este commit" no se pueden publicar juntos.** Si el
+   rescate contiene el fix, la nota tiene que cambiar. Una anotacion de "queda reportado"
+   sobrevive al fix que la resolvio, porque **nadie vuelve a leerla**.
+
+## ERRORES DE INSTRUMENTO PROPIOS (3, familia ALERT-79), todos ANTES del commit
+
+1. **El conteo que dio 8+2=10 cuando la allowlist tiene 20+5=25.** Mi extractor contaba
+   **lineas**, no entradas: la lista trae **4 claves por linea** (L2324), asi que 20
+   entradas ocupan 8 lineas. Un numero plausible y equivocado. **La segunda forma del mismo
+   eje que el HB#173:** contar la unidad equivocada da un numero que se lee bien y no mide.
+2. **`for c in ... do` con `git merge-base` por medio de cmd.exe**: *"No se esperaba c en este
+   momento"*. Rehecho en `node` con `execFileSync` y **codigo de salida distinguido** (1 =
+   existe-pero-no-ancestro, otro = no existe), porque los dos estados se anotan distinto.
+3. **`new RegExp` con escapes doblados a traves de cmd.exe** -> `Unterminated /
+   Unmatched ')'`. Es la leccion del HB#166, reincidencia: **el one-liner con contenido
+   embebido no es compacto, es fragil.** Los dos instrumentos de este ciclo van en `.mjs`,
+   sin backslashes en crudo (`LF` y `'` por `String.fromCharCode`), y lo verifique
+   (`BS en crudo presente = false`).
+
+## LO QUE SE RESCATO (todo el contenido, sin perder una linea)
+
+| archivo | delta | que es |
+|---|---|---|
+| `ALERTS_LOG.md` | +147 | **ALERT-263**: el control de pre-merge del HB#205 se volteo tautologico al aplicarse el merge, `_hb205inv.cjs` crashea, y el nombre `_hb*` lo archiva como basura. Con la forma que sobrevive (preguntar por la **propiedad**, no por el **evento**). |
+| `CHANGELOG.md` | +54 | Homestead Tracker (vivo, ruta propia), el fix de la allowlist de `cacheClear`, y por que el esquema de la API no va en la clave de cache. |
+| `README.md` | +19 | Homestead Tracker en el indice y en la tabla de modulos. |
+| `docs/ONBOARDING.md` | +17 | Homestead Tracker en "modulos clave" + su seccion tecnica. |
+| `js/api-gw2.js` | +4/-2 | **El fix del docblock** (15+5/18 -> 20+5/25). Es el unico cambio de codigo del rescate, y es un comentario. |
+
+**Y 1 linea mia**, que no es del ciclo muerto: la correccion del CHANGELOG de arriba.
+
+## ESTADO
+
+- **PASO 0**: inbox **vacio**, sin preguntas esperando a `default`.
+- **PASO 1**: nada que recoger — no hay `task_id` vivo; `task-6cc3851b8d15` viene dando
+  **404** desde el HB#163 (**44o ciclo**), que es estado **terminal** y no se reenvia.
+- **PASO 3 / control de carga: `openItems = 3` = RECOLECTAR** (no es PAUSA). Medido con
+  `tools/hb163-canales.mjs`, **`controles_ok: true`**, y el numero **si es medicion**:
+  `c2_backlog_main.openItemsDiscrimina: true`, `marcadorPresente: 68`,
+  `openItemsQueLaAncladaPierde: 0`, `openItems_INCONSISTENTE_por_forma: []`. Las tres
+  formas dan **3 = 3 = 3** (tolerante / anclada / subcadena), con el `control_sangria`
+  **discriminando** (autoritativo 2, anclada 1, perdidos 1) — o sea el instrumento sabe
+  separar las tres y hoy coinciden. Los **3 canales NO coinciden**: `po/hb205-1` head=66
+  (any=99), `po/hb202` head=66, `po/hb197-esquema` head=65, y el `c3_pre_backlog_ws` con
+  `openItems: 0` que **NO es medicion** (`openItemsDiscrimina: false`, `marcadorPresente: 0`
+  — no usa checklists), asi que **el autoritativo es el 3 de `BACKLOG.md`**.
+- **Backlog**: **no se arranco producto.** El ciclo fue de rescate, y arrancar producto con
+  un rescate sin commitear en el arbol es exactamente lo que ALERT-219 previene (lo pagaron
+  HB#150, #151, #154, #164).
+- **Sin `tests/` ni `js/` de producto tocados**: la suite se corrio igual porque el rescate
+  toca `js/api-gw2.js`, y dio **0 FAIL**.
+
+## PENDIENTE (sin cambio; la razon se RE-DERIVO, no se heredo)
+
+1. **ALERT-41** — falta el body crudo de `/v2/account/raids` con un token real de Pablo.
+   Bloqueo **externo**: no es alcanzable desde un cron.
+2. **ALERT-179** — fix mergeado, Reviewer mudo.
+3. **T14/T15** — veredicto opcion C, precondicion medida, sin aplicar.
+4. Los **7 del patron B**; **Idea 57** (los 4 wrappers); **FILTRO-05**.
+5. **ALERT-235 ABIERTA** — los 2 `PRE_BACKLOG.md` (git vs workspace del PO).
+6. **ALERT-240** — aplicar al banner de `HEARTBEAT.md` (el corte de seccion de una ronda).
+7. **Deuda visible**: ~100 ramas locales, worktrees, y **95 scratch `_hb*` en la raiz**
+   (medido hoy: la lista `_hb*` devuelve 95 entradas). Los `_hb*` estan ignorados por
+   `.gitignore`, asi que **no bloquean el commit**, peroignoredo no es borrado.
+8. **nuevo:** las **3 definiciones duplicadas de ALERT** (194, 197, 226) y la numeracion
+   partida en dos series — decide Pablo cual definicion gana.
+
+---
 # HB#205 - 2026-10-05 02:55-03:2x UTC - LA PUNTA 66 TRAIA UN HUECO, Y EL MAX NO LO DICE
 
 > **Actualizado:** 2026-10-05 (HB#205) por el Principal.

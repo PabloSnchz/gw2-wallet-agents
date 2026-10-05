@@ -2,7 +2,7 @@
 # 🐈⬛ Bóveda del Gato Negro — Onboarding Técnico Consolidado (v6.6.0)
 
 Fecha: 2026-09-24
-Módulos clave: `api-gw2.js`, `router.js`, `achievements.js`, `wizards-vault.js`, `wv-season-storage.js`, `wv-purchase-detail.js`, `wv-tabs-skin.js`, `wv-shop-ui.js`, `wv-objectives-ui.js`, `wv-objectives-dashboard.js`, `wv-theme.js`, `wallet-dashboard.js`, `inventory-dashboard.js`, `raid-tracker.js`, `app.js`, `meta.js`, `activities.js`, `activities-theme.js`, `characters.js`, `characters-theme.js`, `accounts-panel.js`, `welcome-panel.js`, `settings-manager.js`, `analytics.js`, `gist-sync.js`, `sidebar-nav.js`, `inventory-hub.js`, `converter-modal.js`, `luck-curve.js`, `storage.js`, `*-theme.js`, `main.css`, `theme-polish.css`
+Módulos clave: `api-gw2.js`, `router.js`, `achievements.js`, `wizards-vault.js`, `wv-season-storage.js`, `wv-purchase-detail.js`, `wv-tabs-skin.js`, `wv-shop-ui.js`, `wv-objectives-ui.js`, `wv-objectives-dashboard.js`, `wv-theme.js`, `wallet-dashboard.js`, `inventory-dashboard.js`, `raid-tracker.js`, `homestead-tracker.js`, `app.js`, `meta.js`, `activities.js`, `activities-theme.js`, `characters.js`, `characters-theme.js`, `accounts-panel.js`, `welcome-panel.js`, `settings-manager.js`, `analytics.js`, `gist-sync.js`, `sidebar-nav.js`, `inventory-hub.js`, `converter-modal.js`, `luck-curve.js`, `storage.js`, `*-theme.js`, `main.css`, `theme-polish.css`
 
 ## 📌 BAI — Bloque de Alineamiento Instantáneo
 
@@ -66,6 +66,21 @@ Bóveda del Gato Negro es una web app vanilla JS modular, sin framework, con foc
 Si hay riesgo → advertir antes de generar código.
 
 ---
+
+## 🏡 Homestead Tracker (`js/homestead-tracker.js` v1.0.0) — decoraciones y glifos
+
+Módulo con ruta propia **`#/account/homestead`** (`homesteadTrackerPanel`), alcanzado desde el side-nav.
+
+**Lo que hay que saber antes de tocarlo:**
+
+- **El módulo nació muerto y se reviveó con wiring manual.** El archivo `js/homestead-tracker.js` v1.0.0 (2026-09-29) estaba en el repo desde esa fecha pero **`index.html` no lo cargaba**, y sus 5 métodos de la capa API no existían (medido: 0 matches de `getHomestead*`). El wiring entró a mano en 3 archivos: `index.html` (panel + `<a id="navHomestead">` + `<script defer>`, ubicados junto a sus pares y no al final), `js/api-gw2.js` (los 5 métodos + 2 TTL) y `js/router.js` (mapa de vistas, rama de `showPanel`, call site de `activate()` y bloque `gn:tokenchange`).
+- **Por qué no se mergeó la rama que tenía el trabajo**: nació **53 commits atrás**, así que sus números de diff son ruido y el merge habría revertido el sharding de la Idea 49.
+- **5 métodos de la capa API**: `getHomesteadDecorationDetails`, `getHomesteadDecorationCategories`, `getHomesteadGlyphs` (catálogo estático) y `getAccountHomesteadDecorations`, `getAccountHomesteadGlyphs` (cuenta). **2 TTL nuevos**: `TTL.HOMESTEAD` (5 min) y `TTL.HOMESTEAD_STATIC` (24 h).
+- **El esquema real de los glifos son STRINGS, no objetos.** `/v2/homestead/glyphs` devuelve un array de cadenas (`"herbalist_mining"`). Los mapas de nombre/icono del módulo son **solo presentación** y no deben leerse como si vinieran de la API. La respuesta trae `id` (string), `item_id` y `slot`; **no** trae `name`, **ni** `icon`, **ni** `upgrade_item` — por eso los ids de `CONFIG.GLYPH_UPGRADES` no se pueden resolver contra la API.
+- **El icono es SVG inline**, en el panel y en el nav. `assets/icons/Cuentas/homestead-icon.png` no existe en el repo, y un SVG inline no depende de ningún archivo externo.
+- **`HomesteadTracker` entra en `MODULOS_CON_LATCH`**, igual que `LegendaryTracker`: tiene panel propio y hay alguien que lo activa. El comentario que lo excluía ("no tiene panel propio, nadie lo activa") era cierto cuando se escribió y dejó de serlo con el wiring.
+- **Persistencia**: prefijo `gn:homestead:` (`decorations`, `categories`, `glyphs`), TTL 6 h.
+- **Invariantes**: Abort + last win, `gn:tokenchange` como **único** canal de cambio de cuenta, patrón idéntico a `activities.js` / `raid-tracker.js` / `strike-tracker.js`.
 
 ## ⚔️ Armería Legendaria (`js/legendary-tracker.js` v1.1.0) — catálogo, árbol de fabricación y materiales
 
