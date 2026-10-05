@@ -249,13 +249,23 @@ console.log('  "' + escritas + ' familias de clave de cache escritas fuera del r
 console.log('  (+ ' + metas.length + ' marcador(es) de frescura, ~10 B, no crece con cuentas)');
 if (muertos.length) {
   console.log('');
-  console.log('  LAS ' + muertos.length + ' QUE EL NUMERO DE ARRIBA NO CUENTA, y por que:');
+  console.log('  LAS ' + muertos.length + ' QUE EL NUMERO DE ARRIBA NO CUENTA' +
+    (muertos.length ? ', y por que:' : ': ninguna.'));
   for (const f of muertos) console.log('    ' + f.clave + '   (' + f.archivo + ':' + f.linea + ')');
   console.log('    Cache de codigo MUERTO: `index.html` no carga ' + [...new Set(muertos.map(f => f.archivo))].join(', ') +
     ', asi que');
   console.log('    la clave no ocupa disco hoy. No se la resta por poco: se la nombra,');
   console.log('    porque el dia que ese modulo se cargue aparecen +' + muertos.length +
     ' sin que nadie mire este script. Con ellas el total serian ' + unicas + '.');
+} else {
+  console.log('');
+  console.log('    El numero de arriba cuenta las ' + escritas + ' familias de los ' +
+    modulosEscritos.length + ' modulos que `index.html` carga. Con ellas el total serian ' +
+    unicas + '.');
+  console.log('    (HB#199: cuando `homestead-tracker.js` paso a cargarse desde');
+  console.log('    `index.html`, las 3 familias de homestead dejaron de ser cache de');
+  console.log('    codigo MUERTO y el total subio de 8 a ' + unicas + '. Este bloque solo');
+  console.log('    hablaba cuando habia alguna, asi que el salto no lo nombraba nadie.)');
 }
 console.log('');
 console.log('  SI el numero difiere de otro censo, la diferencia TIENE NOMBRE.');

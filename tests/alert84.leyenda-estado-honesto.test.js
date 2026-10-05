@@ -19,13 +19,13 @@
  *     (los agrego la T3), asi que para ellos no hay un "antes" que citar: se
  *     citan los de este arbol y se dice cual es el arbol.
  *
- *     index.html:761  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
+ *     index.html:779  item de menu `navLegendaryArmory`, CON ICONO, VISIBLE
  *     router.js:125   ruta registrada;  :1562  la resuelve
  *     index.html:539  el <section id="legendaryArmoryPanel"> existe
- *     index.html:1012  <script legendary-tracker.js> se carga
- *     index.html:1013  <script legendary-data.js> se carga
- *     index.html:1014  <script legendary-recipes.js> se carga   (HB#122)
- *     index.html:1015  <script render-catologo.js> se carga
+ *     index.html:1047  <script legendary-tracker.js> se carga
+ *     index.html:1048  <script legendary-data.js> se carga
+ *     index.html:1049  <script legendary-recipes.js> se carga   (HB#122)
+ *     index.html:1052  <script render-catologo.js> se carga
  *     legendary-tracker.js  loadLegendaryData() es un STUB: resuelve []
  *     legendary-tracker.js  renderCatalogSkeleton() escribe "Cargando ..." y
  *                           NADA lo reemplaza

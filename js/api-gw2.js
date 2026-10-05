@@ -1,7 +1,7 @@
 /* =======================================================================
  * js/api-gw2.js  —  Capa API con fallbacks + caché persistente (mejorada)
  * Proyecto: Bóveda del Gato Negro (GW2 Wallet Ligero)
- * Versión: 2.33.0 (2026-10-03) — `getSkinsBatch(ids, opts)`: resuelve los ids
+ * Versión: 2.34.0 (2026-10-05) — `getSkinsBatch(ids, opts)`: resuelve los ids
  *   de skin de una cuenta a su FICHA (nombre, icono, rareza), que es lo que
  *   faltaba para que la fila "Coberturable account-scoped multicuenta"
  *   (BACKLOG.md L88) pueda tener un call site. El Tramo 1 entrego solo el
@@ -1672,6 +1672,16 @@
   // ========================================================================
   // Homestead (v2.34.0) — decorations, glyphs, account unlocks
   // ========================================================================
+  /**
+   * * @returns {Promise<Array<Object>>} Fichas de decoracion (id, name, icon).
+   * *   `[]` es un valor real: el catalogo puede no traer decoraciones.
+   * * @throws {Error} NO PROPAGA. Capa de RED (401, 429, corte de red) y capa de
+   * *   FORMA (200 con un cuerpo que no es un array) DEGRADAN ambas a `[]`.
+   * *
+   * * CONTRATO REAL - FORMA: degrada. Es aceptable en un endpoint de CATALOGO:
+   * *   un `[]` aqui no se confunde con nada de la cuenta, la vista queda vacia
+   * *   y no hay numero chico que se pueda leer como un dato.
+   */
   function getHomesteadDecorationDetails(opts) {
     opts = opts || {};
     var key = 'homestead_decorations_all';
@@ -1693,6 +1703,13 @@
     });
   }
 
+  /**
+   * * @returns {Promise<Array<Object>>} Categorias de decoracion. `[]` es real.
+   * * @throws {Error} NO PROPAGA. RED y FORMA degradan ambas a `[]`.
+   * *
+   * * CONTRATO REAL - FORMA: degrada. Catalogo: el `[]` no engaia (mismo motivo
+   * *   que getHomesteadDecorationDetails).
+   */
   function getHomesteadDecorationCategories(opts) {
     opts = opts || {};
     var key = 'homestead_decoration_categories';
@@ -1714,6 +1731,14 @@
     });
   }
 
+  /**
+   * * @returns {Promise<Array<Object>>} Glifos de homestead. `[]` es real.
+   * * @throws {Error} NO PROPAGA. RED y FORMA degradan ambas a `[]`.
+   * *
+   * * CONTRATO REAL - FORMA: degrada. Catalogo: el `[]` no engaia. El rescate de
+   * *   HB#199 elimino `GLYPH_UPGRADES`, que declaraba `upgradeItem` 21234..21244:
+   * *   esos ids no existen y `glyph.upgrade_item` nunca existio en la API.
+   */
   function getHomesteadGlyphs(opts) {
     opts = opts || {};
     var key = 'homestead_glyphs_all';
@@ -1735,6 +1760,20 @@
     });
   }
 
+  /**
+   * * @returns {Promise<Array<Object>>} Decoraciones desbloqueadas de la cuenta.
+   * *   `[]` es un valor real: una cuenta sin decoraciones desbloqueadas.
+   * * @throws {Error} NO PROPAGA. Capa de RED y capa de FORMA degradan ambas a `[]`.
+   * *
+   * * CONTRATO REAL - FORMA: degrada. **ESTO ENGAÑA Y ES DEUDA CONOCIDA.**
+   * *   Un `[]` aqui es indistinguible entre "no tenes decoraciones" y "no supe
+   * *   leer tus decoraciones", y en una vista de coleccion esa confusion no se
+   * *   autocorrige: el numero chico se lee como un dato. getAccountSkins
+   * *   degrado antes y ahora PROPAGA por el mismo motivo (Idea 57 Tramo 2).
+   * *   NO se corrige en el rescate HB#199: cambiar un contrato sin poder
+   * *   probarlo es el riesgo que el rescate evita. Queda escrito para que el
+   * *   modulo no se lea como sano.
+   */
   function getAccountHomesteadDecorations(token, opts) {
     opts = opts || {};
     if (!token) return Promise.reject(new Error('Falta access_token'));
@@ -1758,6 +1797,15 @@
     });
   }
 
+  /**
+   * * @returns {Promise<Array<Object>>} Glifos desbloqueados de la cuenta.
+   * *   `[]` es un valor real.
+   * * @throws {Error} NO PROPAGA. Capa de RED y capa de FORMA degradan ambas a `[]`.
+   * *
+   * * CONTRATO REAL - FORMA: degrada. **DEUDA CONOCIDA, misma que en
+   * *   getAccountHomesteadDecorations**: el `[]` no distingue "no tenes" de
+   * *   "no supe leer". Escrito, no corregido, en el rescate HB#199.
+   */
   function getAccountHomesteadGlyphs(token, opts) {
     opts = opts || {};
     if (!token) return Promise.reject(new Error('Falta access_token'));
@@ -2283,7 +2331,24 @@
     // matchea la clave EXACTA. Sin esta linea el boton de cache NO lo borraria
     // y su cuota quedaria viva, que es exactamente el fallo que la allowlist
     // exacta veio a evitar (y que `idea50f.cacheclear-real.test.js` mide).
-    'account_skins'
+    'account_skins',
+    // v2.34.0 (HB#199, rescate de Homestead): las 5 familias que agrego el
+    // rescate. Van EXACTAS y no por prefijo por dos motivos distintos.
+    //   - Los 3 de CATALOGO (`homestead_*`) no comparten prefijo util entre si:
+    //     `_decorations_all` vs `_categories` vs `_glyphs_all`. Un prefijo
+    //     `homestead_` los cubriria, pero ese prefijo tambien lo usaria
+    //     cualquier clave futura de Homestead que se escriba a mano, que es
+    //     justamente lo que la lista exacta vino a evitar.
+    //   - Los 2 de CUENTA llevan la huella del token en la clave
+    //     (`:<fpToken>`) y aun asi van exactas, por el mismo motivo que
+    //     `account_skins`: la lista matchea la clave EXACTA y el sufijo lo
+    //     agrega la escritura, no la declaracion.
+    // SIN ESTAS 5 LINEAS el boton de cache NO las borra y sus cuotas quedan
+    // vivas. Medido: sin ellas la capa escribe 24 claves y la allowlist declara
+    // 19, y `idea50f.cacheclear-real.test.js` bloque [5] lo dice nombrando las 5.
+    'homestead_decorations_all', 'homestead_decoration_categories',
+    'homestead_glyphs_all', 'account_homestead_decorations',
+    'account_homestead_glyphs'
   ];
   // Idea 50 Tramo F: HAY UN SEGUNDO PRESUPUESTO DE ITEMS, y por eso esta en la
   // lista y no se deduce de ningun lado.

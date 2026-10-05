@@ -77,7 +77,17 @@ const EXACT = [
   'commerce_delivery', 'commerce_listings', 'account_bank',
   'account_materials', 'account_armory', 'wallet', 'luck', 'ach_acc',
   // v2.32.0 (Idea del PO 18:00 UTC, Coberturable Tramo 1): `account_skins`.
-  'account_skins'
+  'account_skins',
+  // v2.34.0 (HB#199, rescate de Homestead): las 5 familias del catalogo y de la
+  // cuenta. Esta lista es una COPIA a mano de `CACHE_KEYS_EXACT`, y por eso se
+  // desincroniza sola: cuando el rescate agrego los 5 metodos `getHomestead*`
+  // a la capa, `api-gw2.js` ya los declaraba y esta copia seguia con 15. El
+  // aserto de la linea siguiente lo dice nombrandolas, no con un numero: asi
+  // que la falta de aqui se lee como `faltan: [...]`, no como una cifra que
+  // alguien tenga que ir a buscar.
+  'homestead_decorations_all', 'homestead_decoration_categories',
+  'homestead_glyphs_all', 'account_homestead_decorations',
+  'account_homestead_glyphs'
 ];
 // Las 4 con sufijo proprio. El sufijo incluye ':', asi que `commerce_prices:`
 // no puede pisar `commerce_pricesfoo`.
@@ -220,7 +230,7 @@ while ((mm = reKeyParam.exec(src)) !== null) literals.push(mm[1] + ':');
 // Deduplicar: `ach_meta_v3` esta declarado en las dos ramas del shard.
 const uniq = Array.from(new Set(literals));
 // La igualdad de conteos NO se sostiene mas, y no es un defecto: la allowlist
-// declara 20 claves y la capa escribe 19. La que sobra es
+// declara 25 claves y la capa escribe 24. La que sobra es
 // `items_cache_armory_v1:`, que escribe item-icons.js (otro modulo) y esta
 // DECLARADA A PROPOSITO para que el borrado la alcance. Lo que tiene que
 // seguir valiendo es la garantia de la linea siguiente — toda clave escrita
@@ -385,18 +395,19 @@ ok(wvBases.prefix.indexOf('wv_obj_') !== -1,
 ok(wvBases.exact.indexOf('wv_account_v2') !== -1 && wvBases.exact.indexOf('wv_acc_listings') !== -1,
   'las 2 con sufijo de token estan declaradas como exactas (kLS las sufija con :<fpToken>)');
 
-// (e) El conteo, DECLARADO. 19 de esta capa (15 exactas + 4 prefijos) + 5 del
-// WV (4 exactas + 1 prefijo) = 23. El Reviewer escribio "22" y "6
-// declaraciones": son 23 y 5. Un total sin alcance declarado no es un dato.
+// (e) El conteo, DECLARADO. 24 de esta capa (20 exactas + 4 prefijos) + 6 del
+// WV (4 exactas + 2 prefijos) = 30. El numero de esta vez subio por el rescate
+// de Homestead (HB#199): 5 exactas de catalogo/cuenta. El Reviewer escribio
+// "22" y "6 declaraciones": son 30 y 6. Un total sin alcance declarado no es un dato.
 // Sin `__cacheBases` la seccion se degrada en vez de abortar: si el archivo
 // vuelve a la version sin el fix, el reporte tiene que decir QUE falta y no
 // solo "se rompio" (mismo criterio que la seccion 4).
 const bases = (typeof p3.sandbox.GW2Api.__cacheBases === 'function')
   ? p3.sandbox.GW2Api.__cacheBases()
   : { exact: [], prefix: [] };
-eq(bases.exact.length, 19, 'el registro tiene 19 exactas (15 de la capa + 4 del WV)');
+eq(bases.exact.length, 24, 'el registro tiene 24 exactas (20 de la capa + 4 del WV)');
 eq(bases.prefix.length, 6, 'el registro tiene 6 prefijos (5 de la capa + 1 del WV)');
-eq(bases.exact.length + bases.prefix.length, 25, 'el alcance total son 25 bases, no 23');
+eq(bases.exact.length + bases.prefix.length, 30, 'el alcance total son 30 bases, no 25');
 ok(bases.prefix.indexOf('items_cache_v1:') !== -1,
   'items_cache_v1: sigue en el registro: getItemsMany escribe con lsSet directo y no pasa por putCache');
 ok(bases.prefix.indexOf('items_cache_armory_v1:') !== -1,
