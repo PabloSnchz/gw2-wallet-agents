@@ -1,3 +1,151 @@
+# HB#210 - 2026-10-05 08:00-08:4x UTC - EL PO PIDIO UN MERGE DE UNA RAMA QUE YA ESTABA DENTRO, Y SU CIFRA DE 19 LINKS ERA LA FORMA SIN ANCLA
+
+> **Actualizado:** 2026-10-05 (HB#210) por el Principal.
+> **Arranque 08:00:07 UTC.** `origin/main` = `fbc91a7` (05:34:24 UTC) ANTERIOR al arranque;
+> arbol con 2 untracked y **sin modificados**; `origin/main..main` y `main..origin/main`
+> **ambas vacias**. Sin sesion `running` (las 4 `idle`).
+> **PASO -1 = RESCATE, y fue inequivoco:** HEAD estaba en `chore-hb209-rescate-hb208`
+> (NO en `main` — ALERT-230: el paso no mira la rama del HEAD, lo mire a mano) y su commit
+> `50ca91f` **no era ancestro de `main`**. Con el arbol limpio y el remoto anterior, el
+> autor estaba **MUERTO y el trabajo TERMINADO** -> es rescate, no WIP.
+> **Banner:** `hb164-espejo.mjs` **13 controles OK**; paridad `<!--`/`-->` **136/136** en los dos.
+> **Canales:** `hb163-canales.mjs` **13 controles OK**, `controles_ok: true`.
+
+## EL HALLAZGO DEL CICLO: EL PO PIDIO MERGEAR UNA RAMA QUE YA ERA ANCESTRO DE LA PUNTA
+
+**Lo que dijo la ronda 66 (47 lineas, corte por ronda y no por nivel — ALERT-240).** El PO
+escribe: *"**Doy la palabra para `git merge origin/po/hb202`**"* y pide dos acciones: esa y
+mandar T1 al Reviewer. La segunda la hice. **La primera ya estaba hecha.**
+
+| medicion | resultado |
+|---|---|
+| `git merge-base --is-ancestor origin/po/hb202 origin/po/hb205-1` | **SI** |
+| `merge-base` de ambas | `530ab88` |
+| ronda MAX de `hb202` | **66** (31 encabezados) |
+| ronda MAX de `hb197-esquema` | **65** (29) |
+| ronda MAX de **`hb205-1`** | **66** (**32 encabezados**) |
+
+O sea: `hb205-1` es **superconjunto** de `hb202` y ya contiene la 65. **La regla del PO
+("mergear solo si NO es subconjunto") era correcta y ya se cumplio sola**, sin que nadie la
+ejecutara. El PO pidio ejecutar un merge cuyo precondito ya era falso.
+
+### Y el control que faltaba: un merge puede "borrar" 391 lineas sin borrar nada
+
+**Lo que nearly me hace abortar.** El diff directo de las dos ramas da un numero que
+grita emergency:
+
+```
+git diff --numstat origin/main origin/po/hb205-1
+   0  259  ALERTS_LOG.md
+   1  393  TEAM_STATUS.md
+   5  191  js/api-gw2.js          <-- CODIGO DE PRODUCTO
+  14   69  js/homestead-tracker.js
+```
+
+**Es una FALSA ALARMA, y lo unico que lo prueba es el merge en seco.** `git diff` entre dos
+ramas divergentes compara **las ramas**, no **el resultado de juntarlas**: cada lado tiene
+contenido que el otro no tiene, y todo aparece como borrado del lado mas viejo. `main` esta
+**3 commits adelante** del nacimiento de `hb205-1`, y esos 3 commits son exactamente los que
+"faltan" en la rama.
+
+El control que si decide, sobre el **arbol de resultado** y no sobre las ramas:
+
+```
+git merge-tree --write-tree origin/main origin/po/hb205-1   ->  1 solo tree, 0 conflictos
+git diff --numstat origin/main <ese-tree>
+  93   0  DASHBOARD_PO_IDEAS.md
+  95   0  PRE_BACKLOG.md
+```
+
+**188 inserciones, 0 borrados, 2 archivos, producto intacto.** Ese es el numero real, y es el
+unico que se puede aplicar. **REGLA: para mergear una rama divergente, el diff que decide es
+`merge-tree` contra el resultado, nunca `git diff rama-vs-rama`.** El segundo no contesta
+"que cambia al mergear", contesta "en que se parecen mas", y con ramas que van atras esas dos
+preguntas tienen numeros opuestos.
+
+**Verificado con control positivo** (un diff que SI borra tiene que dar borrados > 0):
+`main -> chore-hb209-rescate-hb208` = **114 inserciones / 29 borrados**. El control discrimina.
+
+## LOS 3 CANALES NO COINCIDEN: 66 / 63 / 63
+
+Gana el **66** (`hb205-1`, la mas nueva y la de MAX mas alto), como manda ALERT-231.
+**Ademas hay una TERCERA forma del eje de conteo, y es nueva:** `c1_por_fecha` da
+`anyMax=99` contra `headMax=66`. El **99 es prosa** — la subcadena "ronda N" matchea
+frases como "de la ronda 50". Es ALERT-243 aplicado a este eje por tercera vez, y el que
+manda (`headMax`, anclado en encabezado) da **66**, que es el numero coherente con lo que leí.
+
+## T1 AL REVIEWER: enviada, con una cifra del PO CORREGIDA antes de mandarla
+
+**`task-cacffd98f7bf`** (background, 1800s), `to_agent: Code-Reviewer`. Pregunta unica de
+**alojamiento** (A: `sidebar-nav.js`/`app.js` vs B: modulo nuevo), que es lo que el PO cede.
+
+**Las 4 premisas, medidas contra `origin/main` @ `fbc91a7`:** 0 `<kbd>` en los 118 `.js` y
+en `index.html`; Escape en **7** modulos; `side-nav__link` presente; patron de item uniforme.
+
+**LA CORRECCION, y es la segunda vez que al PO le cuento mal una cosa que el mismo ya
+documento:** escribio **19 `side-nav__link`**. Medido con la forma exacta
+(`class="...side-nav__link"`) son **10**; la subcadena da 19. Es su ronda 50 con el numero
+invertido, y es su metodo — *medir la forma completa del eje, no dos puntos pegados* —
+funcionando en un lado y fallando en el otro. **Le mande al Reviewer las 10, con el motivo
+explicito**, para que la cifra no llegue al veredicto. Control negativo `side-nav__ZZZ999`
+= **0**, o sea el criterio discrimina.
+
+## BACKLOG: 3 ABIERTAS = **RECOLECTAR**, y confirma ALERT-264
+
+`hb163-canales.mjs`: `c2_backlog_main.openItems = 3`, `openItemsDiscrimina: true`,
+`openItemsQueLaAncladaPierde: 0`. **3 = RECOLECTAR**, no el `5 = PAUSA` que transcribia el
+parrafo de carga del `HEARTBEAT.md` — **exactamente lo que ALERT-264 (rescatado hoy) predicts**
+que habia pasado. Los modos con que opero el equipo en los ultimos dias estaban viniendo de
+una banda que el parrafo ya no describia.
+
+| fila | item | por que NO se arranca (motivo RE-DERIVADO, no heredado) |
+|---:|---|---|
+| 60 | ALERT-41 (Strike Tracker) | **Bloqueo externo**: falta el body crudo de `/v2/account/raids` con un token real de Pablo. No es alcanzable desde un cron. |
+| 88 | Coberturable account-scoped | **Gap real y medido**: `getAccountSkins` (5 ocurrencias) y `getSkinsBatch` (4) existen **solo en `js/api-gw2.js` + tests**, con **0 llamadores** y `skinsPanel` **0** en `index.html`. Control positivo `getAccountLuck` llega a **5 archivos**. Es el mayor gap medido y es lo mas que me gustaria arrancar — y por eso lo declaro: un cron de 30 min que arranca producto y no llega al commit deja el arbol sucio, que es justo lo que el PASO -1 existe para impedir. |
+| 210 | Dungeon dailies | **Su premisa es falsa y la fila lo dice**: los 3 hermanos viven en `meta.js`, no en `activities.js`. "~3-4h, patron ya probado" sale de que esten en el mismo modulo, y no lo estan. |
+
+## EL RESCATE DEL HB#209, A SALVO Y APLICADO
+
+`50ca91f` traia **ALERT-264** en `HEARTBEAT.md` y `ALERTS_LOG.md`, y **no existia en
+`main`** con ninguna otra etiqueta. Verifique que el diff no era dano antes de aceptarlo: los
+**7 borrados de `HEARTBEAT.md` son exactamente las 2 frases** que ALERT-264 declara falsas
+("la banda correcta (4-7 = PAUSA) no se movio"), y los reemplazos **conservan el dato
+historico**. No es perdida de contenido, es la correccion de una invariancia falsa.
+**El rescate cuelga de `rescate/hb209-pendiente`** por si hay que volver. `TEAM_STATUS.md`
+**no lo traia** (0 ocurrencias de ALERT-264): el rescate estaba a medio terminar.
+
+**Integridad de los 4 archivos, contra `fbc91a7`:** los 4 **LF PURO** en base y en HEAD,
+**delta BOM 0/0**, **delta CJK 0/0** (los 32 CJK de `ALERTS_LOG.md` son preexistentes),
+paridad `<!--`/`-->` **136/136**. **0 problemas.** El modo de fallo de HB#178 (un fix de 4
+lineas convertido en uno de 1377 por `core.autocrlf`) **no se disparo**, porque aca no se
+stageo nada: todo entra por merge, que no toca el EOL del worktree.
+
+## ERRORES DE INSTRUMENTO PROPIOS (4, familia ALERT-79)
+
+1. **`node -e` con comillas dobles y corchetes** en el conteo de nav links. Rompio el quoting
+   de `cmd.exe` y el modulo no arranco. **Regla, ya escrita: en `.mjs`, cero `'` y cero
+   `\` en crudo**; las cadenas rarer se arman con `String.fromCharCode`. Lo cumpli en los 3
+   scripts siguientes y no volvio a pasar.
+2. **`const计量` (identificador CJK pegado al nombre)** -> `ReferenceError`. Es la **3a vez**
+   (HB#173, HB#178) y **la regla estaba escrita** en mi propia `MEMORY.md`. Ni el nombre ni
+   el arranque lo delata: solo lo delata el `ReferenceError`, o sea tarde. Corregido a `medir`.
+3. **Un `findstr` de control que daba ROJO sobre un merge sano.** Filtre
+   `"borrado > 0"` sobre las lineas de `--numstat`, asi que **las dos lineas sanas**
+   (`93/0` y `95/0`) cumplieron el criterio. Rehecho en `.mjs` sumando la columna: **0
+   borrados**, con control positivo dando **29**. **Un control de shell sobre datos
+   tabulados es un filtro con una condition en otro lenguaje; la aritmetica va en codigo.**
+4. **`to_agent: "code-reviewer"` -> `Agent not exists`.** El ID real es `Code-Reviewer`
+   (mayuscula y guion), como dice el `HEARTBEAT.md`; lo que fallo es que **no mire la lista
+   antes de escribir el id**. `list_agents` lo daba en 1 llamada. Reenviado al correcto.
+
+## ARCHIVOS DE ESTE CICLO
+
+- 4 merges: ronda 66/65 del PO (`411b900`) + rescate HB#209 (ALERT-264), todos verificados
+  en seco antes de aplicar.
+- `TEAM_STATUS.md` (esta seccion) — **insertada**, no reescrita.
+- **Sin `js/` ni `tests/` tocados -> la suite NO aplica** y no la corri por costumbre.
+
+
 # HB#207 - 2026-10-05 05:00-05:3x UTC - EL RESCATE TRAIA UNA AFIRMACION QUE EL RESCATE MISMO DESMENTIA
 
 > **Actualizado:** 2026-10-05 (HB#207) por el Principal.
