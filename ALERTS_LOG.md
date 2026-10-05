@@ -1,4 +1,82 @@
-> # ALERT-261 (HB#203): 4 CICLOS COMMITEARON PRODUCTO QUE NO SE PUSHEO NI SE ANUNCO, Y EL LOG SE VE ENTERO
+> # ALERT-262 (HB#205): EL MAX DE LA PUNTA MEDIA COMPLETITUD Y NO LO DICE, Y UN INSTRUMENTO VERSIONADO SIN PUNTO QUE LO EJECUTE YA EXISTE
+>
+> **Medido el 2026-10-05, antes del merge, con `git merge-tree` y el invariante del PO.**
+>
+> **La primera mitad es del PO y la confirme.** El max de ronda dio **66** en los dos
+> criterios y en los dos instrumentos, y ninguno miente. Lo que miente es **usar el max
+> como medida de completitud**:
+>
+> | ref | ronda max | tiene la 65 |
+> |---|---|---|
+> | `origin/main` (antes) | **64** | no |
+> | `origin/po/hb197-esquema` | 65 | **si** |
+> | `origin/po/hb202` | **66** | **NO** |
+>
+> `diff(hb202 \ hb197)` = **[65]**. La punta tiene 66 y **no** tiene 65, y la 65 vive en
+> `hb197`, una de las **29** ramas sin mergear. Mergear la punta sola dejaba **un hueco**,
+> y el hueco es justo la clase de fallo que la politica de punta unica vino a evitar.
+>
+> **REGLA: un max es una cota superior, no un censo.** El numero "66" no distingue "la
+> punta esta completa" de "la punta esta completa salvo la 65", porque **en los dos casos
+> el max es 66**. Para afirmar completitud hay que medir **la presencia de cada ronda
+> intermedia**, no el maximo. Es el mismo eje ya registrado: **un indicador que no puede
+> dar el valor malo no es un control.**
+>
+> Verificado al mergear: la punta ya tiene 64, 65 y 66, y no 67 (`hb205inv.cjs`,
+> 13/13 OK con control negativo).
+>
+> ---
+>
+> **La segunda mitad es mia y es la accionable.** El PO propuso promover
+> `_hb204inv.cjs` a `tools/po-tip-invariantes.mjs`. **No lo hice, y el motivo es que el
+> defecto que el instrumento vendria a prevenir YA ESTA PRESENTE en el repo:**
+>
+> ```
+> tools/hb169-capas.mjs   -> versionado, y NO lo cita nadie
+> ```
+>
+> Medido: `findstr /c:"hb169" HEARTBEAT.md` -> **0**. Lo mismo en `AGENTS.md` -> **0**.
+> Y el `tools/.gitignore` lo declara *"punto 6 del heartbeat"* cuando **el banner no
+> tiene punto 6**.
+>
+> **La mecanica que lo permitio esta escrita y es la misma que aplicaria al
+> instrumento nuevo:** `tools/` ignora todo (`*`) y solo se versiona lo que el banner de
+> `HEARTBEAT.md` **cita por nombre**. Hay **11 excepciones** y las 11 son los puntos 4, 5
+> y 6. Un instrumento que el banner no cita es lo que el HB#118 / HB#148 decidió no
+> commitear: *"un instrumento que solo existe en el disco de una persona es un
+> instrumento que otro no puede reproducir"*.
+>
+> **REGLA: promover un script a `tools/` tiene 2 condiciones, y la segunda es la que se
+> olvida.**
+> 1. Que el banner lo cite por nombre (si no, `tools/.gitignore` lo ignora y no llega al
+>    repo).
+> 2. **Que ese punto del banner exista y lo ejecute en el ciclo.** Sin el punto, el
+>    instrumento queda versionado y muerto.
+>
+> La 1 sin la 2 es peor que no hacerlo: **agrega un archivo al Source Control que nadie
+> corre.** Y es exactamente lo que ya paso una vez, asi que no es hipotesis.
+>
+> **Por que no lo arregle yo:** agregar un punto al banner exige regenerar el espejo y
+> correr los 2 controles, y `tools/.gitignore` es una allowlist. **Es decision de
+> Pablo.** Lo que si hice es dejarlo medido y reproducible: `_hb205inv.cjs` corre y da
+> 13/13 con control negativo, sin commitear.
+>
+> ---
+>
+> **Bonus del ciclo, el mismo eje aplicado a mi propia medicion:** mis **3** controles de
+> contenido del invariante dieron ROJO sobre un merge **sano**, y los 3 estaban mal
+> escritos. (a) *"orden descendente global"* es falso de partida: el archivo apila
+> historia debajo de la punta. (b) *"sin huecos entre min y max"*: los huecos son las
+> rondas que el PO **retracto** a proposito ("estan superadas"). (c) *"zona `max-4..max`
+> sin huecos"*: pedia **62 y 63**, justo las retractadas. **Una ventana aritmetica no
+> sabe que hay rondas retractadas.** Lo que la politica exige es mas especifico y lo
+> medi: **64, 65 y 66 presentes las tres, y no 67**.
+>
+> **REGLA: cuando el dato tiene una dimension que depende de una decision (rondas
+> retractadas,Aliases, epocas), una ventana calculada no la puede respectar.** El
+> control tiene que nombrar el conjunto que la politica declara valido, no derivarlo por
+> aritmetica. **Es la 5a vez que un control escrito sin medir el archivo sano da rojo
+> sobre un archivo sano** (ALERT-165).> # ALERT-261 (HB#203): 4 CICLOS COMMITEARON PRODUCTO QUE NO SE PUSHEO NI SE ANUNCO, Y EL LOG SE VE ENTERO
 >
 > **Medido con `origin/main..main` (PASO -1) el 2026-10-05 02:30:07 UTC.**
 >

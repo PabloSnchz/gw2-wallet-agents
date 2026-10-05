@@ -1,4 +1,177 @@
-# TEAM_STATUS — Heartbeat Principal
+# HB#205 - 2026-10-05 02:55-03:2x UTC - LA PUNTA 66 TRAIA UN HUECO, Y EL MAX NO LO DICE
+
+> **Actualizado:** 2026-10-05 (HB#205) por el Principal.
+> **Base:** `origin/main` = `df9131b` (2026-10-05 02:05:16 UTC) al abrir. Arranque **02:55:36 UTC**.
+> **PASO -1 limpio:** remoto **ANTERIOR** al arranque, arbol sin modificaciones (solo untracked), en `main`, `main..origin/main` **vacio** y `origin/main..main` = `7fe57df` (mi rescate de HB#203, sin pushear). Sin sesion `running` que buscara.
+> **Banner:** `hb164-espejo.mjs` **13/13 OK, exit 0**, paridad 136/136 en ambos, controles negativos incluidos. Canonico y espejo **byte-identicos** (`fc /b`).
+
+## HALLAZGO DEL CICLO: EL MAX MEDIDO ES CORRECTO Y SIRVE COMO MEDIDA DE COMPLETITUD
+
+El PO se retracto y subio la 65 al tip antes de pedirme la palabra, y en el mensaje
+**corrigio su propio numero** (28 de 29, no 26). Lo que trae, y es lo que decide:
+
+| ref | ronda max | merge contra `origin/main` |
+|---|---|---|
+| `origin/main` (antes) | **64** | - |
+| `origin/po/hb197-esquema` | 65 | limpio |
+| `origin/po/hb202` | **66** | limpio |
+
+`diff(hb202 \ hb197)` = **[65]**. O sea: **la punta tiene 66 y NO tiene 65**, y la 65
+vive en `hb197`, una de las 29 ramas sin mergear. **Mergear la punta sola dejaba un
+hueco**, y el hueco es la clase de fallo que la politica de punta unica vino a evitar.
+
+**El max no miente en ningun instrumento** (64 -> 66 medido con las dos regex). Lo que
+miente es **usar el max como medida de completitud**: un 66 con un 65 ausente se ve
+identico a un 66 completo. Un numero de max es una cota superior, no un censo. Es el
+mismo eje de los que vengo registrando: un indicador que no puede dar el valor malo
+no es un control.
+
+## LO QUE HICE: EL MERGE, VERIFICADO ANTES DE HACERLO
+
+`git merge-tree --write-tree main po/hb202` -> arbol `cf5d3ea1`, **exit 0, cero conflictos**.
+Trae **2 archivos, ambos .md**: `PRE_BACKLOG.md` +456/-1, `DASHBOARD_PO_IDEAS.md` +257/-0.
+
+El invariante que el PO propo como instrumento, corrido **antes** del merge:
+
+- `main` byte-identico como **PREFIJO** de `PRE_BACKLOG.md` (335107 bytes).
+- `main` byte-identico como **SUFIJO** de `DASHBOARD_PO_IDEAS.md` (183305 bytes).
+- **LF PURO** en las dos, en las tres posiciones (main / punta / merge).
+- **Sin BOM** en ninguna posicion.
+- **Control negativo:** `PRE` de `main` **NO** calza como sufijo -> la forma discrimina.
+- La punta tiene **64, 65 y 66**; **no hay 67**.
+
+**13/13 controles OK, exit 0.** El merge real produjo el **mismo arbol** que la
+simulacion (`cf5d3ea1`), o sea la simulacion era fiel.
+
+Commits: **`648f419`** (merge) y **`771daa9`** (el .gitignore, abajo), ambos en
+`origin/main`. `main` remoto **1 copia**, 0 duplicados por refspec, 34 ramas `po/*`.
+Arbol limpio, rama del ciclo borrada.
+
+## 🟢1 APLICADO: LA REGLA DE SCRATCH HB DEJABA DE CUBRIR EN HB#199
+
+`/_hb1*` -> `/_hb[0-9]*`, y el comentario que decia "cualquier `_hb<N>*`" ahora dice lo
+mismo que hace la regla. **8 archivos untracked** de los ciclos 200/201/203 dejaron de
+aparecer en el Source Control de Pablo.
+
+Medido antes de aplicar, no despues:
+
+- 8 archivos que casan con la regla nueva y antes no.
+- Control negativo: `index.html`, `js/api-gw2.js`, `tools/hb163-canales.mjs` **NO** se cubren.
+- `_hb55_strikeclear.js` **sigue trackeado**: una regla de ignore no afecta a lo ya
+  trackeado, y ese archivo no es mio.
+- **0 directorios** `_hb*` en la raiz: la regla no captura un arbol.
+- Blob commiteado **LF puro** (crlf=0), sin BOM. El warning de `git add` ("LF will be
+  replaced by CRLF") es el `core.autocrlf` normal: medido en el **blob**, no en el
+  worktree (HB#178).
+
+**No borre los 8.** El PO no los borro porque no pudo atribuirlos, y yo tampoco: un
+archivo que no puedo atribuir es mas caro de borrar que de ignorar. Ahora estan
+ignorados, que es lo que el PO pidio.
+
+## 🟢2 NO APLICADO, Y POR QUE - DECISION DE PABLO, NO MIA
+
+El PO propone `tools/po-tip-invariantes.mjs`. **La politica ya esta escrita** (queda en
+`DASHBOARD_PO_IDEAS.md:31-32` y `PRE_BACKLOG.md:5476`, ya en `main` con este merge), asi
+que el instrumento no falta por falta de politica. Falta por una cosa concreta:
+
+**`tools/` ignora todo (`*`) y solo se versiona lo que el banner de `HEARTBEAT.md` cita
+POR NOMBRE.** Hay 11 excepciones y las 11 son los puntos 4, 5 y 6 del banner. Un
+instrumento que el banner no cita es exactamente lo que el HB#148 decidio **no**
+commitear: *"un instrumento que solo existe en el disco de una persona es un
+instrumento que otro no puede reproducir"*.
+
+**Y el precedente de que esto ya se rompio esta medido, no supuesto:**
+
+> **`tools/hb169-capas.mjs` esta versionado y NO lo cita nadie.** Ni `HEARTBEAT.md` ni
+> `AGENTS.md` lo mencionan (0 coincidencias en los dos). El `tools/.gitignore` lo declara
+> "punto 6 del heartbeat" y el banner **no tiene punto 6**.
+
+Es decir: el precedente de instrumentar el banner ya salio mal una vez, y salio mal por la
+razon exacta que aplica aqui. Agregar el instrumento sin el punto del banner que lo
+ejecuta **reproduce el defecto con un archivo mas**.
+
+Lo que haria falta, y es de Pablo por dos razones (agrega un punto al banner, que exige
+regenerar el espejo y correr los controles; y `tools/.gitignore` es una allowlist):
+1. Un punto nuevo en el banner que lo cite por nombre, y regenerar el espejo.
+2. La excepcion correspondiente en `tools/.gitignore`.
+
+**Mientras tanto el invariante esta medido y reproducible**: `_hb205inv.cjs` corre y da
+13/13 con control negativo. Lo dejo como esta, sin commitear.
+
+## EL MODO DE CARGA CAMBIO: 3 = RECOLECTAR (venia de PAUSA)
+
+`hb163-canales.mjs`, **`controles_ok: true`**, y los **3 canales coinciden en 66**:
+
+| canal | ronda | nota |
+|---|---|---|
+| `origin/po/hb202` (por fecha) | **66** | `headMatches: 38`, `anyMax: 66` |
+| `origin/po/hb202` (por ronda max) | **66** | **los dos criterios dan la misma rama** |
+| `DASHBOARD_PO_IDEAS.md` en `main` | 0 encabezados | la ronda vive en prosa: `anyMax: 63` |
+| `PRE_BACKLOG.md` del workspace | 63 encabezados | `openItems` **no es medicion** (marcador 0) |
+
+Antes eran **42/45/49**; hoy los dos criterios de rama dan **66** y la punta esta
+mergeada. **`c1_ramas_solo_prosa: 0`** y solo **1 de 34** ramas sin encabezado: el
+instrumento discrimina donde antes no lo hacia.
+
+**`c2_backlog_main.openItems: 3`** (forma autoritativa, tolerante a sangria;
+`openItemsAnclada: 3`, `QueLaAncladaPierde: 0`) = **RECOLECTAR** (banda 0-3). Venia de
+PAUSA (4-7). Los 3 items son **L60 ALERT-41, L88 Coberturable, L210 dailies**.
+
+**Ninguno se arranca, y las razones se RE-DERIVAN, no se heredan:**
+
+1. **L60 (ALERT-41)** — bloqueo **externo**: espera el body crudo de
+   `/v2/account/raids` con un token real de Pablo. No es alcanzable desde un cron.
+2. **L88 (Coberturable)** — el mayor gap medido (11 endpoints, `skins` con API completa y
+   0 llamadores), pero es **decision de producto antes que codigo**, y un cron de 30
+   min que arranca producto y no llega al commit deja el arbol sucio, que es justo lo
+   que el PASO -1 existe para impedir.
+3. **L210 (dailies)** — la premisa "~3-4h, patron ya probado" esta **desmentida en la
+   propia fila**: los 3 hermanos viven en `meta.js`, no en `activities.js`. Traer una
+   familia desde otro modulo no es "el patron ya probado".
+
+## ERRORES DE INSTRUMENTO PROPIOS (6, familia ALERT-79), todos antes del push
+
+1. **`git diff main po/hb202` dio 12 archivos, no 2.** Dos puntas de historia no son
+   "lo que aporta un merge". Lo que aporta se mide con **tres puntos**
+   (`main...po/hb202`). **El primer paso ante un numero que no coincide es la forma, no
+   el error del otro** (ya documentado en HB#173, reincidente).
+2. **Typio `MERG` por `MERGED`** en el invariante, en dos lugares. Lo cazo el nombre de
+   la variable antes de culpar al codigo.
+3. **`const LF` sin definir** por aplicar "cero caracteres crudos" a rajatabla: la regla
+   es *cero `\` y cero `'` en crudo*, no *cero identificadores de 2 letras*.
+4. **Tres controles mios escritos sin medir el archivo sano**, todos en rojo sobre un
+   merge sano: (a) "orden descendente **global**" - falso de partida, el archivo apila
+   historia; (b) "sin huecos entre min y max" - los huecos son las rondas que el PO
+   **retracto**; (c) "zona `max-4..max` sin huecos" - pedia 62 y 63, **justo las
+   retractadas**. Una ventana aritmetica no sabe que hay rondas retractadas; la politica
+   exige que **64, 65 y 66 esten las tres**, y no mas.
+5. **`git rev-parse HEAD^{tree}`** -> el `^` se lo come cmd.exe. Se usa el nombre
+   completo `"HEAD^{tree}"`. Y `$(...)` no cruza `cmd.exe` desde el workspace: dos pasos.
+6. **`%ERRORLEVEL%` y `&&`/`||` encadenados**: un `||` de control negativo corta la
+   cadena. Ademas **`find /c ":"` sobre un archivo de refs da 0** porque el separador es
+   tab, no `:` - el conteo que "no contaba" era un instrumento mal escrito, no un dato.
+
+**Ademas, en mi mensaje de commit:** puse **"64, 65 y 64 present"** (repeti el 64 donde
+iba 66) y **`negativook`** (el `c` se pego al `<`). Un mensaje con `!` sin escapar es
+literalmente la pieza que rompe `bash -c`. **BOM: 23.ª vez** - `write_file` se lo pone al
+archivo y `-F` lo copia tal cual; mi `findstr` con el valor crudo **no lo caza** porque
+el BOM no es imprimible, hay que medir los 3 primeros bytes. Corregido con
+`commit --amend` sobre commit **local sin pushear**, y verificado con
+`primer-char-codepoint=109` (`m` de "merge").
+
+## PENDIENTE SIN CAMBIO
+
+(1) **ALERT-41** - falta el body crudo de `/v2/account/raids` con token real de Pablo.
+(2) **ALERT-179**. (3) **T14/T15**. (4) los **7 del patron B**. (5) **Idea 57**, los 4
+wrappers. (6) **FILTRO-05**. (7) **ALERT-235 ABIERTA** (los 2 `PRE_BACKLOG.md`).
+(8) `task-6cc3851b8d15` **404**, terminal. (9) **nuevo**: 🟢2 bloqueado por Pablo (el
+punto del banner + la excepcion de `tools/.gitignore`), y **arreglar
+`hb169-capas.mjs`**: instrumentado, versionado y sin nadie que lo ejecute.
+(10) **T2 (teclas 1..0)**: el PO lo retiene hasta mi veredicto de T1, porque las dos
+tacan el mismo registro `keydown` global. **Sin veredicto de T1 mio todavia.**
+(11) **Deuda visible**: ~100 ramas locales, **33 worktrees** de otros ciclos (los 2 del
+PO ya los borro), `_hb55_strikeclear.js` y `_rescate_hb154` en la raiz (**NO son mios**).
+Los **2 stashes** del 30/09 intactos.# TEAM_STATUS — Heartbeat Principal
 
 
 
