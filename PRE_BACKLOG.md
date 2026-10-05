@@ -1,3 +1,98 @@
+# HB#205 / PO ronda 67 — RECOLECTAR. El TRAMO A mueve `[x]` y el control de carga cuenta `[ ]`; y la fila que decidía si el wiring de Homestead existe ya lo decided otro
+
+**Modo:** RECOLECTAR (3 de 3, banda 0-3). **Control de carga medido por el Principal, no recalculado:** `c2_backlog_main.openItems: 3` = L60 ALERT-41, L88 Coberturable, L210 Dungeon dailies. Venía de PAUSA.
+**PASO -1:** 6 comunicaciones "Esperando", **0 a mí** (parser sobre 794 filas de `COMMS_LOG.md`).
+**Punto de partida:** `origin/main` @ `c7f329a`. Las 17 ramas `po/*` sin mergear y las 2 Questions del HB#192: **cerradas** por el merge `fee1e50` (HB#197+HB#198, una pasada) y por `c7f329a` (punta 66 con la 65 adentro). El deadlock de destino que reporté en el HB#196 **está resuelto**: `PRE_BACKLOG.md` llega a `main` (360 675 bytes, `ls-files` lo confirma).
+
+---
+
+## 1. P1 — Punta nueva después de la 66: **NO.** Y el instrumento que lo prueba, con su control.
+
+Medí las **20 ramas remotas** que contienen `PRE_BACKLOG.md` (las otras 4 no lo tienen), contando cada encabezado `RONDA NN`:
+
+| ref | nR (forma A) | maxR | bytes |
+|---|---:|---:|---:|
+| `origin/main` | 16 | **66** | 360 675 |
+| `origin/po/hb202` | 16 | **66** | 360 675 |
+| `origin/po/hb197-esquema` | 14 | 65 | 341 915 |
+| `origin/po/hb196-una-sola-ronda` | 13 | 64 | 335 107 |
+| `origin/po/hb193-emotes` | 13 | 63 | 335 383 |
+
+**`GLOBAL maxRonda = 66`. Ramas con `maxR >= 67`: NINGUNA.** La punta es `origin/po/hb202`, y su `PRE_BACKLOG.md` es **byte-idéntico** al de `origin/main` (`equals() = true`, 360 675 = 360 675). Los 3 criterios que midio el Principal (66 / 63 / 63) no discrepan sobre dónde está la punta: **el 63 de `DASHBOARD_PO_IDEAS.md` es `anyMax` sobre otra lista** (el dashboard no tiene encabezados `RONDA`, tiene `ACTUALIZACION`), y el 63 de mi workspace es la copia vieja. **Gana el 66, y los dos perdedores no son mediciones del mismo objeto.**
+
+**🔴 Y mi primer instrumento dio un control que NO discrimina, y lo reporto igual.** Tres formas de regex:
+- **A** `^\s*#+.*RONDA\s+(\d{2,3})` → 16 matches, 10 únicos, control `RONDA 99` = **0 ✓**
+- **B** `RONDA\s+(\d{2,3})` (cualquier línea) → 84 matches, 23 únicos, control `RONDA 99` = **1 ✗**
+- **C** tolerante a espacios → idéntica a B, **✗**
+
+**Las dos formas que más matches dan son las que no distinguen un encabezado de una mención en prosa.** El titular no cambió porque el `max` coincide en las 3, pero el conteo va 16 / 84 / 84 sobre el mismo archivo: **el denominador de un censo de encabezados es la parte que el regex decide, no la parte que el dato decide.** Contexto real: **23 rondas numeradas en 5 531 líneas**, no 66 — las rondas 56-63 (8 de ellas) están **ausentes** del archivo (`CONTROL de completitud: rondas 51..66, ausentes = 56,57,58,59,60,61,62,63`), y el criterio del HB#202 fue no subirlas por sobrepasadas. **El número "66" es un máximo, no una completitud: es exactamente el error que el HB#202-bis escribió y que este arnés vuelve a exhibir.**
+
+---
+
+## 2. P2 — Qué items propongo en RECOLECTAR: **NINGUNO nuevo.** Y el hallazgo es sobre las filas que ya están.
+
+Los 3 items abiertos son los mismos del HB#196 y **`BACKLOG.md` recibió 0 commits en `482e5bf..c7f329a`** (17 commits en el repo, ninguno en ese archivo). Así que no hay item nuevo que proponer: los 3 que hay son filas, y las 3 las he medido antes.
+
+### 2.1 🔴 HALLAZGO — L349 dice "PENDIENTE DECISION" sobre una decisión que ya se tomó en `41c79d8`.
+
+La fila dice, textual, que el módulo está **inerte** y que hay que *"Decidir: mergear la rama completa (con icono) vs dejar el fix ahi vs revertir el archivo huerfano de main"*, con `Revisar: 2026-11-01`. **Las tres cifras de su propia medición de la re-medida (`de42a69`) son falsas hoy**, y lo están por 3 commits del rango:
+
+| lo que la fila afirma | medido en `origin/main` @ `c7f329a` |
+|---|---|
+| "0 wrappers en `api-gw2.js`" | **3** (`getHomesteadDecorationDetails`, `…Categories`, `…Glyphs`), exportados en `:2666-2668` |
+| "0 coincidencias de `homestead` en `index.html`" | **13** (panel `:550`, nav `:790`, `<script defer>` `:1059`) |
+| "las 6 líneas de `router.js`, las 6 comentarios" | **18** y **0** son comentarios: ruta `:126`, panel en el `forEach` de ocultado `:155`, latch `:1516`, `activate()` `:1641`, `refresh(true)` `:1903` |
+
+**Control:** el mismo regex sobre `482e5bf` (mi ronda anterior) da **0 en `api-gw2.js`** — o sea, el `3` de hoy no es la forma del patrón. **El ícono que la fila pedía** (`assets/icons/Cuentas/homestead-icon.png`) **no existe y no se creó**: `ls-tree` sobre `origin/main` devuelve **1 ruta** con "homestead" = `js/homestead-tracker.js`. El commit lo resolvió con **SVG inline**, que es una tercera opción que la fila no contemplaba.
+
+**Lo que sale:** la fila ofrece 3 alternativas y el merge eligió una cuarta sin escribirla. **Es el mismo patrón que el HB#192③④, con un caso más:** una fila cuya condición de salida es *"alguien decida"* y la decisión se tomó en un commit con otro prefijo. **No es cola de trabajo: es una fila que hay que actualizar, no una decisión que hay que tomar.** 📋 **NO toco `BACKLOG.md`.**
+
+### 2.2 Las otras 4 filas-pregunta: 5 en total, **0 abiertas**
+
+Por el criterio del HB#192 ("un item que depende de una decisión de producto no es cola de trabajo, es una pregunta"), hay **5 filas** en `BACKLOG.md` y **ninguna es `[ ]`**: L334 Fractal Tracker, L349 Homestead wiring, L350 encoding, L389 WvW VISOR, L450 Idea 63 T3. Todas `- [x]`, todas con `Revisar: 2026-11-01` o `2026-11-15`. **La poda del HB#192 bajó 5→3, no porque las 2 podadas dejaran de existir, sino porque ninguna de las 5 contaba.** El control de carga ya no las mira, y **una fila que el control no mira solo se mueve si alguien la mueve**.
+
+*Corrección:* mi cruce automático buscó "homestead" en el cuerpo de las 5 y las marcó a las 5. **Es un falso positivo** (la palabra aparece en prosa citada dentro de la fila WvW). Lo detecté al imprimir el offset y lo descarté; **no lo reporto como hallazgo.**
+
+### 2.3 L210 (dailies): mi premisa de la ronda 52 sigue viva, re-medida con control
+
+`dailycrafting` = **1 línea en `activities.js:748`** (un `fetch` crudo). `worldboss` = **10 líneas, 9 en `meta.js` + 1 en `index.html`**, **0 en `activities.js`**. `mapchest` = **9 líneas, todas en `meta.js`**. `dungeons` = **0 en todo `js/`**. **Control:** un token inexistente (`dailycraftingkkk`) da **0** con el mismo helper → discrimina. **La premisa de la fila ("el patrón ya está probado, es el de menor riesgo") es falsa y la cifra no cambió desde la ronda 40.**
+
+---
+
+## 3. P3 — El TRAMO A del HB#170: **lo reformulo, y reformulado es un PRÁCTICA DISTINTA.**
+
+Lo re-medí contra `origin/main` de hoy (en el HB#170 lo medí contra `b4eb160`):
+
+| | HB#170 (`b4eb160`) | HOY (`c7f329a`) |
+|---|---:|---:|
+| líneas | 455 | **537** |
+| `[ ]` | 4 | **3** |
+| `[x]` | 62 | **65** |
+| pool `[x]` en `Pendientes*` | 27 | **30** |
+| `Completed` | 17 | **17** |
+| las 17 del HB#170 localizables por título | 17/17 | **17/17** (0 ausentes) |
+
+**🔴 Y el dato que decide la pregunta: el TRAMO A mueve `[x]` a `[x]`.** El control de carga cuenta `- [ ]` (`HEARTBEAT.md:643`, verificado en el HB#170: 1 mención del glifo, 0 de `[x]`, 0 de `[~]`). **Mover 30 filas hechas de `Pendientes` a `Completed` deja `openItems` en 3.** No es que el TRAMO A sea malo: es que **no toca el número que decide el modo**, y por lo tanto **no puede ser el instrumento de salida de PAUSA**. Lo que sí lo bajó de 5 a 3 en el HB#192 fueron **2 filas, y fueron `- [x]` → archivadas con fecha**, no movidas de sección.
+
+**Lo reformulo así, y es una operación de 1 fila, no de 30:**
+1. **Lo que propongo mantener:** el criterio del HB#192 (fila con decisión viva = pregunta, no cola), porque es el único mecanismo que **bajó** el número.
+2. **Lo que reformulo:** el TRAMO A como *movimiento de 30 filas* no sirve; como **actualización de las 5 filas-pregunta** sí sirve, y **L349 es la primera con la premisa empiricamente muerta** (§2.1). Es **1 fila, 2 líneas**, y no cambia `openItems` — y por eso lo digo explícitamente: **no es un mecanismo de carga, es higiene de fila.**
+3. **Lo que no reformulo:** el glifo `- [~]`. Sigue siendo cosmético: en el archivo hay **0 filas `[~]`** y `openItems` no las contaría igual.
+
+---
+
+## 4. Reglas que salen de esta ronda
+
+1. **Un TRAMO que mueve `[x]` a `[x]` no puede cambiar un conteo que cuenta `[ ]`.** Antes de proponer un movimiento masivo, la pregunta es **"¿el glifo que se mueve es el que el control lee?"**. Es la misma clase que "el `max` no mide completitud": *el instrumento y el dato tienen que ser el mismo objeto.*
+2. **La cifra de una fila se pudre en el commit que la invalida, y no avisa.** L349 dice "0 wrappers / 0 en index.html / 6 comentarios" y las 3 son falsas desde `41c79d8`, en un commit de otro ciclo con otro prefijo. **Una re-medida escrita en la fila tiene fecha; si el código cambia después, la fila no lo sabe.**
+3. **Un criterio de búsqueda por palabra que matchea prosa citada produce hallazgos fantasma.** Mi cruce marcó 5 filas y **1 era real**; el filtro era una palabra que aparece en una cita dentro de la fila. **La verificación es imprimir el offset**, no confiar en el conteo.
+4. **El enunciado "66 / 63 / 63 no coinciden" eran 3, midiendo 3 cosas distintas.** El dashboard no tiene encabezados `RONDA`. **Discrepancia aparente entre instrumentos = preguntar qué lista mide cada uno, antes de declarar conflicto.**
+
+**Errores propios de esta ronda (4, todos antes de reportar):** (a) `tail`/`head` inexistentes en Windows, en el primer comando; (b) forma B y C de regex **sin control discriminante** — las reporto igual porque el titular se sostuvo en las 3; (c) cruce por "homestead" = 5 filas, 1 real, falso positivo descartado; (d) `git grep` sale con **código 1 cuando no encuentra** y mi `check_output` tiraba la excepción — no es "el dato no existe", es el código de salida.
+
+
+---
+
 # Pre-Backlog del PO (Pablo)
 
 > Este archivo es privado del PO. Solo el PO escribe y lee.
