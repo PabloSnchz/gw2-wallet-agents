@@ -1,3 +1,151 @@
+## ACTUALIZACION 2026-10-05 UTC - Heartbeat PO ronda 66 - RECOLECTAR: 3 items. **El unico verbo de teclado de la Bóveda es "Escape"**, y mi hipotesis de bug sobre los 7 listeners **murio en la verificacion**
+
+> **Espejo de la ronda 66 del PO.** Control de carga: **`openItems` = 3** @ `fee1e50`
+> = **RECOLECTAR** (3 de 3 seguidas). Con sangria: 0. **La poda del HB#192 esta
+> aplicada y se sostiene** (L298 y L352 ya no estan).
+> PASO -1: **7 "Esperando", 0 dirigidos a mi.**
+> Web: Wiki Changelog 200 (unica fuente viva), **Reddit 403 por66 de 66**,
+> gw2treasures `/feeds` 307, `/v2/changelog` 404. **66 rondas, 0 features de web.**
+>
+> **Lo de abajo es medicion sobre `origin/main` y sobre el codigo, no web research.**
+
+### La pregunta: la inversa de "¿que endpoint falta"
+
+Las ultimas fueron "que endpoints `account/*` faltan" (HB#197) y "por que las
+corridas no llegan al archivo" (HB#196). Esta: **¿que le podemos QUITAR a un
+usuario de teclado?** Pablo es PC-primario, mouse + teclado, 27 cuentas, 14
+modulos. Si el teclado no ofrece nada, cada modulo es un viaje de raton.
+
+### Hallazgo 1 - el censo de teclado (control positivo: `fetch(` = 55 en 47 modulos)
+
+| | |
+|---|---|
+| modulos en `js/` | **47** |
+| archivos con cualquier listener de teclado | **7** |
+| listeners `keydown` | **8** |
+| los que discriminan `e.key === 'Escape'` | **7** |
+| el octavo | `_focusTrapHandler` (`Tab` / `shift+Tab`) |
+| `Enter` / `Tab`(fuera del trap) / flechas | **0 / 0 / 0-0-0-0** |
+| `Home` `End` `PageUp` `PageDown` `Backspace` `Delete` | **0** todos |
+| letras (`a` `b` `r` `k` `j`) | **0** todas |
+| `metaKey` / `ctrlKey` / `altKey` | **0 / 0 / 0** |
+| `<kbd>` / `accesskey` / `aria-keyshortcuts` en `index.html` | **0 / 0 / 0** |
+
+**Superficie de teclado completa: "Escape cierra un modal" + "Tab no se sale del
+modal".** No hay ningun otro verbo.
+**No es duplicado:** `atajo` / `teclado` / `keyboard` / `hotkey` / `shortcut` =
+**0** en `PRE_BACKLOG.md`, `DASHBOARD_PO_IDEAS.md` y `BACKLOG.md`.
+
+### Hallazgo 2 - por que es barato (medido ANTES de proponer)
+
+- **10** rutas navegables (`href="#/..."`), y **`data-route` = 0**
+- el router resuelve por `location.hash` (11 lecturas, 1983 lineas)
+- **`window.router` = 0**, `router.` = 0 -> **no hay `go()` que usar**
+- el sidebar ya esta en el DOM: **19** `.side-nav__link`
+
+Osea que un atajo es `location.hash = '#/x'` + leer lo que ya esta renderizado.
+**No hay que tocar el router** - por eso el Tramo 1 es barato y no invade modulos.
+
+### 🟢 IDEA 65 - atajos de navegacion (el primero de la Bóveda)
+
+- **T1 🟢 30-45 min:** un `keydown` global que abra una paleta chica sobre los
+  **19 `.side-nav__link` ya renderizados** (`Ctrl+K` o `g`). Sin routing nuevo,
+  y **muestra `<kbd>`**, que hoy es 0 en toda la app.
+- **T2 🟢 20 min:** `1`..`0` a los **10** items del sidebar.
+- **T3 🟡 NO propongo:** atajos por modulo. Ahi si toca arquitectura.
+
+Filtro a reusar: si el foco esta en `input` / `textarea` / `contenteditable`, el
+atajo no dispara (patron de los 7 Escape). **T1 va al Reviewer.**
+
+### 💀 Hipotesis MUERTA (la escribo porque es lo que me costo)
+
+Crei un bug: "los 7 listeners de `document` se desarman en el primer `Escape`
+que les llegue, estan o no su modal; despues el modal ya no cierra con teclado".
+**FALSO, por dos motivos distintos:**
+
+1. `inventory-hub.js:1309` se registra **dentro** de la funcion que crea el modal
+   (L1272 `createElement` -> L1303 `appendChild` -> L1309 listener): **se rearma
+   en cada apertura**. El `removeEventListener` de L1312 esta bien puesto.
+2. `welcome-panel.js` **si** guarda (`!modal.hidden`, L383). Mi instrumento dio
+   `guarda=NO` porque la ventana de mi regex iba **5 lineas hacia adelante** desde
+   el `addEventListener` (L387), y ese handler se **define antes** de
+   adjuntarse: la guarda esta **arriba**. **El instrumento estaba mal, no el codigo.**
+
+**Los 7 Escape estan bien.** Lo que si sobrevive: **3 politicas distintas** para
+el mismo verbo en 7 sitios (con guarda+autodescarte / con guarda+permanente /
+sin guarda porque se registra al abrir). Las 3 funcionan, pero **el proximo que
+se agregue tiene 3 precedente y ninguno documentado**. Eso queda como P3.
+
+### 🔴 Hallazgo 3 - el deadlock del HB#196 se MOVIO, no desaparecio
+
+| | |
+|---|---|
+| ramas `po/*` remotas | **33** |
+| ya en `main` | **5** |
+| **sin mergear** | **28** |
+| **de esas 28, tocan mis `.md`** | **26** |
+| `PRE_BACKLOG.md` en `main`: secciones RONDA | **13**, ultima **RONDA 64** |
+
+`fee1e50` mergeo HB#197 + HB#198 trayendo `AGENTS.md`, `ALERTS_LOG.md`,
+`TEAM_STATUS.md` y `js/api-gw2.js`. **Cero de mis `.md`** - y no es azar: la rama
+que mergeo es la que **tenia codigo**.
+
+> **Una rama que solo toca apuntes privados es, por construccion, la que menos
+> se mergea**: en un diffstat, `2 files changed, +112/-1` no compite con
+> `TEAM_STATUS.md +3325`. Y eso esta bien. **Lo que no esta bien es pagarlo dos
+> veces**: 28 ramas de podredumbre **y** un archivo-archive que nadie lee.
+
+**Y hay un dato que lo vuelve urgente:** el criterio de carga de mi `AGENTS.md`
+dice *"contá los items reales de `BACKLOG.md` en el repo"*. **`BACKLOG.md` si
+llega a `main`. `PRE_BACKLOG.md` no.** El archivo que produce el trabajo no
+llega; el unico que llega es el que nadie del PO lee. La seccion
+"Archivadas con fecha" (ronda 53) sigue sin destino real.
+
+**No es mi decision. Dos salidas, las dos del Principal:**
+- **(a)** un merge en una pasada de las **26** ramas `.md`, o
+- **(b)** declarar `PRE_BACKLOG.md` / `DASHBOARD_PO_IDEAS.md` **PO-privados** y
+  sacar la promesa de que son "el espejo publico filtrado".
+
+### Lo que NO afirmo
+
+1. **No** hay bug de teclado: es una capacidad que **no existe**. Idea, no ALERT.
+2. **No** comparo con GW2Efficiency ni gw2treasures: **no medi** si tienen atajos.
+3. **No** abro el Tramo 3: toca arquitectura.
+4. **No** toco `BACKLOG.md` / `TEAM_STATUS.md` / `ALERTS_LOG.md`. El Hallazgo 3 es
+   prueba de que la regla de privacidad esta bien: el problema es de **destino**,
+   no de permiso.
+
+### Errores de instrumento (6, todos antes de reportar)
+
+1. `node -e` multilinea con regex y comillas via `cmd.exe` -> `SyntaxError`.
+   **Archivos, siempre.** (3 veces.)
+2. `head` y `tail` no existen en Windows.
+3. **Precedencia:** `'x' + n - 1` es `('x' + n) - 1` = `NaN`. 12 `NaN`.
+4. **Contador por subcadena sin limite de palabra:** `'Home'` daba **76**
+   (contaba `homes`), `'/'` daba **22** (comentarios). Con `e.key ===` da **0**.
+5. **Mi append metio un LF suelto** en un archivo CRLF (separador `'\n'` a pelo).
+   **Mi propio verificador lo marco antes del commit** -> revert + EOL del destino.
+6. **Yo mismo:** se me colaron ideogramas CJK **dentro de un identificador de
+   variable**. Los cace leyendo el archivo antes de ejecutarlo. **19a vez**, pero
+   esta en codigo, y un identificador con ideogramas **es legal en JavaScript**:
+   el script habria corrido igual y nadie lo habria notado.
+
+### Reglas que salen
+
+1. **La inversa de "que endpoint falta" es "que le podemos quitar al usuario", y
+   tambien produce un dato con denominador** (8 listeners, 47 modulos, 7 verbos).
+2. **La factibilidad se mide ANTES de proponer.** `data-route = 0` y
+   `window.router = 0` parecian un problema; son la razon por la que T1 es barato.
+3. **Una hipotesis que muere por la FORMA del instrumento no se reporta como
+   bug ni se tira:** se escribe con su causa.
+4. **Un deadlock puede cambiar de forma y seguir siendo deadlock.** El HB#196 lo
+   dio como "nadie mergea"; hoy mergean 5. Lo que falta es **el destino del
+   archivo**, y no se resuelve con mas permisos.
+5. **Un glitch puede ser invisible por construccion.** Un identificador con
+   ideogramas compila. Un guard de caracteres raros no cubre un defecto de nombres.
+
+---
+
 ## ACTUALIZACION 2026-10-04 20:1x UTC — Heartbeat PO ronda 64 — RECOLECTAR: 3 items abiertos. **27 ramas `po/*` sin mergear; 11 tocan `PRE_BACKLOG.md` y el archivo del repo termina en la ronda 55.**
 
 > **Espejo de la ronda 64 del PO.** Tercera corrida del mismo cron hoy (17:35, 18:05, 20:0x).

@@ -5074,3 +5074,224 @@ la aplicacion de (b).
 Rama **`po/hb196-una-sola-ronda`**, sobre `origin/main` @ `482e5bf`.
 Archivos tocados: **2, ambos `.md`, ambos LF puro**. Verificado append puro (prefijo identico byte a byte).
 **No mergeo. No toco `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `BACKLOG.md`.**
+
+---
+
+## RONDA 66 - HB#202 (2026-10-05) - RECOLECTAR. El unico verbo de teclado en 47 modulos es "Escape", y mi hipotesis de bug MURIO en la verificacion
+
+**Modo:** RECOLECTAR (**3 de 3** seguidas). `BACKLOG.md` @ `fee1e50` = **3 abiertas
+ancladas** (L60 ALERT-41, L88 Coberturable, L210 Dailies). Con sangria: **0**.
+La poda que propuso el HB#192 (5 -> 3) **esta aplicada y se sostiene**.
+
+**PASO -1:** 7 comunicaciones "Esperando", **0 dirigidas a mi**
+(5 Code-Reviewer, 1 Pablo, 1 recien-enviada).
+
+**Web:** la 66 de 66. Wiki Changelog **200** (109 KB, unica fuente viva).
+Reddit **403** (66 de 66). gw2treasures `/feeds` **307** (la 12a vez que no
+aporta). `/v2/changelog` de la API **404** (endpoint que no existe).
+**Ninguna produjo feature. 66 rondas, 0 features de web.** No es culpa de la web:
+es que la pregunta util no es "que feature falta".
+
+---
+
+### La pregunta de la ronda, y por que no es la de siempre
+
+Las ultimas preguntas fueron "que endpoints `account/*` faltan" (HB#197) y
+"por que las corridas anteriores no llegaron al archivo" (HB#196). Esta vez
+**la inversa de la primera**: no *que le falta a la Bóveda*, sino **que le
+podemos quitar a un usuario de teclado**.
+
+Pablo es PC-primario, mouse + teclado, 27 cuentas, 14 modulos. Si el teclado no
+ofrece nada, **cada modulo es un viaje de raton**. Eso es friccion real, mia, y
+nunca se habia medido.
+
+---
+
+### 🔴 HALLAZGO 1 - el censo de teclado, con control positivo y de integridad
+
+**Control de integridad primero:** el instrumento tiene que distinguir. Con
+`addEventListener('keydown')` a pelo, un conteo de 8 no prueba nada si el
+patron no matchea de mas. Control: `fetch(` = **55** en 47 modulos, o sea que
+el arnes lee los archivos.
+
+| Medida | Resultado |
+|---|---|
+| modulos en `js/` | **47** |
+| archivos con **cualquier** listener de teclado | **7** |
+| listeners `keydown` totales | **8** |
+| de esos 8, los que discriminan `e.key === 'Escape'` | **7** |
+| el octavo | `_focusTrapHandler` (`Tab` / `shift+Tab` dentro del modal) |
+| `e.key === 'Enter'` | **0** |
+| `e.key === 'Tab'` (fuera del focus trap) | **0** |
+| flechas `ArrowUp/Down/Left/Right` | **0 / 0 / 0 / 0** |
+| `Home` / `End` / `PageUp` / `PageDown` | **0 / 0 / 0 / 0** |
+| `Backspace` / `Delete` | **0 / 0** |
+| letras (`a` `b` `r` `k` `j`) | **0** en todas |
+| `metaKey` / `ctrlKey` / `altKey` | **0 / 0 / 0** |
+| `shiftKey` | **1** - y es el focus trap |
+| `<kbd>` / `accesskey` / `aria-keyshortcuts` en `index.html` | **0 / 0 / 0** |
+
+**La superficie de teclado de la Bóveda es, completa: "Escape cierra un modal" y
+"Tab no se sale del modal".** No hay ningun otro verbo. En una app con 27
+cuentas, la unica accion de teclado que no es un modal es... ninguna.
+
+**Y no es un duplicado:** `atajo` / `teclado` / `keyboard` / `hotkey` /
+`shortcut` = **0** en los **tres** archivos (`PRE_BACKLOG.md`,
+`DASHBOARD_PO_IDEAS.md`, `BACKLOG.md`).
+
+### 🔴 HALLAZGO 2 - por que es barato (la factibilidad, medida antes de proponer)
+
+| Pregunta | Medido | Que implica |
+|---|---|---|
+| rutas navegables | **10** `href="#/..."` en `index.html` | el denominador |
+| `data-route` / `data-nav` | **0 / 0** | no hay tabla declarativa |
+| como resuelve el router | `location.hash`, **11** lecturas, 1983 lineas | hash, no router API |
+| API publica de navegacion | `window.router` = **0**, `router.` = **0** | no hay `go()` que usar |
+| lista del sidebar | `class="side-nav__link"`, **19** elementos | **la lista ya esta en el DOM** |
+
+Osea: **no hace falta tocar el router.** Un atajo es `location.hash = '#/x'` +
+leer `.side-nav__link` del DOM. Por eso el Tramo 1 es barato y no invade
+modulos - misma regla que "contenido estatico en un archivo estatico".
+
+### 🟢 IDEA 65 - atajos de navegacion (el primer atajo de teclado de la Bóveda)
+
+- **Tramo 1 🟢~30-45 min:** un unico `keydown` global que abra una paleta chica
+  sobre los **19 `.side-nav__link` ya renderizados** (`Ctrl+K` o `g`).
+  Sin routing nuevo, sin CSS nuevo salvo la lista. **Y muestra `<kbd>`** - que
+  hoy es 0 en toda la app.
+- **Tramo 2 🟢~20 min:** `1`..`0` a los **10** items del sidebar.
+- **Tramo 3 🟡 (NO propongo todavia):** atajos por modulo. Ahi si toca arquitectura.
+
+**Filtro que ya existe y hay que reusar:** si el foco esta en un `input` /
+`textarea` / `contenteditable`, el atajo no dispara (patron de los 7 Escape).
+
+**Tramo 1 al Reviewer.** Impacto: 1 modulo nuevo + router. Multicuenta:
+neutro. PC: si (mobile no, y va bien).
+**Comparacion:** GW2Efficiency y gw2treasures. **No afirmo que tengan
+atajos porque no lo medi.** Lo que si es cierto: en GW2 el teclado es el idioma
+nativo (chat, `/comandos`, barra de habilidades), y la Bóveda es la unica
+herramienta del set que no habla ese idioma.
+
+---
+
+### 💀 HIPOTESIS MUERTA (la escribo porque es la parte que me costo)
+
+Creí un bug real: "los 7 listeners de `document` se desarman en el primer
+`Escape` que les llegue, estan o no su modal; a partir de ahi el modal ya no
+se cierra con teclado." **FALSO, por dos motivos distintos:**
+
+1. **`inventory-hub.js:1309` se registra DENTRO de la funcion que crea el
+   modal** (L1272 `createElement` -> L1303 `appendChild` -> L1309 listener), asi
+   que **se rearma en cada apertura**. El `removeEventListener` de L1312 esta
+   bien puesto.
+2. **`welcome-panel.js` SI guarda** (`!modal.hidden`, L383). Mi instrumento dio
+   `guarda=NO` porque la ventana de mi regex iba **5 lineas hacia adelante**
+   desde el `addEventListener` (L387), y ese handler se **define antes** de
+   adjuntarse: la guarda esta **arriba**, no abajo. **El instrumento estaba mal,
+   no el codigo** - la clase del HB#175.
+
+**Los 7 Escape estan bien.**Hay 2 variantes de ciclo de vida (se quitan al
+disparar / permanentes con guarda) y las 2 funcionan.
+
+**Lo que si sobrevive del mismo medir:** hay **3 politicas distintas** para el
+mismo verbo en 7 sitios (con guarda+autodescarte / con guarda+permanente /
+sin guarda porque se registra al abrir). Funcionan las 3, pero **cualquiera que
+se agregue en el futuro tiene 3 precedente y ninguno documentado**, que es la
+forma exacta en que nace el proximo bug. Eso si queda como P3, no como idea.
+
+---
+
+### 🔴 HALLAZGO 3 - el deadlock del HB#196 se MOVIO, no desaparecio
+
+El HB#196|reporto: nadie mergea, 27 ramas `po/*` sin mergear, mi `AGENTS.md`
+dice que el Principal es el unico que mergea y el Principal dijo en `dcaf4f0`
+"no los mergeo porque son del PO". **Measurado hoy:**
+
+| | |
+|---|---|
+| ramas `po/*` remotas | **33** |
+| **ya en main** | **5** |
+| **sin mergear** | **28** |
+| **de esas 28, tocan mis `.md`** | **26** |
+| `PRE_BACKLOG.md` en main: secciones RONDA | **13**, la ultima **RONDA 64** |
+
+**El deadlock esta RESUELTO a medias, y la parte que quedo es la que importa.**
+`fee1e50` mergeo HB#197 + HB#198 - trayendo `AGENTS.md`, `ALERTS_LOG.md`,
+`TEAM_STATUS.md` y `js/api-gw2.js`. **Cero de mis `.md`.** Y no es azar: la
+rama que mergeo es la que **tenia codigo**.
+
+> **Una rama que solo toca mis apuntes privados es, por construccion, la rama
+> que menos se mergea** - porque en un diffstat `2 files changed, +112/-1`
+> no compite con `TEAM_STATUS.md +3325`. Y eso esta bien: esos apuntes no
+> son para `main`. **Lo que no esta bien es pagarlo dos veces**: 28 ramas
+> de podredumbre **y** un archivo-archive que nadie lee para decidir el modo.
+
+**Y hay un dato que hace esto urgente y no philosophico:** el propio criterio
+de carga de mi `AGENTS.md` dice *"contá los items reales de `BACKLOG.md` en el
+repo"*. **`BACKLOG.md` si llega a `main`. `PRE_BACKLOG.md` no.** Osea que el
+archivo que produce el trabajo **no llega**, y el unico que llega es el que
+**nadie del PO lee**. La seccion "Archivadas con fecha" que cree en la ronda 53
+sigue sin destino real: **0 de sus filas estan en `main`**.
+
+**No es mi decision.** Las dos salidas, y las dos son decision del Principal:
+- **(a)** un merge en una pasada de las **26** ramas `.md`, o
+- **(b)** declarar `PRE_BACKLOG.md` / `DASHBOARD_PO_IDEAS.md` **PO-privados** y
+  sacar la promesa de que son "el espejo publico filtrado".
+
+Mientras no se elija una, el deadlock no es de reglas: **es de destino**.
+
+---
+
+### Lo que NO afirmo
+
+1. **No** digo que los atajos de teclado arreglen algo roto. No hay bug: es
+   una capacidad que no existe. La diferencia importa - es una **idea**, no un
+   ALERT.
+2. **No** comparo con GW2Efficiency ni gw2treasures: no medi si tienen atajos.
+   Conozco esas herramientas, pero "conozco" no es "measure".
+3. **No** abro el Tramo 3 (atajos por modulo): eso si toca arquitectura.
+4. **No** toco `BACKLOG.md` ni `TEAM_STATUS.md` ni `ALERTS_LOG.md`. Mi
+   `AGENTS.md` me lo prohibe, y el Hallazgo 3 es precisamente una prueba de
+   que la regla de privacidad esta bien: el problema es de **destino**, no de
+   permiso.
+
+### Errores de instrumento de esta ronda (5, todos antes de reportar)
+
+1. `node -e` multilinea con regex y comillas via `cmd.exe` -> `SyntaxError`.
+   **Archivos, siempre.** (3 veces en la ronda.)
+2. `head` no existe en Windows. `tail` tampoco. Usar slice en node.
+3. **Precedencia:** `'x' + n - 1` es `('x' + n) - 1` = `NaN`. 12 `NaN` de un
+   conteo que si existia. Parentheses.
+4. **Contador por subcadena sin limite de palabra:** `'Home'` daba **76**
+   (contaba `homes`) y `'/'` daba **22** (contaba comentarios). Con
+   `e.key === 'Home'` da **0**. *Un contador de palabras es una afirmacion
+   sobre lo que mide.*
+5. **Yo mismo:** se me colaron dos ideogramas CJK dentro de un **identificador de
+   variable**, en el arnés queiba a contar ramas. Los cazé leyendo el
+   archivo antes de ejecutarlo.
+   **19a vez de la clase.** La diferencia con las anteriores: esta estaba en
+   un IDENTIFICADOR de variable, no en prosa. Y un identificador con ideogramas
+   es legal en JavaScript, o sea que **el script habria corrido igual, daria el
+   mismo resultado, y nadie lo habria notado.** Un glitch invisible por
+   construccion.
+
+### Reglas que salen
+
+1. **"La app no tiene atajos de teclado" no es una opinion: es un censo con
+   denominador** (8 listeners, 47 modulos, 7 verbos todos iguales). Y el
+   censo salio de preguntarle al usuario - *que le podemos quitar* - y no al
+   codigo. La inversa de "que endpoint falta" produce el mismo tipo de dato.
+2. **La factibilidad se mide ANTES de proponer.** `data-route = 0` y
+   `window.router = 0` parecian un problema; son la razon por la que el Tramo 1
+   es barato, porque el atajo es un `location.hash` y la lista **ya esta en el
+   DOM** (19 `.side-nav__link`). Sin esa medicion habria propuesto "refactorizar
+   el router", que es justo lo que habria hecho caros.
+3. **Una hipotesis de bug que muere por la FORMA del instrumento no se
+   reporta como bug ni se tira.** Se escribe con su causa: la ventana de mi
+   regex iba hacia adelante y la guarda estaba hacia atras. Sister del HB#175.
+4. **Un deadlock puede cambiar de forma y seguir siendo deadlock.** El
+   HB#196 lo dio como "nadie mergea"; hoy mergean 5. Lo que falta no es la
+   accion: es **el destino del archivo**, y no se resuelve con mas permisos.
+5. **Un identificador puede tener un glitch y aun asi compilar.** Los 19
+   glitches anteriores eran prosa. Este estaba en codigo y era legal. **Un
+   guard de caracteres raros no cubre un defecto de vocabulario ni de nombres.**
