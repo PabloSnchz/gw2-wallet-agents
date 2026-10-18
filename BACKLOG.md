@@ -3,6 +3,29 @@
 > Actualizado: 2026-09-30T10:10:00Z (Heartbeat #54 — **Idea 56 del PO IMPLEMENTADA en rama `feat-idea56-forma-raids` (`6178a8f`), NO mergeada: es capa de datos y ALERT-48 no permite "por merito", va con veredicto del Reviewer** (`task-b20623f46caa`). El guard de FORMA de `getAccountRaids` convertia una respuesta con forma no soportada en `[]`, indistinguible de "no completaste nada". Verificado contra los 5 call sites antes de tocar nada: ninguno se rompe. Test 20 aserciones, 12 FAIL contra el archivo sin modificar, suite 352/0. **Ademas se ACEPTÓ la autocorrección del PO sobre el 206**: no hay pérdida hoy porque las 3 rutas crudas tienen listas limpias; lo que queda es DEUDA, no bug (ver ALERT-57). Sigue **BLOQUEADO** el badge CM por el body crudo de `/v2/account/raids`.)
 > Mantenedor: Principal (default)
 
+## 🆕 ASIGNADOS POR EL ARQUITECTO (Sprint 2 — 2026-10-25 → 2026-10-31)
+
+> Estos items los pone el Arquitecto. No los elige el equipo.
+> Prioridad: ordenados de mayor a menor prioridad técnica.
+
+- [ ] **`buildstorage`: wrapper + call site en Inventory Dashboard**
+  - **Prioridad:** ALTA. Es el único gap competitivo real (11 endpoints `/v2/account/*` sin wrapper).
+  - **Endpoint:** `/v2/account/buildstorage` (verificado: 401 con token falso = existe).
+  - **Alcance:** wrapper en `api-gw2.js` + call site en `inventory-dashboard.js`.
+  - **Bloqueado por:** permiso `inventories` de Pablo.
+  - **Tarea:** `buildstorage`
+
+- [ ] **L349 Homestead — limpieza de fila**
+  - **Prioridad:** BAJA. 15 min, higiene. Sin bloqueos.
+  - **Qué:** la fila L349 del PRE_BACKLOG está desactualizada; limpiarla.
+  - **Tarea:** `homestead-cleanup`
+
+- [ ] **ALERT-41 — Strike Tracker: marcado manual de strikes (workaround)**
+  - **Prioridad:** MEDIA. Bloqueado por token de Pablo.
+  - **Condición de cierre:** Pablo pega body crudo de `/v2/account/raids` con token `progression`.
+  - **No se trabaja hasta que se desbloquee.**
+  - **Tarea:** `ALERT-41`
+
 ## EN CURSO (2026-09-30T22:40Z — Heartbeat #69)
 
 - [x] ~~**Hook `onClear`: que el borrado de la cache de disco tambien vacie la `__mem`
