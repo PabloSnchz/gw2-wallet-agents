@@ -20,11 +20,10 @@
   - **Qué:** la fila L349 del PRE_BACKLOG está desactualizada; limpiarla.
   - **Tarea:** `homestead-cleanup`
 
-- [ ] **ALERT-41 — Strike Tracker: marcado manual de strikes (workaround)**
-  - **Prioridad:** MEDIA. Bloqueado por token de Pablo.
-  - **Condición de cierre:** Pablo pega body crudo de `/v2/account/raids` con token `progression`.
-  - **No se trabaja hasta que se desbloquee.**
-  - **Tarea:** `ALERT-41`
+- [x] **ALERT-41 — Strike Tracker: marcado manual de strikes (workaround)**
+  - **Prioridad:** MEDIA. ✅ **COMPLETADO (2026-10-18).**
+  - Commit `e9f1437`: botón "✓ Manual" en cada strike pendiente, `completeStrikeManually()` agrega el ID a `state.completedStrikes` sin consultar la API, aviso visible `#strikeManualNotice` con feedback de 3s.
+  - **Decisión de Pablo:** como no hay API que devuelva si una strike está realizada, se agrega marcado manual. Ya está en dev.
 
 ## EN CURSO (2026-09-30T22:40Z — Heartbeat #69)
 
