@@ -602,6 +602,12 @@
         </div>
         
         <div id="strikeKPIs" class="raid-kpis"></div>
+
+        <!-- ALERT-41: Aviso de marcado manual -->
+        <div id="strikeManualNotice" style="text-align: center; font-size: 0.78rem; color: var(--color-amber); padding: 8px 12px; margin-bottom: 12px; border: 1px solid var(--color-amber); border-radius: 8px; background: rgba(255,180,0,0.06); opacity: 0.4; transition: opacity 0.3s;">
+          ⚠️ Marcado automático a la espera de la API de Guild Wars 2. Usá el botón "✓ Manual" si el strike no se marca solo.
+        </div>
+
         <div id="strikesGrid" class="raid-wings-grid"></div>
       `;
       console.log(LOG, 'Estructura del panel creada');
@@ -770,6 +776,7 @@
                 ${isCompleted ? 'Completada' : 'Pendiente'}
               </div>
             </div>
+            ${!isCompleted ? `<button class="strike-manual-btn btn btn--ghost" data-strike-id="${esc(strike.id)}" style="padding: 4px 12px; font-size: 0.7rem; color: var(--color-amber); border-color: var(--color-amber);">✓ Manual</button>` : ''}
             <button class="strike-detail-btn btn btn--ghost" data-strike-id="${esc(strike.id)}" data-strike-name="${esc(strike.name)}" style="padding: 4px 12px; font-size: 0.7rem;">Detalle</button>
           </div>
         `;
@@ -850,6 +857,50 @@
         openStrikeModal(strikeId, strikeName);
       });
     }
+
+    // Wire manual-complete buttons
+    var manualBtns = gridContainer.querySelectorAll('.strike-manual-btn');
+    for (var j = 0; j < manualBtns.length; j++) {
+      var mbtn = manualBtns[j];
+      if (mbtn.__wired) continue;
+      mbtn.__wired = true;
+      mbtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var sid = this.getAttribute('data-strike-id');
+        completeStrikeManually(sid);
+      });
+    }
+  }
+
+  /**
+   * Marca un strike como completado de forma manual (sin consultar la API).
+   * ALERT-41: los IDs del catalogo dan 404 en la API de GW2, por lo que
+   * el marcado automatico no funciona. Esta funcion permite al usuario
+   * marcar strikes que si ha completado.
+   */
+  function completeStrikeManually(strikeId) {
+    if (!strikeId) return;
+    if (state.completedStrikes.indexOf(strikeId) !== -1) {
+      showManualNotice('Este strike ya esta marcado como completado.', 'info');
+      return;
+    }
+    state.completedStrikes.push(strikeId);
+    renderStrikesGrid(state.completedStrikes);
+    showManualNotice('Strike marcado como completado.', 'ok');
+  }
+
+  function showManualNotice(msg, kind) {
+    var el = document.getElementById('strikeManualNotice');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.opacity = '1';
+    el.style.borderColor = kind === 'ok' ? 'var(--color-green)' :
+                           kind === 'info' ? 'var(--color-blue)' :
+                           'var(--color-amber)';
+    clearTimeout(showManualNotice._t);
+    showManualNotice._t = setTimeout(function() {
+      if (el) el.style.opacity = '0.4';
+    }, 3000);
   }
 
   var modal = null;
