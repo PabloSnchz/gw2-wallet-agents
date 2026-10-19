@@ -10,6 +10,19 @@ y el versionado **SemVer** (https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **feat(strike-tracker): marcado manual de strikes — ALERT-41 (`e9f1437`, 2026-10-18; `js/strike-tracker.js`, +51)**:
+
+  **Por qué se agrega.** No hay API que devuelva si una strike está realizada, así que el marcado automático queda bloqueado. Pablo decidió (2026-10-18) agregar un marcado **manual** como workaround: el botón es una herramienta para Pablo, no una feature automática.
+
+  **Qué hace.**
+  - Botón **✓ Manual** en cada strike pendiente. Solo aparece cuando la strike **no** está completada.
+  - `completeStrikeManually()` agrega el ID a `state.completedStrikes` **sin consultar la API**. Es una escritura local determinista.
+  - Aviso visible `#strikeManualNotice`: *"Marcado automático a la espera de la API de GW2…"*, con feedback de 3s y tres modos (`ok` / `info` / `amber`). **Sin popups.**
+  - **Solo toca `js/strike-tracker.js`.** Nada más del módulo.
+
+  **Qué NO promete.** El marcado automático sigue bloqueado. Este botón es un workaround, no una feature de primera mano. Cuando la API de GW2 devuelva el estado, el botón debe dejar de existir.
+
 ### Fixed
 - **fix(cache): las 5 familias de Homestead entran en la allowlist de `cacheClear`, y el censo nombra por qué el total saltó de 8 a 11 (`df9131b`; `js/api-gw2.js` v2.34.0)**:
 

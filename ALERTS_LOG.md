@@ -1,3 +1,197 @@
+> # ALERT-269 (HB#171): `PRE_BACKLOG.md` TIENE **TRES** COPIAS Y `COMMS_LOG.md` **DOS**, Y SON
+> # **DISJUNTAS**: COMMITEAR LAS DOS NUEVAS BORRA HISTORIAL DE LA PUNTA DEL REPO
+>
+> **Medido, con bytes y lineas, el 2026-10-19.** No es hipotesis ni de otra epoca: son los
+> # numeros de hoy, sobre el arbol de trabajo y sobre `origin/main` @ `55beb0d`.
+>
+> | archivo | copia | bytes | lineas | ronda | mtime |
+> |---|---|---:|---:|---:|---|
+> | `PRE_BACKLOG.md` | `origin/main` | 370.762 | 5.626 | **67** | 2026-10-05 (congelada) |
+> | `PRE_BACKLOG.md` | working tree del repo | 4.839 | 76 | **81** | 2026-10-18 22:01 |
+> | `PRE_BACKLOG.md` | workspace del PO (**viva**) | 30.232 | 497 | **81+** | 2026-10-19 01:10 |
+> | `COMMS_LOG.md` | `origin/main` | 259.529 | 794 | filas 057-182 | 2026-10-03 |
+> | `COMMS_LOG.md` | workspace del Principal (**viva**) | 12.809 | 68 | filas 001-016 + 024 | 2026-10-19 00:12 |
+>
+> **El detalle que hace esto urgente: las 3 copias de `PRE_BACKLOG.md` NO son versiones de la
+> # misma serie con distinto largo. Son DISJUNTAS.** La de git tiene las rondas 1-67, la del
+> # working tree tiene las rondas 78-81, y la del workspace tiene lo reciente. **Cualquiera de las
+> # dosUltimas commiteada hace que la punta del repo pierda las rondas 1-67**, que no existen en
+> # ningun otro lado: el workspace del PO tiene 497 lineas, no 5.626. El histoal de `origin/po/*`
+> # (35 ramas medidas) conserva partes, pero no es lo mismo que la punta.
+>
+> **El caso de `COMMS_LOG.md` es el espejo: la punta tiene 794 lineas y su cabecera esta MUTILADA**
+> # (arranca en la fila 158 y la linea 4 es un fragmento roto de la cabecera), o sea **la punta ya
+> # es un amasijo**, y la del workspace tiene la fila 024 de hoy. **Ninguna de las dos es la buena.**
+>
+> **Lo que se hizo, y lo que NO se hizo.** Las 2 copias del working tree se **restauraron desde
+> # `origin/main`** (para que la punta no pierda nada) y su contenido esta **respaldado en
+> # `C:\Users\psanc\.qwenpaw\workspaces\default\_rescate_hb171\`** antes de tocar una byte. No
+> # se commiteo ninguna de las dos, porque **commitear la version corta es perder el historial de
+> # la punta**, y **armar el union a mano es una mudanza de 5.626 lineas**, que no es trabajo de un
+> # cron de 30 min (ya lo pagaron HB#150, #151, #154 y #164).
+>
+> **Quien decide: el PO.** `PRE_BACKLOG.md` declara en su cabecera "Este archivo es privado del PO.
+> # Solo el PO escribe y lee" - y a la vez **esta trackeado en git**. Elige el: (a) la punta pasa a
+> # ser el union, (b) la punta pasa a ser la del workspace y el historico se archiva aparte, o
+> # (c) el archivo **sale de git** y deja de ser canonico de nadie. Pregunta enviada al PO en
+> # `task-907bfb3aeed6`.
+>
+> **Lo que se lleva de este ciclo, mas alla del archivo:** un `0` o un conteo de glifos no dice
+> # **cual** copia se commitea, y por eso el paso "hay trabajo sin commitear" del PASO -1 se
+> # completo con el **numero de bytes y lineas de cada copia**, no con una intuicion. Y el
+> # **control de carga** resulto estar inflado por la misma razon: 3 filas `- [ ]` que el PO ya
+> # habia cerrado en sus reportes. **El numero que decide el modo se midio contra los veredictos
+> # publicados del PO**, no contra mi memoria de lo que estaba abierto.
+
+> # ALERT-266 (HB#213): UN REGEX QUE EXIGIA **DOS** `#` NO VEIA LA RONDA MAS NUEVA, Y LA
+> # RONDA MAS NUEVA ESTABA YA MERGEADA EN `main`
+>
+> **El defecto, en una linea.** `RE_HEAD = /^#{2,} .*?ronda (\d+)/gim` en
+> `tools/hb163-canales.mjs` — y el mismo regex publicado en el PASO 3 de `HEARTBEAT.md`
+> — exige **dos o mas** almohadillas. La ronda viva se escribio con **una**:
+>
+> ```
+> DASHBOARD_PO_IDEAS.md:1   # HB#205 / PO ronda 67 - RECOLECTAR. El TRAMO A mueve `[x]`...
+> PRE_BACKLOG.md:1          # HB#205 / PO ronda 67 - RECOLECTAR...
+> ```
+>
+> En Markdown el nivel 1 **tambien es un encabezado**, asi que el `{2,}` — puesto para
+> "que sea un encabezado de verdad" — deja afuera el nivel 1 sin querer. Y lo hizo en los
+> **dos** `.md` a la vez, asi que no era un descuido de un archivo.
+>
+> **Medido sobre `origin/main` @ `c8ad095`, con la misma regex y las dos formas:**
+>
+> | archivo | `#{2,}` | `#{1,}` | lineas de nivel 1 con ronda |
+> |---|---|---|---|
+> | `DASHBOARD_PO_IDEAS.md` | max **66** | max **67** | **1** |
+> | `PRE_BACKLOG.md` | max **66** | max **67** | **2** |
+>
+> `f17960a` ("PO ronda 67 (HB#205): RECOLECTAR") esta **en `main`**, mergeado hoy a las
+> 00:59:39 UTC. El instrumento reportaba 66 con una 67 escrita y publicada.
+>
+> **La consecuencia, y por que no fue cosmetica.** El PASO 3 dice *"si no coinciden,
+> gana el numero mas alto de los tres"*. Hoy eso resolvia a **66** — una ronda que la
+> **propia ronda 67 declara vencida** (`P1 — Punta nueva despues de la 66: NO`). O sea:
+> el paso 3 eligio leer una ronda que el PO ya habia retirado, por una razon de forma
+> y no de contenido. Y como el control de la ronda 67 es **PAUSA/RECOLECTAR con cero
+> items propuestos**, el resultado de hoy no cambio — **correcto por la razon
+> equivocada**, la 12a vez de la serie (ALERT-103, ALERT-227).
+>
+> **LA REGLA (generaliza ALERT-243).** Cerrar un eje de conteo exige medir **la forma
+> completa del eje**, no dos puntos pegados. Un control tiene que **anclar Y discriminar**,
+> y **si el caso que discrimina no existe en el archivo, hay que construirlo**: el
+> fixture `control_nivel1` es `# HB#213 / PO ronda 13` a secas, que la forma vieja no ve.
+> **Un control sano que no alcanza el caso roto es peor que no tener control, porque da
+> verde** — y el fixture anterior, escrito con `## RONDA 13`, era exactamente eso.
+>
+> **Fase roja, medida, sobre el archivo real y no sobre un fixture inventado:**
+>
+> | | `controles_ok` | `c1_por_ronda_max.headMax` | `control_nivel1.headMax` | `headNivel1` |
+> |---|---|---|---|---|
+> | con el fix | **true** (exit 0) | **67** | **13** | 1 |
+> | revertido a `#{2,}` | **false** (exit 1) | **66** | **12** | **1** |
+>
+> La fila que importa es la ultima: con la forma vieja el fixture **si** ve la linea de
+> nivel 1 (`headNivel1=1`) y **aun asi** `headMax` da 12. O sea el diagnostico ya decia
+> "hay una ronda de nivel 1 que tu maximo no alcanza" y el max no la\subia. Por eso el
+> campo nuevo se llama `headMaxNivel1` y se imprime: **el defecto tiene que ser visible
+> por canal, no solo corregido en silencio.**
+>
+> **Archivos:** `tools/hb163-canales.mjs` (`RE_HEAD` a `#{1,}`, `RE_N1` de diagnostico,
+> `control_nivel1`), `HEARTBEAT.md` PASO 3 (el regex publicado + la regla de las dos
+> formas). Espejo regenerado y `hb164-espejo.mjs` **13/13 OK**, paridad 136/136.
+>
+> # ALERT-267 (HB#213): UN CANAL **PRESENTE** NO ES UN CANAL SANO — Y ALERT-235 DIO
+> # VUELTAS: EL CANONICO DEL `PRE_BACKLOG.md` AHORA ES EL DEL REPO
+>
+> **Que cubre el guard anterior.** ALERT-236 (HB#166) metio `marcadorPresente` +
+> `openItemsDiscrimina` porque un `0` sin marcador no es una medicion. Ese guard cubre
+> **el archivo que no existe**. Este cubre **el archivo que existe y esta viejo**, que es
+> el caso de al lado y que ningun control miraba.
+>
+> **Medido hoy sobre `origin/main` @ `c8ad095`, las dos copias del mismo archivo:**
+>
+> | donde | bytes | maxRonda | "ronda 64..67" | mtime |
+> |---|---:|---:|---:|---|
+> | `origin/main:PRE_BACKLOG.md` | 370 762 | **67** | 4 ocurrencias | commit de hoy 00:59 UTC |
+> | workspace del PO | 376 071 | **63** | **0** | 2026-10-04T18:01:28Z |
+>
+> El workspace esta **4 rondas atrasado** y **no menciona ninguna** de las cuatro. Y no es
+> un repo (`fatal: not a git repository`). El instrumento lo imprimia como
+> `c3_pre_backlog_ws` con su `headMax: 63`, `c3_archivo_ausente: false`, sano. **Estaba
+> entero, se leia completo, y por eso pasaba todo lo que se le preguntaba salvo la
+> pregunta que faltaba.**
+>
+> **Y el byte-count apunta al lado contrario del verdad.** El workspace es **5 309 bytes
+> MAS GRANDE** y 4 rondas mas viejo. La razon esta escrita y es correcta: el TRAMO A mueve
+> filas `[x]` de `Pendientes` a `Completed`, o sea **poda borrando**. **Archivo mas
+> grande no es archivo mas sano**, y un control que comparara sizes para decidir cual
+> canonico gana elegiria el muerto. Por eso el dato de frescura tiene que ser
+> `desfase_rondas`, no `bytes`.
+>
+> **ALERT-235 DIO VUELTAS.** En el HB#166 la situacion era la inversa — el repo
+> congelado 3 dias y el workspace avanzando — y la regla de `AGENTS.md` era
+> *"PRE_BACKLOG.md vive en el workspace"*. **Hoy esa regla esta vencida:** la ronda 67
+> dice textual que el PRE_BACKLOG *"llega a `main` (360 675 bytes, `ls-files` lo
+> confirma)"*, o sea el PO **publico en el repo**. El canónico quedo en el workspace y
+> por eso el paso 3 sigue leyendo un canal muerto. **Quien decide cual gana: el
+> Arquitecto o Pablo, no este ciclo.** Lo que si es codigo: el paso tiene que **ver la
+> desactualizacion** en vez de heredar una regla de donde vive el archivo.
+>
+> **El arreglo (instrumento, no veredicto).** El maximo paso a ser **global**, no "el
+> mayor de los canales": un canal atrasado no puede decidir cual es la punta, y si el
+> maximo se calculara sobre los canales, un solo canal sano taparia al atrasado y el
+> desfase daria **0**. Campos nuevos: `max_global_ronda`, `canales_VIEJOS_por_ronda`
+> (hoy `c3_pre_backlog_ws` con `desfase_rondas: 4`) y, por canal, `bytes` + `mtime`.
+>
+> **Regla:** un guard de presencia y un guard de frescura son **controles distintos**, y
+> el segundo no se deduce del primero. "Se lee entero" no es "esta al dia".
+>
+> # ALERT-268 (HB#213, instrumento PROPIO): MI REGLA DE STAGING DE EOL ESTABA APLICADA AL
+> # REVES, Y ESTE REPO TIENE EOL MIXTO **POR ARCHIVO**
+>
+> **El error, propio (familia ALERT-79, 3a vez que una regla mia se dispara contra el
+> archivo que no debia — ALERT-161).** `MEMORY.md` del HB#178 dice, textual:
+> *"Stage con `git -c core.autocrlf=false add`"*. **Medido hoy sobre los 4 archivos que
+> iba a tocar**, `core.autocrlf=true` y **sin `.gitattributes`**:
+>
+> | archivo | worktree | blob en `origin/main` | staging correcto |
+> |---|---|---|---|
+> | `TEAM_STATUS.md` | CRLF PURO | **CRLF PURO** | `-c core.autocrlf=false` |
+> | `ALERTS_LOG.md` | LF PURO | LF PURO | `git add` normal |
+> | `HEARTBEAT.md` | LF PURO | LF PURO | `git add` normal |
+> | `tools/hb163-canales.mjs` | LF PURO | LF PURO | `git add` normal |
+>
+> El blob **decide**, no el archivo. Regla correcta y aplicada: `git add` pelado convierte
+> CRLF->LF, asi que es lo correcto para los 3 con blob LF, y es exactamente lo que
+> **reescribiria entero** `TEAM_STATUS.md`. Mi regla de memoria es correcta en **1 de 4**
+> archivos, y "correcta en 3 de 4" es una regla que va a fallar en el quinto.
+>
+> **El control que uso, y por que reemplaza al de HB#178.** HB#178 escribio *"el delta
+> de `lfSuelto` tiene que ser 0"*, y eso da **4 falsos rojos** en un archivo LF puro (cada
+> LF es "suelto" por definicion). El invariante real es el **MODO**
+> (`crlf===0 && lfSuelto===lineas` = LF PURO; `crlf===lineas && lfSuelto===0` = CRLF
+> PURO) **y tiene que ser el mismo en worktree y en blob**. `_hb212eol.mjs` mide las dos
+> punas e imprime si hay que mirar antes de stagear.
+>
+> **Otros 2 errores de instrumento del ciclo, los 2 antes del commit:**
+>
+> 1. **`'C:\Program Files\nodejs\node.exe'` con escapes consumidos** — el `\n` de
+>    `\nodejs` se comio el placeholder y quedo un salto de linea en el string: `ENOENT`.
+>    **Es la 4a vez que escribo un path de Windows en crudo** (HB#166: `eval` sin `var`;
+>    HB#173: comilla simple dentro de comilla simple). `process.execPath` lo tiene resuelto.
+> 2. **Un control que no puede disparar, reportado como si hubiera pasado.** El control
+>    negativo de la regeneracion del espejo ("copiar sin normalizar tiene que dar un
+>    archivo distinto") dio **IGUAL**, porque el canonico tiene **0 CRLF** y no hay nada
+>    que normalizar. El numero —`IGUAL: el control no discrimina`— es la informacion, y
+>    la accion correcta era decir **"inaplicable en esta entrada"**, no contar un verde.
+>    **Un control que no discriminina tiene que decir que no discriminina**; si su
+>    veredicto se lee como aprobado porque lo probe "sin romperse", es decorativo.
+>
+> **Archivos:** `_hb212eol.mjs`, `_hb212.mjs`, `_hb213rojo.mjs`, `_hb213espejo.mjs`
+> (workspace, borrados al cierre). **Sin `js/` ni `tests/` tocados: la suite NO aplica** y
+> no se corrio por costumbre.
+
 > # ALERT-265 (HB#211; escrita y re-medida por HB#212): "FALTABAN 9 LINEAS" ERA UNA
 > # DIFERENCIA DE UNIDAD, Y LA UNIDAD CORRECTA DABA 17
 >

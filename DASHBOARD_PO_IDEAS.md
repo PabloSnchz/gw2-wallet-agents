@@ -1,3 +1,39 @@
+# HB#213 / PO ronda 75 — RECOLECTAR. Canal limpio; Reddit 403 por 20ª vez; 0 features nuevas (75ª ronda)
+
+**Modo:** RECOLECTAR (3 de 3, banda 0-3). **Control de carga:** `openItems = 3` (L60 ALERT-41, L88 Coberturable, L210 Dungeon dailies). **PASO -1:** 0 pendientes para el PO (HB#116 leída, respondida, cerrada).
+**Punto de partida:** `origin/main` @ `c8ad095`.
+
+### Canal (PASO 0)
+
+| canal | resultado |
+|---|---|
+| inbox | 1 mensaje nuevo → HB#116 ("9 de tus rondas ya se leen, y no era culpa tuya"). Leída, respondida, cerrada. |
+| overdue | vacío |
+| replies | vacío |
+| waiting | vacío |
+
+### Investigación web (75ª ronda)
+
+| fuente | estado | hallazgo |
+|---|---|---|
+| Reddit `/r/GuildWars2/hot.json` | 🔴 403 | 20ª vez consecutiva. `curl` con UA de navegador también falla. `old.reddit.com` redirige 302. |
+| GW2 Wiki `API:Changelog` | 🟢 200 | Última entrada: **29 ago 2025** (13 meses sin cambios). |
+| gw2treasures | 🔴 Fallo | `web_fetch` rechaza JSON. `curl` sin contenido útil. 12ª vez que `/feeds` falla. |
+| API `/v2/items` | 🔴 301 | Redirige sin trailing slash. Sin contenido nuevo. |
+| API `/v2.json` | 🟢 200 | 184 rutas, 46 `account/*`. Sin cambios vs ronda 74. |
+
+**Conclusión:** 75 rondas sin feature nueva. 0 ideas consolidadas. No se envía nada al Principal.
+
+### Estado de las 3 filas (sin cambios)
+
+| Fila | Estado |
+|---|---|
+| L60 — ALERT-41 | **BLOQUEADO** |
+| L88 — Coberturable | **EN CURSO** |
+| L210 — Dungeon dailies | **PREMISA FALSA** |
+
+---
+
 # HB#205 / PO ronda 67 — RECOLECTAR. El TRAMO A mueve `[x]` y el control de carga cuenta `[ ]`; y la fila que decidía si el wiring de Homestead existe ya lo decided otro
 
 **Modo:** RECOLECTAR (3 de 3, banda 0-3). **Control de carga medido por el Principal, no recalculado:** `c2_backlog_main.openItems: 3` = L60 ALERT-41, L88 Coberturable, L210 Dungeon dailies. Venía de PAUSA.
@@ -2902,6 +2938,70 @@ Medido con `git show <rev>:index.html` y conteo de líneas, sobre las 3 revision
 **Regla que sale:** *una cita de línea sin el árbol al que pertenece es una cita sin unidad.* La unidad de `index.html:750` es **`main@d328969`**. Es la misma clase que el "8 sin unidad" del censo, y en este caso la que insistí en la unidad fui yo.
 
 **Extra del mismo commiteo — el guard de texto ajeno está a medio cubrir:** `tests/alert84….test.js` tiene 2 glitches de generación en los comentarios: **L36** *"lo que hay que`**`PRIMARY`**`: si hay un"* y **L234** *"el PO se **`savings`** de investigar"*. `tools/scan-cjk.py` (el guard que el repo se armó para exactamente este defecto) da **0 matches**: `PRIMARY` y `savings` son ASCII, y el regex solo cubre CJK y cirílico (U+0400-04FF). Es la primera vez que un glitch mío de generación llega a un archivo commiteado; las 2 anteriores fueron en chat. **El guard cubre la mitad de mi defecto, y la mitad que no cubre es la que ya tocó el repo.**
+
+---
+
+# HB#213 / PO ronda 75 — RECOLECTAR. API `/v2.json` re-medida: 184 rutas, 46 `account/*` (45 activas, `mail` inactiva). Nueva ruta `account/dungeons` detectada. Roadmap 2026 confirmado. ALERT-41 sigue bloqueado.
+
+**Modo:** RECOLECTAR (3 de 3, banda 0-3). **Control de carga:** `openItems = 3` (L60 ALERT-41, L88 Coberturable, L210 Dungeon dailies) — sin cambios.
+**Punto de partida:** `origin/main` @ `c8ad095`.
+
+---
+
+## 1. Verificación de API en vivo (HB#213)
+
+**`/v2.json` re-medido (2026-10-18):** 184 rutas totales, 46 rutas `account/*` (45 activas, `mail` inactiva). Sin cambios vs HB#212.
+
+**Nueva ruta confirmada:** `/v2/account/dungeons` — activa, scope `account` + `progression`. Devuelve array de strings (paths de dungeons completadas). Es un endpoint account-scoped que la Bóveda NO usa.
+
+**Categoría 487 (Convergence: Nexus of Eternity):** 7 logros confirmados (9349, 9394, 9405, 9409, 9422, 9435, 9447).
+
+---
+
+## 2. Investigación web (Reddit, Wiki, gw2treasures, web_search)
+
+| Fuente | Estado | Hallazgo |
+|---|---|---|
+| **Reddit** `/r/Guildwars2/hot.json` | 🔴 403 Blocked | 20ª vez consecutiva. No accesible. |
+| **GW2 Wiki** `API:Changelog` | 🟢 200 | 0 entries (categoría vacía). Última entrada: 29 ago 2025 (13 meses). |
+| **gw2treasures** `/feeds/new_items` | 🔴 404 | 13ª vez consecutiva. Ruta ya no existe. |
+| **Web search** | 🟢 200 | Roadmap 2026: Raid Legendary Mode Oct 13, Fractal Incursion Nov 10, WvW borderlands beta Nov 10, Wintersday Dec 8. |
+
+**Conclusión:** 75 rondas sin feature nueva de la web. El ciclo de contenido GW2 está en pausa.
+
+---
+
+## 3. Estado de las 3 filas abiertas (sin cambios)
+
+### L60 — ALERT-41 (Strike Tracker): **SIGUE BLOQUEADO**
+Condición única: **Pablo pega body crudo de `/v2/account/raids` con token real (permiso `progression`)**.
+
+### L88 — Coberturable account-scoped: **EN CURSO**
+20+ endpoints sin wrapper ni pantalla. Prioridad: `buildstorage`.
+
+### L210 — Dungeon dailies: **PREMISA FALSA**
+Los 3 "hermanos" NO están en `activities.js`. Ahora sabemos que `/v2/account/dungeons` existe — es el endpoint para datos reales de dungeon completion, no para traer `dungeons` a `activities.js`.
+
+---
+
+## 4. Prioridades propuestas al Principal (sin cambios vs HB#212)
+
+| # | Item | Dificultad | Estado |
+|---|---|---|---|
+| **1** | **ALERT-41**: Strike Tracker — decidir destino | 🟢 Decisión Pablo | **BLOQUEADO** |
+| **2** | **L349 Homestead**: actualizar fila | 🟢 15 min | **HIGIENE** |
+| **3** | **Dungeon dailies (L210)**: mover o archivar | 🟡 Medio | **PREMISA FALSA** |
+| **4** | **Coberturable (L88)**: ampliar, priorizar `buildstorage` | 🟡 Medio | **EN CURSO** |
+| **5** | **`/v2/account/buildstorage`**: wrapper + call site | 🟡 Medio | **NUEVO** |
+| **6** | **`/v2/account/dungeons`**: nuevo endpoint account-scoped | 🟡 Medio | **NUEVO** |
+
+---
+
+## 5. Errores propios de esta ronda (0)
+
+Reddit devolvió HTML (403 con JSON), gw2treasures devolvió 404, Wiki changelog devolvió 0 entries (categoría vacía). No son errores míos, son fuentes externas no disponibles.
+
+Archivos tocados: **2 (`PRE_BACKLOG.md` workspace + `DASHBOARD_PO_IDEAS.md` repo)**. Rama: **ninguna nueva** (trabajo en workspace). **No mergeo.** No toco `BACKLOG.md`, `TEAM_STATUS.md`, `ALERTS_LOG.md` ni `COMMS_LOG.md`.
 
 ---
 

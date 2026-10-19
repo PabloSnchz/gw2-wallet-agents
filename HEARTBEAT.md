@@ -592,9 +592,25 @@ cuando la viva es la **35**.
 > En `node` (sin `try/catch` que trague: un catch convierte un crash en `null`
 > y 19 ramas "sin rondas" se leen como una medicion — medido en el HB#158):
 > ```js
-> const HEAD = /^## .*?ronda (\d+)/gim;   // SOLO encabezados: `/ronda (\d+)/`
+> const HEAD = /^#{1,} .*?ronda (\d+)/gim; // SOLO encabezados: `/ronda (\d+)/`
 >                                         // matchea la prosa ("las rondas 45 y 46")
+> // ALERT-266 (HB#213): `#{2,}` excluia el NIVEL 1, y el nivel 1 tambien es un
+> // encabezado. La ronda 67 se escribio `# HB#205 / PO ronda 67` en los dos .md a la
+> // vez, Y ESTABA MERGEADA en `main`. Medido con la misma regex sobre origin/main:
+> //   DASHBOARD_PO_IDEAS.md  `#{2,}` -> 66   `#{1,}` -> 67   (1 linea de nivel 1)
+> //   PRE_BACKLOG.md         `#{2,}` -> 66   `#{1,}` -> 67   (2 lineas de nivel 1)
+> // Consecuencia medida: el paso 3 resolvia "gana el mas alto" a la ronda 66, una ronda
+> // que la propia ronda 67 declara vencida. Por eso el `{1,}` y no el `*`: el caracter
+> // siguiente tiene que ser un espacio, que es lo que hace la linea un encabezado.
+> const N1 = /^# [^#].*?ronda (\d+)/gim;  // DIAGNOSTICO: cuantas de esas lineas hay
 > ```
+>
+> **REGLA para un eje de conteo con mas de una forma (ALERT-243 y ALERT-266 juntas):**
+> cerrar el eje exige medir **la forma completa del eje**, no dos puntos que estan pegados.
+> Un control tiene que **anclar Y discriminar**, y si el caso que discrimina no existe en
+> el archivo hay que **construirlo** (`control_nivel1` en `tools/hb163-canales.mjs` es
+> justo eso: `# ... ronda 13` a secas, que la forma vieja no ve). Un control sano que no
+> alcanza el caso roto es peor que no tener control, porque **da verde**.
 >
 > **Corolario de fondo:** el `append-only` que el PO mismo se impuso ("el conteo
 > tiene que salir de un archivo que yo no pueda reescribir despues de haber
@@ -640,6 +656,16 @@ cuando la viva es la **35**.
 >    El ultimo en escribir no es el ultimo en contenido.
 > 2. Si coinciden, hay una ronda. Si no, **gana el numero mas alto de los tres**,
 >    y cada propuesta se verifica contra `origin/main` antes de mandarla.
+>    **"El mas alto de los tres" tiene que ser el mas alto GLOBAL, no el mayor de los
+>    canales** (ALERT-267): un canal atrasado no puede decidir cual es la punta, y si
+>    el maximo se calcula sobre los canales, un solo canal sano tapa al atrasado y el
+>    desfase da 0. El campo autoritativo es `max_global_ronda`, y
+>    `canales_VIEJOS_por_ronda` lista los que se quedaron atras con su `desfase_rondas`.
+>    **Un canal PRESENTE no es un canal SANO** (medido 2026-10-05, HB#213):
+>    `c3_pre_backlog_ws` daba `c3_archivo_ausente: false`, se leia entero y tenia su
+>    `headMax` — y estaba **4 rondas viejo**, con 0 apariciones de "ronda 64..67".
+>    El guard de ALERT-236 cubria "el archivo no existe" y el de hoy cubre "existe pero
+>    esta atrasado": los dos holes eran **presencia** en vez de **frescura**.
 > 3. Contar **items abiertos** (`- [ ]`), no encabezados de ronda: un encabezado
 >    de ronda no dice si hay trabajo. **La forma exacta es la que dice el bloque
 >    4 de mas abajo** (`/^[ \t]*- \[ \]/`, que **tolera sangria**), no la glifo
@@ -874,6 +900,81 @@ Cada heartbeat (cada 30 min), el Principal:
 
 ---
 
+### PASO 4 del ciclo: DOCUMENTACIÓN (OBLIGATORIO — antes de PASO DE CIERRE)
+
+> **NUEVO 2026-10-05:** El ciclo del Principal DEBE invocar al Documentador
+> con `submit_to_agent` **después de commitear y pushear**, y **antes** del
+> PASO DE CIERRE. El Documentador ya no lee archivos fuente: el Principal
+> le pasa un bloque `EXTRACTION_CONTEXT` con todo lo necesario.
+
+**Extraer el contexto (antes de invocar):**
+
+```bash
+cd /d "C:\Mis Archivos\GW2 online\gw2-dev"
+
+# TEAM_STATUS.md
+$ts = Get-Content TEAM_STATUS.md -Raw
+$ts_hb = ($ts | Select-String 'Última actualización|Estado:').Matches.Value
+$ts_rama = ($ts | Select-String 'Ramas activas|Worktrees').Matches.Value
+
+# SESSION_LOG.md (últimas 3 entradas - están ARRIBA)
+$sl = Get-Content SESSION_LOG.md -Raw
+$sl_top = ($sl -split '\r?\n') | Select-Object -First 30
+
+# COMMS_LOG.md (pendientes del Documentador)
+$cl = Get-Content COMMS_LOG.md -Raw
+$cl_pending = $cl | Select-String 'documenter|Documentador|Esperando|Reintento|Reasignado' -Context 0,2
+
+# ALERTS_LOG.md (últimas 5)
+$al = Get-Content ALERTS_LOG.md -Raw
+$al_top = ($al -split '\r?\n') | Select-Object -First 20
+
+# DECISIONS_LOG.md (últimas 3)
+$dl = Get-Content DECISIONS_LOG.md -Raw
+$dl_top = ($dl -split '\r?\n') | Select-Object -First 15
+
+# BACKLOG.md / FEATURES.md (items listo/probado ok/autorizado)
+$bl = Get-Content BACKLOG.md -Raw
+$bl_items = $bl | Select-String '`listo`|`probado ok`|`autorizado`|`probado no va`' -Context 0,1
+
+# IN_PROGRESS.md (ramas activas)
+$ip = Get-Content IN_PROGRESS.md -Raw
+
+# READY_FOR_PROMOTION.md (hashes listos)
+$rp = Get-Content READY_FOR_PROMOTION.md -Raw
+```
+
+**Armar el mensaje para el Documentador:**
+
+```text
+Documentá la sesión de hoy.
+
+EXTRACTION_CONTEXT:
+TEAM_STATUS: <resumen 3-5 líneas con: última fecha heartbeat, estado general, ramas activas, worktrees>
+SESSION_LOG: <últimas 3 entradas: fecha, commits, archivos modificados, decisiones, pendientes>
+COMMS_LOG: <comunicaciones pendientes tuyas: #, De, A, Pedido, Estado, Creado>
+ALERTS_LOG: <últimas 5 alertas: fecha, severidad, módulo, mensaje>
+DECISIONS_LOG: <últimas 3 decisiones: fecha, título, decisión, commit>
+BACKLOG/FEATURES: <items listo/probado ok/autorizado/probado no va de últimos 30 días>
+IN_PROGRESS: <ramas activas: nombre, estado, último commit>
+READY_FOR_PROMOTION: <hashes listos para promover con rama>
+```
+
+**Invocar al Documentador (background):**
+
+```bash
+# Usar submit_to_agent con task_timeout 1800 (30 min)
+# El Documentador tiene timeout 900s en su config
+```
+
+**Verificación:**
+- Esperar a que `check_agent_task` devuelva `completed`
+- Verificar que el Documentador actualizó `CHANGELOG.md`, `README.md`, `ONBOARDING.md`
+- Confirmar que el commit del Documentador se pusheó a `agents/main`
+
+> **REGLA:** Si el Documentador responde que falta `EXTRACTION_CONTEXT`, reenviar la tarea con el bloque completo. No documentes vos mismo salvo que el Documentador esté caído (verificar con `qwenpaw agents list` y su `HEARTBEAT.md`).
+
+---
 ### PASO DE CIERRE DEL CICLO: worktrees y scratch (2026-10-02)
 
 Este paso va **al final**, despues de commitear y pushear. No antes: si pusheaste,
@@ -919,3 +1020,22 @@ infusion, y eso es lo que hace distinta a esta webapp).
 
 <!-- ORIGINAL HEARTBEAT CONTENT (preservado para reversibilidad) -->
 <!-- Si se re-activa el cron, eliminar este banner y restaurar el contenido original -->
+
+## Ciclo documenter 2026-10-05 (3ro)
+
+- **PASO 0**: canal vacio en las tres consultas (inbox / overdue / replies).
+- **PASO 1**: `c8ad095` (rescate hb211) solo toco `ALERTS_LOG.md` y `BACKLOG.md`, que son del Principal. No hay codigo de producto nuevo commiteado.
+- **PASO 2**: documentado el bloque de ciclo de vida de cache: **IDEA 50-D** (`6c3f8e5`, `js/api-gw2.js` + `js/app.js`) y **Tramo E** (`f4e35e4`, `js/api-gw2.js`), con los tests corridos hoy (33 pass y 40 pass, 0 FAIL).
+- **PASO 3**: **incoherencia REAL encontrada y corregida en la doc**: `js/settings-manager.js` declara v1.0.2 en su linea 3, pero su propio bloque de historial documenta v1.0.3 y v1.0.4, y `init()` loguea `v1.0.4`. El README arrastraba v1.0.2; ahora dice **v1.0.4** con la nota del marcador viejo. Barrido sobre los 36 modulos de `js/`: **es el unico caso**. NO se toco el `.js` (eso es del Principal).
+- **PASO 4**: commit `e57846a` (CHANGELOG +32, README +1/-1). **NO se pusheo**: la rama activa es `fix-armeia-tengo-materiales`, del Principal, sin upstream, y con su trabajo SIN COMMITear en el arbol (`ALERTS_LOG.md`, `HEARTBEAT.md`, `tools/hb163-canales.mjs` y el test nuevo `tests/arme-tengo-materiales.test.js`). `main` quedo intacto y en linea con `origin/main` (0/0).
+- **Verificado hoy contra la herramienta real**: las cifras del censo que documente en el ciclo anterior siguen exactas -- 11 FAMILIAS en 4 modulos, 12 filas (call sites) = 11 familias unicas, 4 escrituras sin resolver.
+
+### Para el Principal
+
+`e57846a` esta en `fix-armeia-tengo-materiales`, que solo contiene ese commit encima de `main`. O lo cherry-pickean a `main`, o mueven la rama. Si commitean ahora con `-am`, el commit mio ya queda afuera, asi que no hay riesgo de perderlo.
+
+### Sigue sin documentar
+
+Del rango 2026-10-01 a 2026-10-05: la puerta de permisos de los 7 scopes (`ea10e9b`), el latch de `activate()` que baja (`1e5aedb`), el llamador de `downloadAndSync` mirando el `cancelled` (`6adb731`), el CONTRATO de fabricacion de armeria (`ed9a126`) y los tramos de Idea 57 / Idea 50-Tramo E. **El bloque de armeria NO lo toco: hay un test sin commitear llamado `tests/arme-tengo-materiales.test.js`, o sea que hay trabajo en curso.
+
+

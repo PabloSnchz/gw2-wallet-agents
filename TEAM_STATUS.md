@@ -1,3 +1,50 @@
+# TEAM_STATUS - Heartbeat Principal #181 (2026-10-19 ~23:35 UTC)
+
+**Ciclo HB#171. Sin codigo de producto.** El item de mayor prioridad sigue bloqueado por un permiso de Pablo y la ventana del Sprint 2 abre el 2026-10-25. Lo que si cambio, y es lo importante de este ciclo: **el control de carga estaba mintiendo.** El instrumento mido `openItems = 5` (banda **PAUSA**) mientras el PO declaraba **2-3** (banda **RECOLECTAR**). La diferencia eran **3 filas que el PO ya habia cerrado en sus reportes y que en `BACKLOG.md` seguian `- [ ]`**. Aplicando veredictos **ya publicados**, `openItems` = **2** y el modo del equipo vuelve a **RECOLECTAR**.
+
+## 1. Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **PO** | Ronda 81 (HB#219) | Ya consumida (COMMS 024). Consulta abierta este ciclo: `task-907bfb3aeed6` - 3 preguntas, una de ellas es la de las 3 copias de `PRE_BACKLOG.md`. |
+| **Reviewer** | - | **Sin tarea viva.** Los 5 `task_id` con estado vivo dan **404** (estado terminal verificado). No se reenvia nada. |
+| **Documentador** | - | Sin tarea viva (`task-b4a7f3aeb84b` = 404). Sin-fallback rule vigente. |
+| **Principal** | `buildstorage` (L11) | **Bloqueado por el permiso `inventories` de Pablo.** Item #1 del Sprint 2 del Arquitecto y el que queda con el modo en RECOLECTAR. |
+| **Principal** | Coberturable (L110) | El gap medido mas grande (11 endpoints). Decision de producto + no entra en un cron de 30 min. |
+
+## 2. Completadas en este ciclo
+
+- **Control de carga corregido: `openItems` 5 -> 2** (PAUSA -> **RECOLECTAR**). Medido con `tools/hb163-canales.mjs` (`controles_ok: true`), control positivo y negativo en verde. El numero que decide el modo es ahora el que el PO declara, y no un residuo de filas.
+- **3 filas de `BACKLOG.md` cerradas con veredictos ya publicados** (no es decision nueva): **L18** (L349 Homestead, descartada - ronda 78 del PO), **L232** (Dungeon dailies, archivada con fecha, `revisar: 2026-11-18` - ronda 78 del PO) y **L82** (ALERT-41, la que cerre yo). Las dos primeras las habia cerrado un ciclo muerto y nunca llegaron al commit; el rescate las trae.
+- **ALERT-41 cerrado, con control positivo y negativo.** La condicion original de cierre ("Pablo pega el body crudo de `/v2/account/raids` con token real") **quedo superseded**: Pablo decidio el 2026-10-18 el **marcado manual de strikes** (`e9f1437`). Verificado: el commit **existe** en el repo, `completeStrikeManually()` esta en `origin/main:js/strike-tracker.js:881` (llamada en `:870`), control negativo `completeStrikeManuallyXYZ999` = **0**. El PO ya lo daba por cerrado en su ronda 81; lo que quedaba era el estado de la casilla.
+- **Rescate de trabajo de ciclos muertos** (PASO -1: arbol sucio, mtimes anteriores a este arranque, **sin escritor vivo** - ninguna sesion `running`): `ALERTS_LOG.md` (+149), `DASHBOARD_PO_IDEAS.md` (+100, rondas 68-75 del PO), `CHANGELOG.md` (+13), `HEARTBEAT.md` (+121/-1), `tools/hb163-canales.mjs` (+126/-6), `BACKLOG.md` (2 filas). Nada de esto estaba commiteado.
+- **`PRE_BACKLOG.md` y `COMMS_LOG.md` restaurados desde `origin/main`** (ALERT-269): las 2 copias del working tree eran **versiones mas nuevas pero mas cortas** y habrian borrado historial de la punta. **Backup antes de tocar**: `C:\Users\psanc\.qwenpaw\workspaces\default\_rescate_hb171\`.
+
+## 3. Pendientes
+
+1. **`buildstorage` (L11)** - el unico item con permiso pendiente. Es codigo de producto + es el item #1 del Sprint 2 (que abre el 2026-10-25) + necesita el permiso `inventories` de Pablo para verificarse. **No se arranco.**
+2. **`PRE_BACKLOG.md` - 3 copias disjuntas** (ALERT-269). La punta del repo esta en ronda 67 (5.626 lineas), el working tree tenia ronda 81 (76 lineas) y el workspace del PO tiene ronda 81+ (497 lineas). Las tres tienen contenido **disjunto**: no hay merge posible sin decidir cual gana. **Decidilo el PO** (es su archivo) - pregunta ya enviada.
+3. **`COMMS_LOG.md` - 2 copias disjuntas**: la punta (794 lineas, filas 057-182, cabecera mutilada) y la del workspace (68 lineas, filas 001-016, con la fila 024 de hoy). **Se arma en un ciclo dedicado**, no en este.
+4. **`buildstorage` + `Coberturable`**: los 2 items que quedan abiertos, y los 2 unicos que el Sprint 2 del Arquitecto declara como trabajo del equipo (`BACKLOG.md` L6: "These are the only items the team works on").
+5. Sin cambio: **ALERT-179**, **T14/T15**, los **7 del patron B**, **Idea 57** (4 wrappers), **FILTRO-05**.
+6. **ALERT-41 deja de ser pendiente mio**: la fila esta cerrada y el workaround (marcado manual) esta mergeado. El marcado automatico sigue bloqueado en Pablo, pero **ya no es un item abierto del backlog**.
+
+## 4. Alertas
+
+- **ALERT-269 (nueva)** - `PRE_BACKLOG.md` con **3** copias y `COMMS_LOG.md` con **2**, todas **disjuntas**. Medido, con bytes y lineas de cada copia. **No se decidio cual gana**: es archivo privado del PO y el `AGENTS.md` no me deja cambiarle el canonico. Ver `ALERTS_LOG.md`.
+- **ALERT-268** - el regex `#{2,}` de la ronda (resuelta en HB#213).
+- **ALERT-41** - **cerrada** este ciclo (no sigue pendiente).
+- **Sin incidente de crons**: 3 agentes con disparador (Principal, PO por cron, Documentador por heartbeat interno de 4h), verificado en las 2 capas con `tools/hb169-capas.mjs` (4/4 controles OK).
+- **Deuda visible**: ~100 ramas locales, 29 worktrees, y `_hb55_strikeclear.js` + `_rescate_hb154` en la raiz (**NO son mios**).
+
+## 5. Estado de propuestas al Reviewer
+
+**0 enviadas.** No por falta de novedades del PO (la ronda 81 esta consumida y el PO declara 2 prioridades), sino porque **el control de carga estaba en PAUSA con un numero inflado**: 5 filas abiertas de las cuales **3 ya estaban cerradas** por veredictos publicados. Con el numero corregido a **2**, el modo es **RECOLECTAR** y la ronda siguiente del PO puede traer ideas de nuevo. **Nada al Reviewer todavia: la consulta al PO (`task-907bfb3aeed6`) sigue en vuelo.**
+
+**El numoero que se manda al Reviewer sale de la prosa de la ronda viva, no de un conteo de glifos.** El canal del PO esta en la **ronda 81** (3 canales medidos y de acuerdo, `max_global_ronda: 81`, `canales_VIEJOS_por_ronda: []`), y el `0` del `openItems` del workspace del PO **no es una medicion** (`marcadorPresente: 0`, `openItemsDiscrimina: false`): el canal que discrimina es `BACKLOG.md` de `origin/main`.
+
+---
+
 # TEAM_STATUS - Heartbeat Principal #180 (2026-10-11 ~14:40 UTC)
 
 **Procesado Heartbeat PO #71 / HB#209 (workspace PO).** 5 prioridades consolidadas (idénticas a HB#208):
