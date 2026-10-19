@@ -64,3 +64,7 @@ po-*/
 # Backup de antes de una reescritura. Se conservan localmente; en git solo
 # viven los archivos buenos.
 *.bak-*
+# PRE_BACKLOG.md del PO: sale de git por la decision (c) del 2026-10-19 (HB#221).
+# Vive en el workspace del PO (AGENTS.md:645). El historico sigue en f17960a
+# y el congelado de las rondas 74-82 en PRE_BACKLOG_PO_2026-10-05_a_2026-10-19.md.
+/PRE_BACKLOG.md
