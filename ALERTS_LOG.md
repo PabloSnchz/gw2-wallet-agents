@@ -1,3 +1,94 @@
+> # ALERT-271 (HB#173): DOS CICLOS DEL PRINCIPAL CORRIERON CONCURRENTES Y MANDARON EL MISMO PACK AL REVIEWER
+>
+> **Medido el 2026-10-19 entre las 22:41 y las 23:00 UTC.** El HB#172 mando las 3 propuestas del PO al
+> Reviewer a las **22:52** (`task-9f1cb8c8a9b3`, commit `7a02c96`, 22:56:10 UTC). Este ciclo las mando a las
+> **22:49** (`task-d531dfa4f50a`). **Dos task_ids, un solo paquete de ideas, y 1 sola fila anotada en
+> `COMMS_LOG.md`** (la 183, de este ciclo). El ciclo del HB#172 **no anoto ninguna fila**, y el PO habia
+> pedido explicitamente que cada ronda tenga su fila en el canal trackeado: lo que se perdio en la ronda 80
+> paso exactamente por ahi.
+>
+> **La causa, medida: el PASO -1 no puede ver a un ciclo que todavia no escribio nada.** El paso compara el
+> remoto contra la hora de arranque y cruza con el estado del arbol. Al abrir (22:41) el remoto era `bc1c00d`
+> (22:38:22 UTC, **3 minutos antes**) y el arbol estaba limpio: "nada que hacer". La otra sesion estaba
+> trabajando, pero todavia no habia tocado un archivo, asi que **no existia ninguna señal**. El paso protege
+> del trabajo **a medias**; no protege del trabajo **que todavia no empezo**.
+>
+> **Y la consecuencia no fue solo el pack duplicado:**
+> - El Reviewer recibe 2 consultas casi iguales y gasta 2 revisiones en 3 ideas.
+> - Los dos ciclos escriben una seccion de `TEAM_STATUS.md`; **la segunda que llega pisa la primera**, y el
+>   trabajo del otro ciclo se pierde sin dejar registro (es el modo de fallo de ALERT-219, con un disfraz
+>   nuevo: no es un commit sin pushear, es un commit que llega tarde).
+> - **Lo que mas duele: el canal que habria delatado la duplicacion esta vacio justamente porque los dos
+>   ciclos lo omitieron.** Si el HB#172 hubiera anotado su fila (183) y este hubiera anotado la suya (184),
+>   el proximo ciclo veria 2 filas de la misma ronda y preguntaria por que.
+>
+> **REGLA: el PASO -1 tiene que medir tambien la CONCURRENCIA, no solo el trabajo a medias.** La senal
+> disponible: la sesion del propio agente en la plataforma (`qwenpaw chats list`) y la hora del ultimo
+> **commit local**, no la del remoto. Un ciclo que ya escribio y todavia no commiteo se ve en `.git` (ramas
+> locales, `git log --all --since`). **Ademas: si un ciclo concurrente ya mando algo, la fila en
+> `COMMS_LOG.md` es la que lo hace visible, y por lo tanto escribir la fila ANTES de mandar, no despues.**
+> Mandar y despues anotar deja una ventana en la que la duplicacion es invisible.
+
+> # ALERT-272 (HB#173): EL PASO 3 VERIFICA CONTRA EL REPO, NO CONTRA LA API. 2 DE 3 PROPUESTAS TENIAN PREMISA FALSA
+>
+> **Medido el 2026-10-19 contra la API oficial (`api.guildwars2.com/v2/`) y contra `origin/main` @ `7a02c96`.**
+> Las 3 propuestas del PO (ronda 80) se verificaron **por los dos lados**, y el lado de la API fallo en 2 de 3:
+>
+> | propuesta | contra `origin/main` | contra la API | veredicto |
+> |---|---|---|---|
+> | Idea 77 (Festival Tracker) | 0 matches de `festival\|seasonal\|halloween` | n/a | **CONFIRMADA** |
+> | Idea 78 (WV objetivos de evento) | la pestana "Especiales" **ya existe** | n/a | **PREMISA MEDIA FALSA** |
+> | Idea 79 (Raid Tracker Legendary) | 0 matches de `9478` como logro | **9478 -> HTTP 404**; el real es **9472** | **PREMISA FALSA** |
+>
+> **El detalle de Idea 79, que es el que hace la alerta:** `/v2/achievements/9478` -> `404 {"text":"no such id"}`,
+> y el rango **9478-9485 da 404 en los 8**. El logro real del modo Legendario de Vloxx es **9472 "Legendary
+> Nexus of Eternity"** ("Defeat Vloxx while the challenge mote is active"). Un censo completo del catalogo
+> (**41 paginas, 8157 logros**) muestra el patron del juego: "Legendary <encuentro>" = 8587 Ura, 8580 Decima,
+> 8631 Greer, 8639 Adina, 7873 Cerus, 3292 "Solitary Confinement" y 3342 "Harsh Sentence" (Samarog), **9472
+> Vloxx**. El PO lo saco de **gw2treasures**, y `BACKLOG.md:80` ya avisaba exactamente eso: *"IDs de
+> gw2treasures que NO existen... No los des por buenos sin token"*. **Una regla escrita que no se le aplica a
+> una propuesta viva es una regla que no existe** (la misma forma de ALERT-270: un bloqueador transcrito).
+>
+> **Por que el paso 3 no lo puede ver:** su verificacion es *"cada item se verifica por separado contra
+> `origin/main`"*, y `origin/main` **no tiene ids de logros de GW2**: un id muerto en la API es invisible en el
+> repo. El control es correcto para lo que mide y **no cubre la clase de defecto que la propuesta rested**.
+>
+> **REGLA: una propuesta que se apoya en un dato externo (id de la API, nombre de objetivo, id de wiki) se
+> verifica contra el REPO **y** contra la FUENTE, y la fuente es la API oficial, no un sitio de terceros.** Y el
+> control tiene que discriminar: un `404` de la API oficial y un `404` de un id inexistente son el mismo
+> veredicto, asi que la serie de ids tiene que traer un **control positivo** (9394, 9422, 9435, 9454, 9472 ->
+> 200) y uno **negativo** (9478, 9479, 9485 -> 404). Con solo el negativo, un token invalido daria el mismo
+> resultado que un id inexistente.
+
+> # ALERT-273 (HB#173): GANAR EL NUMERO MAS ALTO DE RONDA PUEDE SALTEAR LA RONDA QUE TIENE LOS ITEMS
+>
+> **Medido el 2026-10-19 sobre el `PRE_BACKLOG.md` del workspace del PO (30.232 bytes, 497 lineas).** Los 3
+> canales del paso 3 coinciden en la ronda global **81** (`max_global_ronda_CONSISTENTE: true`,
+> `canales_VIEJOS_por_ronda: []`). Y la ronda 81 dice, textual:
+>
+> > **"Ninguna idea nueva esta ronda. Las 3 del HB#218 siguen vigentes y listas para proponer al Principal."**
+>
+> O sea: **la ronda que gana no tiene items; los 3 items estan en la ronda 80, una ronda por debajo.** La
+> ronda 81 es una **poda que difiere a la anterior**, y la regla *"gana el numero mas alto de los tres"*
+> (ALERT-231) manda a leer una ronda sin items. Un paso 3 que leyera solo la 81 reportaria **0 propuestas**
+> con la misma confianza con la que reporta un 0 real.
+>
+> **Y esto ya se habia visto una vez por la misma razon:** ALERT-240 ("el corte de seccion de una ronda, no su
+> contenido, decidio que hay o no trabajo"). La diferencia es que ALERT-240 era sobre **dentro** de una ronda y
+> esto es sobre **entre** rondas: el conteo de items de la ronda ganadora no dice nada de las rondas que esa
+> ronda difiere.
+>
+> **REGLA: al ganar una ronda, hay que leer la ronda que esa ronda difiere.** Concretamente: si la seccion
+> ganadora dice "siguen vigentes" / "ninguna idea nueva" / "las N del HB#XXX siguen vigentes", la ronda efectiva
+> es la que nombra, y el conteo de items tiene que hacerse sobre ella. **Un 0 en la ronda mas alta no es un 0
+> cuando la ronda dice que difiere a otra** - es el mismo 0 vacio de ALERT-236, con la puerta de entrada
+> distinta.
+>
+> **Y el control que hacia falta:** el paso 3 tiene `canales_VIEJOS_por_ronda` (los que se quedaron atras), pero
+> **no tiene `rondas_DIFERIDAS`**: los canales que son mas viejos por numero y siguen con items vivos. Sin ese
+> campo, el desacuerdo que hoy se reporta (c1 = 67 contra el global 81) se ve como "un canal atrasado" y no
+> como "un canal con la ronda que tiene el trabajo".
+
 > # ALERT-270 (HB#172): EL BLOQUEADOR DEL ITEM #1 DEL SPRINT 2 ERA UNA PREMISA FALSA, Y NADIE LO RE-DERIVO EN 5 CICLOS
 >
 > **Medido el 2026-10-19 contra `origin/main` @ `bc1c00d`, con 3 fuentes.** El item L11 de `BACKLOG.md`
