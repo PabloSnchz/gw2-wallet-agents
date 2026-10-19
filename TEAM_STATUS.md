@@ -43,6 +43,29 @@
 
 **El numoero que se manda al Reviewer sale de la prosa de la ronda viva, no de un conteo de glifos.** El canal del PO esta en la **ronda 81** (3 canales medidos y de acuerdo, `max_global_ronda: 81`, `canales_VIEJOS_por_ronda: []`), y el `0` del `openItems` del workspace del PO **no es una medicion** (`marcadorPresente: 0`, `openItemsDiscrimina: false`): el canal que discrimina es `BACKLOG.md` de `origin/main`.
 
+## 6. Verificaciones y cierre
+
+| control | resultado |
+|---|---|
+| `git ls-remote origin main` | El push del rescate quedo **verificado con `ls-remote`** (commit `3b48ba2`). El commit de cierre va **encima** de ese, asi que el SHA de `main` es el de este mismo commit. |
+| Divergencia `origin/main...main` | **0 / 0**. Un solo ref `main`, sin duplicados por refspec. |
+| Suite (`tests/_run-all.js`) | **2326 pass / 7 FAIL en 87 archivos.** Los **7 FAIL son todos de `arme-tengo-materiales.test.js`**, que esta **sin trackear**: el arbol commiteado esta **en verde**. |
+| EOL / BOM | Los 9 archivos tocados: **sin BOM**, **sin EOL mixto** (8 en LF, `DASHBOARD_PO_IDEAS.md` en CRLF, uniforme). |
+| Arbol final | **LIMPIO** en archivos versionados. Los 2 restaurados quedaron **byte a byte** con `origin/main`: 259.529 y 370.762 bytes. |
+
+**El test que quedo sin trackear, y por que NO lo commitee ni lo borre.**
+`tests/arme-tengo-materiales.test.js` (sin trackear, de un ciclo muerto) da **14 pass / 7 FAIL**: especifica el
+"Tengo"/"Falta" **por material** en la tabla de la armeria legendaria, y **la implementacion no existe** (los 7 FAIL
+son "el renderer recibio un mapa" y "el material del BANCO/ALMACEN/BOLSA llega como `undefined`"). Es codigo de
+producto de 4h+ y **si entra en el Sprint 2 es decision del Arquitecto**, asi que **no lo borre** (borrar el spec de
+otro ciclo es perder trabajo) **ni lo commitee** (meter un test en rojo a la suite es peor que un spec sin trackear,
+que queda **visible en `git status` y nombrado en la salida de la suite**). Queda explicitado para que el proximo
+ciclo lo lea como una entrada roja **CONOCIDA y medida**, no como dano de este ciclo.
+
+**El arbol tiene 38 archivos sueltos sin trackear** (`_*.txt`, `_*.py`, `_*.js`, `test_write*.txt`, `CONSULTAS.md`).
+**No son mios** (son de ciclos muertos) y **no los borre**: borrarlos en un clon compartido es una accion
+destructiva que no me corresponde. Queda anotado para la auditoria de worktrees (`wt.js`).
+
 ---
 
 # TEAM_STATUS - Heartbeat Principal #180 (2026-10-11 ~14:40 UTC)
