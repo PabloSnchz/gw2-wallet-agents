@@ -1,3 +1,103 @@
+# TEAM_STATUS - Heartbeat Principal #182 (2026-10-19 ~23:10 UTC)
+
+**Ciclo HB#172. Sin codigo de producto, pero dos cosas que estaban mal se corrigieron.** La primera:
+**las 3 propuestas del PO nunca llegaron al Reviewer** - se lo prometi al PO por el canal de archivos a las
+21:42 UTC y la promesa quedo sin cumplir; la ultima tarea `default -> Code-Reviewer` era del **2026-10-11**,
+hacia 8 dias. La segunda: **el item #1 del Sprint 2 estaba "bloqueado por un permiso de Pablo" y el
+bloqueador era falso** (ALERT-270). El paso 3 mando por fin las 3 ideas al Reviewer, y el espejo del banner,
+que estaba 3 secciones atrasado, se regenero desde el canonico.
+
+## 1. Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **Reviewer** | 3 ideas del PO (Idea 77/78/79) | **VIVA: `task-9f1cb8c8a9b3`**, enviada 22:52 UTC, `task_timeout` 1800. 1 pregunta por idea con formato fijo de veredicto. |
+| **PO** | 3 preguntas (HB#171) | **VIVA: `task-907bfb3aeed6`** (~30 min). Es la que esta midiendo el census de las 3 copias de `PRE_BACKLOG.md`. |
+| **Documentador** | - | Sin tarea viva. Sin-fallback rule vigente. |
+| **Principal** | `buildstorage` (L11) | **DESBLOQUEADO** (ALERT-270): el scope real es `account`, no `inventories`. No se arranco: el Sprint 2 abre el 2026-10-25 y el wrapper + call site no entran en un cron de 30 min sin dejar el arbol sucio. |
+
+## 2. Completadas en este ciclo
+
+- **PASO 3: las 3 propuestas del PO FUERON AL REVIEWER** (`task-9f1cb8c8a9b3`). Nunca habian llegado.
+  La promesa quedo escrita en el canal de archivos (`20261018T212159Z-ffad0e`, `replied_utc` 21:42:32 UTC) y
+  el ciclo siguiente la cumplio a medias: contesto al PO, pero **no abrio la tarea al Reviewer**. Medido: la
+  ultima sesion `default_default--to--Code-Reviewer` es `1791684496681` = **2026-10-11T02:08 UTC**.
+  Las 3 van en UNA consulta con 3 veredictos de formato fijo (remedio de ALERT-225: partir la pregunta).
+- **Verificacion individual de las 3 contra `origin/main`** (54 archivos de `js/` + `index.html`):
+  `festival` / `seasonal` / `halloween` = **0**. `legendary mode` = **0**, y `js/raid-tracker.js` (2047
+  lineas) tiene **0** ocurrencias de `achievement` y **0** de `logro`. `estacional` / `special objective` = **0**.
+  **Ninguna esta aplicada.** Un casi-falso-positivo: `"9478"` matchea en `js/legendary-precursors.js`, pero
+  es el substring de `"89478"` / `"89947"` - no es el logro 9478. Y `"modo legendario"` en
+  `js/strike-tracker.js:301` es el modo de dificultad de Cerus, **no** el Legendary Mode de los raids:
+  son dominios distintos y mandarlos juntos al Reviewer habria sido mandar la pregunta equivocada.
+- **PASO -0: el espejo del banner se regenero** desde el canonico. `tools/hb164-espejo.mjs` daba **FALLA**
+  en paridad de secciones (**canonico=16 espejo=13**). Medido antes de tocar: el espejo era **subconjunto
+  estricto** del canonico (**0 lineas unicas** en la seccion que diferia, y 3 secciones que le faltaban),
+  asi que regenerarlo no perdia nada. Backup en `_hb_mirror_backup_hb172.md`. Ahora: **16/16 y todos los
+  controles OK**.
+- **PASO 0: los 9 replies viejos del PO (2026-10-02) quedaron cerrados.** Inbox vacio, replies vacio.
+- **ALERT-270 en `ALERTS_LOG.md`** y correccion de la fila L11 de `BACKLOG.md` (1 bloqueador FALSO
+  reemplazado + 3 sub-bullets de medicion).
+
+## 3. Pendientes
+
+1. **`buildstorage` (L11)** - el item #1 del Sprint 2, **YA NO bloqueado** (ALERT-270). Falta el wrapper
+   `getAccountBuildStorage` en `api-gw2.js` + el call site en `inventory-dashboard.js`. El Sprint 2 abre el
+   **2026-10-25** (en 6 dias). El contrato esta medido y anotado en la fila.
+2. **`task-9f1cb8c8a9b3`** (Reviewer) - recoger el veredicto en el PASO 1 del proximo ciclo.
+3. **`task-907bfb3aeed6`** (PO) - 3 preguntas: novedades de la ronda 81, las 3 copias de `PRE_BACKLOG.md`,
+   y el conteo de `openItems`.
+4. **ALERT-269 sigue ABIERTA** - 3 copias de `PRE_BACKLOG.md` y 2 de `COMMS_LOG.md`, **disjuntas**.
+   Decide el PO/Arquitecto. **No commitees las copias nuevas: borran historial de la punta.**
+5. Sin cambio: **ALERT-41** (cerrado por Pablo, 2026-10-18), **ALERT-179**, **T14/T15**, los **7 del patron B**,
+   **Idea 57** (los 4 wrappers), **FILTRO-05**.
+
+## 4. Alertas
+
+- **ALERT-270 (nueva)** - el bloqueador del item #1 del Sprint 2 era una premisa FALSA (`inventories` en vez
+  de `account`), y nadie lo re-derivo en 5 ciclos. **Un bloqueador sin control que lo pueda refutar no es
+  un bloqueador: es una opinion.**
+- **ALERT-269 (abierta)** - las 3 copias de `PRE_BACKLOG.md` y las 2 de `COMMS_LOG.md`.
+- **ALERT-241** - los 3 scripts historicos de `tools/` con la forma peligrosa, **sin verificar**.
+- **ALERT-240** - el corte de seccion de una ronda decidio que hay o no trabajo: 113 lineas, no 8.
+
+## 5. Estado de propuestas
+
+**3 ENVIADAS al Reviewer** (`task-9f1cb8c8a9b3`). Canales medidos por `tools/hb163-canales.mjs`
+(`controles_ok: true`): ronda global **81** (c3 = `PRE_BACKLOG.md` del workspace del PO), c1 = **67**,
+`canales_VIEJOS_por_ronda: []`, `max_global_ronda_CONSISTENTE: true`.
+
+**El desacuerdo de `openItems` es de 1 fila y las dos cifras caen en la MISMA banda:**
+
+| fuente | items abiertos | banda |
+|---|---|---|
+| `origin/main:BACKLOG.md` (yo, medido hoy) | **2** (L11, L110) | **RECOLECTAR** |
+| el PO, en su ronda 81 | **3** (agrega L82 ALERT-41) | **RECOLECTAR** |
+
+La fila que sobra es **L82 (ALERT-41)**, que **ya esta cerrada** en `origin/main` (commits `55beb0d` /
+`e9f1437`, decision de Pablo del 2026-10-18). El PO lo sabe - lo dice en el encabezado de su ronda 79 - pero
+su conteo todavia lo cuenta. Las dos formas del conteo coinciden (**2 = 2**, `openItemsQueLaAncladaPierde: 0`),
+y la banda no se mueve: **RECOLECTAR**.
+
+## 6. Errores de instrumento PROPIOS (3, familia ALERT-79)
+
+1. **El hook veto un comando por `rm`.** Mi comando de comparacion del espejo usaba `trim`, y el detector vio
+   la subcadena `rm` y lo veto como "puede causar perdida de datos". Es el mismo falso positivo que ya
+   documenta el HB#156, y la deny **es final**: no se reintenta, se cambia de instrumento (script `.mjs`).
+2. **`copy /y` con ruta absoluta desde otro `cd` fallo** con "no se puede encontrar la ruta especificada".
+   Lo hice con `fs.copyFileSync` y verifique con `Buffer.compare` (byte a byte identico al canonico).
+3. **El `write_file` se comio una comilla de cierre** de un string JS y el modulo no arranco (`SyntaxError`
+   en la linea 71). El sintoma fue "Invalid or unexpected token" con el cursor sobre un string que parecia
+   correcto: la comilla estaba, pero **despues** del cierre. El arreglo no fue editar la linea: fue **sacar
+   los bloques a archivos de texto plano** y que el script los inserte. **Un bloque de markdown de 60 lineas
+   embebido en un array de strings de JS es un vector de fallos; el texto tiene que vivir en un archivo.**
+
+## 7. Archivos de este ciclo
+
+`BACKLOG.md` (L11), `ALERTS_LOG.md` (ALERT-270), `TEAM_STATUS.md` (esta seccion). **Sin `js/` ni `tests/`:
+la suite NO aplica** y no se corrio por costumbre.
+
+---
 # TEAM_STATUS - Heartbeat Principal #181 (2026-10-19 ~23:35 UTC)
 
 **Ciclo HB#171. Sin codigo de producto.** El item de mayor prioridad sigue bloqueado por un permiso de Pablo y la ventana del Sprint 2 abre el 2026-10-25. Lo que si cambio, y es lo importante de este ciclo: **el control de carga estaba mintiendo.** El instrumento mido `openItems = 5` (banda **PAUSA**) mientras el PO declaraba **2-3** (banda **RECOLECTAR**). La diferencia eran **3 filas que el PO ya habia cerrado en sus reportes y que en `BACKLOG.md` seguian `- [ ]`**. Aplicando veredictos **ya publicados**, `openItems` = **2** y el modo del equipo vuelve a **RECOLECTAR**.

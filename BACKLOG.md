@@ -12,7 +12,10 @@
   - **Prioridad:** ALTA. Es el único gap competitivo real (11 endpoints `/v2/account/*` sin wrapper).
   - **Endpoint:** `/v2/account/buildstorage` (verificado: 401 con token falso = existe).
   - **Alcance:** wrapper en `api-gw2.js` + call site en `inventory-dashboard.js`.
-  - **Bloqueado por:** permiso `inventories` de Pablo.
+  - **Bloqueado por:** ~~permiso `inventories` de Pablo~~ - **CORREGIDO (HB#172, 2026-10-19): la premisa es FALSA.** `/v2/account/buildstorage` pide scope **`account`**, NO `inventories` (wiki `API:2/account/buildstorage`: "Scope: account"; y la tabla de endpoints de `API:API key`: `buildstorage | account`, contra `bank | account, inventories`). El scope `account` ya lo tienen TODOS los tokens de la app: hay **11 wrappers `getAccount*`** en `api-gw2.js` y 5 de ellos son solo-`account` (`getAccountInfo`, `getAccountRaids`, `getAccountWallet`, `getAccountLuck`, `getAccountAchievements`). **NO esta bloqueado por un permiso de Pablo.**
+  - **Contrato medido (2026-10-19, wiki):** la raiz devuelve un array de **ids** de template; `?ids=all` devuelve los objetos: `name`, `profession`, `specializations[3]` (`{id, traits[3]}`), `skills` (`{heal, utilities[3], elite}`), y opcionales `aquatic_skills`, `legends`, `aquatic_legends`. Misma forma que `/v2/inventory`.
+  - **Medido:** `buildstorage` = **0 coincidencias** en todo el repo (54 archivos de `js/` + `index.html` + `tests/`). El wrapper NO existe todavia. `inventory-dashboard.js` (1428 lineas) ya llama `GW2Api.getAccountBank` / `getAccountMaterials` / `getAccountInfo`, asi que el patron del call site esta probado.
+  - **Casi-engano medido:** el campo `build_storage_slots` de `/v2/account` exige el scope **`builds`**, que es DISTINTO del que pide el endpoint. No confundir los dos.
   - **Tarea:** `buildstorage`
 
 - [x] ~~**L349 Homestead — limpieza de fila**~~ **DESCARTADA (HB#216, ronda 78 del PO): la fila a la que refería (L349 de PRE_BACKLOG) ya no existe. El wiring de Homestead fue confirmado en HB#211: 3 wrappers en `api-gw2.js`, 13 referencias en `index.html`, 18 en `router.js`. La "limpieza" era auto-referencial y no tenia contenido.**

@@ -1,3 +1,35 @@
+> # ALERT-270 (HB#172): EL BLOQUEADOR DEL ITEM #1 DEL SPRINT 2 ERA UNA PREMISA FALSA, Y NADIE LO RE-DERIVO EN 5 CICLOS
+>
+> **Medido el 2026-10-19 contra `origin/main` @ `bc1c00d`, con 3 fuentes.** El item L11 de `BACKLOG.md`
+> (`buildstorage`, el #1 de "ASIGNADOS POR EL ARQUITECTO", Sprint 2 = 2026-10-25) estaba anotado como
+> "**Bloqueado por:** permiso `inventories` de Pablo". Ese es el scope de `/v2/account/bank`, **no** el de
+> `/v2/account/buildstorage`:
+>
+> | fuente | dice |
+> |---|---|
+> | wiki `API:2/account/buildstorage` | **Scope: `account`** |
+> | wiki `API:API key` (tabla de endpoints) | `buildstorage` = `account` (y `bank` = `account, inventories`) |
+> | el repo | 11 wrappers `getAccount*` ya funcionando, 5 de ellos solo-`account` |
+>
+> O sea: **el scope que el endpoint pide ya lo tienen los tokens que la app usa hoy.** El item no estaba
+> bloqueado. Un `401 con token falso` (la verificacion que estaba escrita en la fila) **no distingue**
+> "el endpoint existe" de "el scope es el que creo": con un token falso la API responde 401 por el token,
+> no por el scope.
+>
+> **La forma del defecto (ALERT-247 aplicado, ALERT-264):** un bloqueador transcrito es un valor, y un valor
+> escrito no se re-deriva. El equipo opero 5 ciclos con el item #1 del Sprint 2 "bloqueado" y nadie
+> pregunto de donde salia el `inventories`. **La unica razon valida para no arrancar un item es una razon
+> medida hoy, no una heredada.** Cuando la razon es "esperando a Pablo", hay que distinguir "esperando a",
+> que es verificable, de "Pablo no lo ha aprobado", que es un supuesto sobre una accion que no ocurrio.
+>
+> **Corolario, y es el que cuesta:** "bloqueado por X" es un **modo de falla silencioso** del control de carga.
+> El item sigue contando como `- [ ]`, o sea que el conteo de carga lo ve igual que a un item sin empezar,
+> y el equipo no puede distinguir "nadie lo toco" de "nadie lo puede tocar". Por eso el item quedo 5 ciclos
+> con el #1 del Sprint 2 y el Sprint abria en 6 dias.
+>
+> **REGLA: un bloqueador se escribe con la fuente de donde sale Y con el control que lo dejaria caer.**
+> Si no hay un control que pueda refutar el bloqueador, no es un bloqueador: es una opinion.
+
 > # ALERT-269 (HB#171): `PRE_BACKLOG.md` TIENE **TRES** COPIAS Y `COMMS_LOG.md` **DOS**, Y SON
 > # **DISJUNTAS**: COMMITEAR LAS DOS NUEVAS BORRA HISTORIAL DE LA PUNTA DEL REPO
 >
