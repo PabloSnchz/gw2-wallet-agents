@@ -1,4 +1,58 @@
-# TEAM_STATUS - Heartbeat Principal #182 (2026-10-19 ~23:10 UTC)
+# TEAM_STATUS - Heartbeat Principal #183 (2026-10-19 ~23:00 UTC)
+
+**Ciclo HB#173. Sin codigo de producto. Lo que se corrigio: 2 de las 3 propuestas del PO tenian una premisa FALSA, y el paso 3 no puede verlas porque verifica contra el REPO y no contra la API.** Y aparecio otra cosa, que no se busco: **dos ciclos corrieron a la vez** - el HB#172 (22:52) y este (22:41) - y **ambos mandaron las 3 propuestas al Reviewer**. Medido, no supuesto: 2 `task_id` distintos, y **1 sola fila anotada** en `COMMS_LOG.md` (la de este ciclo). El otro ciclo no anoto ninguna, que es justo lo que el PO pidio que no volviera a pasar.
+
+## 1. Tareas en curso
+
+| Quien | Que | Estado |
+|---|---|---|
+| **Reviewer** | 3 ideas del PO (77/78/79) | **2 packs EN VIVOS**: `task-9f1cb8c8a9b3` (HB#172, 22:52) y `task-d531dfa4f50a` (este ciclo, 22:49). **El mio lleva las correcciones de API; el otro no.** Ver ALERT-271. |
+| **PO** | 3 preguntas (HB#171) | **RESUELTO**: `task-907bfb3aeed6` -> finished, veredicto entero con las 3 respuestas. Le mande la decision de `PRE_BACKLOG.md` + las correcciones: `task-cc2c27bd425a` (22:49). |
+| **Documentador** | - | Sin tarea viva (`task-b4a7f3aeb84b` = 404). Sin-fallback rule vigente. |
+| **Principal** | `buildstorage` (L11) | **DESBLOQUEADO** (ALERT-270, del HB#172): el scope real es `account`, no `inventories`. **No se arranco**, razon re-derivada: el Sprint 2 abre el **2026-10-25** (en 6 dias) y "ASIGNADOS POR EL ARQUITECTO" dice que es lo unico que se trabaja; el wrapper + call site no entran en un cron de 30 min sin dejar el arbol sucio (HB#150, #151, #154). |
+
+## 2. Completadas en este ciclo
+
+- **PASO 1: los 27 `task_id` con estado vivo de `COMMS_LOG.md` medidos uno por uno -> los 27 dan 404** (estado terminal verificado). Incluye los 2 que el HB#171 ya habia medido y los 24 que mi escaner encontro con un filtro **mas ancho** que el del ciclo anterior (54 filas -> 24 ids unicos). Regla: un 404 verificado se cierra, no se marca fallido. **Ninguna tarea viva del Reviewer ni del Documentador.**
+- **PASO 1: la consulta al PO (`task-907bfb3aeed6`) RESPONDIO**, y su respuesta cambio el ciclo: 3 propuestas de la ronda 80 que se enviaron por un mensaje que **se vencio sin que nadie lo reenviara ni lo anotara**. El mensaje **si habia llegado** (`_comms/default/archive/20261018T212159Z-ffad0e.json`) - no se perdio, no se leyó.
+- **PASO 3: las 3 propuestas, VERIFICADAS contra la API oficial** (no solo contra el repo), y **2 de 3 tenian premisa falsa**:
+  - **Idea 79: el logro 9478 NO EXISTE.** `/v2/achievements/9478` -> **404** `{"text":"no such id"}`, y el rango entero **9478-9485 da 404 en los 8**. El id real del modo Legendario de Vloxx es **9472 "Legendary Nexus of Eternity"** ("Defeat Vloxx while the challenge mote is active"). Censo completo del catalogo (41 paginas, **8157 logros**): el patron del juego es "Legendary <encuentro>" = 8587 Ura, 8580 Decima, 8631 Greer, 8639 Adina, 7873 Cerus, 3292/3342 Samarog, **9472 Vloxx**. Ademas: 9394 CM plata, 9435 CM oro, 9422 CM semanal, 9387 raid normal, 9414 "A True Visionary". El PO lo saco de gw2treasures: `BACKLOG.md:80` ya avisaba que los ids de esa fuente hay que verificarlos.
+  - **Idea 78: la pestana "Especiales" del WV YA EXISTE** (`router.js:1038/1045/1050/1060`, `GW2Api.getWVSpecial` -> `wizards-vault.js:298` -> `/v2/account/wizardsvault/special`). La premisa "el modulo WV no distingue objetivos especiales" es **falsa**; lo que falta es el sub-nivel "de evento".
+  - **Idea 77: confirmada**, 0 matches de `festival|seasonal|halloween` en `js/` y `*.html`.
+- **El pack al Reviewer se mando CON las correcciones** (`task-d531dfa4f50a`), no como vinieron: `9472` en vez de `9478`, y la Idea 78 acotada al sub-flag de evento.
+- **COMMS_LOG.md: 3 filas nuevas (183, 184, 185)** - la ronda 80 que se perdio, el envio al Reviewer y la respuesta al PO. **Ninguno de los 2 ciclos concurrentes habia anotado nada**, y el canal que el PO pidio para que las propuestas no se pierdan era justamente el que estaba vacio.
+- **Decision sobre `PRE_BACKLOG.md`: APROBADA la variante (c) del PO** (el archivo sale de git), con 3 condiciones: **C1** el `git rm --cached` no puede ocurrir hasta que las filas de las rondas perdidas esten en el `COMMS_LOG.md` del repo (hoy, con la 183); **C2** el commit del archivo congelado (30 KB) va ANTES del `git rm --cached` y en el mismo ciclo; **C3** el paso 3 **no se rompe** - medido: el tercer canal de `tools/hb163-canales.mjs` (`c3_pre_backlog_ws`) lee el **workspace** del PO, no la copia del repo, y el `AGENTS.md:645` ya decia "vive en workspace del PO, NO en el repo". El `git rm --cached` lo hace el PO: es su archivo.
+- **PASO 4: los 2 items abiertos, medidos y re-derivados.** `buildstorage` (L11) ya no esta bloqueado (ALERT-270) pero el Sprint 2 abre el 2026-10-25; `Coberturable` (L110) tiene 1 de 11 endpoints con capa de datos y **0 pantallas**, y los 10 restantes son producto que no entra en 30 min. **Ninguno se arranca.**
+
+## 3. Pendientes
+
+1. **Los 2 packs al Reviewer**: `task-9f1cb8c8a9b3` y `task-d531dfa4f50a`. Recoger el veredicto en el PASO 1 del proximo ciclo. **Si el Reviewer reporta 2 packs, el que vale es el mio** (`task-d531dfa4f50a`): lleva el id 9472 y la correccion de la Idea 78.
+2. **`task-cc2c27bd425a`** (PO) - mi respuesta con la decision (c) y las 3 condiciones. Pendiente: que el PO ejecute C1 y C2 en un ciclo propio.
+3. **La ronda 80 tiene que quedar con su fila** antes de que el PO saque `PRE_BACKLOG.md` de git (condicion C1).
+4. **`buildstorage` (L11)** - item #1 del Sprint 2, **ya no bloqueado**. Falta el wrapper `getAccountBuildStorage` + el call site en `inventory-dashboard.js`.
+5. **`Coberturable` (L110)** - 1 de 11 con capa de datos, 0 con pantalla.
+6. Sin cambio: **ALERT-269** (3 copias de `PRE_BACKLOG.md` y 2 de `COMMS_LOG.md`, disjuntas - decide el PO/Arquitecto), **ALERT-179**, **T14/T15**, los **7 del patron B**, **Idea 57** (los 4 wrappers), **FILTRO-05**.
+
+## 4. Alertas
+
+- **ALERT-271 (nueva)** - **dos ciclos del Principal corrieron concurrentes y mandaron el MISMO pack al Reviewer** (`task-9f1cb8c8a9b3` y `task-d531dfa4f50a`), y **ninguno de los dos anoto la fila** en `COMMS_LOG.md`. La causa: el PASO -1 mide el remoto y el arbol, y un ciclo que **todavia no escribio nada** es invisible para las dos señales. El paso protege del trabajo a medias, no del trabajo que todavia no empezo.
+- **ALERT-272 (nueva)** - **el paso 3 verifica contra `origin/main`, no contra la API**: una propuesta puede ser nueva en el repo y descansar sobre un dato que no existe. Medido: **1 de 3 (33%)** con un id de logro muerto (9478 -> 404; el real 9472), y **1 de 3** con una feature ya implementada (la pestana "Especiales" del WV).
+- **ALERT-273 (nueva)** - **ganar el numero mas alto de ronda puede saltear la ronda que TIENE los items**: la ronda 81 (la ganadora, `max_global_ronda: 81`) dice *"Ninguna idea nueva esta ronda. Las 3 del HB#218 siguen vigentes"*, y los 3 items estan en la **ronda 80**, una ronda por debajo.
+- **ALERT-270** (HB#172) - el bloqueador de L11 era una premisa falsa. **ALERT-269** (abierta) - las copias disjuntas.
+
+## 5. Estado de propuestas
+
+**3 ENVIADAS al Reviewer, en 2 packs** (`task-9f1cb8c8a9b3` del HB#172 y `task-d531dfa4f50a` de este ciclo) - y por primera vez **con las premisas verificadas contra la API**.
+
+Canales medidos por `tools/hb163-canales.mjs` (`controles_ok: true`): ronda global **81**, c1 = **67**, `canales_VIEJOS_por_ronda: []`, `max_global_ronda_CONSISTENTE: true`, `c2_backlog_main.openItems: 2` (tolerante = anclada, `openItemsQueLaAncladaPierde: 0`) = **RECOLECTAR**. El PO cuenta **3** (agrega L82, que el HB#171 cerro) y las dos cifras caen en la **misma banda**.
+
+| fuente | items abiertos | banda |
+|---|---|---|
+| `origin/main:BACKLOG.md` (yo) | **2** (L11, L110) | **RECOLECTAR** |
+| el PO, ronda 81 | **3** | **RECOLECTAR** |
+
+**Lo que se le respondio al PO**: control de carga confirmado (2 = RECOLECTAR), decision (c) de `PRE_BACKLOG.md` aprobada con 3 condiciones, y las 2 correcciones de premisa.
+
 
 **Ciclo HB#172. Sin codigo de producto, pero dos cosas que estaban mal se corrigieron.** La primera:
 **las 3 propuestas del PO nunca llegaron al Reviewer** - se lo prometi al PO por el canal de archivos a las
@@ -47,8 +101,8 @@ que estaba 3 secciones atrasado, se regenero desde el canonico.
 2. **`task-9f1cb8c8a9b3`** (Reviewer) - recoger el veredicto en el PASO 1 del proximo ciclo.
 3. **`task-907bfb3aeed6`** (PO) - 3 preguntas: novedades de la ronda 81, las 3 copias de `PRE_BACKLOG.md`,
    y el conteo de `openItems`.
-4. **ALERT-269 sigue ABIERTA** - 3 copias de `PRE_BACKLOG.md` y 2 de `COMMS_LOG.md`, **disjuntas**.
-   Decide el PO/Arquitecto. **No commitees las copias nuevas: borran historial de la punta.**
+4. **ALERT-269 DECIDIDA (opcion c)** - el PO saca `PRE_BACKLOG.md` de git con 3 condiciones; la primera
+   fila del canal nuevo en `COMMS_LOG.md` tiene que ir en el **mismo commit** que el `git rm --cached`.
 5. Sin cambio: **ALERT-41** (cerrado por Pablo, 2026-10-18), **ALERT-179**, **T14/T15**, los **7 del patron B**,
    **Idea 57** (los 4 wrappers), **FILTRO-05**.
 
@@ -57,7 +111,7 @@ que estaba 3 secciones atrasado, se regenero desde el canonico.
 - **ALERT-270 (nueva)** - el bloqueador del item #1 del Sprint 2 era una premisa FALSA (`inventories` en vez
   de `account`), y nadie lo re-derivo en 5 ciclos. **Un bloqueador sin control que lo pueda refutar no es
   un bloqueador: es una opinion.**
-- **ALERT-269 (abierta)** - las 3 copias de `PRE_BACKLOG.md` y las 2 de `COMMS_LOG.md`.
+- **ALERT-269 (DECIDIDA: opcion (c), `PRE_BACKLOG.md` sale de git)** - con 3 condiciones mias; la ejecuta
 - **ALERT-241** - los 3 scripts historicos de `tools/` con la forma peligrosa, **sin verificar**.
 - **ALERT-240** - el corte de seccion de una ronda decidio que hay o no trabajo: 113 lineas, no 8.
 
@@ -78,6 +132,35 @@ La fila que sobra es **L82 (ALERT-41)**, que **ya esta cerrada** en `origin/main
 `e9f1437`, decision de Pablo del 2026-10-18). El PO lo sabe - lo dice en el encabezado de su ronda 79 - pero
 su conteo todavia lo cuenta. Las dos formas del conteo coinciden (**2 = 2**, `openItemsQueLaAncladaPierde: 0`),
 y la banda no se mueve: **RECOLECTAR**.
+
+### ACTUALIZACION DE CIERRE (23:30 UTC): EL PO RESPONDIO, Y ALERT-269 YA TIENE DECISION
+
+`task-907bfb3aeed6` **termino**. Sus 3 respuestas:
+
+1. **Novedades: nada mas alla de la ronda 81.** Su censo coincide con el mio (81 en las 3 formas,
+   `INCONSISTENTE=false`). Ronda 81 = **0 propuestas nuevas**; las 3 del HB#218 "siguen vigentes".
+   Ojo: mi instrumento dio **82** al final del ciclo, o sea que el PO empezo a escribir la 82 mientras
+   corria este ciclo. El proximo ciclo la leo.
+2. **ALERT-269: DECIDIDA. La opcion (c): `PRE_BACKLOG.md` SALE DE GIT.** Es decision del PO (es su
+   archivo) y yo la **ratifico con 3 condiciones**: (i) el commit del snapshot deduplicado
+   `PRE_BACKLOG_PO_2026-10-05_a_2026-10-19.md` tiene que existir **ANTES** del `git rm --cached`,
+   verificado por SHA-256 contra su copia del workspace; (ii) la **primera fila** del canal nuevo en
+   `COMMS_LOG.md` (ronda 82) tiene que estar en el **mismo commit** que el `.gitignore` + el
+   `git rm --cached` - si no, el archivo sale de git y el canal nuevo todavia no existe, y queda una
+   ventana sin ningun canal, que es el hueco que hoy le hizo perder 8 dias; (iii) el `.gitignore` va
+   en el mismo commit. **Lo hace el PO, no yo: es su archivo y su operacion.**
+   Reversibilidad ya medida por el PO: `git show f17960a:PRE_BACKLOG.md`.
+   **Condicio permanente: mientras el snapshot no este commiteado, NO se hace el `git rm --cached`. Si en
+   2 ciclos el snapshot no esta, el item vuelve a la cola.**
+3. **openItems: 2 = {L11 buildstorage, L110 Coberturable}, y ahora con el MISMO SET.** El PO confirma
+   que cerre **tres** filas (L18, L82 y **L232**, que el PO habia cerrado en su HB#216): 5 - 3 = 2. Y
+   avisa que su ronda 81 declaraba 3 = {L11, L82, L110}: coincidiamos en el numero, no en la lista.
+4. **Urgencia con fecha:** Halloween cierra el **2026-11-03**. Idea 77 y 78 son las que tienen ventana.
+5. El PO detecto **un error mio**: el "3" de mi mensaje anterior era su numero, no el mio. Corregido.
+
+**Respuesta enviada al PO** por el canal de archivos: `ask` -> id `20261019T225850Z-358942`. Le confirme
+que las 3 **ya estan en el Reviewer** (`task-9f1cb8c8a9b3`, 22:52 UTC) para que no las reenvie, y que
+Idea 79 la tomo yo directo.
 
 ## 6. Errores de instrumento PROPIOS (3, familia ALERT-79)
 
