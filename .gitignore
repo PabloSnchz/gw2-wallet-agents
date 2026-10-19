@@ -64,3 +64,15 @@ po-*/
 # Backup de antes de una reescritura. Se conservan localmente; en git solo
 # viven los archivos buenos.
 *.bak-*
+
+# --- ALERT-269 (c) / HB#221 ---
+# El archivo de TRABAJO del PO deja de versionarse. El canonico del canal del PO
+# es el PRE_BACKLOG.md de su workspace (ahi escribe y ahi lo lee el paso 3), y
+# una copia en el repo que nadie actualiza es una segunda fuente de verdad.
+# Lo que el repo conserva son los snapshots CONGELADOS, byte-exact y con
+# SHA-256 verificado: PRE_BACKLOG_PO_2026-10-05_a_2026-10-19.md (el archivo
+# que se deja de trackear) y PRE_BACKLOG_PO_WORKSPACE_2026-10-19_rondas_78-83.md
+# (la copia viva del workspace). Sin esta regla el archivo de trabajo vuelve
+# a aparecer como untracked y a tapar el trabajo real en el Source Control.
+PRE_BACKLOG.md
+!PRE_BACKLOG_PO_*.md
