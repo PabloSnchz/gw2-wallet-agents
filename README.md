@@ -23,8 +23,8 @@ Aplicación liviana para Guild Wars 2 que permite consultar:
 - 📊 Detalle de compras Wizard's Vault — KPIs de Aclamación Astral
 - 🟢 **Estado online basado en actividad reciente** — Detecta cualquier actividad (PvP, PvE, WvW, economía)
 - 📈 **Dashboard de Cartera Multi-Cuenta** — Tabla de todas las cuentas vs divisas seleccionadas, KPIs y ordenamiento dinámico
-- 🎯 **Raid Tracker** — Seguimiento semanal de raids (9 alas, 34 encuentros, marcado automático vía API)
-- ⚔️ **Strike Tracker** — Seguimiento de Strike Missions (15 encuentros, grid optimizado, navegación integrada con Raids)
+- 🎯 **Raid Tracker** — Seguimiento semanal de raids (9 alas, 30 encuentros, marcado automático vía API)
+- ⚔️ **Strike Tracker** — Seguimiento de Strike Missions (15 encuentros, grid optimizado, navegación integrada con Raids, marcado manual como workaround)
 - ⚔️ **Armería Legendaria** — Catálogo de las 206 legendarias con árbol de fabricación y materiales (`js/legendary-tracker.js` v1.1.0, ruta `#/account/legendary-armory`)
 - 🏡 **Homestead Tracker** — Progreso de decoraciones por categoría y glifos coleccionables (`js/homestead-tracker.js` v1.0.0, ruta `#/account/homestead`)
 - 🔐 **Panel de Cuentas** — Gestión segura de múltiples cuentas con cifrado local y diseño "Profile Card" premium
@@ -57,6 +57,24 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 **Por qué importa:** un dato hardcodeado se ve igual que uno real. El usuario no tiene forma de saber que es falso, y la app degrada en silencio. Un aviso explícito es más útil que una respuesta inventada.
 
 > **Consecuencia para futuros módulos:** si un feature necesita un dato que la API no expone, el feature se entrega *sin* ese dato (o con el fallback estático ya existente en el proyecto), no *con* una estimación. Ver detalle en `docs/ONBOARDING.md` → Invariantes Técnicas.
+
+### ⚔️ Marcado manual de strikes (`js/strike-tracker.js` v1.0.0, 2026-10-18)
+
+**Workaround manual mientras la GW2 API no expone el estado de las Strike Missions.**
+
+| Característica | Descripción |
+|----------------|-------------|
+| **Botón "✓ Manual"** | Aparece en cada strike **pendiente**. No se renderiza en las ya completadas |
+| **`completeStrikeManually(id)`** | Agrega el ID a `state.completedStrikes` **sin consultar la API**. Escritura local determinista |
+| **Aviso `#strikeManualNotice`** | *"Marcado automático a la espera de la API de GW2…"*, con feedback de 3 s y tres modos (`ok` / `info` / `amber`). **Sin popups** |
+| **Solo `js/strike-tracker.js`** | El cambio no toca ningún otro archivo |
+| **No persiste** | La marca vive en el estado en memoria: **se pierde al recargar la página** |
+
+> **Qué NO promete.** El marcado automático sigue bloqueado: los IDs del catálogo de strikes dan 404 contra la API de GW2 (ALERT-41). El botón es una herramienta de trabajo para Pablo, no una feature de primera mano. Cuando la API devuelva el estado, el botón debe dejar de existir.
+
+**Decisión de Pablo (2026-10-18):** agregar marcado manual como workaround, en lugar de estimar o inventar el dato. Mismo criterio que el resto de la app: si la API no lo expone, se avisa.
+
+---
 
 ### 🏡 Homestead Tracker (`js/homestead-tracker.js` v1.0.0)
 
@@ -108,18 +126,18 @@ https://pablosnchz.github.io/gw2-wallet-ligero/
 | `js/luck-curve.js` | **v1.0.0** | **NUEVO** — IIFE → `window.LuckCurve`. Tabla `CUMULATIVE` con los 300 umbrales oficiales + `fromLuck(value)`. Sin DOM, sin fetch, sin storage |
 | `js/api-gw2.js` | v2.15.0 | `getAccountLuck(token, opts) -> Number`, `TTL.LUCK = 10 min`. Patrón de `getAccountWallet` |
 | `js/wallet-dashboard.js` | **v2.9.0** | Campo de resumen opt-in `'luck'` → columna "Suerte (MF)": MF% + barra de progreso + tooltip "faltan X luck para el próximo +1%". KPI "Mejor MF base (N/M al tope)". La fila TOTAL muestra "N tope" porque el MF% no se suma entre cuentas |
-| `index.html` | — | `<script src="js/luck-curve.js?v=1.0.0">` + `wallet-dashboard.js` a `?v=2.7.0` |
+| `index.html` | — | `<script src="js/luck-curve.js?v=1.0.0">` + `wallet-dashboard.js` a `?v=2.9.0` |
 
 **Validación:** tabla parseada del wikitext con **0 discrepancias cumulativas** en los 300 niveles; tope calculado 4.295.450 = prosa de la wiki. Test funcional en Node contra el código real (8 casos + 4 checks de curva) → TODO OK. `node --check` OK en los 3 JS. Commit `44c64a9`.
 
-### 💾 Centralización de localStorage (`js/storage.js` v1.0.1)
+### 💾 Centralización de localStorage (`js/storage.js` v1.1.0)
 
 **Único punto de acceso a `localStorage` con migración automática de prefijos.**
 
 | Característica | Descripción |
 |----------------|-------------|
 | **API unificada** | `Storage.get/set/remove` en lugar de 27 claves dispersas |
-| **38 reglas de prefijos** | `gw2_*` → `gn:account:*`, `wv_*` → `gn:wv:*` |
+| **41 reglas de prefijos** | `gw2_*` → `gn:account:*`, `wv_*` → `gn:wv:*` |
 | **Modo `copy`** | Claves viejas preservadas, módulos existentes no se tocan |
 | **Fallback map** | Si una clave nueva no existe, busca la vieja automáticamente |
 | **Idempotente** | Seguro en múltiples pestañas |
@@ -1009,30 +1027,35 @@ Definí en `index.html` (antes de router.js):
 | `js/converter-modal.js` | **v1.2.0** | **NUEVO: Modal del Conversor con 3 tabs (Cambio, Transacciones, Populares)** |
 | `js/inventory-dashboard.js` | **v1.2.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa, sets con tiers, carga en 2 fases** |
 | `js/router.js` | **v2.17.0** | **Router desacoplado (~800 líneas). WV Objectives Dashboard + Inventory Dashboard. Sidebar sin conversor.** |
+| `js/sidebar-nav.js` | v1.2 | Navegación del sidebar: router-friendly, escucha `gn:tokenchange` y a11y |
 | `js/inventory-hub.js` | **v1.4.0** | **Inventario y Personajes — Buscador de objetos, KPIs, vistas de sección, modal de ítem** |
 | `js/wv-shop-ui.js` | **v1.0.2** | UI de Tienda WV. **Glow solo en ícono de rareza, fix de timing con wv-theme.js** |
 | `js/wv-objectives-ui.js` | v1.0.0 | UI de Objetivos WV |
 | `js/wv-objectives-dashboard.js` | **v1.0.0** | **Dashboard de Objetivos Multi-Cuenta — Tabla comparativa, KPIs, countdown** |
 | `js/wv-theme.js` | **v1.0.1** | Tema visual de WV. **Solo border-left, expone window.WVTheme** |
+| `js/wv-season-storage.js` | v1.1.1 | Almacenamiento por temporada del Wizard's Vault (JSON por temporada en localStorage) |
+| `js/wv-tabs-skin.js` | v1.0.0 | Re-skin de tabs de WV, consistente con los rerenders |
 | `js/characters-theme.js` | **v1.0.1** | Tema visual de Personajes. **Solo border-left, elimina hover manual** |
 | `js/wv-purchase-detail.js` | **v1.14.0** | Detalle de compras. **Fix estado online (data-token), ícono reloj local** |
 | `js/luck-curve.js` | **v1.0.0** | **NUEVO: Curva de Suerte (Luck) account-wide — 300 umbrales oficiales + `fromLuck()` MF%. Sin DOM/fetch/storage** |
 | `js/wallet-dashboard.js` | **v2.9.0** | Dashboard de Cartera. **KPIs con border-left + glow, tabla unificada con zebra, columna opt-in "Suerte (MF)"** |
-| `js/raid-tracker.js` | **v1.10.1** | **Raid Tracker: 8 alas, 33 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
-| `js/strike-tracker.js` | **v1.0.0** | **Strike Tracker: 15 strikes, grid optimizado, KPIs, modal con detalles, navegación integrada con Raids** |
+| `js/raid-tracker.js` | **v1.10.1** | **Raid Tracker: 9 alas, 30 encuentros, marcado automático vía API, modal con detalles, navegación integrada con Strikes** |
+| `js/strike-tracker.js` | **v1.0.0** | **Strike Tracker: 15 strikes, grid optimizado, KPIs, modal con detalles, navegación integrada con Raids. Marcado manual (✓ Manual) como workaround hasta que la API exponga el estado** |
 | `js/homestead-tracker.js` | **v1.0.0** | **Homestead Tracker: decoraciones por categoría con barras de progreso + glifos coleccionables, modal de detalle por decoration. Ruta `#/account/homestead`.** Persistencia `gn:homestead:` |
 | `js/analytics.js` | **v1.0.0** | **Eventos personalizados para Google Analytics** |
+| `js/storage.js` | **v1.1.0** | **Centralización de localStorage — único punto de acceso, prefijo `gn:`, 41 reglas de migración de prefijos** |
 | `js/wizards-vault.js` | **v1.3.1** | Módulo Wizard's Vault. **Ícono de recarga forzada de temporada** |
 | `js/accounts-panel.js` | **v2.0.2** | Panel de Cuentas. **Profile Card premium + tabla zebra** |
-| `js/settings-manager.js` | **v1.0.2** | **Sistema de Backup/Restaurar** |
-| `js/welcome-panel.js` | v1.3.0 | Pantalla de Bienvenida con onboarding y accesos rápidos |
+| `js/settings-manager.js` | **v1.0.4** | **Sistema de Backup/Restaurar** |
+| `js/gist-sync.js` | v1.1.0 | Sincronización con GitHub Gist (AES-GCM + PBKDF2) |
+| `js/welcome-panel.js` | v1.4.0 | Pantalla de Bienvenida con onboarding y accesos rápidos |
 | `js/activities.js` | **v3.20.4** | Actividades. **Glow en íconos de Ecto** |
-| `js/activities-theme.js` | v2.6.0 | Home Nodes + barra de horarios unificada con iconos GW2 |
-| `js/characters.js` | v2.3.0 | Panel de Personajes. **Íconos profesión locales. Subvista del InventoryHub** |
+| `js/activities-theme.js` | v2.6.1 | Home Nodes + barra de horarios unificada con iconos GW2 |
+| `js/characters.js` | v2.4.1 | Panel de Personajes. **Íconos profesión locales. Subvista del InventoryHub** |
 | `js/meta.js` | **v3.4.1** | MetaEventos. **Rediseño cards estilo Raids, barra progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español** |
 | `js/meta-theme.js` | **v1.4.2** | Tema visual de Meta. **Solo border-left** |
 | `js/wallet-theme.js` | **v1.3.1** | Tema visual de Cartera. **Glow en ícono + glow neutro para divisas sin color** |
-| `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
+| `js/achievements.js` | v3.2.1 | Logros: grid único, recompensas visibles, dropdowns, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
 | `js/achievements-theme.js` | **v1.1.1** | Tema visual de Logros. **Solo border-left** |
 | `js/legendary-tracker.js` | **v1.1.0** | **Armería Legendaria. Ruta `#/account/legendary-armory`. Catálogo + Mi progreso + árbol de fabricación + materiales.** Persistencia `gn:legendary:` |
 | `js/legendary-data.js` | **v1.0.0** | **GENERADO. Catálogo estático de 206 legendarias** (`window.LegendaryCatalog`) |
@@ -1047,8 +1070,9 @@ Definí en `index.html` (antes de router.js):
 | `js/commerce-delivery-theme.js` | **v1.0.0** | Capa 3 (color semántico) del banner de Commerce Delivery. **Solo `borderLeft`** |
 | `js/fractal-tracker-theme.js` | **v1.0.1** | Capa 3 (color semántico) del bloque de fractales. **Solo `borderLeft`** |
 | `js/app.js` | **v2.8.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
-| `css/theme-polish.css` | **v2.2.0** | **Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons** |
-| `css/main.css` | **v2.6.0** | Estilos principales. **Solo layout, sin bordes ni box-shadows. Tag infusión celestial.** |
+| `js/theme-selector.js` | **v1.1.0** | Selector de temas (18 temas + aleatorio) con modal de filas y persistencia |
+| `css/theme-polish.css` | **v2.4.0** | **Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons** |
+| `css/main.css` | **v2.9.0** | Estilos principales. **Solo layout, sin bordes ni box-shadows. Tag infusión celestial.** |
 
 ### Archivos nuevos (Unreleased) — Armería Legendaria
 - `js/legendary-tracker.js` — Módulo principal de la Armería. Ruta `#/account/legendary-armory`, pestañas Catálogo y Mi progreso

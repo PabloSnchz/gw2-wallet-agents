@@ -397,6 +397,28 @@ y el versionado **SemVer** (https://semver.org/).
 - **Idea 50 P3**: `index.html` pasa a `js/api-gw2.js?v=2.30.0` (línea 940) y `js/wizards-vault.js?v=1.3.1` (línea 942). Sin estos bumps el registro de bases existiría en el repo y no en la app: un navegador con los archivos cacheados seguiría con la v2.29.0, sin registro de bases, y el botón borraría solo las 18 de la capa. Mismo modo de falla que las dos entradas anteriores.
 - **v6.6.2-agents**: chore(build) cache-busting `?v` refs aligned to file headers (main.css 2.7.0, theme-polish 2.2.0, activities.js 3.19.6, gist-sync.js 1.1.0). `wv-purchase-detail.js` 1.13.1 untouched (coincidía). Commits: `794bafa`, `33fdcd9`.
 
+### Documentation
+- **docs(coherencia): la documentación ahora coincide con el código** (Heartbeat del Documentador, 2026-10-20). Sin commits de producto nuevos desde `3b48ba2` (2026-10-19), este ciclo es de **coherencia documental**, no de features nuevas. Se contrastaron los 49 archivos de `js/` + `css/` contra sus banners de versión y contra los `?v=` de `index.html`, y se corrigió lo que no coincidía.
+
+  **README.md**
+  - Tabla "📦 Archivos clave" — versiones corregidas: `settings-manager.js` v1.0.2→**v1.0.4**, `welcome-panel.js` v1.3.0→**v1.4.0**, `activities-theme.js` v2.6.0→**v2.6.1**, `characters.js` v2.3.0→**v2.4.1**, `achievements.js` v3.2.0→**v3.2.1**, `css/theme-polish.css` v2.2.0→**v2.4.0**, `css/main.css` v2.6.0→**v2.9.0**.
+  - Tabla "📦 Archivos clave" — 6 filas que faltaban: `storage.js` (v1.1.0), `gist-sync.js` (v1.1.0), `sidebar-nav.js` (v1.2), `theme-selector.js` (v1.1.0), `wv-season-storage.js` (v1.1.1), `wv-tabs-skin.js` (v1.0.0).
+  - Raid Tracker: **9 alas, 30 encuentros** (medido sobre `js/raid-tracker.js` v1.10.1). El README decía "9 alas, 34 encuentros" en la lista de features y "8 alas, 33 encuentros" en la tabla.
+  - `js/storage.js` v1.0.1→**v1.1.0** y "38 reglas de prefijos"→**41** (contadas sobre el `MIGRATION_PREFIXES` real: 34 exactas + 7 familias).
+  - Sección nueva: **marcado manual de strikes** (2026-10-18), que estaba en el CHANGELOG pero no en el README.
+
+  **docs/ONBOARDING.md**
+  - Tabla "🧩 Responsabilidades por archivo" (Consolidado v6.6.0→**v6.6.3**): **17 versiones corregidas** y **13 módulos que faltaban** agregados (`storage.js`, `homestead-tracker.js` y los 11 de la Armería Legendaria, catálogo, íconos, ETA y los 2 temas de capa 3).
+  - `js/api-gw2.js` v2.16.0→**v2.34.0** con la superficie real de la API (incluye `getAccountWallet`, `getAccountLuck`, `getAccountHomestead*`, `getAstralAcclaimBalance`).
+  - Raid Tracker: la sección "Novedades v6.2" conserva la tabla histórica y suma el **estado actual** (9 alas / 30 encuentros, ala 9 *Nexo de Eternidad*, y el fix de 5 ids del 2026-09-30). La sección del módulo pasa de v1.3.1 a **v1.10.1**.
+  - Strike Tracker: se documenta el **marcado manual** (ALERT-41) y se corrige la afirmación de que el marcado automático funciona.
+
+  **Hallazgos para el Principal — son de código, no de documentación. No se tocó código.**
+  1. `js/storage.js` v1.1.0: el comentario del `MIGRATION_PREFIXES` dice `38 entradas: 18 exactas + 20 familias` y el array tiene **41** (34 exactas + 7 familias).
+  2. `js/strike-tracker.js`: el banner sigue en **v1.0.0 (2026-06-03)** después del `+51` de `e9f1437` (2026-10-18). No se bumpearon ni el banner ni el `?v=1.0.0` de `index.html`.
+  3. `js/raid-tracker.js`: banner **v1.10.1** pero `index.html` lo carga con `?v=1.9.0` — el cache-buster quedó atrás.
+  4. `js/settings-manager.js`: el banner del archivo dice **v1.0.2** mientras `index.html` lo sirve con `?v=1.0.4`. La documentación ahora dice v1.0.4 (lo que se sirve) y anota la discrepancia.
+
 ---
 
 ## [6.7.1] - 2026-06-XX

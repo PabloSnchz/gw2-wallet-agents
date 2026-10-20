@@ -1753,6 +1753,9 @@ function formatCoinValue(value) {
 | 6 | Mito de Mythwright | 3 | 3 | 0 |
 | 7 | La Llave de Ahdashim | 4 | 3 | 1 |
 | 8 | Monte Balrior (Janthir Wilds) | 3 | 2 | 1 |
+| 9 | Nexo de Eternidad (Visions of Eternity) | 1 | 1 | 0 |
+
+> **Estado actual (v6.6.3).** La tabla de arriba es la del lanzamiento del módulo (v6.2). Hoy `js/raid-tracker.js` (v1.10.1) declara **9 alas y 30 encuentros**: las 8 de arriba más **Nexo de Eternidad** (Visions of Eternity, 1 encuentro: *Vloxx*, jefe, `li: 1`), agregada en `57008ae`. Reparto real: **24 jefes + 6 eventos**, con **29 encuentros `li: 1`** y 1 sin LI (*Puertas de Ahdashim*, id `gate`). El **2026-09-30** (`2de8f35`, Idea 52, v1.10.0) corrigió **5 ids que la API no reconocía** y por eso nunca se podían marcar: `siege_the_stronghold`→`escort`, `desmina`→`soulless_horror`, `dhuum`→`voice_in_the_void`, `gates_of_ahdashim`→`gate`, `ura_guardian`→`ura`. `07f4052` (v1.10.1) corrigió la clave `"ura"` duplicada en `REWARDS_DATA` y `BOSS_DETAILS` (sin cambio visual).
 
 **APIs consumidas:**
 - `GW2Api.getAccountRaids(token)` → obtiene IDs de encuentros completados esta semana
@@ -1771,7 +1774,7 @@ function formatCoinValue(value) {
 ```
 assets/icons/raids/
 ├── raid-icon.png                 # Ícono del módulo (sidebar y título)
-├── wing1.png a wing8.png         # Íconos de cada ala
+├── wing1.png a wing9.png         # Íconos de cada ala
 └── bosses/
     ├── vale_guardian.png
     ├── gorseval.png
@@ -1844,7 +1847,8 @@ assets/icons/raids/
 | Característica | Descripción |
 |----------------|-------------|
 | **15 strikes organizadas por expansión** | Core (1), Icebrood Saga (7), EoD (4), SotO (2), VoE (1) |
-| **Marcado automático** | Vía API `/v2/account/raids` (mismo endpoint que raids) |
+| **Marcado automático** | Vía API `/v2/account/raids` (mismo endpoint que raids). **Hoy no marca nada**: los ids del catálogo de strikes no aparecen en la respuesta de la API (ALERT-41) |
+| **Marcado manual** | Botón **"✓ Manual"** en cada strike **pendiente** (2026-10-18, ALERT-41). `completeStrikeManually(id)` escribe el id en `state.completedStrikes` **sin llamar a la API**. Aviso `#strikeManualNotice` con tres modos (`ok` / `info` / `amber`) y feedback de 3 s. **No persiste**: se pierde al recargar |
 | **KPIs semanales** | Strikes completadas, LI farmeables (15), porcentaje de progreso |
 | **Grid de 3 columnas optimizado** | Col1: Juego base + EoD, Col2: Icebrood Saga, Col3: SotO + VoE |
 | **Modal informativo** | Descripción, estrategia (5+ bullets) y enlace a video tutorial por strike |
@@ -1869,6 +1873,7 @@ assets/icons/raids/
 **Persistencia:**
 - No requiere localStorage (la API es la fuente de verdad)
 - Los datos se recargan automáticamente al cambiar de API key
+- **Excepción (marcado manual)**: la marca vive solo en `state.completedStrikes` (memoria). No se escribe en localStorage y **se pierde al recargar la página**
 
 **Ruta:** `#/account/strikes`
 
@@ -1949,47 +1954,60 @@ Web app ligera en browser, JS vanilla + HTML/CSS, sin framework. Estado y navega
 - `#/account/wizards-vault/objectives-dashboard` — Dashboard de Objetivos Multi-Cuenta (NUEVO)
 - `#/inventory/dashboard` — Dashboard de Inventario Multi-Cuenta (NUEVO v6.6.0)
 
-## 🧩 Responsabilidades por archivo (Consolidado v6.6.0)
+## 🧩 Responsabilidades por archivo (Consolidado v6.6.3)
 
 | Archivo | Versión | Responsabilidad |
 |---------|---------|-----------------|
-| `js/api-gw2.js` | **v2.16.0** | API Layer con fetchWithRetry, cachés, WV, achievements, items, account info con last_modified, **getAccountRaids**, **getAccountBank**, **getAccountMaterials**, **getAccountLegendaryArmory**, **getCommerceListings**, **getCommercePrices**, **getCommerceTransactionsBuys**, **getCommerceTransactionsSells**, **getCommerceDelivery** (propaga el error, ver "Criterio de manejo de error" — sin consumidor todavía) |
+| `js/api-gw2.js` | **v2.34.0** | API Layer con fetchWithRetry, cachés, WV, achievements, items, account info con last_modified, **getAccountRaids**, **getAccountBank**, **getAccountMaterials**, **getAccountLegendaryArmory**, **getAccountWallet**, **getAccountLuck**, **getAccountSkins**, **getAccountAchievements**, **getAchievementsMeta**, **getAccountHomesteadDecorations**, **getAccountHomesteadGlyphs**, **getHomesteadDecorationCategories**, **getHomesteadDecorationDetails**, **getHomesteadGlyphs**, **getAstralAcclaimBalance**, **getCurrenciesAll**, **getItemsMany**, **getCommerceListings**, **getCommercePrices**, **getCommerceTransactionsBuys**, **getCommerceTransactionsSells**, **getCommerceDelivery** (propaga el error, ver "Criterio de manejo de error" — sin consumidor todavía) |
 | `js/wv-season-storage.js` | v1.1.1 | Almacenamiento por temporada (JSON por temporada en localStorage) |
-| `js/wizards-vault.js` | v1.3.0 | WV: objetivos, tienda, integración con SeasonStore. Recarga forzada de temporada |
+| `js/wizards-vault.js` | v1.3.1 | WV: objetivos, tienda, integración con SeasonStore. Recarga forzada de temporada |
 | `js/wv-shop-ui.js` | **v1.0.2** | UI de Tienda WV — **Glow solo en ícono de rareza, fix de timing con wv-theme.js** |
 | `js/wv-objectives-ui.js` | v1.0.0 | UI de Objetivos WV — renderizado de diarias/semanales/especiales |
 | `js/wv-objectives-dashboard.js` | **v1.0.0** | **Dashboard de Objetivos Multi-Cuenta — tabla comparativa, KPIs, countdown semanal** |
-| `js/wv-purchase-detail.js` | **v1.13.1** | Detalle de compras — **Fix estado online (data-token), ícono reloj local** |
+| `js/wv-purchase-detail.js` | **v1.14.0** | Detalle de compras — **Fix estado online (data-token), ícono reloj local** |
 | `js/wv-tabs-skin.js` | v1.0.0 | Re-skin de tabs WV, consistente con rerenders |
-| `js/achievements.js` | v3.2.0 | Logros: grid único, recompensas visibles, dropdowns personalizados, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
+| `js/achievements.js` | v3.2.1 | Logros: grid único, recompensas visibles, dropdowns personalizados, AP potencial. **Tracker de componentes legendarios** (Proposición 1, PO #2) |
 | `js/meta.js` | **v3.4.1** | MetaEventos — **Rediseño cards estilo Raids, barra de progreso interna, íconos expansión locales 42x42, horarios hora local, wiki español, limpieza de código (~90 líneas menos)**. v3.4.1 = bump que publica el guard `LEY_LINE_ENDPOINT_RETIRED` |
 | `js/sidebar-nav.js` | v1.2 | Router‑friendly + tokenchange + a11y |
-| `js/activities.js` | **v3.19.6** | Actividades — **Glow en íconos de Ecto** |
-| `js/activities-theme.js` | v2.6.0 | Home Nodes + barra de horarios unificada con iconos GW2 |
-| `js/inventory-hub.js` | **v1.3.1** | **Inventario y Personajes — Buscador de objetos, KPIs, vistas de sección (Materiales/Banco/Armería), modal de ítem con stats** |
-| `js/characters.js` | v2.3.0 | Personajes: lista, ubicación, POIs, rangos PvP/WvW. Íconos profesión locales. **Subvista del InventoryHub** |
+| `js/activities.js` | **v3.20.4** | Actividades — **Glow en íconos de Ecto** |
+| `js/activities-theme.js` | v2.6.1 | Home Nodes + barra de horarios unificada con iconos GW2 |
+| `js/inventory-hub.js` | **v1.4.0** | **Inventario y Personajes — Buscador de objetos, KPIs, vistas de sección (Materiales/Banco/Armería), modal de ítem con stats** |
+| `js/characters.js` | v2.4.1 | Personajes: lista, ubicación, POIs, rangos PvP/WvW. Íconos profesión locales. **Subvista del InventoryHub** |
 | `js/characters-theme.js` | **v1.0.1** | Tema visual de Personajes — **Solo border-left, elimina hover manual** |
-| `js/accounts-panel.js` | **v2.0.0** | Panel de Cuentas — **Rediseño "Profile Card" premium + tabla zebra** |
-| `js/settings-manager.js` | v1.0.2 | Sistema de Backup/Restaurar |
+| `js/accounts-panel.js` | **v2.0.2** | Panel de Cuentas — **Rediseño "Profile Card" premium + tabla zebra** |
+| `js/settings-manager.js` | v1.0.4 | Sistema de Backup/Restaurar. **El banner del archivo sigue en v1.0.2 — el `?v=1.0.4` de `index.html` es lo que se sirve** |
 | `js/gist-sync.js` | v1.1.0 | Sincronización con GitHub Gist (AES-GCM + PBKDF2) |
 | `js/welcome-panel.js` | v1.4.0 | Pantalla de Bienvenida |
-| `js/raid-tracker.js` | v1.7.0 | Seguimiento de Raids Semanales |
-| `js/strike-tracker.js` | **v1.0.0** | **Seguimiento de Strike Missions (NUEVO v6.6.2)** |
+| `js/raid-tracker.js` | v1.10.1 | Seguimiento de Raids Semanales. **9 alas / 30 encuentros** |
+| `js/strike-tracker.js` | **v1.0.0** | **Seguimiento de Strike Missions (NUEVO v6.6.2). Marcado manual como workaround (2026-10-18, ALERT-41) — solo en memoria, no persiste** |
 | `js/luck-curve.js` | **v1.0.0** | Curva de Suerte (Luck) account-wide — **tabla `CUMULATIVE` de 300 umbrales oficiales + `fromLuck()`. Sin DOM, sin fetch, sin storage** |
-| `js/wallet-dashboard.js` | **v2.7.0** | Dashboard de Cartera — **KPIs con border-left semántico + glow, tabla unificada, columna opt-in "Suerte (MF)". Estilos inline eliminados, usa `.wd-*` + `.card`** |
-| `js/inventory-dashboard.js` | **v1.0.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa de ítems, sets con tiers, carga en 2 fases. Estilos inline eliminados, usa `.id-*` + `.card`** |
+| `js/wallet-dashboard.js` | **v2.9.0** | Dashboard de Cartera — **KPIs con border-left semántico + glow, tabla unificada, columna opt-in "Suerte (MF)". Estilos inline eliminados, usa `.wd-*` + `.card`** |
+| `js/inventory-dashboard.js` | **v1.2.0** | **Dashboard de Inventario Multi-Cuenta — Tabla comparativa de ítems, sets con tiers, carga en 2 fases. Estilos inline eliminados, usa `.id-*` + `.card`** |
 | `js/router.js` | **v2.17.0** | Router desacoplado (~800 líneas). **Soporta InventoryHub, WV Objectives Dashboard. Sidebar sin conversor. Purchase Detail en nav tabs.** |
-| `js/app.js` | **v2.7.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
+| `js/app.js` | **v2.8.0** | Keys, wallet, eventos globales. **Conversor extraído a converter-modal.js** |
 | `js/analytics.js` | v1.0.0 | Eventos personalizados para Google Analytics |
 | `js/wallet-theme.js` | **v1.3.1** | Tema visual de Cartera — **Glow en ícono de divisa + glow neutro para divisas sin color** |
 | `js/meta-theme.js` | **v1.4.2** | Tema visual de Meta — **Solo border-left** |
-| `js/converter-modal.js` | **v1.0.0** | **Modal del Conversor Gem ↔ Gold con 3 tabs (Cambio, Transacciones, Populares)** |
+| `js/converter-modal.js` | **v1.2.0** | **Modal del Conversor Gem ↔ Gold con 3 tabs (Cambio, Transacciones, Populares)** |
 | `js/theme-selector.js` | **v1.1.0** | **Selector de temas con modal rediseñado (filas con colores reales), 18 temas + aleatorio, persistencia** |
 | `css/themes/*.css` | **v1.0.0** | **18 temas con variables CSS (Bóveda, Catppuccin, Cyberpunk, etc.)** |
 | `js/achievements-theme.js` | **v1.1.1** | Tema visual de Logros — **Solo border-left** |
 | `js/wv-theme.js` | **v1.0.1** | Tema visual de WV — **Solo border-left, expone window.WVTheme** |
-| `css/theme-polish.css` | **v2.2.0** | Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons |
-| `css/main.css` | **v2.6.0** | Layout, backgrounds, tipografía + tag infusión celestial |
+| `css/theme-polish.css` | **v2.4.0** | Componentes canónicos + hover unificado + conversor + clases `.wd-*` / `.id-*` para KPIs, dropdowns, grids y skeletons |
+| `css/main.css` | **v2.9.0** | Layout, backgrounds, tipografía + tag infusión celestial |
+| `js/storage.js` | **v1.1.0** | **Centralización de localStorage — único punto de acceso (`Storage.get/set/remove`), prefijo `gn:`, 41 reglas de migración de prefijos** |
+| `js/homestead-tracker.js` | **v1.0.0** | **Homestead Tracker — decoraciones por categoría con barras de progreso + glifos coleccionables, modal de detalle por decoration. Ruta `#/account/homestead`.** Persistencia `gn:homestead:` |
+| `js/legendary-tracker.js` | **v1.1.0** | **Armería Legendaria — Catálogo + Mi progreso + árbol de fabricación + materiales. Ruta `#/account/legendary-armory`.** Persistencia `gn:legendary:` |
+| `js/legendary-data.js` | **v1.0.0** | Catálogo estático de 206 legendarias (`window.LegendaryCatalog`) — generado |
+| `js/legendary-recipes.js` | **v1.0.0** | Contrato de fabricación de las 206 legendarias (`window.LegendaryRecipes`) — generado |
+| `js/legendary-precursors.js` | sin banner | Precursores del árbol de fabricación. **Se carga bajo demanda: no está en `index.html`** |
+| `js/legendary-tree.js` | sin banner | Motor del árbol de fabricación y del total de materiales |
+| `js/legendary-tree-ui.js` | sin banner | Render del árbol de fabricación y de los totales de materiales |
+| `js/render-catologo.js` | **v1.0.0** | Render del catálogo de legendarias y de la barra de filtros |
+| `js/item-icons.js` | sin banner | Ícono y color de rareza de un ítem, resueltos desde la API |
+| `js/progress-eta.js` | **v1.0.0** | ETA de un progreso "N/total" (extraído de `wallet-dashboard.js`) |
+| `js/commerce-delivery-theme.js` | **v1.0.0** | Capa 3 (color semántico) del banner de Commerce Delivery. **Solo `borderLeft`** |
+| `js/fractal-tracker-theme.js` | **v1.0.1** | Capa 3 (color semántico) del bloque de fractales. **Solo `borderLeft`** |
 
 ### Archivos eliminados (v6.3)
 - `js/wallet-cur-theme-patch.js` — redundante con `wallet-theme.js`, aplicaba `!important` y eliminaba glows
@@ -2583,7 +2601,7 @@ function formatCoinValue(value) {
 }
 ```
 
-## ✅ js/raid-tracker.js — Seguimiento de Raids Semanales (v1.3.1)
+## ✅ js/raid-tracker.js — Seguimiento de Raids Semanales (v1.10.1)
 
 ### Resumen
 
@@ -2592,8 +2610,8 @@ Módulo que permite gestionar el progreso semanal de raids de Guild Wars 2, most
 ### ¿Qué hace?
 
 **Estructura de datos:**
-- 8 alas completas (Ala 1 a Ala 8)
-- 33 encuentros totales (21 jefes + 12 eventos)
+- **9 alas completas** (Ala 1 a Ala 9 — la 9 es *Nexo de Eternidad*, VoE, agregada en `57008ae`)
+- **30 encuentros totales** (**24 jefes + 6 eventos**; 29 con `li: 1` y 1 sin LI: *Puertas de Ahdashim*, id `gate`)
 - Cada encuentro tiene: id, nombre, tipo (jefe/evento), icono
 
 **Carga de datos:**
