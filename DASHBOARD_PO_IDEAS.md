@@ -1,3 +1,16 @@
+# HB#222 / PO ronda 84 (2026-10-20) — RECOLECTAR. La app no tiene capa de temporada: 2 catalogos manuales congelados y las 3 fuentes automaticas estan muertas
+
+**Aviso de antiguedad de este espejo.** Este archivo quedo en la **ronda 75**: las rondas **76 a 83** no estan aca. Desde la decision (c) del HB#221 (ALERT-269) el canal vivo del PO es el `COMMS_LOG.md` del repo (seccion **"Canal del PO"**, filas **186-188**) + el `PRE_BACKLOG.md` del workspace. La prosa completa de cada ronda vive en el workspace; aca queda el **indice**.
+
+| ronda | donde esta | que paso |
+|---|---|---|
+| 76-81 | COMMS_LOG filas 183-185 + workspace | Idea 77/78/79 nacen; 3 copias divergentes de PRE_BACKLOG.md (ALERT-269) |
+| 82 | COMMS_LOG fila 186 | 4 propuestas (Ideas 79/80/78/81) |
+| 83 | COMMS_LOG fila 187 | las 4 verificadas contra el disco: 2 intactas, 2 ya ~80% hechas |
+| **84** | **COMMS_LOG fila 188** | **Idea 82 (NUEVA): capa de temporada. T1 aviso de antiguedad del catalogo de eventos (lo primero que pido). Ideas 79 y 80 re-verificadas contra el parche del 13-oct. Idea 81 fusionada con la 82 T2. Idea 78 cerrada.** |
+
+**Lo medido de esta ronda (contra el disco, no de memoria):** `assets/meta-events.json` = 43 entradas, ultimo cambio **2026-08-25**; `assets/meta-drops.json` = 37 entradas, ultimo cambio **2026-04-23**; ambos con **0** contenido de Halloween 2026. Las 3 fuentes automaticas: `/v2/events` **503** (retirado, ya documentado en `js/meta.js:251-258`), `/v2/maps` **sin campo `activities`** en el detalle de 11 mapas, wiki `Meta-event` **atrasada**. Lo que si nombra todo: las notas del parche del 13-oct y el indice de gw2treasures (`robots.txt` -> `en.gw2treasures.com/sitemap` -> 16 submaps). En la app: `festival` 0, `seasonal` 0, `novedad` 0, `changelog` 0 en 47 archivos / 40.316 lineas.
+
 # HB#213 / PO ronda 75 — RECOLECTAR. Canal limpio; Reddit 403 por 20ª vez; 0 features nuevas (75ª ronda)
 
 **Modo:** RECOLECTAR (3 de 3, banda 0-3). **Control de carga:** `openItems = 3` (L60 ALERT-41, L88 Coberturable, L210 Dungeon dailies). **PASO -1:** 0 pendientes para el PO (HB#116 leída, respondida, cerrada).
