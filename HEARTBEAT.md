@@ -1,5 +1,4 @@
 <!-- =========================================================================== -->
-<!-- BANNER DE CANONICO Y ESPEJO (2026-10-03, Pablo delego la decision)          -->
 <!-- =========================================================================== -->
 <!--                                                                          -->
 <!-- HAY DOS COPIAS DE ESTE ARCHIVO. SON DOS, Y NO SON EL MISMO.               -->
@@ -170,7 +169,6 @@
 <!-- -->
 
 <!-- =========================================================================== -->
-<!-- BANNER ACTUALIZADO 2026-09-30 (Arquitecto)                                -->
 <!--                                                                          -->
 <!-- ESTADO REAL DEL DISPARADOR:                                              -->
 <!--   - Cron manual 13dc22e6: UNICO disparador. Corre cada 30 min (UTC).     -->
@@ -222,72 +220,6 @@
 
 > ## ✅ CORRECCION 2026-10-03 (HB#153) — LAS DOS PREMISAS DE LA NOCHE SON FALSAS
 >
-> El bloque "TRABAJO PRIORITARIO DE LA NOCHE" de mas abajo quedo escrito a las
-> **03:16 UTC del 2026-10-02**. Medido hoy (2026-10-03 00:30 UTC), **las dos
-> razones por las que existia ese bloque ya no se sostienen.** No lo borres: el
-> texto original queda como artefacto. Lo que sigue es lo que hay que leer.
->
-> **PREMISA 1 — "el fix de los 93 items con `generation=null` NO esta mergeado,
-> es el paso 1 y bloquea todo lo mas" → FALSA, y nacio falsa.**
-> - `git merge-base --is-ancestor 22a6a71 origin/main` → **exit 0** (es ancestro).
-> - Lo mergeo `9a68eb4` ("merge(armeria): 22a6a71 a main"), **2026-10-02 03:12:36 UTC**.
-> - El banner dice *"Son las 03:16 UTC cuando se escribio esto"*: **4 minutos
->   DESPUES** del merge que hacia falsa la frase. No es un banner que envejecio;
->   es un banner que se escribio con 4 minutos de atraso sobre un dato que ya habia cambiado.
-> - Verificado por efecto, no por el mensaje del commit: el test de regresion esta
->   en `origin/main` (`tests/armeria-alert-01-clasificacion.test.js`) y corre
->   **121 pass, 0 fail**.
-> **Consecuencia:** 25 horas de ciclos creyendo que el paso 1 estaba pendiente.
-> Es el mismo modo de fallo que ALERT-222: un control que apunta a un hecho
-> viejo y no tiene ninguna guarda que lo vuelva a medir.
->
-> **PREMISA 2 — "Pablo se fue a dormir" → FALSA, y esta es la que importa.**
-> - Sesion `1790896138537-8kgh5xf` ("Correcciones de Armeria Legendaria"),
->   `updated_at` / `last_finished_at` = **2026-10-03T00:28:27Z**: 2 minutos
->   antes de que arrancara este ciclo.
-> - Commits suyos en `origin/main` de **hoy**: `d2dfd57` (00:08 UTC) y `6b0c12c`
->   (00:27 UTC), los dos de la Armeria.
->
-> **REGLA (esto si va antes de cualquier `checkout`, `commit` o escritura):**
-> **al abrir el ciclo, `qwenpaw chats list` y mirar si hay alguna sesion
-> `running`.** Si la hay **y** el arbol esta sucio con mtimes recientes —
-> o el arbol esta sucio y los mtimes son viejos — el ciclo se resuelve con el
-> PASO -1 de mas abajo. Sin rama, sin `checkout`, sin commit.
-> El motivo esta medido, no es prudencia de manual: el HB#152 casi destruye el
-> trabajo de Pablo con un `git checkout -b` de primer acto, y por suerte. La
-> ventana de 12:00 UTC sigue **abierta** —esa autorizacion es de Pablo y no es
-> mia para quitarla—, pero **no autoriza trabajar a solas**: se escribio
-> suponiendo a Pablo dormido, y Pablo esta despierto trabajando en el mismo clon.
->
-> **CORREGIDO EN HB#157, y era la SEGUNDA copia de la misma bomba.** Este texto
-> decia que un commit en `origin/main` de los ultimos ~15 min ya basta para
-> declararse de SOLO LECTURA, que es lo mismo que decia el punto 2 del PASO -1 y
-> por la misma razon es falso: **un commit es trabajo terminado.** El defecto no
-> estaba en un punto, estaba en dos, y por eso el fix del punto 2 no cerraba el
-> problema: un ciclo que Leyera este bloque se declaraba igual de mudo. Ahora los
-> dos remiten al PASO -1, que es el unico lugar donde vive la regla.
-
-> ## 🚨 TRABAJO PRIORITARIO DE LA NOCHE — LEÉ ESTO PRIMERO
->
-> Pablo se fue a dormir y te deja trabajar hasta las **12:00 UTC (09:00 ART)**.
-> Son las 03:16 UTC cuando se escribió esto.
->
-> **Leé `ARME_TRABAJO_NOCHE.md` en este mismo directorio, COMPLETO, antes de
-> avanzar el BACKLOG.** Tiene el plan de la Armería con las decisiones ya
-> tomadas, la secuencia ordenada, el corte de horario y los métodos de
-> verificación acordados.
->
-> Mientras falten las 12:00 UTC, la Armería **tiene prioridad sobre el resto del
-> BACKLOG**. Es lo único que importa esta noche.
->
-> Lo más urgente: **el fix de los 93 items con `generation=null` NO está mergeado
-> en main** (rama `22a6a71`, `git merge-base --is-ancestor` da falso). El bug
-> está vivo. Es el paso 1 y bloquea todo lo demás.
->
-> **Corte de horario:** antes de arrancar una tarea, preguntate si la terminás
-> antes de las 12:00 UTC. A las **11:30 UTC** cerrá lo que tengas con la suite en
-> verde y actualizá `TEAM_STATUS.md`. No arranques nada nuevo.
-
 > **PASO -0 (OBLIGATORIO, EL PRIMERO)** - regenerar el espejo. Copiar este
 > archivo (el canonico) a `workspaces/default/HEARTBEAT.md` y correr
 > los 2 `findstr` del BANNER DE CANONICO Y ESPEJO (arriba, seccion
@@ -307,34 +239,6 @@
 > trabajo llego a `main`) y los scratch `_` tuyos. Ver "PASO DE CIERRE DEL
 > CICLO" mas abajo.
 ## Bloqueos críticos (awaiting user/platform)
-
-### 1. Re-inyeccion de HEARTBEAT.md - DEROGADO [2026-09-30]
-- **Status:** DEROGADO. No aplica mas.
-- **Por que:** la re-inyeccion ocurre solo en app/crons/heartbeat.py:207, que es
-  el mecanismo del heartbeat INTERNO. Ese esta DESACTIVADO para el default
-  (agent.json heartbeat.enabled: false). El cron manual 13dc22e6 usa su propio
-  prompt y referencia este archivo explicitamente.
-- **Evidencia:** las ejecuciones del cron ocurrieron normal (00:00, 00:30, 01:00,
-  01:30, 02:00, 02:30) mientras el heartbeat interno estuvo apagado.
-
-### 2. Conflictos arquitectura Legendary Armory ✅ RESUELTO
-- **Status:** RESOLVED — Proposición 1 kept (94fb7a9, Reviewer-approved),
-  Proposición C pospuesta post-Sept 29 deadline.
-- **Detalles:** Proposición 1 (inline en achievements.js) vs. módulo separado
-  (`legendary-tracker.js`). Decisión: keep Proposición 1. Phase 1+2+3 skeleton
-  implementado (commits 35a0f5e, 755ba01, bac5c67, 7c88fe6, 1aaff5a).
-  Phase 3 (recipes) RESUELTO: los datos existen y estan medidos en
-  `tools/cl_recipes.json` — 634 recetas, las 634 con ingredientes
-  (352 crafting, 278 mystic_forge, 4 vendor). No hay "API limitation"
-
-### 3. Reviewer timeout (platform-level) - RESUELTO [2026-09-30]
-- **Status:** OPERATIVO. Verificado con revision real de 342 lineas en ~2 min.
-- **Causa raiz:** 3 bugs de config, ninguno del Reviewer:
-  (1) QWENPAW_LLM_STREAM_IDLE_TIMEOUT en 30s por default -> subido a 300s.
-  (2) ID code-reviewer (minuscula) en AGENTS.md -> el real es Code-Reviewer.
-  (3) drivers/mcp/mi-repo-boveda.yaml del Reviewer con YAML roto (sin herramientas).
-- **Mitigacion:** el Reviewer vuelve a ser usable. El Paso 1 del ciclo obliga a
-  recoger las respuestas - sin eso, se vuelven a perder.
 
 ### 4. Documentador timeout (platform-level)
 - **Status:** SIN MEDIR en este ciclo (2026-10-02, HB#156). No se cambia un
@@ -1020,22 +924,3 @@ infusion, y eso es lo que hace distinta a esta webapp).
 
 <!-- ORIGINAL HEARTBEAT CONTENT (preservado para reversibilidad) -->
 <!-- Si se re-activa el cron, eliminar este banner y restaurar el contenido original -->
-
-## Ciclo documenter 2026-10-05 (3ro)
-
-- **PASO 0**: canal vacio en las tres consultas (inbox / overdue / replies).
-- **PASO 1**: `c8ad095` (rescate hb211) solo toco `ALERTS_LOG.md` y `BACKLOG.md`, que son del Principal. No hay codigo de producto nuevo commiteado.
-- **PASO 2**: documentado el bloque de ciclo de vida de cache: **IDEA 50-D** (`6c3f8e5`, `js/api-gw2.js` + `js/app.js`) y **Tramo E** (`f4e35e4`, `js/api-gw2.js`), con los tests corridos hoy (33 pass y 40 pass, 0 FAIL).
-- **PASO 3**: **incoherencia REAL encontrada y corregida en la doc**: `js/settings-manager.js` declara v1.0.2 en su linea 3, pero su propio bloque de historial documenta v1.0.3 y v1.0.4, y `init()` loguea `v1.0.4`. El README arrastraba v1.0.2; ahora dice **v1.0.4** con la nota del marcador viejo. Barrido sobre los 36 modulos de `js/`: **es el unico caso**. NO se toco el `.js` (eso es del Principal).
-- **PASO 4**: commit `e57846a` (CHANGELOG +32, README +1/-1). **NO se pusheo**: la rama activa es `fix-armeia-tengo-materiales`, del Principal, sin upstream, y con su trabajo SIN COMMITear en el arbol (`ALERTS_LOG.md`, `HEARTBEAT.md`, `tools/hb163-canales.mjs` y el test nuevo `tests/arme-tengo-materiales.test.js`). `main` quedo intacto y en linea con `origin/main` (0/0).
-- **Verificado hoy contra la herramienta real**: las cifras del censo que documente en el ciclo anterior siguen exactas -- 11 FAMILIAS en 4 modulos, 12 filas (call sites) = 11 familias unicas, 4 escrituras sin resolver.
-
-### Para el Principal
-
-`e57846a` esta en `fix-armeia-tengo-materiales`, que solo contiene ese commit encima de `main`. O lo cherry-pickean a `main`, o mueven la rama. Si commitean ahora con `-am`, el commit mio ya queda afuera, asi que no hay riesgo de perderlo.
-
-### Sigue sin documentar
-
-Del rango 2026-10-01 a 2026-10-05: la puerta de permisos de los 7 scopes (`ea10e9b`), el latch de `activate()` que baja (`1e5aedb`), el llamador de `downloadAndSync` mirando el `cancelled` (`6adb731`), el CONTRATO de fabricacion de armeria (`ed9a126`) y los tramos de Idea 57 / Idea 50-Tramo E. **El bloque de armeria NO lo toco: hay un test sin commitear llamado `tests/arme-tengo-materiales.test.js`, o sea que hay trabajo en curso.
-
-
