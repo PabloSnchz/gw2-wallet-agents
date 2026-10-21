@@ -947,6 +947,7 @@
     });
   }
 
+  /**
    * Obtiene la cantidad de personajes de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
