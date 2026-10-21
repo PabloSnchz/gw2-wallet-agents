@@ -14,12 +14,12 @@
   - **Alcance:** wrapper en `api-gw2.js` + call site en inventory-dashboard.js + UI en Wizards Vault tab.
   - **Bloqueado por:** Nada. El endpoint existe y es account-scoped.
 
-- [x] **Mounts Collection Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountMounts en api-gw2.js. Call site integrado en inventory-dashboard.js (Promise.allSettled). Batch + UI + filtros pendientes.
+- [x] **Mounts Collection Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountMounts en api-gw2.js. getMountsCatalog agregado (fetch /v2/mounts/skins en batches de 200). Call site integrado en inventory-dashboard.js.
   - **Prioridad:** MEDIA.
-  - **Endpoint:** `/v2/account/mounts` (488) + `/v2/mounts` (catálogo).
+  - **Endpoint:** `/v2/account/mounts` (488) + `/v2/mounts/skins` (catálogo, 489 items).
   - **Scope:** account.
-  - **Alcance:** wrapper + call site en inventory-dashboard.js. Batch + UI + filtros por tipo pendientes.
-  - **Bloqueado por:** Paginación de catálogo (batch de 100 como skins).
+  - **Alcance:** wrapper + catalog batch + call site en inventory-dashboard.js. UI + filtros por tipo pendientes.
+  - **Bloqueado por:** UI + filtros por tipo (pendiente).
 
 - [x] **Nexus of Eternity Raid Legendary Mode Tracker** COMPLETADO (2026-10-21). Achievement ID verificado: 9472 ("Legendary Nexus of Eternity", requirement: "Defeat Vloxx while the challenge mote is active"). El raid-tracker.js ya tiene el raid de Nexus of Eternity (wing9). Pendiente de implementación: agregar tracking de achievement 9472 al raid tracker.
   - **Prioridad:** MEDIA.
