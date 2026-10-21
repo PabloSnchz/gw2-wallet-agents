@@ -331,13 +331,17 @@
               root.GW2Api.getAccountBank(token, { nocache: !!forceNoCache }),
               root.GW2Api.getAccountMaterials(token, { nocache: !!forceNoCache }),
               root.GW2Api.getAccountInfo(token, { nocache: !!forceNoCache }).catch(function() { return null; }),
-              root.GW2Api.getAccountBuildStorage(token, { nocache: !!forceNoCache })
+              root.GW2Api.getAccountBuildStorage(token, { nocache: !!forceNoCache }),
+              root.GW2Api.getAccountWizardsVault(token, { nocache: !!forceNoCache }),
+              root.GW2Api.getAccountMounts(token, { nocache: !!forceNoCache })
             ])
               .then(function(results) {
                 var bankData = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
                 var materialsData = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
                 var accountInfo = results[2].status === 'fulfilled' ? results[2].value : null;
                 var buildStorageData = results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
+                var wizardsVaultData = results[4].status === 'fulfilled' && results[4].value && typeof results[4].value === 'object' ? results[4].value : null;
+                var mountsData = results[5].status === 'fulfilled' && Array.isArray(results[5].value) ? results[5].value : [];
 
                 // Distinguir "no pude leer" de "no tenes nada": cada rejection se
                 // nombra, en vez de dejar un 0 indistinguible de una cuenta vacia.
@@ -346,6 +350,8 @@
                 if (results[0].status === 'rejected') unread.push('banco');
                 if (results[1].status === 'rejected') unread.push('materiales');
                 if (!accountInfo) unread.push('cuenta sin acceso al juego');
+                if (results[4].status === 'rejected') unread.push('wizards vault');
+                if (results[5].status === 'rejected') unread.push('monturas');
                 if (unread.length) error = 'No se pudo leer: ' + unread.join(', ');
                 if (results[0].status === 'rejected' || results[1].status === 'rejected') {
                   console.warn(LOG, 'Error reading inventory for', label,
@@ -360,6 +366,8 @@
                   bank: bankData,
                   materials: materialsData,
                   buildStorage: buildStorageData,
+                  wizardsVault: wizardsVaultData,
+                  mounts: mountsData,
                   activeCharName: null,
                   activeCharBags: [],
                   _charLoading: true,
@@ -375,6 +383,9 @@
                   tag: k.tag || null,
                   bank: [],
                   materials: [],
+                  buildStorage: [],
+                  wizardsVault: null,
+                  mounts: [],
                   activeCharName: null,
                   activeCharBags: [],
                   _charLoading: true,

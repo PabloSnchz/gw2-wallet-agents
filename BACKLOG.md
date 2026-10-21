@@ -7,18 +7,18 @@
 
 > Ideas generadas en sesión de Discovery. Promovidas al BACKLOG.md por tener 3+ ideas consolidadas.
 
-- [x] **Wizards Vault Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountWizardsVault en api-gw2.js. Call site + UI: el wizards-vault.js ya existe como modulo padre. Pendiente de integracion.
+- [x] **Wizards Vault Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountWizardsVault en api-gw2.js. Call site integrado en inventory-dashboard.js (Promise.allSettled). El wizards-vault.js existe como modulo padre.
   - **Prioridad:** ALTA.
   - **Endpoint:** `/v2/account/wizardsvault` (daily, weekly, listings, special).
   - **Scope:** account.
-  - **Alcance:** wrapper en `api-gw2.js` + call site + UI en Wizards Vault tab.
+  - **Alcance:** wrapper en `api-gw2.js` + call site en inventory-dashboard.js + UI en Wizards Vault tab.
   - **Bloqueado por:** Nada. El endpoint existe y es account-scoped.
 
-- [x] **Mounts Collection Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountMounts en api-gw2.js. Batch + UI + filtros pendientes.
+- [x] **Mounts Collection Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountMounts en api-gw2.js. Call site integrado en inventory-dashboard.js (Promise.allSettled). Batch + UI + filtros pendientes.
   - **Prioridad:** MEDIA.
   - **Endpoint:** `/v2/account/mounts` (488) + `/v2/mounts` (catálogo).
   - **Scope:** account.
-  - **Alcance:** wrapper + batch + UI + filtros por tipo.
+  - **Alcance:** wrapper + call site en inventory-dashboard.js. Batch + UI + filtros por tipo pendientes.
   - **Bloqueado por:** Paginación de catálogo (batch de 100 como skins).
 
 - [ ] **Nexus of Eternity Raid Legendary Mode Tracker** BLOQUEADO (2026-10-21). Necesita IDs de logros del legendary mode (verificar contra API). El raid-tracker.js ya tiene el raid de Nexus of Eternity (wing9). Pendiente de IDs.
