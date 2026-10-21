@@ -648,7 +648,7 @@
     };
 
     body.innerHTML = (vistaModal === 'totales')
-      ? UI.renderTotalsHTML(res, ownedMap(), opts)
+      ? UI.renderTotalsHTML(res, stockMap(), opts)
       : UI.renderTreeHTML(res, opts);
 
     // El boton de la cola va en el HEADER. No en el pie: Frostfang son 55
