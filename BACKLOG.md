@@ -31,7 +31,7 @@
 > Estos items los pone el Arquitecto. No los elige el equipo.
 > Prioridad: ordenados de mayor a menor prioridad técnica.
 
-- [ ] **`buildstorage`: wrapper + call site en Inventory Dashboard**
+- [x] **`buildstorage`: wrapper + call site en Inventory Dashboard** COMPLETADO (2026-10-21). Wrapper: getAccountBuildStorage en api-gw2.js. Call site: agregado a loadAllInventories en inventory-dashboard.js.
   - **Prioridad:** ALTA. Es el único gap competitivo real (11 endpoints `/v2/account/*` sin wrapper).
   - **Endpoint:** `/v2/account/buildstorage` (verificado: 401 con token falso = existe).
   - **Alcance:** wrapper en `api-gw2.js` + call site en `inventory-dashboard.js`.
