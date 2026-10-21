@@ -1432,6 +1432,42 @@
   }
 
   /**
+   * Obtiene las monturas desbloqueadas de la cuenta
+   * @param {string} token - API Key
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<Array>} - Array de ids de monturas desbloqueadas
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   */
+  function getAccountMounts(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+    
+    var key = 'account_mounts';
+    var cached = getCache(key, TTL.BANK, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+    
+    var url = withToken(CFG.API_BASE + '/v2/account/mounts', token);
+    var ikey = 'if:account_mounts:' + fpToken(token);
+    
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        if (!Array.isArray(data)) {
+          throw new Error(
+            'account/mounts: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un array de ids de monturas.'
+          );
+        }
+        putCache(key, data, token, TTL.BANK);
+        return data;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting account mounts:', error);
+        throw error;
+      });
+    });
+  }
+
+  /**
    * Obtiene el almacenamiento de materiales de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -2728,6 +2764,7 @@
     // Inventory (NUEVO v2.13.0)
     getAccountBank: getAccountBank,
     getAccountBuildStorage: getAccountBuildStorage,
+    getAccountMounts: getAccountMounts,
     getAccountWizardsVault: getAccountWizardsVault,
     getAccountMaterials: getAccountMaterials,
     getAccountLegendaryArmory: getAccountLegendaryArmory,
