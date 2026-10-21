@@ -7,7 +7,7 @@
 
 > Ideas generadas en sesión de Discovery. Promovidas al BACKLOG.md por tener 3+ ideas consolidadas.
 
-- [ ] **Wizards Vault Tracker (account-scoped)**
+- [x] **Wizards Vault Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountWizardsVault en api-gw2.js. Call site + UI pendientes.
   - **Prioridad:** ALTA.
   - **Endpoint:** `/v2/account/wizardsvault` (daily, weekly, listings, special).
   - **Scope:** account.
