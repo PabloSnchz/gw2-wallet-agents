@@ -1396,6 +1396,42 @@
   }
 
   /**
+   * Obtiene los datos del Wizards Vault de la cuenta
+   * @param {string} token - API Key
+   * @param {Object} opts - Opciones (nocache, etc.)
+   * @returns {Promise<Object>} - { daily, weekly, listings, special }
+   * @throws {Error} si la API no se pudo LEER (capa de RED; propaga)
+   */
+  function getAccountWizardsVault(token, opts) {
+    opts = opts || {};
+    if (!token) return Promise.reject(new Error('Falta access_token'));
+    
+    var key = 'account_wizardsvault';
+    var cached = getCache(key, TTL.BANK, token, opts.nocache);
+    if (cached) return Promise.resolve(cached);
+    
+    var url = withToken(CFG.API_BASE + '/v2/account/wizardsvault', token);
+    var ikey = 'if:account_wizardsvault:' + fpToken(token);
+    
+    return inflightOnce(ikey, function () {
+      return fetchWithRetry(url, opts).then(function (data) {
+        if (!data || typeof data !== 'object') {
+          throw new Error(
+            'account/wizardsvault: forma no soportada (' +
+            (data === null ? 'null' : typeof data) +
+            '). Se esperaba un objeto con daily/weekly/listings/special.'
+          );
+        }
+        putCache(key, data, token, TTL.BANK);
+        return data;
+      }).catch(function (error) {
+        console.warn(LOGP, 'Error getting account wizards vault:', error);
+        throw error;
+      });
+    });
+  }
+
+  /**
    * Obtiene el almacenamiento de materiales de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -2692,6 +2728,7 @@
     // Inventory (NUEVO v2.13.0)
     getAccountBank: getAccountBank,
     getAccountBuildStorage: getAccountBuildStorage,
+    getAccountWizardsVault: getAccountWizardsVault,
     getAccountMaterials: getAccountMaterials,
     getAccountLegendaryArmory: getAccountLegendaryArmory,
 
