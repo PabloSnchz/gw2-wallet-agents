@@ -18,14 +18,22 @@
    - Carga de achievements en `Promise.allSettled` (results[2]).
    - BACKLOG.md actualizado.
 
-4. **BACKLOG.md** actualizado para reflejar integración de WV, Mounts y Nexus legendary.
+4. **getMountsCatalog** agregado a api-gw2.js:
+   - Fetch /v2/mounts/skins en batches de 200.
+   - Exportado en API pública.
+   - JSDoc de getCharacterCount restaurado (fix de bug de edición).
+
+5. **BACKLOG.md** actualizado para reflejar integración de WV, Mounts y Nexus legendary.
 
 ## Commits
 - `47af81e` feat: call site wizards-vault + mounts en inventory-dashboard.js
 - `d8003d2` docs: BACKLOG.md — Nexus legendary desbloqueado
 - `267264c` feat: legendary mode tracking en raid-tracker.js + BACKLOG update
+- `f5d55e1` docs: ESTADO.md actualizado con progreso de noche
+- `5c1fadf` feat: getMountsCatalog en api-gw2.js + BACKLOG update
+- `5093e54` fix: restaurar JSDoc de getCharacterCount en api-gw2.js
 
-## Pendiente
+## Pendiente (próxima sesión)
 - UI para WV account data en dashboard (multi-account view) — call site done, UI pendiente.
-- Batch + UI + filtros para Mounts Collection Tracker — call site done, batch/UI/filtros pendientes.
+- UI + filtros por tipo para Mounts Collection Tracker — catalog batch done, UI + filtros pendientes.
 - PRE_BACKLOG.md: 5 ideas de Discovery (sin cambios por ahora).
