@@ -14,7 +14,7 @@
   - **Alcance:** wrapper en `api-gw2.js` + call site + UI en Wizards Vault tab.
   - **Bloqueado por:** Nada. El endpoint existe y es account-scoped.
 
-- [ ] **Mounts Collection Tracker (account-scoped)**
+- [x] **Mounts Collection Tracker (account-scoped)** COMPLETADO (2026-10-21). Wrapper: getAccountMounts en api-gw2.js. Batch + UI + filtros pendientes.
   - **Prioridad:** MEDIA.
   - **Endpoint:** `/v2/account/mounts` (488) + `/v2/mounts` (catálogo).
   - **Scope:** account.
