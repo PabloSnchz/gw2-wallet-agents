@@ -905,49 +905,6 @@
   // Character count
   // ========================================================================
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
-  /**
    * Obtiene la cantidad de personajes de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1001,48 +958,6 @@
   // Raids
   // ========================================================================
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene los IDs de encuentros completados por la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1099,48 +1014,6 @@
   // ========================================================================
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene las órdenes de compra activas del jugador
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1194,48 +1067,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene las órdenes de venta activas del jugador
    * @param {string} token - API Key con permiso tradingpost
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1280,48 +1111,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene los items del Trading Post que la cuenta aún NO ha recogido
    * (botín de ventas y compras pendientes de cobro).
    *
@@ -1400,48 +1189,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene la lista de IDs de items disponibles en la Compañía de Comercio
    *
    * NOTA DE CONTRATO — por qué esta NO propaga el error (Idea 47, 2026-09-30).
@@ -1492,48 +1239,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene precios de compra/venta para items específicos
    * @param {Array} ids - Array de IDs de items
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1600,48 +1305,6 @@
   // ========================================================================
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene el contenido del banco de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1697,48 +1360,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene el build storage de la cuenta (slots de build guardados)
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1775,48 +1396,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene los datos del Wizards Vault de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1853,48 +1432,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene las monturas desbloqueadas de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -1945,7 +1482,6 @@
       if (!Array.isArray(ids)) {
         throw new Error('mounts/skins: forma no soportada');
       }
-      // Batch de 200
       var batches = [];
       for (var i = 0; i < ids.length; i += 200) {
         batches.push(ids.slice(i, i + 200));
@@ -1973,6 +1509,7 @@
     });
   }
 
+  /**
    * Obtiene el almacenamiento de materiales de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -2021,48 +1558,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Obtiene la armería legendaria de la cuenta
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -2116,48 +1611,6 @@
   // ========================================================================
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Devuelve los ids de skin desbloqueados de la cuenta: `/v2/account/skins`.
    * @param {string} token - API Key
    * @param {Object} opts - Opciones (nocache, etc.)
@@ -2370,48 +1823,6 @@
   // Homestead (v2.34.0) — decorations, glyphs, account unlocks
   // ========================================================================
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * * @returns {Promise<Array<Object>>} Fichas de decoracion (id, name, icon).
    * *   `[]` es un valor real: el catalogo puede no traer decoraciones.
    * * @throws {Error} NO PROPAGA. Capa de RED (401, 429, corte de red) y capa de
@@ -2443,48 +1854,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * * @returns {Promise<Array<Object>>} Categorias de decoracion. `[]` es real.
    * * @throws {Error} NO PROPAGA. RED y FORMA degradan ambas a `[]`.
    * *
@@ -2513,48 +1882,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * * @returns {Promise<Array<Object>>} Glifos de homestead. `[]` es real.
    * * @throws {Error} NO PROPAGA. RED y FORMA degradan ambas a `[]`.
    * *
@@ -2584,48 +1911,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * * @returns {Promise<Array<Object>>} Decoraciones desbloqueadas de la cuenta.
    * *   `[]` es un valor real: una cuenta sin decoraciones desbloqueadas.
    * * @throws {Error} NO PROPAGA. Capa de RED y capa de FORMA degradan ambas a `[]`.
@@ -2663,48 +1948,6 @@
   }
 
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * * @returns {Promise<Array<Object>>} Glifos desbloqueados de la cuenta.
    * *   `[]` es un valor real.
    * * @throws {Error} NO PROPAGA. Capa de RED y capa de FORMA degradan ambas a `[]`.
@@ -2761,48 +2004,6 @@
   // Suerte (Luck) account-wide — /v2/account/luck
   // NO es una moneda de /v2/currencies: no aparece en ese endpoint.
   /**
-   * Obtiene el catálogo completo de monturas (skins) de /v2/mounts/skins
-   * @param {Object} opts - Opciones (nocache, etc.)
-   * @returns {Promise<Array>} - Array de objetos con id, name, icon, type
-   */
-  function getMountsCatalog(opts) {
-    opts = opts || {};
-    var key = 'mounts_catalog';
-    var cached = getCache(key, TTL.ITEMS, null, opts.nocache);
-    if (cached) return Promise.resolve(cached);
-
-    return fetchWithRetry(CFG.API_BASE + '/v2/mounts/skins', opts).then(function (ids) {
-      if (!Array.isArray(ids)) {
-        throw new Error('mounts/skins: forma no soportada');
-      }
-      // Batch de 200
-      var batches = [];
-      for (var i = 0; i < ids.length; i += 200) {
-        batches.push(ids.slice(i, i + 200));
-      }
-      var chain = Promise.resolve([]);
-      batches.forEach(function (batch) {
-        chain = chain.then(function (acc) {
-          var url = withParams(CFG.API_BASE + '/v2/mounts/skins', { ids: batch.join(',') });
-          return fetchWithRetry(url, opts).then(function (data) {
-            if (!Array.isArray(data)) throw new Error('mounts/skins batch: forma no soportada');
-            return acc.concat(data);
-          }).catch(function (e) {
-            console.warn(LOGP, 'mounts catalog batch error', e);
-            return acc;
-          });
-        });
-      });
-      return chain.then(function (all) {
-        putCache(key, all, null, TTL.ITEMS);
-        return all;
-      });
-    }).catch(function (error) {
-      console.warn(LOGP, 'Error getting mounts catalog:', error);
-      throw error;
-    });
-  }
-
    * Devuelve el luck total consumido (el "cuánto tengo" crudo). El umbral de
    * MF% se calcula aparte con window.LuckCurve.
    *
