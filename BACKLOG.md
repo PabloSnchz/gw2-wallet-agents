@@ -21,7 +21,7 @@
   - **Alcance:** wrapper + batch + UI + filtros por tipo.
   - **Bloqueado por:** Paginación de catálogo (batch de 100 como skins).
 
-- [ ] **Nexus of Eternity Raid Legendary Mode Tracker**
+- [ ] **Nexus of Eternity Raid Legendary Mode Tracker** BLOQUEADO (2026-10-21). Necesita IDs de logros del legendary mode (verificar contra API). El raid-tracker.js ya tiene el raid de Nexus of Eternity (wing9). Pendiente de IDs.
   - **Prioridad:** MEDIA.
   - **Endpoint:** `/v2/achievements` (logros del raid legendary mode).
   - **Scope:** progression.
