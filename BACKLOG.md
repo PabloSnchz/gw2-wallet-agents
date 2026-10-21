@@ -21,12 +21,12 @@
   - **Alcance:** wrapper + call site en inventory-dashboard.js. Batch + UI + filtros por tipo pendientes.
   - **Bloqueado por:** Paginación de catálogo (batch de 100 como skins).
 
-- [ ] **Nexus of Eternity Raid Legendary Mode Tracker** BLOQUEADO (2026-10-21). Necesita IDs de logros del legendary mode (verificar contra API). El raid-tracker.js ya tiene el raid de Nexus of Eternity (wing9). Pendiente de IDs.
+- [ ] **Nexus of Eternity Raid Legendary Mode Tracker** DESBLOQUEADO (2026-10-21). Achievement ID verificado: 9472 ("Legendary Nexus of Eternity", requirement: "Defeat Vloxx while the challenge mote is active"). El raid-tracker.js ya tiene el raid de Nexus of Eternity (wing9). Pendiente de implementación: agregar tracking de achievement 9472 al raid tracker.
   - **Prioridad:** MEDIA.
-  - **Endpoint:** `/v2/achievements` (logros del raid legendary mode).
+  - **Endpoint:** `/v2/achievements` (logro 9472 del legendary mode).
   - **Scope:** progression.
-  - **Alcance:** agregar logros al tracker de raids existente.
-  - **Bloqueado por:** IDs de logros del legendary mode (verificar contra API).
+  - **Alcance:** agregar logro 9472 al tracker de raids existente. Verificar contra API: GET /v2/achievements/9472 → {"id":9472,"name":"Legendary Nexus of Eternity","requirement":"Defeat Vloxx while the challenge mote is active."}
+  - **Bloqueado por:** Nada. ID verificado.
 
 > Estos items los pone el Arquitecto. No los elige el equipo.
 > Prioridad: ordenados de mayor a menor prioridad técnica.
