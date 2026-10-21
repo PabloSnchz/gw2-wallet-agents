@@ -859,6 +859,7 @@
     active: false,
     token: null,
     completedEncounters: [],
+    legendaryAchievements: {},
     liAvailable: 0,
     loading: false,
     error: null,
@@ -1826,14 +1827,19 @@
         //     llama .toLocaleString(), que revienta con null).
         var settled = await Promise.allSettled([
           root.GW2Api.getAccountRaids(token, { nocache: !!forceNoCache }),
-          loadLiAvailable(token)
+          loadLiAvailable(token),
+          root.GW2Api.getAccountAchievements(token, { nocache: !!forceNoCache })
         ]);
         if (settled[0].status === 'rejected') throw settled[0].reason;
-        // loadLiAvailable ya tiene su propio catch y devuelve 0, asi que en la practica
-        // esto no rechaza. Si alguna vez lo hiciera, conservamos el valor previo en vez
-        // de dejar null: updateLiDisplay() llama .toLocaleString() sobre este valor.
         if (settled[1].status === 'rejected') {
           console.warn(LOG, 'No se pudo leer la disponibilidad de LI:', settled[1].reason);
+        }
+        if (settled[2].status === 'fulfilled' && Array.isArray(settled[2].value)) {
+          var legendaryIds = [9472];
+          var acc = settled[2].value;
+          legendaryIds.forEach(function(id) {
+            state.legendaryAchievements[id] = acc.some(function(a) { return a.id === id && a.done; });
+          });
         }
 
         var completed = settled[0].value;
