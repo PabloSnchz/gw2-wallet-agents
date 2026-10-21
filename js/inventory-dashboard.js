@@ -330,12 +330,14 @@
             Promise.allSettled([
               root.GW2Api.getAccountBank(token, { nocache: !!forceNoCache }),
               root.GW2Api.getAccountMaterials(token, { nocache: !!forceNoCache }),
-              root.GW2Api.getAccountInfo(token, { nocache: !!forceNoCache }).catch(function() { return null; })
+              root.GW2Api.getAccountInfo(token, { nocache: !!forceNoCache }).catch(function() { return null; }),
+              root.GW2Api.getAccountBuildStorage(token, { nocache: !!forceNoCache })
             ])
               .then(function(results) {
                 var bankData = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
                 var materialsData = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
                 var accountInfo = results[2].status === 'fulfilled' ? results[2].value : null;
+                var buildStorageData = results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
 
                 // Distinguir "no pude leer" de "no tenes nada": cada rejection se
                 // nombra, en vez de dejar un 0 indistinguible de una cuenta vacia.
@@ -357,6 +359,7 @@
                   tag: k.tag || null,
                   bank: bankData,
                   materials: materialsData,
+                  buildStorage: buildStorageData,
                   activeCharName: null,
                   activeCharBags: [],
                   _charLoading: true,
