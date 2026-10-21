@@ -12,18 +12,20 @@
    - `mountsData` variable + `mounts` en `out.push` + catch block.
    - unread check agregado.
 
-3. **Nexus of Eternity legendary mode** desbloqueado:
-   - Achievement ID 9472 verificado contra API: "Legendary Nexus of Eternity".
-   - BACKLOG.md actualizado con el ID y estado desbloqueado.
+3. **Nexus of Eternity legendary mode** tracking implementado:
+   - Achievement ID 9472 verificado contra API.
+   - `state.legendaryAchievements` agregado.
+   - Carga de achievements en `Promise.allSettled` (results[2]).
+   - BACKLOG.md actualizado.
 
-4. **BACKLOG.md** actualizado para reflejar integración de WV y Mounts call sites.
+4. **BACKLOG.md** actualizado para reflejar integración de WV, Mounts y Nexus legendary.
 
 ## Commits
 - `47af81e` feat: call site wizards-vault + mounts en inventory-dashboard.js
 - `d8003d2` docs: BACKLOG.md — Nexus legendary desbloqueado
+- `267264c` feat: legendary mode tracking en raid-tracker.js + BACKLOG update
 
 ## Pendiente
-- UI para WV account data en dashboard (multi-account view).
-- Batch + UI + filtros para Mounts Collection Tracker.
-- Implementación de legendary mode tracking en raid-tracker.js (achievement 9472).
+- UI para WV account data en dashboard (multi-account view) — call site done, UI pendiente.
+- Batch + UI + filtros para Mounts Collection Tracker — call site done, batch/UI/filtros pendientes.
 - PRE_BACKLOG.md: 5 ideas de Discovery (sin cambios por ahora).
