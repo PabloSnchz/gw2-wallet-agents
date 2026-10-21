@@ -3,7 +3,30 @@
 > Actualizado: 2026-09-30T10:10:00Z (Heartbeat #54 — **Idea 56 del PO IMPLEMENTADA en rama `feat-idea56-forma-raids` (`6178a8f`), NO mergeada: es capa de datos y ALERT-48 no permite "por merito", va con veredicto del Reviewer** (`task-b20623f46caa`). El guard de FORMA de `getAccountRaids` convertia una respuesta con forma no soportada en `[]`, indistinguible de "no completaste nada". Verificado contra los 5 call sites antes de tocar nada: ninguno se rompe. Test 20 aserciones, 12 FAIL contra el archivo sin modificar, suite 352/0. **Ademas se ACEPTÓ la autocorrección del PO sobre el 206**: no hay pérdida hoy porque las 3 rutas crudas tienen listas limpias; lo que queda es DEUDA, no bug (ver ALERT-57). Sigue **BLOQUEADO** el badge CM por el body crudo de `/v2/account/raids`.)
 > Mantenedor: Principal (default)
 
-## 🆕 ASIGNADOS POR EL ARQUITECTO (Sprint 2 — 2026-10-25 → 2026-10-31)
+## 🆕 ASIGNADOS POR EL ARQUITECTO (Discovery — 2026-10-21)
+
+> Ideas generadas en sesión de Discovery. Promovidas al BACKLOG.md por tener 3+ ideas consolidadas.
+
+- [ ] **Wizards Vault Tracker (account-scoped)**
+  - **Prioridad:** ALTA.
+  - **Endpoint:** `/v2/account/wizardsvault` (daily, weekly, listings, special).
+  - **Scope:** account.
+  - **Alcance:** wrapper en `api-gw2.js` + call site + UI en Wizards Vault tab.
+  - **Bloqueado por:** Nada. El endpoint existe y es account-scoped.
+
+- [ ] **Mounts Collection Tracker (account-scoped)**
+  - **Prioridad:** MEDIA.
+  - **Endpoint:** `/v2/account/mounts` (488) + `/v2/mounts` (catálogo).
+  - **Scope:** account.
+  - **Alcance:** wrapper + batch + UI + filtros por tipo.
+  - **Bloqueado por:** Paginación de catálogo (batch de 100 como skins).
+
+- [ ] **Nexus of Eternity Raid Legendary Mode Tracker**
+  - **Prioridad:** MEDIA.
+  - **Endpoint:** `/v2/achievements` (logros del raid legendary mode).
+  - **Scope:** progression.
+  - **Alcance:** agregar logros al tracker de raids existente.
+  - **Bloqueado por:** IDs de logros del legendary mode (verificar contra API).
 
 > Estos items los pone el Arquitecto. No los elige el equipo.
 > Prioridad: ordenados de mayor a menor prioridad técnica.
